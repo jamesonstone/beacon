@@ -2,7 +2,7 @@
 feature: beacon-v1
 workflow_version: 2
 phase: deliver
-status: active
+status: complete
 references:
   - id: issue-1
     name: Implement Beacon work-lane review radar
@@ -95,7 +95,7 @@ Clarification is complete. No unresolved assumptions remain for implementation.
 - [x] T5: Implement and test the macOS menu application and bundled helper build.
 - [x] T6: Add README guidance, CI, and examples.
 - [x] T7: Run the validation map and record evidence.
-- [ ] T8: Reflect, self-review, and deliver the ready pull request.
+- [x] T8: Reflect, self-review, and deliver the ready pull request.
 
 ## Validation Map
 
@@ -140,3 +140,5 @@ Deliver the complete v1 implementation as a ready-for-review pull request from `
 - `file` confirmed the bundled `beacon-cli` contains arm64 and x86_64 slices.
 - The final `Beacon.app` process remained alive for more than 30 seconds with no stderr output.
 - While the app was running, its bundled helper returned `doctor.ok=true` and a schema-v1 scan containing a lane with zero errors.
+- Ready pull request https://github.com/jamesonstone/beacon/pull/2 was created from `GH-1` and assigned to `jamesonstone`.
+- GitHub CI passed: `go` in 40 seconds and `macos` in 1 minute 41 seconds.
