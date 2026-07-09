@@ -1,14 +1,23 @@
 ---
-feature: beacon-v1
+kit_metadata_version: 1
+artifact: spec
 workflow_version: 2
 phase: deliver
-status: complete
+delivery_intent: issue_branch_pr_in_progress
+clarification:
+  status: ready
+  confidence: 100
+  unresolved_questions: 0
+feature:
+  id: "0001"
+  slug: beacon-v1
+  dir: 0001-beacon-v1
 references:
   - id: issue-1
     name: Implement Beacon work-lane review radar
     type: github-issue
     target: https://github.com/jamesonstone/beacon/issues/1
-    relation: tracks
+    relation: supports
     read_policy: conditional
     used_for: delivery
     status: active

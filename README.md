@@ -1,11 +1,21 @@
-# beacon
-🔍 Signal Layer for Coding Agents
+```text
+██████╗ ███████╗ █████╗  ██████╗ ██████╗ ███╗   ██╗
+██╔══██╗██╔════╝██╔══██╗██╔════╝██╔═══██╗████╗  ██║
+██████╔╝█████╗  ███████║██║     ██║   ██║██╔██╗ ██║
+██╔══██╗██╔══╝  ██╔══██║██║     ██║   ██║██║╚██╗██║
+██████╔╝███████╗██║  ██║╚██████╗╚██████╔╝██║ ╚████║
+╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝
 
-<!-- BEGIN KIT-MANAGED README BADGES -->
-[![Last commit](https://img.shields.io/github/last-commit/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/commits) [![Open issues](https://img.shields.io/github/issues/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/issues) [![Pull requests](https://img.shields.io/github/issues-pr/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/pulls) [![Release](https://img.shields.io/github/v/release/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/releases)
-<!-- END KIT-MANAGED README BADGES -->
+                            signal layer for coding agents
+```
 
 Beacon scans configured Git repositories, linked worktrees, and GitHub pull requests to answer one question: which agent-driven work lanes are ready for review, and which need attention?
+
+<!-- BEGIN KIT-MANAGED README BADGES -->
+
+[![Last commit](https://img.shields.io/github/last-commit/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/commits) [![Open issues](https://img.shields.io/github/issues/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/issues) [![Pull requests](https://img.shields.io/github/issues-pr/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/pulls) [![CI](https://github.com/jamesonstone/beacon/actions/workflows/ci.yml/badge.svg)](https://github.com/jamesonstone/beacon/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/releases)
+
+<!-- END KIT-MANAGED README BADGES -->
 
 The Go CLI is the source of truth. The native macOS menu-bar app polls the same versioned JSON contract through a bundled copy of the CLI.
 
@@ -63,7 +73,7 @@ settings:
   remote_refresh_interval: 5m
   stale_after: 24h
   max_parallel: 4
-  github_author: "@me"
+  github_author: '@me'
 
 repositories:
   - name: beacon
