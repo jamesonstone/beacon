@@ -2,7 +2,7 @@
 kit_metadata_version: 1
 artifact: spec
 workflow_version: 2
-phase: reflect
+phase: deliver
 delivery_intent: issue_branch_pr_in_progress
 clarification:
   status: ready
@@ -116,7 +116,7 @@ The user explicitly selected issue `#1`, branch `GH-1`, and PR `#2` for delivery
 - [x] T5: Implement and test macOS schema-v2 parity.
 - [x] T6: Update constitution, progress summary, README, and CLI/config documentation.
 - [x] T7: Run the full validation map and perform read-only verification.
-- [ ] T8: Reflect, record evidence, commit, push, and update PR #2.
+- [x] T8: Reflect, record evidence, commit, push, and update PR #2.
 
 ## Validation Map
 
@@ -161,3 +161,5 @@ Continue on issue `#1`, branch `GH-1`, and ready PR `#2`, as explicitly directed
 - `kit check --all --project` reported that the project contract is coherent.
 - Independent read-only verification confirmed all reported edge cases were repaired and found no remaining findings after a final 20-column output check.
 - Production process execution uses `exec.CommandContext` with argument arrays. Inspection found no scanner writes beyond the documented bounded fetch; explicit confirmed init writes only Beacon's config through same-directory atomic replacement.
+- Implementation commit `7572d9c19a99e38a253b9a9b3d866f1f43f0179e` was pushed to `origin/GH-1` under Jameson Stone's author and committer identity.
+- Ready PR [#2](https://github.com/jamesonstone/beacon/pull/2) was updated in place with the required Conventional Commit title, template headings, schema-v2 description, verification steps, `Closes #1`, and `jamesonstone` assignment.
