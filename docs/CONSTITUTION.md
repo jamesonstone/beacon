@@ -287,6 +287,28 @@ directly or contain correlation/readiness policy. The bundled helper is named
 application executable. The helper build must support the target Mac
 architectures; the standalone CLI remains named `beacon`.
 
+### Release And Distribution
+
+A push to `main` is Beacon's release event. Release automation derives one
+strict SemVer from Conventional Commit history since the latest
+`vMAJOR.MINOR.PATCH` tag. Breaking changes bump major, `feat` changes bump
+minor, and all other accepted changes bump patch. The CLI and macOS app always
+share that version because the app bundles the CLI and both artifacts come from
+the same commit.
+
+Release builds inject version, commit, and UTC build date into the standalone
+CLI and bundled helper. The macOS bundle uses that SemVer as
+`CFBundleShortVersionString` and an Actions run number as `CFBundleVersion`.
+Published artifacts are macOS and Linux CLI archives for `amd64` and `arm64`, a
+universal macOS application zip, and a SHA-256 manifest. GitHub generates the
+release notes and creates the version tag at the exact merged commit.
+
+Release jobs are serialized, use only `contents: write`, and must validate
+before publishing. Rerunning a tagged commit reuses its version rather than
+creating another tag. The application is ad-hoc signed for bundle integrity;
+Developer ID signing, notarization, automatic updates, installers, and package
+manager distribution remain out of scope.
+
 ## IMPLEMENTATION CONVENTIONS
 
 ### Go
@@ -354,8 +376,10 @@ reduction in complexity or risk and must be recorded in the applicable spec.
   model.
 - The menu application remains developer-local and unsandboxed so it can read
   configured repositories and invoke the bundled helper and system tools.
-- The macOS v1 target is 14 or later. Signing, notarization, sandboxing, and
-  distribution changes require a dedicated packaging specification.
+- The macOS target is 14 or later. GitHub release packaging and ad-hoc signing
+  follow `docs/specs/0003-beacon-github-releases/SPEC.md`; Developer ID signing,
+  notarization, sandboxing, and other distribution channels require another
+  explicit specification.
 - Code changes must preserve or strengthen the read-only boundary and must be
   validated against mutation-sensitive tests or inspection.
 - Existing user-owned work in the working tree must not be overwritten,
@@ -495,8 +519,8 @@ specification, threat and compatibility analysis, and user-visible controls.
 - Supporting non-GitHub forges, multiple users, or hosted collaboration in
   version 1.
 - A history database, background daemon, web dashboard, notifications,
-  launch-at-login, Homebrew distribution, signing, notarization, App Store
-  distribution, or an in-app configuration editor in version 1.
+  launch-at-login, Homebrew distribution, Developer ID signing, notarization,
+  App Store distribution, automatic updates, or an in-app configuration editor.
 
 These items may become future features only through explicit requirements; they
 are not implied by Beacon's long-term vision.

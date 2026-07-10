@@ -21,13 +21,82 @@ The Go CLI is the source of truth. The native macOS menu-bar app polls the same 
 
 ## Requirements
 
-- macOS 14 or later for the menu-bar app
-- Go 1.26 or later
 - `git`
 - [GitHub CLI](https://cli.github.com/) authenticated with `gh auth login`
-- Xcode to build the menu-bar app
+- macOS 14 or later for the menu-bar app
+- Go 1.26 and Xcode only when building from source
 
-## Build
+## Install From A Release
+
+Each [GitHub release](https://github.com/jamesonstone/beacon/releases) contains:
+
+- `beacon_<version>_darwin_arm64.tar.gz` for Apple Silicon Macs
+- `beacon_<version>_darwin_amd64.tar.gz` for Intel Macs
+- `beacon_<version>_linux_arm64.tar.gz` and `beacon_<version>_linux_amd64.tar.gz`
+- `Beacon_<version>_macos_universal.zip` for the macOS menu application
+- `checksums.txt` for SHA-256 verification
+
+Download the archive for your platform from the latest release. For example,
+to install the Apple Silicon CLI into `~/.local/bin`:
+
+```bash
+VERSION=0.1.0
+ASSET="beacon_${VERSION}_darwin_arm64.tar.gz"
+curl -LO "https://github.com/jamesonstone/beacon/releases/download/v${VERSION}/${ASSET}"
+curl -LO "https://github.com/jamesonstone/beacon/releases/download/v${VERSION}/checksums.txt"
+grep " ${ASSET}$" checksums.txt | shasum -a 256 -c -
+tar -xzf "${ASSET}"
+mkdir -p ~/.local/bin
+install -m 0755 "beacon_${VERSION}_darwin_arm64/beacon" ~/.local/bin/beacon
+beacon version
+```
+
+Use the `amd64` archive on an Intel Mac or x86-64 Linux machine. Ensure
+`~/.local/bin` is on your `PATH`.
+
+For the menu application, download the universal zip, verify it against
+`checksums.txt`, expand it, and move `Beacon.app` into `/Applications`.
+
+```bash
+VERSION=0.1.0
+ASSET="Beacon_${VERSION}_macos_universal.zip"
+curl -LO "https://github.com/jamesonstone/beacon/releases/download/v${VERSION}/${ASSET}"
+curl -LO "https://github.com/jamesonstone/beacon/releases/download/v${VERSION}/checksums.txt"
+grep " ${ASSET}$" checksums.txt | shasum -a 256 -c -
+ditto -x -k "${ASSET}" .
+mv Beacon.app /Applications/
+open /Applications/Beacon.app
+```
+
+Release applications are ad-hoc signed for bundle integrity but are not
+Developer ID signed or notarized. If Gatekeeper blocks a checksum-verified
+download from this repository, remove its quarantine attribute once, then open
+it again:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Beacon.app
+open /Applications/Beacon.app
+```
+
+Do not remove quarantine from an app you did not obtain from a verified Beacon
+release.
+
+## Quick Start
+
+Authenticate GitHub, initialize Beacon with one or more repository roots, then
+run the dashboard:
+
+```bash
+gh auth login
+beacon init --source ~/go/src/github.com --yes
+beacon
+```
+
+Run `beacon init` without flags for an interactive directory and repository
+selector. The menu application uses the same configuration and displays the
+same scan snapshot as the CLI.
+
+## Build From Source
 
 ```bash
 make build
@@ -46,6 +115,12 @@ Build, test, or launch the menu-bar app with:
 make macos-build
 make macos-test
 make macos-run
+```
+
+Release packaging is validated with:
+
+```bash
+make release-test
 ```
 
 ## Configuration
@@ -88,7 +163,11 @@ settings:
   github_scope: mine
 
 sources:
-  - path: ~/go/src/github.com
+  - path: ~/go/src/github.com/jamesonstone
+  - path: ~/go/src/github.com/lsmc-bio
+  - path: ~/go/src/github.com/limina-dev
+  - path: ~/go/src/github.com/spectral7-ltd
+  - path: ~/go/src/github.com/appliedsymbolics
 
 repositories:
   - name: beacon
@@ -97,6 +176,14 @@ repositories:
     base: main
     remote: origin
 ```
+
+Source entries are directory roots, not shell globs. A source such as
+`~/go/src/github.com/jamesonstone` discovers every GitHub repository beneath
+that directory on every scan; do not store a trailing `/*` in the YAML.
+
+Use `repositories` only when you want to watch one repository explicitly or
+override its discovered name, GitHub slug, base branch, or remote. Beacon
+deduplicates overlapping sources and explicit repositories.
 
 `github_scope: mine` includes PRs authored by `github_author` and issues
 assigned to that identity. Use `all` to include every open PR and issue in each
@@ -108,7 +195,7 @@ durations or scope, missing paths, and malformed GitHub names are rejected.
 Existing version-1 files remain readable and are migrated only by a confirmed
 init operation.
 
-## CLI
+## Everyday Use
 
 ```bash
 beacon
@@ -134,6 +221,33 @@ and honors `NO_COLOR`. Narrow terminals use wrapped evidence rows.
 checks, feedback, optional Kit progress, and scoped errors. It never emits ANSI
 or additional stdout logging, making it safe for the menu app and automation.
 
+Common workflows:
+
+- Run `beacon` for the colorful project dashboard.
+- Run `beacon open-next` to open the highest-priority review or action item.
+- Run `beacon scan --repo NAME` to focus on one configured project.
+- Run `beacon scan --json` for scripts or diagnostics.
+- Click a menu-app lane to open its pull request, issue, or local worktree.
+- Run `beacon init --source <new-root> --yes` to merge another persistent source
+  into the existing configuration without removing current entries.
+
+## Updating
+
+Merges to `main` create one semantic version for both the CLI and menu app.
+Breaking Conventional Commits bump the major version, `feat` commits bump the
+minor version, and all other accepted commits bump the patch version. GitHub
+generates release notes from the merged changes.
+
+To update, download and checksum the matching assets from the latest release,
+replace the CLI binary and/or `/Applications/Beacon.app`, and confirm the CLI
+version:
+
+```bash
+beacon version
+```
+
+Upgrading does not rewrite `$HOME/.config/beacon/config.yaml`.
+
 ## Read-only boundary
 
 Scanning may run a timeout-bounded `git fetch --prune --no-tags` to refresh
@@ -147,6 +261,7 @@ configuration file.
 - `cmd/beacon` and `internal/` implement config, source discovery, Git/GitHub/Kit evidence collection, lane correlation, policy, and output.
 - `macos/Beacon` contains the SwiftUI `MenuBarExtra` app and its tests.
 - The Xcode build embeds the Go executable as `Contents/MacOS/beacon-cli`; the standalone executable remains `beacon`.
+- `.github/workflows/release.yml` validates, versions, packages, and publishes both products after a merge reaches `main`.
 - Work lanes are active Git worktrees, scoped open pull requests, and scoped open issues. Unattached local branches are not scanned.
 
 ## Troubleshooting

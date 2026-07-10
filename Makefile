@@ -1,4 +1,4 @@
-.PHONY: build test test-race vet fmt fmt-check install scan scan-json doctor macos-build macos-test macos-run
+.PHONY: build test test-race release-test vet fmt fmt-check install scan scan-json doctor macos-build macos-test macos-run
 
 BEACON_DERIVED_DATA ?= $(TMPDIR)beacon-derived-data
 
@@ -10,6 +10,9 @@ test:
 
 test-race:
 	go test -race ./...
+
+release-test:
+	./scripts/test-next-version.sh
 
 vet:
 	go vet ./...

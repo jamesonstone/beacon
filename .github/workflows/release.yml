@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beacon-release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - name: Check out release commit and tags
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Validate release source
+        run: make fmt-check vet test test-race release-test macos-test
+
+      - name: Calculate semantic version
+        id: version
+        shell: bash
+        run: |
+          tag="$(./scripts/next-version.sh)"
+          version="${tag#v}"
+          build_date="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          {
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "build_date=$build_date"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Package CLI and macOS application
+        env:
+          BEACON_VERSION: ${{ steps.version.outputs.version }}
+          BEACON_COMMIT: ${{ github.sha }}
+          BEACON_BUILD_DATE: ${{ steps.version.outputs.build_date }}
+          BEACON_BUILD_NUMBER: ${{ github.run_number }}
+          BEACON_OUTPUT_DIR: ${{ github.workspace }}/dist
+          BEACON_DERIVED_DATA: ${{ runner.temp }}/beacon-release-derived-data
+        run: ./scripts/package-release.sh
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          existing_state="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null || true)"
+          if [[ "$existing_state" == "false" ]]; then
+            echo "Release $RELEASE_TAG already exists; nothing to publish."
+            exit 0
+          fi
+          if [[ "$existing_state" == "true" ]]; then
+            gh release upload "$RELEASE_TAG" dist/* --clobber
+            gh release edit "$RELEASE_TAG" --draft=false --latest
+            exit 0
+          fi
+          gh release create "$RELEASE_TAG" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "Beacon $RELEASE_TAG" \
+            --generate-notes \
+            --fail-on-no-commits

@@ -6,6 +6,7 @@
 | -- | ------- | ---- | ----- | ------ | ------- | ------- |
 | 0001 | beacon-v1 | `docs/specs/0001-beacon-v1` | deliver | no | 2026-07-09 | Build a read-only agent work-lane review radar as a Go CLI and native macOS menu application backed by the same versioned snapshot. |
 | 0002 | beacon-init-dashboard | `docs/specs/0002-beacon-init-dashboard` | deliver | no | 2026-07-10 | Add guided initialization, persistent repository-source discovery, GitHub issue and feedback evidence, Kit progress inference, a colorful default dashboard, and schema-v2 macOS parity. |
+| 0003 | beacon-github-releases | `docs/specs/0003-beacon-github-releases` | deliver | no | 2026-07-10 | Publish synchronized SemVer CLI and universal macOS artifacts with generated notes and checksums after accepted merges to main. |
 
 ## PROJECT INTENT
 
@@ -41,6 +42,15 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **APPROACH**: Persist and rediscover source roots, enrich the shared snapshot with issues, feedback, checks, and progress, derive deterministic next actions, and update both terminal and macOS surfaces.
 - **OPEN ITEMS**: No implementation items remain. Issue #1, branch `GH-1`, implementation commit `7572d9c`, and ready PR #2 contain the delivery and validation evidence; final review and merge remain human decisions.
 - **POINTERS**: `docs/specs/0002-beacon-init-dashboard/SPEC.md`
+
+### beacon-github-releases
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Turn every accepted merge to `main` into one traceable, downloadable Beacon version for both the CLI and macOS menu application.
+- **APPROACH**: Derive SemVer from Conventional Commit history, inject identical release metadata into both products, validate and package platform artifacts, and publish them with generated GitHub release notes and checksums.
+- **OPEN ITEMS**: Local implementation and validation are complete on `GH-1` / PR #2. The first live release and same-commit rerun behavior remain post-merge evidence because release automation intentionally runs only after a human merges to `main`.
+- **POINTERS**: `docs/specs/0003-beacon-github-releases/SPEC.md`
 
 ## LAST UPDATED
 
