@@ -273,8 +273,12 @@ The application scans at launch, at most once every 60 seconds, and on explicit
 request. Overlapping scans are prohibited. A failed scan keeps the last
 successful snapshot visible with its timestamp and an error or stale banner.
 The menu-bar label shows the number of non-idle lanes across the CLI-provided
-ready, action, and waiting groups. When that count is zero, it shows a compact
-color neon-space glyph instead of a numeric badge.
+ready, action, and waiting groups. Active counts use a high-contrast dark badge
+with a luminous neon-gradient border so the value remains visible over changing
+menu-bar backgrounds. When that count is zero, it shows a compact color
+neon-space glyph instead of a numeric badge. The menu window may use coordinated
+pastel and neon accents to distinguish existing CLI-provided groups and signals,
+but color must not introduce readiness or action policy in the Swift client.
 
 The application may use `NSWorkspace` to open pull requests, worktree paths,
 and `$HOME/.config/beacon/config.yaml`. It must not execute Git or `gh`
