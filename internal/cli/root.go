@@ -1,0 +1,329 @@
+package cli
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/jamesonstone/beacon/internal/command"
+	"github.com/jamesonstone/beacon/internal/config"
+	"github.com/jamesonstone/beacon/internal/discovery"
+	"github.com/jamesonstone/beacon/internal/githubscan"
+	"github.com/jamesonstone/beacon/internal/gitscan"
+	"github.com/jamesonstone/beacon/internal/model"
+	"github.com/jamesonstone/beacon/internal/output"
+	"github.com/jamesonstone/beacon/internal/scan"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+)
+
+var (
+	Version = "dev"
+	Commit  = "unknown"
+	Date    = "unknown"
+)
+
+type App struct {
+	In            io.Reader
+	Out           io.Writer
+	Err           io.Writer
+	Runner        command.Runner
+	InputIsTTY    func() bool
+	OutputIsTTY   func() bool
+	TerminalWidth func() int
+	scannerSource snapshotScanner
+	prompter      initPrompter
+}
+
+type snapshotScanner interface {
+	Scan(context.Context, config.Config, string, bool) (model.Snapshot, error)
+}
+
+func New() *cobra.Command {
+	app := App{
+		In: os.Stdin, Out: os.Stdout, Err: os.Stderr, Runner: command.ExecRunner{},
+		InputIsTTY:  func() bool { return term.IsTerminal(int(os.Stdin.Fd())) },
+		OutputIsTTY: func() bool { return term.IsTerminal(int(os.Stdout.Fd())) },
+		TerminalWidth: func() int {
+			width, _, err := term.GetSize(int(os.Stdout.Fd()))
+			if err != nil {
+				return 120
+			}
+			return width
+		},
+	}
+	return app.Root()
+}
+
+func (a App) Root() *cobra.Command {
+	var configPath string
+	var colorMode string
+	var includeIdle bool
+	root := &cobra.Command{
+		Use:           "beacon",
+		Short:         "Review readiness for agent-driven Git work",
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		Args:          noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return a.runHumanScan(cmd.Context(), configPath, "", true, colorMode, includeIdle, true, true)
+		},
+	}
+	root.PersistentFlags().StringVar(&configPath, "config", "", "configuration file path")
+	root.PersistentFlags().StringVar(&colorMode, "color", "auto", "color output: auto, always, or never")
+	root.Flags().BoolVar(&includeIdle, "include-idle", false, "show projects with only idle work")
+	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err} })
+	root.AddCommand(
+		a.initCommand(&configPath),
+		a.scanCommand(&configPath),
+		a.doctorCommand(&configPath),
+		a.openCommand(&configPath),
+		a.openNextCommand(&configPath),
+		a.configCommand(&configPath),
+		versionCommand(a.Out),
+	)
+	return root
+}
+
+func (a App) scanner() snapshotScanner {
+	if a.scannerSource != nil {
+		return a.scannerSource
+	}
+	git := gitscan.Scanner{Runner: a.Runner, Now: time.Now}
+	github := githubscan.Client{Runner: a.Runner}
+	discoverer := discovery.Discoverer{Runner: a.Runner}
+	return scan.Scanner{Git: git, GitHub: github, Discovery: discoverer, Now: time.Now}
+}
+
+func (a App) scanCommand(configPath *string) *cobra.Command {
+	var repository string
+	var jsonOutput bool
+	var noRefresh bool
+	var includeIdle bool
+	command := &cobra.Command{
+		Use:   "scan",
+		Short: "Scan configured repositories",
+		Args:  noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			colorMode, _ := cmd.Flags().GetString("color")
+			if _, err := a.resolveColor(colorMode); err != nil {
+				return err
+			}
+			if jsonOutput {
+				cfg, err := config.Load(*configPath)
+				if err != nil {
+					return err
+				}
+				snapshot, err := a.scanner().Scan(cmd.Context(), cfg, repository, !noRefresh)
+				if err != nil {
+					return err
+				}
+				return output.JSON(a.Out, snapshot)
+			}
+			return a.runHumanScan(cmd.Context(), *configPath, repository, !noRefresh, colorMode, includeIdle || repository != "", false, false)
+		},
+	}
+	command.Flags().StringVar(&repository, "repo", "", "scan one configured repository")
+	command.Flags().BoolVar(&jsonOutput, "json", false, "emit JSON only")
+	command.Flags().BoolVar(&noRefresh, "no-refresh", false, "skip git fetch")
+	command.Flags().BoolVar(&includeIdle, "include-idle", false, "show projects with only idle work")
+	return command
+}
+
+func (a App) runHumanScan(ctx context.Context, path, repository string, refresh bool, colorMode string, includeIdle, offerInit, showLoader bool) error {
+	color, err := a.resolveColor(colorMode)
+	if err != nil {
+		return err
+	}
+	cfg, err := config.Load(path)
+	if err != nil && errors.Is(err, os.ErrNotExist) {
+		if !offerInit || !a.inputIsTTY() {
+			return fmt.Errorf("%w; run beacon init to create %s", err, defaultConfigPath(path))
+		}
+		start, promptErr := a.initPrompter().Confirm(ctx, "Beacon is not configured. Run beacon init now?")
+		if promptErr != nil {
+			return fmt.Errorf("offer initialization: %w", promptErr)
+		}
+		if !start {
+			return errors.New("Beacon configuration is required; run beacon init")
+		}
+		if err := a.newInitService(path, initOptions{}).run(ctx); err != nil {
+			return err
+		}
+		cfg, err = config.Load(path)
+	}
+	if err != nil {
+		return err
+	}
+	loader := startScanLoader(a.Out, showLoader && a.outputIsTTY(), color, a.terminalWidth())
+	defer loader.Stop(false)
+	snapshot, err := a.scanner().Scan(ctx, cfg, repository, refresh)
+	loader.Stop(err == nil)
+	if err != nil {
+		return err
+	}
+	return output.TerminalWithOptions(a.Out, snapshot, output.TerminalOptions{Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle})
+}
+
+func (a App) resolveColor(mode string) (bool, error) {
+	switch mode {
+	case "", "auto":
+		return a.outputIsTTY() && os.Getenv("NO_COLOR") == "", nil
+	case "always":
+		return true, nil
+	case "never":
+		return false, nil
+	default:
+		return false, usageError{fmt.Errorf("--color must be auto, always, or never: %q", mode)}
+	}
+}
+
+func (a App) input() io.Reader {
+	if a.In != nil {
+		return a.In
+	}
+	return os.Stdin
+}
+
+func (a App) initPrompter() initPrompter {
+	if a.prompter != nil {
+		return a.prompter
+	}
+	return huhPrompter{input: a.input(), output: a.Out}
+}
+
+func (a App) inputIsTTY() bool {
+	return a.InputIsTTY != nil && a.InputIsTTY()
+}
+
+func (a App) outputIsTTY() bool {
+	return a.OutputIsTTY != nil && a.OutputIsTTY()
+}
+
+func (a App) terminalWidth() int {
+	if a.TerminalWidth != nil {
+		return a.TerminalWidth()
+	}
+	return 120
+}
+
+func defaultConfigPath(explicit string) string {
+	path, err := config.ResolvePath(explicit)
+	if err != nil {
+		return "$HOME/.config/beacon/config.yaml"
+	}
+	return path
+}
+
+func (a App) openCommand(configPath *string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "open <lane-id>",
+		Short: "Open a lane's pull request or worktree",
+		Args:  exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			snapshot, err := a.loadSnapshot(cmd.Context(), *configPath)
+			if err != nil {
+				return err
+			}
+			for _, lane := range snapshot.Lanes {
+				if lane.ID == args[0] {
+					return a.openLane(cmd.Context(), lane)
+				}
+			}
+			return fmt.Errorf("lane not found: %s", args[0])
+		},
+	}
+}
+
+func (a App) openNextCommand(configPath *string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "open-next",
+		Short: "Open the highest-priority lane",
+		Args:  noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			snapshot, err := a.loadSnapshot(cmd.Context(), *configPath)
+			if err != nil {
+				return err
+			}
+			lane, ok := nextActiveLane(snapshot)
+			if !ok {
+				return errors.New("no active work lanes found")
+			}
+			return a.openLane(cmd.Context(), lane)
+		},
+	}
+}
+
+func nextActiveLane(snapshot model.Snapshot) (model.Lane, bool) {
+	byID := make(map[string]model.Lane, len(snapshot.Lanes))
+	for _, lane := range snapshot.Lanes {
+		byID[lane.ID] = lane
+	}
+	for _, group := range [][]string{snapshot.Groups.Ready, snapshot.Groups.Action, snapshot.Groups.Waiting} {
+		for _, id := range group {
+			if lane, ok := byID[id]; ok {
+				return lane, true
+			}
+		}
+	}
+	return model.Lane{}, false
+}
+
+func (a App) loadSnapshot(ctx context.Context, path string) (model.Snapshot, error) {
+	cfg, err := config.Load(path)
+	if err != nil {
+		return model.Snapshot{}, err
+	}
+	return a.scanner().Scan(ctx, cfg, "", true)
+}
+
+func (a App) openLane(ctx context.Context, lane model.Lane) error {
+	target := ""
+	if lane.PullRequest != nil {
+		target = lane.PullRequest.URL
+	} else if lane.Issue != nil {
+		target = lane.Issue.URL
+	} else if lane.Worktree != nil {
+		target = lane.Worktree.Path
+	}
+	if target == "" {
+		return fmt.Errorf("lane has no openable target: %s", lane.ID)
+	}
+	commandContext, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	_, err := a.Runner.Run(commandContext, "", "open", target)
+	return err
+}
+
+type usageError struct{ error }
+
+func ExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var usage usageError
+	if errors.As(err, &usage) || strings.Contains(err.Error(), "unknown command") {
+		return 2
+	}
+	return 1
+}
+
+func noArgs(cmd *cobra.Command, args []string) error {
+	if len(args) != 0 {
+		return usageError{fmt.Errorf("%s accepts no arguments", cmd.CommandPath())}
+	}
+	return nil
+}
+
+func exactArgs(count int) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) != count {
+			return usageError{fmt.Errorf("%s requires exactly %d argument(s)", cmd.CommandPath(), count)}
+		}
+		return nil
+	}
+}
