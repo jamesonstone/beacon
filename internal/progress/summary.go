@@ -27,7 +27,6 @@ func parseSummary(contents []byte) ([]Feature, []Diagnostic) {
 
 	features, diagnostics := parseFeatureTable(lines, tableStart+1)
 	if len(features) == 0 {
-		diagnostics = append(diagnostics, errorAt(SummaryPath, "feature progress table contains no valid feature rows"))
 		return nil, diagnostics
 	}
 
@@ -42,7 +41,7 @@ func parseSummary(contents []byte) ([]Feature, []Diagnostic) {
 		features[index].Intent = detail.intent
 		features[index].Approach = detail.approach
 		features[index].OpenItems = detail.openItems
-		if detail.status != "" && !strings.EqualFold(detail.status, features[index].Phase) {
+		if detail.status != "" && !equivalentPhaseStatus(features[index].Phase, detail.status) {
 			diagnostics = append(diagnostics, warningAt(SummaryPath, fmt.Sprintf("feature %q table phase %q does not match summary status %q", features[index].Slug, features[index].Phase, detail.status)))
 		}
 		if detail.paused != "" {
@@ -55,6 +54,12 @@ func parseSummary(contents []byte) ([]Feature, []Diagnostic) {
 		}
 	}
 	return features, diagnostics
+}
+
+func equivalentPhaseStatus(phase, status string) bool {
+	phase = strings.ToLower(strings.TrimSpace(phase))
+	status = strings.ToLower(strings.TrimSpace(status))
+	return phase == status || strings.HasPrefix(status, phase+";")
 }
 
 func parseFeatureTable(lines []string, start int) ([]Feature, []Diagnostic) {

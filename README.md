@@ -227,9 +227,16 @@ The animation is omitted from explicit `beacon scan` commands, redirected
 output, and JSON. Cursor state is restored even when a scan fails or is
 cancelled.
 
+Non-blocking discovery, prunable-worktree, search-truncation, and optional Kit
+progress diagnostics contribute to the warning count in the dashboard header;
+they do not appear as fatal errors. Full warning detail remains available in
+`beacon scan --json`. The red `Errors` section is reserved for failures that
+prevent Beacon from collecting expected evidence.
+
 `scan --json` emits schema version 2 with projects, ordered lanes, issues,
-checks, feedback, optional Kit progress, and scoped errors. It never emits ANSI
-or additional stdout logging, making it safe for the menu app and automation.
+checks, feedback, optional Kit progress, scoped warnings, and scoped errors. It
+never emits ANSI or additional stdout logging, making it safe for the menu app
+and automation.
 
 Common workflows:
 

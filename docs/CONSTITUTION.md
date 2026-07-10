@@ -265,7 +265,12 @@ removes its color; `NO_COLOR` has the same effect in automatic mode.
 The schema-v2 snapshot is a public internal contract between the CLI and
 clients. It contains generation/config/refresh metadata, projects, summary
 counts, ordered enriched lanes, grouped lane IDs, and repository-scoped or
-global errors.
+global warnings and errors. Expected partial conditions—including inaccessible
+source discoveries, prunable worktrees, result truncation, and untrusted
+optional Kit progress documents—are warnings, not errors. Human output keeps
+their full detail out of the primary dashboard while JSON retains every
+diagnostic. The terminal `Errors` section is reserved for evidence-collection
+failures.
 Collections must encode as arrays rather than `null`. Additive changes must be
 safe for existing decoders; incompatible semantic or structural changes
 require a schema-version increment and coordinated client support.

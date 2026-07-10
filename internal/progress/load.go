@@ -26,8 +26,8 @@ func Load(repoRoot string) Result {
 	}
 
 	features, diagnostics := parseSummary(contents)
-	if len(features) == 0 {
-		return Result{Diagnostics: diagnostics}
+	if len(features) == 0 && !hasFeatureSpecs(root) {
+		return Result{}
 	}
 	features, specDiagnostics := mergeSpecs(root, features)
 	diagnostics = append(diagnostics, specDiagnostics...)
@@ -37,6 +37,11 @@ func Load(repoRoot string) Result {
 	result.Selected = selectFeature(features)
 	result.IssueLinks = buildIssueLinks(features)
 	return result
+}
+
+func hasFeatureSpecs(root string) bool {
+	paths, err := filepath.Glob(filepath.Join(root, "docs", "specs", "*", "SPEC.md"))
+	return err == nil && len(paths) > 0
 }
 
 func mergeSpecs(root string, features []Feature) ([]Feature, []Diagnostic) {
@@ -75,6 +80,7 @@ func mergeSpecs(root string, features []Feature) ([]Feature, []Diagnostic) {
 			diagnostics = append(diagnostics, warningAt(relativeFile, fmt.Sprintf("read feature spec: %v", err)))
 			continue
 		}
+		seenSpecs[relativeDir] = struct{}{}
 		info, specDiagnostics := parseSpec(contents, relativeFile)
 		diagnostics = append(diagnostics, specDiagnostics...)
 		if info.ID == "" {
@@ -83,10 +89,12 @@ func mergeSpecs(root string, features []Feature) ([]Feature, []Diagnostic) {
 		if info.Dir != "" && info.Dir != filepath.Base(relativeDir) {
 			diagnostics = append(diagnostics, warningAt(relativeFile, fmt.Sprintf("SPEC feature.dir %q does not match directory %q", info.Dir, filepath.Base(relativeDir))))
 		}
-		seenSpecs[relativeDir] = struct{}{}
 		if index, exists := byPath[relativeDir]; exists {
 			features[index], specDiagnostics = mergeSpec(features[index], info, relativeFile)
 			diagnostics = append(diagnostics, specDiagnostics...)
+			continue
+		}
+		if info.Phase == "" {
 			continue
 		}
 		features = append(features, Feature{
@@ -97,7 +105,7 @@ func mergeSpecs(root string, features []Feature) ([]Feature, []Diagnostic) {
 	}
 
 	for _, feature := range features {
-		if !feature.Listed {
+		if !feature.Listed || strings.EqualFold(feature.Phase, "removed") {
 			continue
 		}
 		if _, exists := seenSpecs[feature.Path]; !exists {
@@ -117,7 +125,7 @@ func mergeSpec(feature Feature, info specInfo, specPath string) (Feature, []Diag
 		diagnostics = append(diagnostics, warningAt(specPath, fmt.Sprintf("SPEC feature slug %q does not match summary slug %q; using SPEC", info.Slug, feature.Slug)))
 		feature.Slug = info.Slug
 	}
-	if feature.Phase != info.Phase {
+	if info.Phase != "" && feature.Phase != info.Phase {
 		diagnostics = append(diagnostics, warningAt(specPath, fmt.Sprintf("SPEC phase %q does not match summary phase %q; using SPEC", info.Phase, feature.Phase)))
 		feature.Phase = info.Phase
 	}
@@ -151,7 +159,7 @@ func safeRelativePath(path string) (string, bool) {
 
 func selectFeature(features []Feature) *Feature {
 	for index := len(features) - 1; index >= 0; index-- {
-		if !features[index].Paused && !isDelivered(features[index].Phase) {
+		if !features[index].Paused && !isDelivered(features[index].Phase) && !isRemoved(features[index].Phase) {
 			selected := features[index]
 			return &selected
 		}

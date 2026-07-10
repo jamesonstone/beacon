@@ -42,18 +42,19 @@ type commonDirectoryResolver interface {
 }
 
 type repositoryResult struct {
-	index   int
-	project model.Project
-	lanes   []model.Lane
-	refresh model.Refresh
-	errors  []model.ScanError
+	index    int
+	project  model.Project
+	lanes    []model.Lane
+	refresh  model.Refresh
+	errors   []model.ScanError
+	warnings []model.ScanError
 }
 
 func (s Scanner) Scan(ctx context.Context, cfg config.Config, repositoryName string, refresh bool) (model.Snapshot, error) {
 	if s.Now == nil {
 		s.Now = time.Now
 	}
-	repositories, discoveryErrors := s.repositories(ctx, cfg)
+	repositories, discoveryErrors, discoveryWarnings := s.repositories(ctx, cfg)
 	if repositoryName != "" {
 		filtered := repositories[:0]
 		for _, repository := range repositories {
@@ -102,12 +103,14 @@ func (s Scanner) Scan(ctx context.Context, cfg config.Config, repositoryName str
 		Projects: []model.Project{},
 		Lanes:    []model.Lane{},
 		Errors:   append(discoveryErrors, remote.Errors...),
+		Warnings: append(discoveryWarnings, remote.Warnings...),
 	}
 	for _, result := range ordered {
 		snapshot.Projects = append(snapshot.Projects, result.project)
 		snapshot.Lanes = append(snapshot.Lanes, result.lanes...)
 		snapshot.Refresh = append(snapshot.Refresh, result.refresh)
 		snapshot.Errors = append(snapshot.Errors, result.errors...)
+		snapshot.Warnings = append(snapshot.Warnings, result.warnings...)
 	}
 	orderLanes(snapshot.Lanes)
 	orderProjectLanes(snapshot.Projects, snapshot.Lanes)
@@ -128,11 +131,11 @@ func orderProjectLanes(projects []model.Project, lanes []model.Lane) {
 	}
 }
 
-func (s Scanner) repositories(ctx context.Context, cfg config.Config) ([]config.Repository, []model.ScanError) {
+func (s Scanner) repositories(ctx context.Context, cfg config.Config) ([]config.Repository, []model.ScanError, []model.ScanError) {
 	discovered := discovery.Result{Repositories: []config.Repository{}, Warnings: []discovery.Warning{}}
 	if len(cfg.Sources) > 0 {
 		if s.Discovery == nil {
-			return nil, []model.ScanError{{Stage: "discovery", Message: "repository discovery is not configured"}}
+			return nil, []model.ScanError{{Stage: "discovery", Message: "repository discovery is not configured"}}, nil
 		}
 		discovered = s.Discovery.Discover(ctx, cfg.Sources)
 	}
@@ -143,6 +146,7 @@ func (s Scanner) repositories(ctx context.Context, cfg config.Config) ([]config.
 	pathOwner := make(map[string]string, len(discovered.Repositories)+len(cfg.Repositories))
 	commonOwner := make(map[string]string, len(discovered.Repositories)+len(cfg.Repositories))
 	errors := make([]model.ScanError, 0, len(discovered.Warnings)+len(cfg.Repositories))
+	warnings := make([]model.ScanError, 0, len(discovered.Warnings))
 	for _, repository := range discovered.Repositories {
 		byGitHub[repository.GitHub] = repository
 		if repository.Path != "" {
@@ -193,9 +197,9 @@ func (s Scanner) repositories(ctx context.Context, cfg config.Config) ([]config.
 		return repositories[i].Path < repositories[j].Path
 	})
 	for _, warning := range discovered.Warnings {
-		errors = append(errors, model.ScanError{Stage: "discovery-" + warning.Stage, Message: warning.Path + ": " + warning.Message})
+		warnings = append(warnings, model.ScanError{Stage: "discovery-" + warning.Stage, Message: warning.Path + ": " + warning.Message})
 	}
-	return repositories, errors
+	return repositories, errors, warnings
 }
 
 func (s Scanner) scanRepository(ctx context.Context, cfg config.Config, index int, repository config.Repository, remote model.RemoteEvidence, refresh bool) repositoryResult {
@@ -204,10 +208,12 @@ func (s Scanner) scanRepository(ctx context.Context, cfg config.Config, index in
 	projectProgress, progressByIssue := correlateProgress(repository, progressResult)
 	errors := append([]model.ScanError{}, local.Errors...)
 	errors = append(errors, remote.Errors...)
+	warnings := append([]model.ScanError{}, local.Warnings...)
+	warnings = append(warnings, remote.Warnings...)
 	for _, diagnostic := range progressResult.Diagnostics {
-		errors = append(errors, model.ScanError{
+		warnings = append(warnings, model.ScanError{
 			Repository: repository.Name,
-			Stage:      "progress-" + string(diagnostic.Severity),
+			Stage:      "progress",
 			Message:    diagnostic.Path + ": " + diagnostic.Message,
 		})
 	}
@@ -217,12 +223,13 @@ func (s Scanner) scanRepository(ctx context.Context, cfg config.Config, index in
 		laneIDs = append(laneIDs, lane.ID)
 	}
 	projectErrors := append([]model.ScanError{}, errors...)
+	projectWarnings := append([]model.ScanError{}, warnings...)
 	return repositoryResult{
-		index: index, lanes: lanes, refresh: local.Refresh, errors: errors,
+		index: index, lanes: lanes, refresh: local.Refresh, errors: errors, warnings: warnings,
 		project: model.Project{
 			Name: repository.Name, Path: repository.Path, GitHub: repository.GitHub,
 			Base: repository.Base, Remote: repository.Remote, Progress: projectProgress,
-			LaneIDs: laneIDs, Errors: projectErrors,
+			LaneIDs: laneIDs, Errors: projectErrors, Warnings: projectWarnings,
 		},
 	}
 }
@@ -350,4 +357,5 @@ func group(snapshot *model.Snapshot) {
 		}
 	}
 	snapshot.Summary.Errors = len(snapshot.Errors)
+	snapshot.Summary.Warnings = len(snapshot.Warnings)
 }

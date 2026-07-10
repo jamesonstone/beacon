@@ -197,6 +197,7 @@ type Summary struct {
 	Waiting            int `json:"waiting"`
 	Idle               int `json:"idle"`
 	Errors             int `json:"errors"`
+	Warnings           int `json:"warnings"`
 	OpenIssues         int `json:"open_issues"`
 	UnresolvedFeedback int `json:"unresolved_feedback"`
 }
@@ -210,17 +211,20 @@ type Project struct {
 	Progress *Progress   `json:"progress,omitempty"`
 	LaneIDs  []string    `json:"lane_ids"`
 	Errors   []ScanError `json:"errors"`
+	Warnings []ScanError `json:"warnings"`
 }
 
 type RemoteEvidence struct {
 	PullRequests []PullRequest `json:"pull_requests"`
 	Issues       []Issue       `json:"issues"`
 	Errors       []ScanError   `json:"errors"`
+	Warnings     []ScanError   `json:"warnings"`
 }
 
 type RemoteCollection struct {
 	Repositories map[string]RemoteEvidence `json:"repositories"`
 	Errors       []ScanError               `json:"errors"`
+	Warnings     []ScanError               `json:"warnings"`
 }
 
 type Groups struct {
@@ -240,4 +244,5 @@ type Snapshot struct {
 	Projects      []Project   `json:"projects"`
 	Lanes         []Lane      `json:"lanes"`
 	Errors        []ScanError `json:"errors"`
+	Warnings      []ScanError `json:"warnings"`
 }

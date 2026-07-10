@@ -56,6 +56,9 @@ func TerminalWithOptions(writer io.Writer, snapshot model.Snapshot, options Term
 	}
 	summary := fmt.Sprintf("%d projects · %d work items · %d ready · %d issues · %d unresolved feedback",
 		snapshot.Summary.Projects, snapshot.Summary.Total, snapshot.Summary.ReviewReady, snapshot.Summary.OpenIssues, snapshot.Summary.UnresolvedFeedback)
+	if snapshot.Summary.Warnings > 0 {
+		summary += fmt.Sprintf(" · %d warnings", snapshot.Summary.Warnings)
+	}
 	if options.Width < narrowWidth {
 		if err := writeWrapped(writer, "", style.wrap.Width(options.Width).Render(summary)); err != nil {
 			return err

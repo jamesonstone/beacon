@@ -88,6 +88,57 @@ func TestLoadUsesCanonicalSpecPhaseAndReportsStaleness(t *testing.T) {
 	assertDiagnosticContains(t, result.Diagnostics, "using SPEC")
 }
 
+func TestLoadUsesSummaryPhaseWhenCurrentSpecOmitsPhase(t *testing.T) {
+	root := t.TempDir()
+	writeProgressFile(t, root, SummaryPath, projectSummary(
+		"| 0035 | loop-review | `docs/specs/0035-loop-review` | reflect | no | 2026-01-01 | Reflected. |",
+		featureSummary("loop-review", "reflect", "no"),
+	))
+	writeProgressFile(t, root, "docs/specs/0035-loop-review/SPEC.md", `---
+kit_metadata_version: 1
+artifact: spec
+feature:
+  id: 0035
+  slug: loop-review
+  dir: 0035-loop-review
+references:
+  - ../../legacy-reference.md
+  - type: github-issue
+    target: https://github.com/acme/project/issues/35
+---
+# Feature
+`)
+
+	result := Load(root)
+	if len(result.Diagnostics) != 0 || len(result.Features) != 1 || result.Features[0].Phase != "reflect" {
+		t.Fatalf("result = %#v", result)
+	}
+	if len(result.Features[0].IssueURLs) != 1 || result.Features[0].IssueURLs[0] != "https://github.com/acme/project/issues/35" {
+		t.Fatalf("issue URLs = %#v", result.Features[0].IssueURLs)
+	}
+}
+
+func TestLoadAcceptsEmptyCanonicalProgressTable(t *testing.T) {
+	root := t.TempDir()
+	writeProgressFile(t, root, SummaryPath, projectSummary("", "none"))
+	result := Load(root)
+	if len(result.Features) != 0 || len(result.Diagnostics) != 0 {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestLoadDoesNotWarnForRemovedFeatureWithoutSpec(t *testing.T) {
+	root := t.TempDir()
+	writeProgressFile(t, root, SummaryPath, projectSummary(
+		"| 0036 | removed-feature | `docs/specs/0036-removed-feature` | removed | no | 2026-01-01 | Removed. |",
+		featureSummary("removed-feature", "removed", "no"),
+	))
+	result := Load(root)
+	if len(result.Diagnostics) != 0 || result.Selected != nil {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
 func TestLoadRetainsValidEvidenceWhenDocumentsAreMalformed(t *testing.T) {
 	root := t.TempDir()
 	writeProgressFile(t, root, SummaryPath, projectSummary(
@@ -143,6 +194,7 @@ func TestLoadAddsUnlistedSpecAndRejectsMalformedIssueURL(t *testing.T) {
 func TestLoadMalformedSummaryReturnsScopedError(t *testing.T) {
 	root := t.TempDir()
 	writeProgressFile(t, root, SummaryPath, "# no progress table\n")
+	writeProgressFile(t, root, "docs/specs/0001-invalid/SPEC.md", "not front matter\n")
 	result := Load(root)
 	if !result.HasErrors() || len(result.Features) != 0 {
 		t.Fatalf("result = %#v", result)

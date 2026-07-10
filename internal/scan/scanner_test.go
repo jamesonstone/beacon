@@ -2,6 +2,7 @@ package scan
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -36,6 +37,39 @@ func TestScanPreservesHealthyResultsWhenRepositoryFails(t *testing.T) {
 	}
 	if snapshot.Summary.Total != 2 || snapshot.Summary.Errors != 1 {
 		t.Fatalf("summary = %#v", snapshot.Summary)
+	}
+}
+
+func TestScanSeparatesOptionalRepositoryWarningsFromErrors(t *testing.T) {
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "docs", "specs", "0001-invalid"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "docs", "PROJECT_PROGRESS_SUMMARY.md"), []byte("# no progress table\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "docs", "specs", "0001-invalid", "SPEC.md"), []byte("not front matter\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{
+		Settings: config.Settings{MaxParallel: 1, RemoteRefreshInterval: time.Minute, StaleAfter: time.Hour, GitHubAuthor: "@me", GitHubScope: config.GitHubScopeMine},
+		Sources:  []config.Source{{Path: root}},
+	}
+	discoverer := fakeRepositoryDiscoverer{result: discovery.Result{
+		Repositories: []config.Repository{{Name: "example", Path: root, GitHub: "owner/example", Base: "main", Remote: "origin"}},
+		Warnings:     []discovery.Warning{{Path: "/missing/repo", Stage: "inspect", Message: "repository unavailable"}},
+	}}
+	scanner := Scanner{Git: fakeGitScanner{now: now}, GitHub: fakeGitHubClient{}, Discovery: discoverer, Now: func() time.Time { return now }}
+	snapshot, err := scanner.Scan(context.Background(), cfg, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.Errors) != 0 || snapshot.Summary.Errors != 0 || len(snapshot.Warnings) != 3 || snapshot.Summary.Warnings != 3 {
+		t.Fatalf("snapshot diagnostics = errors:%#v warnings:%#v summary:%#v", snapshot.Errors, snapshot.Warnings, snapshot.Summary)
+	}
+	if len(snapshot.Projects) != 1 || len(snapshot.Projects[0].Errors) != 0 || len(snapshot.Projects[0].Warnings) != 2 {
+		t.Fatalf("project = %#v", snapshot.Projects)
 	}
 }
 
@@ -128,9 +162,9 @@ func (f fakeGitScanner) Scan(_ context.Context, repo config.Repository, _ bool, 
 type fakeGitHubClient struct{}
 
 func (fakeGitHubClient) Collect(_ context.Context, repositories []config.Repository, _, _ string, _ int) model.RemoteCollection {
-	collection := model.RemoteCollection{Repositories: make(map[string]model.RemoteEvidence), Errors: []model.ScanError{}}
+	collection := model.RemoteCollection{Repositories: make(map[string]model.RemoteEvidence), Errors: []model.ScanError{}, Warnings: []model.ScanError{}}
 	for _, repository := range repositories {
-		evidence := model.RemoteEvidence{PullRequests: []model.PullRequest{}, Issues: []model.Issue{}, Errors: []model.ScanError{}}
+		evidence := model.RemoteEvidence{PullRequests: []model.PullRequest{}, Issues: []model.Issue{}, Errors: []model.ScanError{}, Warnings: []model.ScanError{}}
 		if repository.GitHub == "owner/failing" {
 			evidence.Errors = append(evidence.Errors, model.ScanError{Repository: repository.Name, Stage: "github", Message: "GitHub unavailable"})
 		}

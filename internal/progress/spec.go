@@ -23,14 +23,11 @@ type specFrontMatter struct {
 	Artifact string `yaml:"artifact"`
 	Phase    string `yaml:"phase"`
 	Feature  struct {
-		ID   string `yaml:"id"`
-		Slug string `yaml:"slug"`
-		Dir  string `yaml:"dir"`
+		ID   yaml.Node `yaml:"id"`
+		Slug string    `yaml:"slug"`
+		Dir  string    `yaml:"dir"`
 	} `yaml:"feature"`
-	References []struct {
-		Type   string `yaml:"type"`
-		Target string `yaml:"target"`
-	} `yaml:"references"`
+	References []yaml.Node `yaml:"references"`
 }
 
 func parseSpec(contents []byte, path string) (specInfo, []Diagnostic) {
@@ -43,23 +40,23 @@ func parseSpec(contents []byte, path string) (specInfo, []Diagnostic) {
 		return specInfo{}, []Diagnostic{warningAt(path, fmt.Sprintf("decode YAML front matter: %v", err))}
 	}
 	info := specInfo{
-		ID: strings.TrimSpace(raw.Feature.ID), Slug: strings.TrimSpace(raw.Feature.Slug),
+		ID: strings.TrimSpace(raw.Feature.ID.Value), Slug: strings.TrimSpace(raw.Feature.Slug),
 		Dir: strings.TrimSpace(raw.Feature.Dir), Phase: strings.TrimSpace(raw.Phase),
 	}
 	if !strings.EqualFold(strings.TrimSpace(raw.Artifact), "spec") {
 		return specInfo{}, []Diagnostic{warningAt(path, "front matter artifact must be spec")}
 	}
-	if !featureIDPattern.MatchString(info.ID) || info.Slug == "" || info.Phase == "" {
-		return specInfo{}, []Diagnostic{warningAt(path, "front matter requires a numeric feature.id, feature.slug, and phase")}
+	if !featureIDPattern.MatchString(info.ID) || info.Slug == "" {
+		return specInfo{}, []Diagnostic{warningAt(path, "front matter requires a numeric feature.id and feature.slug")}
 	}
 
 	seen := make(map[string]struct{})
 	var diagnostics []Diagnostic
 	for _, reference := range raw.References {
-		if !strings.EqualFold(strings.TrimSpace(reference.Type), "github-issue") {
+		referenceType, target, ok := referenceValues(reference)
+		if !ok || !strings.EqualFold(referenceType, "github-issue") {
 			continue
 		}
-		target := strings.TrimSpace(reference.Target)
 		if !githubIssueURLPattern.MatchString(target) {
 			diagnostics = append(diagnostics, warningAt(path, fmt.Sprintf("ignore malformed GitHub issue URL %q", target)))
 			continue
@@ -72,6 +69,17 @@ func parseSpec(contents []byte, path string) (specInfo, []Diagnostic) {
 	}
 	sort.Strings(info.IssueURLs)
 	return info, diagnostics
+}
+
+func referenceValues(reference yaml.Node) (string, string, bool) {
+	if reference.Kind != yaml.MappingNode {
+		return "", "", false
+	}
+	values := make(map[string]string, len(reference.Content)/2)
+	for index := 0; index+1 < len(reference.Content); index += 2 {
+		values[strings.TrimSpace(reference.Content[index].Value)] = strings.TrimSpace(reference.Content[index+1].Value)
+	}
+	return values["type"], values["target"], true
 }
 
 func extractFrontMatter(contents []byte) ([]byte, error) {

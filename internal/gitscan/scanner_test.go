@@ -1,8 +1,10 @@
 package gitscan
 
 import (
+	"context"
 	"testing"
 
+	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/model"
 )
 
@@ -60,5 +62,14 @@ func TestParseCounts(t *testing.T) {
 	left, right, err := parseCounts([]byte("3\t7\n"))
 	if err != nil || left != 3 || right != 7 {
 		t.Fatalf("counts = %d, %d, %v", left, right, err)
+	}
+}
+
+func TestPrunableWorktreeIsWarningNotError(t *testing.T) {
+	lane, errors, warnings := (Scanner{}).scanWorktree(context.Background(), config.Repository{GitHub: "owner/repo"}, worktreeRecord{
+		Path: "/missing/worktree", HeadOID: "abcdef", Branch: "feature", Prunable: true,
+	})
+	if !lane.Worktree.Prunable || len(errors) != 0 || len(warnings) != 1 || warnings[0].Stage != "worktree" {
+		t.Fatalf("lane=%#v errors=%#v warnings=%#v", lane, errors, warnings)
 	}
 }

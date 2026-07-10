@@ -62,6 +62,7 @@ The user explicitly selected issue `#1`, branch `GH-1`, and PR `#2` for delivery
 - The CLI and macOS app consume the same schema-v2 snapshot.
 - The menu-bar label counts non-idle ready, action, and waiting lanes. Active counts use a bordered, high-contrast neon badge; with no active lanes, it displays a compact color neon-space glyph. The menu window uses coordinated neon and pastel accents without duplicating policy.
 - Bare interactive `beacon` uses a rotating lighthouse sweep during its live scan. Redirected output, JSON, and explicit `beacon scan` commands remain animation-free, and cursor state is restored on every exit path.
+- Non-blocking discovery, prunable-worktree, truncation, and optional Kit progress diagnostics are warnings. The dashboard summarizes their count, JSON retains their full detail, and only evidence-collection failures render as errors.
 
 ## Requirements
 
@@ -70,8 +71,8 @@ The user explicitly selected issue `#1`, branch `GH-1`, and PR `#2` for delivery
 3. Implement `beacon init` with repeated sources, interactive selection, prerequisite checks, safe merging, preview, confirmation, and atomic writes.
 4. Make bare `beacon` run the dashboard, offer initialization when config is missing in a TTY, and show a TTY-only lighthouse loader during the live scan.
 5. Query relevant open PRs and issues through `gh`, enrich PRs with checks, linked issues, reviews, comments, mergeability, and unresolved threads, and preserve partial results.
-6. Parse optional Kit progress summaries and SPEC issue references without inventing progress percentages.
-7. Emit schema version 2 with projects, issues, feedback, check summaries, progress evidence, and new deterministic actions.
+6. Parse optional Kit progress summaries and SPEC issue references without inventing progress percentages, accepting current phase-less Kit SPEC front matter and treating malformed or legacy documents as warnings.
+7. Emit schema version 2 with projects, issues, feedback, check summaries, progress evidence, warning/error separation, and new deterministic actions.
 8. Render a project-grouped, terminal-width-aware, color-controlled table while keeping JSON ANSI-free.
 9. Update the macOS app to decode, group, display, and open schema-v2 project, issue, feedback, and progress evidence.
 10. Preserve Beacon's read-only scanning boundary; only explicit confirmed initialization may write configuration.
@@ -97,7 +98,7 @@ The user explicitly selected issue `#1`, branch `GH-1`, and PR `#2` for delivery
 - [x] AC8: Schema-v2 JSON contains projects and enriched lanes, uses non-null arrays, is deterministic, and never contains ANSI escapes.
 - [x] AC9: Terminal output respects `auto|always|never`, `NO_COLOR`, TTY width, and project grouping.
 - [x] AC10: The macOS app decodes schema v2, displays the same evidence, opens issue-only lanes, retains last-good results, and switches its menu-bar label between a bordered high-contrast non-idle count and a neon-space zero-state glyph while styling existing groups and signals with coordinated neon and pastel accents.
-- [x] AC11: Malformed Kit or one-repository GitHub evidence produces scoped warnings/errors without suppressing healthy projects.
+- [x] AC11: Optional Kit, inaccessible discovery, prunable worktree, and truncation diagnostics remain scoped warnings; genuine evidence-collection failures remain errors, and neither suppresses healthy projects.
 - [x] AC12: Formatting, vet, unit, race, CLI, config-isolation, and Xcode validations pass, and inspection confirms scanning remains read-only.
 
 ## Implementation Plan
@@ -162,6 +163,7 @@ Continue on issue `#1`, branch `GH-1`, and ready PR `#2`, as explicitly directed
 - CLI smoke checks confirmed `--color=always` emits ANSI, `NO_COLOR`/non-TTY output does not, invalid color and non-interactive bare init exit 2, and missing config exits 1 with an init hint.
 - `beacon doctor --json` passed Git, `gh`, authentication, config-directory, repository, and GitHub-access checks.
 - Focused and race tests cover the lighthouse frames, TTY gating, color, successful completion, failed-scan cleanup, cursor restoration, and the absence of animation from explicit scans. A real one-repository PTY smoke test animated through multiple sweeps before handing off cleanly to the dashboard; redirected and JSON smoke outputs contained no loader state.
+- A live scan of the five configured source roots reproduced 181 items in the terminal `Errors` section: 178 optional progress diagnostics, two prunable worktrees, and one inaccessible discovered repository. After classification and compatibility repairs, the same 79-project scan reports zero errors and 25 non-blocking warnings, with no warning-detail flood in human output and complete detail retained in JSON.
 - `kit check --all --project` reported that the project contract is coherent.
 - Independent read-only verification confirmed all reported edge cases were repaired and found no remaining findings after a final 20-column output check.
 - Production process execution uses `exec.CommandContext` with argument arrays. Inspection found no scanner writes beyond the documented bounded fetch; explicit confirmed init writes only Beacon's config through same-directory atomic replacement.

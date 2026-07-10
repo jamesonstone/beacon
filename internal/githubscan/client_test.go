@@ -44,8 +44,8 @@ func TestCollectMineFiltersRepositoriesAndEnrichesEvidence(t *testing.T) {
 
 	collection := (Client{Runner: runner}).Collect(context.Background(), []config.Repository{{Name: "beacon", GitHub: "owner/beacon"}}, "mine", "@me", 2)
 	evidence := collection.Repositories["owner/beacon"]
-	if len(collection.Errors) != 0 || len(evidence.Errors) != 0 {
-		t.Fatalf("errors = %#v / %#v", collection.Errors, evidence.Errors)
+	if len(collection.Errors) != 0 || len(collection.Warnings) != 0 || len(evidence.Errors) != 0 || len(evidence.Warnings) != 0 {
+		t.Fatalf("diagnostics = %#v / %#v", collection, evidence)
 	}
 	if len(evidence.PullRequests) != 1 || evidence.PullRequests[0].Number != 2 || evidence.PullRequests[0].Feedback.UnresolvedThreads != 1 || evidence.PullRequests[0].Checks.Success != 1 {
 		t.Fatalf("pull requests = %#v", evidence.PullRequests)
@@ -86,8 +86,8 @@ func TestCollectMineWarnsWhenIssueSearchHitsCap(t *testing.T) {
 		"gh search issues": issueJSON,
 	}}
 	collection := (Client{Runner: runner}).Collect(context.Background(), []config.Repository{{Name: "beacon", GitHub: "owner/beacon"}}, "mine", "@me", 2)
-	if len(collection.Errors) != 1 || collection.Errors[0].Stage != "github-search-issues" || !strings.Contains(collection.Errors[0].Message, "truncated") {
-		t.Fatalf("errors = %#v", collection.Errors)
+	if len(collection.Errors) != 0 || len(collection.Warnings) != 1 || collection.Warnings[0].Stage != "github-search-issues" || !strings.Contains(collection.Warnings[0].Message, "truncated") {
+		t.Fatalf("diagnostics = %#v", collection)
 	}
 }
 

@@ -12,7 +12,7 @@ import (
 )
 
 func TestJSONEmitsVersionedSnapshot(t *testing.T) {
-	snapshot := model.Snapshot{SchemaVersion: model.SchemaVersion, GeneratedAt: time.Now(), Groups: model.Groups{}, Projects: []model.Project{}, Lanes: []model.Lane{}, Errors: []model.ScanError{}}
+	snapshot := model.Snapshot{SchemaVersion: model.SchemaVersion, GeneratedAt: time.Now(), Groups: model.Groups{}, Projects: []model.Project{}, Lanes: []model.Lane{}, Errors: []model.ScanError{}, Warnings: []model.ScanError{}}
 	var buffer bytes.Buffer
 	if err := JSON(&buffer, snapshot); err != nil {
 		t.Fatal(err)
@@ -34,12 +34,13 @@ func TestJSONEmitsEmptyCollectionsAsArrays(t *testing.T) {
 		Projects:      []model.Project{},
 		Lanes:         []model.Lane{},
 		Errors:        []model.ScanError{},
+		Warnings:      []model.ScanError{},
 	}
 	var buffer bytes.Buffer
 	if err := JSON(&buffer, snapshot); err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{`"refresh": []`, `"ready": []`, `"projects": []`, `"lanes": []`, `"errors": []`} {
+	for _, expected := range []string{`"refresh": []`, `"ready": []`, `"projects": []`, `"lanes": []`, `"errors": []`, `"warnings": []`} {
 		if !strings.Contains(buffer.String(), expected) {
 			t.Fatalf("JSON missing %s: %s", expected, buffer.String())
 		}
@@ -57,6 +58,26 @@ func TestTerminalGroupsLanes(t *testing.T) {
 	}
 	if !strings.Contains(buffer.String(), "Ready for Review") || !strings.Contains(buffer.String(), "review manually") {
 		t.Fatalf("terminal output = %q", buffer.String())
+	}
+}
+
+func TestTerminalSummarizesWarningsWithoutRenderingDiagnosticFlood(t *testing.T) {
+	snapshot := model.Snapshot{
+		GeneratedAt: time.Now(), Summary: model.Summary{Warnings: 2},
+		Groups: model.Groups{}, Warnings: []model.ScanError{
+			{Repository: "first", Stage: "progress-warning", Message: "legacy progress document"},
+			{Repository: "second", Stage: "discovery-inspect", Message: "repository unavailable"},
+		},
+	}
+	var buffer bytes.Buffer
+	if err := Terminal(&buffer, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buffer.String(), "2 warnings") {
+		t.Fatalf("terminal output = %q", buffer.String())
+	}
+	if strings.Contains(buffer.String(), "legacy progress document") || strings.Contains(buffer.String(), "repository unavailable") || strings.Contains(buffer.String(), "Errors") {
+		t.Fatalf("terminal rendered non-blocking diagnostics as errors: %q", buffer.String())
 	}
 }
 
@@ -138,7 +159,7 @@ func TestJSONNeverContainsANSI(t *testing.T) {
 		Projects:      []model.Project{},
 		Groups:        model.Groups{Ready: []string{}, Action: []string{}, Waiting: []string{}, Idle: []string{}},
 		Lanes:         []model.Lane{{ID: "\x1b[31munsafe"}},
-		Refresh:       []model.Refresh{}, Errors: []model.ScanError{},
+		Refresh:       []model.Refresh{}, Errors: []model.ScanError{}, Warnings: []model.ScanError{},
 	}
 	var buffer bytes.Buffer
 	if err := JSON(&buffer, snapshot); err != nil {

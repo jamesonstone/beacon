@@ -25,7 +25,10 @@ type Client struct {
 }
 
 func (c Client) Collect(ctx context.Context, repositories []config.Repository, scope, author string, maxParallel int) model.RemoteCollection {
-	collection := model.RemoteCollection{Repositories: make(map[string]model.RemoteEvidence, len(repositories)), Errors: []model.ScanError{}}
+	collection := model.RemoteCollection{
+		Repositories: make(map[string]model.RemoteEvidence, len(repositories)),
+		Errors:       []model.ScanError{}, Warnings: []model.ScanError{},
+	}
 	configured := make(map[string]config.Repository, len(repositories))
 	for _, repository := range repositories {
 		configured[repository.GitHub] = repository
@@ -57,7 +60,7 @@ func (c Client) collectMine(ctx context.Context, configured map[string]config.Re
 			collection.Errors = append(collection.Errors, model.ScanError{Stage: "github-search-prs", Message: "decode results: " + err.Error()})
 		} else {
 			if len(matches) == searchLimit {
-				collection.Errors = append(collection.Errors, model.ScanError{Stage: "github-search-prs", Message: "result limit reached; pull requests may be truncated"})
+				collection.Warnings = append(collection.Warnings, model.ScanError{Stage: "github-search-prs", Message: "result limit reached; pull requests may be truncated"})
 			}
 			c.enrichMinePullRequests(ctx, configured, matches, maxParallel, collection)
 		}
@@ -74,7 +77,7 @@ func (c Client) collectMine(ctx context.Context, configured map[string]config.Re
 		return
 	}
 	if resultCount == searchLimit {
-		collection.Errors = append(collection.Errors, model.ScanError{Stage: "github-search-issues", Message: "result limit reached; issues may be truncated"})
+		collection.Warnings = append(collection.Warnings, model.ScanError{Stage: "github-search-issues", Message: "result limit reached; issues may be truncated"})
 	}
 	for repository, values := range issues {
 		if _, ok := configured[repository]; !ok {
@@ -106,7 +109,7 @@ func (c Client) enrichMinePullRequests(ctx context.Context, configured map[strin
 			defer waitGroup.Done()
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
-			pullRequest, scanErrors := c.pullRequestDetail(ctx, current.repository, current.number)
+			pullRequest, scanErrors, scanWarnings := c.pullRequestDetail(ctx, current.repository, current.number)
 			mutex.Lock()
 			defer mutex.Unlock()
 			evidence := collection.Repositories[current.repository]
@@ -116,6 +119,10 @@ func (c Client) enrichMinePullRequests(ctx context.Context, configured map[strin
 			for _, scanError := range scanErrors {
 				scanError.Repository = configured[current.repository].Name
 				evidence.Errors = append(evidence.Errors, scanError)
+			}
+			for _, scanWarning := range scanWarnings {
+				scanWarning.Repository = configured[current.repository].Name
+				evidence.Warnings = append(evidence.Warnings, scanWarning)
 			}
 			collection.Repositories[current.repository] = evidence
 		}()
@@ -128,6 +135,12 @@ func (c Client) enrichMinePullRequests(ctx context.Context, configured map[strin
 				return evidence.Errors[i].Stage < evidence.Errors[j].Stage
 			}
 			return evidence.Errors[i].Message < evidence.Errors[j].Message
+		})
+		sort.Slice(evidence.Warnings, func(i, j int) bool {
+			if evidence.Warnings[i].Stage != evidence.Warnings[j].Stage {
+				return evidence.Warnings[i].Stage < evidence.Warnings[j].Stage
+			}
+			return evidence.Warnings[i].Message < evidence.Warnings[j].Message
 		})
 		collection.Repositories[repository] = evidence
 	}
@@ -162,7 +175,7 @@ func (c Client) collectRepository(ctx context.Context, repository config.Reposit
 	} else {
 		evidence.PullRequests = pullRequests
 		if len(pullRequests) == searchLimit {
-			evidence.Errors = append(evidence.Errors, model.ScanError{Repository: repository.Name, Stage: "github-prs", Message: "result limit reached; pull requests may be truncated"})
+			evidence.Warnings = append(evidence.Warnings, model.ScanError{Repository: repository.Name, Stage: "github-prs", Message: "result limit reached; pull requests may be truncated"})
 		}
 		for index := range evidence.PullRequests {
 			count, truncated, threadErr := c.unresolvedThreads(ctx, repository.GitHub, evidence.PullRequests[index].Number)
@@ -173,7 +186,7 @@ func (c Client) collectRepository(ctx context.Context, repository config.Reposit
 			}
 			evidence.PullRequests[index].Feedback.UnresolvedThreads = count
 			if truncated {
-				evidence.Errors = append(evidence.Errors, model.ScanError{Repository: repository.Name, Stage: "github-feedback", Message: fmt.Sprintf("PR #%d review threads may be truncated", evidence.PullRequests[index].Number)})
+				evidence.Warnings = append(evidence.Warnings, model.ScanError{Repository: repository.Name, Stage: "github-feedback", Message: fmt.Sprintf("PR #%d review threads may be truncated", evidence.PullRequests[index].Number)})
 			}
 		}
 	}
@@ -185,32 +198,32 @@ func (c Client) collectRepository(ctx context.Context, repository config.Reposit
 	} else {
 		evidence.Issues = issues
 		if len(issues) == searchLimit {
-			evidence.Errors = append(evidence.Errors, model.ScanError{Repository: repository.Name, Stage: "github-issues", Message: "result limit reached; issues may be truncated"})
+			evidence.Warnings = append(evidence.Warnings, model.ScanError{Repository: repository.Name, Stage: "github-issues", Message: "result limit reached; issues may be truncated"})
 		}
 	}
 	return evidence
 }
 
-func (c Client) pullRequestDetail(ctx context.Context, repository string, number int) (*model.PullRequest, []model.ScanError) {
+func (c Client) pullRequestDetail(ctx context.Context, repository string, number int) (*model.PullRequest, []model.ScanError, []model.ScanError) {
 	output, err := c.run(ctx, "gh", "pr", "view", strconv.Itoa(number), "--repo", repository, "--json", pullRequestFields)
 	if err != nil {
-		return nil, []model.ScanError{{Stage: "github-pr", Message: err.Error()}}
+		return nil, []model.ScanError{{Stage: "github-pr", Message: err.Error()}}, nil
 	}
 	var raw rawPullRequest
 	if err := json.Unmarshal(output, &raw); err != nil {
-		return nil, []model.ScanError{{Stage: "github-pr", Message: "decode detail: " + err.Error()}}
+		return nil, []model.ScanError{{Stage: "github-pr", Message: "decode detail: " + err.Error()}}, nil
 	}
 	pullRequest := normalizePullRequest(raw)
 	count, truncated, err := c.unresolvedThreads(ctx, repository, number)
 	if err != nil {
 		pullRequest.ReviewDecision = "UNKNOWN"
-		return &pullRequest, []model.ScanError{{Stage: "github-feedback", Message: err.Error()}}
+		return &pullRequest, []model.ScanError{{Stage: "github-feedback", Message: err.Error()}}, nil
 	}
 	pullRequest.Feedback.UnresolvedThreads = count
 	if truncated {
-		return &pullRequest, []model.ScanError{{Stage: "github-feedback", Message: fmt.Sprintf("PR #%d review threads may be truncated", number)}}
+		return &pullRequest, nil, []model.ScanError{{Stage: "github-feedback", Message: fmt.Sprintf("PR #%d review threads may be truncated", number)}}
 	}
-	return &pullRequest, nil
+	return &pullRequest, nil, nil
 }
 
 func (c Client) unresolvedThreads(ctx context.Context, repository string, number int) (int, bool, error) {
@@ -244,7 +257,10 @@ func (c Client) run(ctx context.Context, name string, args ...string) ([]byte, e
 }
 
 func emptyEvidence() model.RemoteEvidence {
-	return model.RemoteEvidence{PullRequests: []model.PullRequest{}, Issues: []model.Issue{}, Errors: []model.ScanError{}}
+	return model.RemoteEvidence{
+		PullRequests: []model.PullRequest{}, Issues: []model.Issue{},
+		Errors: []model.ScanError{}, Warnings: []model.ScanError{},
+	}
 }
 
 func sortPullRequests(pullRequests []model.PullRequest) {

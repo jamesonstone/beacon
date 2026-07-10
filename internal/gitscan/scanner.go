@@ -32,9 +32,10 @@ type LocalLane struct {
 }
 
 type Result struct {
-	Lanes   []LocalLane
-	Refresh model.Refresh
-	Errors  []model.ScanError
+	Lanes    []LocalLane
+	Refresh  model.Refresh
+	Errors   []model.ScanError
+	Warnings []model.ScanError
 }
 
 type worktreeRecord struct {
@@ -74,11 +75,15 @@ func (s Scanner) Scan(ctx context.Context, repo config.Repository, refresh bool,
 		return result
 	}
 	for _, record := range parseWorktrees(output) {
-		lane, scanErrors := s.scanWorktree(ctx, repo, record)
+		lane, scanErrors, scanWarnings := s.scanWorktree(ctx, repo, record)
 		result.Lanes = append(result.Lanes, lane)
 		for _, scanErr := range scanErrors {
 			scanErr.Repository = repo.Name
 			result.Errors = append(result.Errors, scanErr)
+		}
+		for _, scanWarning := range scanWarnings {
+			scanWarning.Repository = repo.Name
+			result.Warnings = append(result.Warnings, scanWarning)
 		}
 	}
 	return result
@@ -113,7 +118,7 @@ func (s Scanner) refresh(ctx context.Context, repo config.Repository, enabled bo
 	return refresh
 }
 
-func (s Scanner) scanWorktree(ctx context.Context, repo config.Repository, record worktreeRecord) (LocalLane, []model.ScanError) {
+func (s Scanner) scanWorktree(ctx context.Context, repo config.Repository, record worktreeRecord) (LocalLane, []model.ScanError, []model.ScanError) {
 	branch := record.Branch
 	if branch == "" {
 		branch = "detached-" + shortOID(record.HeadOID)
@@ -128,16 +133,16 @@ func (s Scanner) scanWorktree(ctx context.Context, repo config.Repository, recor
 		Publication: model.PublicationUnknown,
 	}
 	if record.Prunable {
-		return lane, []model.ScanError{{Stage: "worktree", Message: fmt.Sprintf("worktree is prunable: %s", record.Path)}}
+		return lane, nil, []model.ScanError{{Stage: "worktree", Message: fmt.Sprintf("worktree is prunable: %s", record.Path)}}
 	}
 
 	output, err := s.run(ctx, localTimeout, record.Path, "git", "status", "--porcelain=v2", "--branch", "--untracked-files=all", "-z")
 	if err != nil {
-		return lane, []model.ScanError{{Stage: "status", Message: err.Error()}}
+		return lane, []model.ScanError{{Stage: "status", Message: err.Error()}}, nil
 	}
 	status, err := parseStatus(output)
 	if err != nil {
-		return lane, []model.ScanError{{Stage: "status", Message: err.Error()}}
+		return lane, []model.ScanError{{Stage: "status", Message: err.Error()}}, nil
 	}
 	if status.Head != "" && status.Head != "(detached)" {
 		lane.Branch = status.Head
@@ -169,7 +174,7 @@ func (s Scanner) scanWorktree(ctx context.Context, repo config.Repository, recor
 		lane.Worktree.UpdatedAt = updatedAt
 	}
 	lane.Publication = publication(repo.Base, lane.Branch, record.Detached, lane.Worktree)
-	return lane, scanErrors
+	return lane, scanErrors, nil
 }
 
 func (s Scanner) run(ctx context.Context, timeout time.Duration, dir, name string, args ...string) ([]byte, error) {

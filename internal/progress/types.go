@@ -80,3 +80,7 @@ func (r Result) HasErrors() bool {
 func isDelivered(phase string) bool {
 	return strings.EqualFold(strings.TrimSpace(phase), "deliver")
 }
+
+func isRemoved(phase string) bool {
+	return strings.EqualFold(strings.TrimSpace(phase), "removed")
+}
