@@ -3,20 +3,26 @@ package scan
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/jamesonstone/beacon/internal/config"
+	"github.com/jamesonstone/beacon/internal/discovery"
 	"github.com/jamesonstone/beacon/internal/gitscan"
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/policy"
+	"github.com/jamesonstone/beacon/internal/progress"
 )
 
 type Scanner struct {
-	Git    GitScanner
-	GitHub GitHubClient
-	Now    func() time.Time
+	Git       GitScanner
+	GitHub    GitHubClient
+	Discovery RepositoryDiscoverer
+	Now       func() time.Time
 }
 
 type GitScanner interface {
@@ -24,11 +30,20 @@ type GitScanner interface {
 }
 
 type GitHubClient interface {
-	ListOpen(context.Context, string, string) ([]model.PullRequest, error)
+	Collect(context.Context, []config.Repository, string, string, int) model.RemoteCollection
+}
+
+type RepositoryDiscoverer interface {
+	Discover(context.Context, []config.Source) discovery.Result
+}
+
+type commonDirectoryResolver interface {
+	CommonDirectory(context.Context, string) (string, error)
 }
 
 type repositoryResult struct {
 	index   int
+	project model.Project
 	lanes   []model.Lane
 	refresh model.Refresh
 	errors  []model.ScanError
@@ -38,20 +53,25 @@ func (s Scanner) Scan(ctx context.Context, cfg config.Config, repositoryName str
 	if s.Now == nil {
 		s.Now = time.Now
 	}
-	repositories := cfg.Repositories
+	repositories, discoveryErrors := s.repositories(ctx, cfg)
 	if repositoryName != "" {
-		repositories = nil
-		for _, repository := range cfg.Repositories {
+		filtered := repositories[:0]
+		for _, repository := range repositories {
 			if repository.Name == repositoryName {
-				repositories = append(repositories, repository)
+				filtered = append(filtered, repository)
 				break
 			}
 		}
+		repositories = filtered
 		if len(repositories) == 0 {
-			return model.Snapshot{}, errors.New("configured repository not found: " + repositoryName)
+			return model.Snapshot{}, errors.New("configured or discovered repository not found: " + repositoryName)
 		}
 	}
+	if len(repositories) == 0 {
+		return model.Snapshot{}, errors.New("configuration did not resolve to any accessible GitHub repositories")
+	}
 
+	remote := s.GitHub.Collect(ctx, repositories, string(cfg.Settings.GitHubScope), cfg.Settings.GitHubAuthor, cfg.Settings.MaxParallel)
 	results := make(chan repositoryResult, len(repositories))
 	semaphore := make(chan struct{}, cfg.Settings.MaxParallel)
 	var waitGroup sync.WaitGroup
@@ -61,7 +81,7 @@ func (s Scanner) Scan(ctx context.Context, cfg config.Config, repositoryName str
 			defer waitGroup.Done()
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
-			results <- s.scanRepository(ctx, cfg, index, repository, refresh)
+			results <- s.scanRepository(ctx, cfg, index, repository, remote.Repositories[repository.GitHub], refresh)
 		}()
 	}
 	waitGroup.Wait()
@@ -79,28 +99,169 @@ func (s Scanner) Scan(ctx context.Context, cfg config.Config, repositoryName str
 		Groups: model.Groups{
 			Ready: []string{}, Action: []string{}, Waiting: []string{}, Idle: []string{},
 		},
-		Lanes:  []model.Lane{},
-		Errors: []model.ScanError{},
+		Projects: []model.Project{},
+		Lanes:    []model.Lane{},
+		Errors:   append(discoveryErrors, remote.Errors...),
 	}
 	for _, result := range ordered {
+		snapshot.Projects = append(snapshot.Projects, result.project)
 		snapshot.Lanes = append(snapshot.Lanes, result.lanes...)
 		snapshot.Refresh = append(snapshot.Refresh, result.refresh)
 		snapshot.Errors = append(snapshot.Errors, result.errors...)
 	}
 	orderLanes(snapshot.Lanes)
+	orderProjectLanes(snapshot.Projects, snapshot.Lanes)
 	group(&snapshot)
 	return snapshot, nil
 }
 
-func (s Scanner) scanRepository(ctx context.Context, cfg config.Config, index int, repository config.Repository, refresh bool) repositoryResult {
-	local := s.Git.Scan(ctx, repository, refresh, cfg.Settings.RemoteRefreshInterval)
-	result := repositoryResult{index: index, refresh: local.Refresh, errors: local.Errors}
-	pullRequests, err := s.GitHub.ListOpen(ctx, repository.GitHub, cfg.Settings.GitHubAuthor)
-	if err != nil {
-		result.errors = append(result.errors, model.ScanError{Repository: repository.Name, Stage: "github", Message: err.Error()})
+func orderProjectLanes(projects []model.Project, lanes []model.Lane) {
+	byGitHub := make(map[string]int, len(projects))
+	for index := range projects {
+		projects[index].LaneIDs = []string{}
+		byGitHub[projects[index].GitHub] = index
 	}
-	result.lanes = policy.Build(repository, local.Lanes, pullRequests, cfg.Settings.StaleAfter, s.Now())
-	return result
+	for _, lane := range lanes {
+		if index, ok := byGitHub[lane.GitHub]; ok {
+			projects[index].LaneIDs = append(projects[index].LaneIDs, lane.ID)
+		}
+	}
+}
+
+func (s Scanner) repositories(ctx context.Context, cfg config.Config) ([]config.Repository, []model.ScanError) {
+	discovered := discovery.Result{Repositories: []config.Repository{}, Warnings: []discovery.Warning{}}
+	if len(cfg.Sources) > 0 {
+		if s.Discovery == nil {
+			return nil, []model.ScanError{{Stage: "discovery", Message: "repository discovery is not configured"}}
+		}
+		discovered = s.Discovery.Discover(ctx, cfg.Sources)
+	}
+
+	// Source discoveries are the baseline. Explicit entries replace discoveries
+	// for the same GitHub repository or canonical repository path.
+	byGitHub := make(map[string]config.Repository, len(discovered.Repositories)+len(cfg.Repositories))
+	pathOwner := make(map[string]string, len(discovered.Repositories)+len(cfg.Repositories))
+	commonOwner := make(map[string]string, len(discovered.Repositories)+len(cfg.Repositories))
+	errors := make([]model.ScanError, 0, len(discovered.Warnings)+len(cfg.Repositories))
+	for _, repository := range discovered.Repositories {
+		byGitHub[repository.GitHub] = repository
+		if repository.Path != "" {
+			pathOwner[repository.Path] = repository.GitHub
+		}
+		if repository.CommonDir != "" {
+			commonOwner[repository.CommonDir] = repository.GitHub
+		}
+	}
+	for _, repository := range cfg.Repositories {
+		commonDir := repository.CommonDir
+		if commonDir == "" {
+			if resolver, ok := s.Discovery.(commonDirectoryResolver); ok {
+				resolved, err := resolver.CommonDirectory(ctx, repository.Path)
+				if err != nil {
+					errors = append(errors, model.ScanError{Repository: repository.Name, Stage: "discovery-common-dir", Message: err.Error()})
+				} else {
+					commonDir = resolved
+					repository.CommonDir = resolved
+				}
+			}
+		}
+		if previous, ok := commonOwner[commonDir]; commonDir != "" && ok && previous != repository.GitHub {
+			delete(byGitHub, previous)
+		}
+		if repository.Path != "" {
+			if previous, ok := pathOwner[repository.Path]; ok && previous != repository.GitHub {
+				delete(byGitHub, previous)
+			}
+			pathOwner[repository.Path] = repository.GitHub
+		}
+		byGitHub[repository.GitHub] = repository
+		if commonDir != "" {
+			commonOwner[commonDir] = repository.GitHub
+		}
+	}
+	repositories := make([]config.Repository, 0, len(byGitHub))
+	for _, repository := range byGitHub {
+		repositories = append(repositories, repository)
+	}
+	sort.Slice(repositories, func(i, j int) bool {
+		if repositories[i].Name != repositories[j].Name {
+			return repositories[i].Name < repositories[j].Name
+		}
+		if repositories[i].GitHub != repositories[j].GitHub {
+			return repositories[i].GitHub < repositories[j].GitHub
+		}
+		return repositories[i].Path < repositories[j].Path
+	})
+	for _, warning := range discovered.Warnings {
+		errors = append(errors, model.ScanError{Stage: "discovery-" + warning.Stage, Message: warning.Path + ": " + warning.Message})
+	}
+	return repositories, errors
+}
+
+func (s Scanner) scanRepository(ctx context.Context, cfg config.Config, index int, repository config.Repository, remote model.RemoteEvidence, refresh bool) repositoryResult {
+	local := s.Git.Scan(ctx, repository, refresh, cfg.Settings.RemoteRefreshInterval)
+	progressResult := progress.Load(repository.Path)
+	projectProgress, progressByIssue := correlateProgress(repository, progressResult)
+	errors := append([]model.ScanError{}, local.Errors...)
+	errors = append(errors, remote.Errors...)
+	for _, diagnostic := range progressResult.Diagnostics {
+		errors = append(errors, model.ScanError{
+			Repository: repository.Name,
+			Stage:      "progress-" + string(diagnostic.Severity),
+			Message:    diagnostic.Path + ": " + diagnostic.Message,
+		})
+	}
+	lanes := policy.Build(repository, local.Lanes, remote.PullRequests, remote.Issues, progressByIssue, cfg.Settings.StaleAfter, s.Now())
+	laneIDs := make([]string, 0, len(lanes))
+	for _, lane := range lanes {
+		laneIDs = append(laneIDs, lane.ID)
+	}
+	projectErrors := append([]model.ScanError{}, errors...)
+	return repositoryResult{
+		index: index, lanes: lanes, refresh: local.Refresh, errors: errors,
+		project: model.Project{
+			Name: repository.Name, Path: repository.Path, GitHub: repository.GitHub,
+			Base: repository.Base, Remote: repository.Remote, Progress: projectProgress,
+			LaneIDs: laneIDs, Errors: projectErrors,
+		},
+	}
+}
+
+func correlateProgress(repository config.Repository, result progress.Result) (*model.Progress, map[int]model.Progress) {
+	byIssue := make(map[int]model.Progress)
+	prefix := fmt.Sprintf("https://github.com/%s/issues/", repository.GitHub)
+	for _, feature := range result.Features {
+		for _, issueURL := range feature.IssueURLs {
+			if !strings.HasPrefix(issueURL, prefix) {
+				continue
+			}
+			number, err := strconv.Atoi(strings.TrimPrefix(issueURL, prefix))
+			if err == nil && number > 0 {
+				// Features are ordered by numeric ID, so the newest exact
+				// reference deterministically wins shared delivery issues.
+				byIssue[number] = progressModel(feature)
+			}
+		}
+	}
+	if result.Selected == nil {
+		return nil, byIssue
+	}
+	selected := progressModel(*result.Selected)
+	return &selected, byIssue
+}
+
+func progressModel(feature progress.Feature) model.Progress {
+	summary := feature.Summary
+	if summary == "" {
+		summary = feature.OpenItems
+	}
+	if summary == "" {
+		summary = feature.Intent
+	}
+	return model.Progress{
+		Source: "kit", FeatureID: feature.ID, Feature: feature.Slug,
+		Phase: feature.Phase, Summary: summary, Path: feature.SpecPath,
+	}
 }
 
 func orderLanes(lanes []model.Lane) {
@@ -109,9 +270,11 @@ func orderLanes(lanes []model.Lane) {
 		if leftLane.ReviewReady != rightLane.ReviewReady {
 			return leftLane.ReviewReady
 		}
-		leftPriority, rightPriority := actionPriority(leftLane.NextAction), actionPriority(rightLane.NextAction)
-		if leftPriority != rightPriority {
-			return leftPriority < rightPriority
+		if !leftLane.ReviewReady {
+			leftPriority, rightPriority := actionPriority(leftLane.NextAction), actionPriority(rightLane.NextAction)
+			if leftPriority != rightPriority {
+				return leftPriority < rightPriority
+			}
 		}
 		if !leftLane.UpdatedAt.Equal(rightLane.UpdatedAt) {
 			return leftLane.UpdatedAt.Before(rightLane.UpdatedAt)
@@ -119,7 +282,10 @@ func orderLanes(lanes []model.Lane) {
 		if leftLane.Repository != rightLane.Repository {
 			return leftLane.Repository < rightLane.Repository
 		}
-		return leftLane.Branch < rightLane.Branch
+		if leftLane.Branch != rightLane.Branch {
+			return leftLane.Branch < rightLane.Branch
+		}
+		return leftLane.ID < rightLane.ID
 	})
 }
 
@@ -141,18 +307,33 @@ func actionPriority(action model.Action) int {
 		return 7
 	case model.ActionMarkReady:
 		return 8
-	case model.ActionReviewPR:
+	case model.ActionWaitForCI:
 		return 9
-	case model.ActionResumeOrClose:
+	case model.ActionMergePR:
 		return 10
-	default:
+	case model.ActionManualTestMerge:
 		return 11
+	case model.ActionReviewPR:
+		return 12
+	case model.ActionResumeOrClose:
+		return 13
+	case model.ActionStartIssue:
+		return 14
+	default:
+		return 15
 	}
 }
 
 func group(snapshot *model.Snapshot) {
+	snapshot.Summary.Projects = len(snapshot.Projects)
 	for _, lane := range snapshot.Lanes {
 		snapshot.Summary.Total++
+		if lane.Issue != nil {
+			snapshot.Summary.OpenIssues++
+		}
+		if lane.PullRequest != nil {
+			snapshot.Summary.UnresolvedFeedback += lane.PullRequest.Feedback.UnresolvedThreads
+		}
 		switch {
 		case lane.ReviewReady:
 			snapshot.Groups.Ready = append(snapshot.Groups.Ready, lane.ID)
@@ -160,7 +341,7 @@ func group(snapshot *model.Snapshot) {
 		case lane.NextAction != model.ActionNone:
 			snapshot.Groups.Action = append(snapshot.Groups.Action, lane.ID)
 			snapshot.Summary.NeedsAction++
-		case lane.PullRequest != nil || lane.Branch != lane.Base:
+		case lane.PullRequest != nil || lane.Issue != nil || lane.Branch != lane.Base:
 			snapshot.Groups.Waiting = append(snapshot.Groups.Waiting, lane.ID)
 			snapshot.Summary.Waiting++
 		default:

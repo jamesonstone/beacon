@@ -11,12 +11,14 @@ import (
 
 	"github.com/jamesonstone/beacon/internal/command"
 	"github.com/jamesonstone/beacon/internal/config"
+	"github.com/jamesonstone/beacon/internal/discovery"
 	"github.com/jamesonstone/beacon/internal/githubscan"
 	"github.com/jamesonstone/beacon/internal/gitscan"
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/output"
 	"github.com/jamesonstone/beacon/internal/scan"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var (
@@ -26,27 +28,50 @@ var (
 )
 
 type App struct {
-	Out    io.Writer
-	Err    io.Writer
-	Runner command.Runner
+	In            io.Reader
+	Out           io.Writer
+	Err           io.Writer
+	Runner        command.Runner
+	InputIsTTY    func() bool
+	OutputIsTTY   func() bool
+	TerminalWidth func() int
+	prompter      initPrompter
 }
 
 func New() *cobra.Command {
-	app := App{Out: os.Stdout, Err: os.Stderr, Runner: command.ExecRunner{}}
+	app := App{
+		In: os.Stdin, Out: os.Stdout, Err: os.Stderr, Runner: command.ExecRunner{},
+		InputIsTTY:  func() bool { return term.IsTerminal(int(os.Stdin.Fd())) },
+		OutputIsTTY: func() bool { return term.IsTerminal(int(os.Stdout.Fd())) },
+		TerminalWidth: func() int {
+			width, _, err := term.GetSize(int(os.Stdout.Fd()))
+			if err != nil {
+				return 120
+			}
+			return width
+		},
+	}
 	return app.Root()
 }
 
 func (a App) Root() *cobra.Command {
 	var configPath string
+	var colorMode string
 	root := &cobra.Command{
 		Use:           "beacon",
 		Short:         "Review readiness for agent-driven Git work",
 		SilenceErrors: true,
 		SilenceUsage:  true,
+		Args:          noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return a.runHumanScan(cmd.Context(), configPath, "", true, colorMode, true)
+		},
 	}
 	root.PersistentFlags().StringVar(&configPath, "config", "", "configuration file path")
+	root.PersistentFlags().StringVar(&colorMode, "color", "auto", "color output: auto, always, or never")
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err} })
 	root.AddCommand(
+		a.initCommand(&configPath),
 		a.scanCommand(&configPath),
 		a.doctorCommand(&configPath),
 		a.openCommand(&configPath),
@@ -60,7 +85,8 @@ func (a App) Root() *cobra.Command {
 func (a App) scanner() scan.Scanner {
 	git := gitscan.Scanner{Runner: a.Runner, Now: time.Now}
 	github := githubscan.Client{Runner: a.Runner}
-	return scan.Scanner{Git: git, GitHub: github, Now: time.Now}
+	discoverer := discovery.Discoverer{Runner: a.Runner}
+	return scan.Scanner{Git: git, GitHub: github, Discovery: discoverer, Now: time.Now}
 }
 
 func (a App) scanCommand(configPath *string) *cobra.Command {
@@ -72,24 +98,110 @@ func (a App) scanCommand(configPath *string) *cobra.Command {
 		Short: "Scan configured repositories",
 		Args:  noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := config.Load(*configPath)
-			if err != nil {
-				return err
-			}
-			snapshot, err := a.scanner().Scan(cmd.Context(), cfg, repository, !noRefresh)
-			if err != nil {
+			colorMode, _ := cmd.Flags().GetString("color")
+			if _, err := a.resolveColor(colorMode); err != nil {
 				return err
 			}
 			if jsonOutput {
+				cfg, err := config.Load(*configPath)
+				if err != nil {
+					return err
+				}
+				snapshot, err := a.scanner().Scan(cmd.Context(), cfg, repository, !noRefresh)
+				if err != nil {
+					return err
+				}
 				return output.JSON(a.Out, snapshot)
 			}
-			return output.Terminal(a.Out, snapshot)
+			return a.runHumanScan(cmd.Context(), *configPath, repository, !noRefresh, colorMode, false)
 		},
 	}
 	command.Flags().StringVar(&repository, "repo", "", "scan one configured repository")
 	command.Flags().BoolVar(&jsonOutput, "json", false, "emit JSON only")
 	command.Flags().BoolVar(&noRefresh, "no-refresh", false, "skip git fetch")
 	return command
+}
+
+func (a App) runHumanScan(ctx context.Context, path, repository string, refresh bool, colorMode string, offerInit bool) error {
+	color, err := a.resolveColor(colorMode)
+	if err != nil {
+		return err
+	}
+	cfg, err := config.Load(path)
+	if err != nil && errors.Is(err, os.ErrNotExist) {
+		if !offerInit || !a.inputIsTTY() {
+			return fmt.Errorf("%w; run beacon init to create %s", err, defaultConfigPath(path))
+		}
+		start, promptErr := a.initPrompter().Confirm(ctx, "Beacon is not configured. Run beacon init now?")
+		if promptErr != nil {
+			return fmt.Errorf("offer initialization: %w", promptErr)
+		}
+		if !start {
+			return errors.New("Beacon configuration is required; run beacon init")
+		}
+		if err := a.newInitService(path, initOptions{}).run(ctx); err != nil {
+			return err
+		}
+		cfg, err = config.Load(path)
+	}
+	if err != nil {
+		return err
+	}
+	snapshot, err := a.scanner().Scan(ctx, cfg, repository, refresh)
+	if err != nil {
+		return err
+	}
+	return output.TerminalWithOptions(a.Out, snapshot, output.TerminalOptions{Color: color, Width: a.terminalWidth()})
+}
+
+func (a App) resolveColor(mode string) (bool, error) {
+	switch mode {
+	case "", "auto":
+		return a.outputIsTTY() && os.Getenv("NO_COLOR") == "", nil
+	case "always":
+		return true, nil
+	case "never":
+		return false, nil
+	default:
+		return false, usageError{fmt.Errorf("--color must be auto, always, or never: %q", mode)}
+	}
+}
+
+func (a App) input() io.Reader {
+	if a.In != nil {
+		return a.In
+	}
+	return os.Stdin
+}
+
+func (a App) initPrompter() initPrompter {
+	if a.prompter != nil {
+		return a.prompter
+	}
+	return huhPrompter{input: a.input(), output: a.Out}
+}
+
+func (a App) inputIsTTY() bool {
+	return a.InputIsTTY != nil && a.InputIsTTY()
+}
+
+func (a App) outputIsTTY() bool {
+	return a.OutputIsTTY != nil && a.OutputIsTTY()
+}
+
+func (a App) terminalWidth() int {
+	if a.TerminalWidth != nil {
+		return a.TerminalWidth()
+	}
+	return 120
+}
+
+func defaultConfigPath(explicit string) string {
+	path, err := config.ResolvePath(explicit)
+	if err != nil {
+		return "$HOME/.config/beacon/config.yaml"
+	}
+	return path
 }
 
 func (a App) openCommand(configPath *string) *cobra.Command {
@@ -142,6 +254,8 @@ func (a App) openLane(ctx context.Context, lane model.Lane) error {
 	target := ""
 	if lane.PullRequest != nil {
 		target = lane.PullRequest.URL
+	} else if lane.Issue != nil {
+		target = lane.Issue.URL
 	} else if lane.Worktree != nil {
 		target = lane.Worktree.Path
 	}

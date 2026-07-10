@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/jamesonstone/beacon/internal/config"
+	"github.com/jamesonstone/beacon/internal/discovery"
 	"github.com/spf13/cobra"
 )
 
@@ -85,9 +88,32 @@ func (a App) runDoctor(ctx context.Context, configPath string) doctorReport {
 		return report
 	}
 	add("configuration", true, cfg.Path)
-	for _, repository := range cfg.Repositories {
+	configDirectory := filepath.Dir(cfg.Path)
+	if info, statErr := os.Stat(configDirectory); statErr != nil {
+		add("config directory", false, statErr.Error())
+	} else if info.Mode().Perm()&0o200 == 0 {
+		add("config directory", false, "directory is not writable: "+configDirectory)
+	} else {
+		add("config directory", true, configDirectory)
+	}
+
+	repositories := append([]config.Repository{}, cfg.Repositories...)
+	if len(cfg.Sources) > 0 {
+		result := (discovery.Discoverer{Runner: a.Runner}).Discover(ctx, cfg.Sources)
+		add("source discovery", len(result.Repositories) > 0, fmt.Sprintf("%d repositories discovered", len(result.Repositories)))
+		for _, warning := range result.Warnings {
+			add("source "+warning.Stage, false, warning.Path+": "+warning.Message)
+		}
+		repositories = append(repositories, result.Repositories...)
+	}
+	seen := make(map[string]struct{}, len(repositories))
+	for _, repository := range repositories {
+		if _, exists := seen[repository.GitHub]; exists {
+			continue
+		}
+		seen[repository.GitHub] = struct{}{}
 		checkContext, checkCancel := context.WithTimeout(ctx, 20*time.Second)
-		_, gitErr := a.Runner.Run(checkContext, repository.Path, "git", "rev-parse", "--is-inside-work-tree")
+		_, gitErr := a.Runner.Run(checkContext, repository.Path, "git", "worktree", "list", "--porcelain", "-z")
 		checkCancel()
 		if gitErr != nil {
 			add(repository.Name+" git", false, gitErr.Error())

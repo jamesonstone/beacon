@@ -2,6 +2,7 @@ package policy
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -10,23 +11,50 @@ import (
 	"github.com/jamesonstone/beacon/internal/model"
 )
 
-func Build(repo config.Repository, locals []gitscan.LocalLane, pullRequests []model.PullRequest, staleAfter time.Duration, now time.Time) []model.Lane {
-	used := make([]bool, len(locals))
-	lanes := make([]model.Lane, 0, len(locals)+len(pullRequests))
+var issueBranch = regexp.MustCompile(`(?i)^GH-(\d+)$`)
+
+func Build(repo config.Repository, locals []gitscan.LocalLane, pullRequests []model.PullRequest, issues []model.Issue, progressByIssue map[int]model.Progress, staleAfter time.Duration, now time.Time) []model.Lane {
+	usedLocals := make([]bool, len(locals))
+	usedIssues := make(map[int]bool, len(issues))
+	issuesByNumber := make(map[int]model.Issue, len(issues))
+	for _, issue := range issues {
+		issuesByNumber[issue.Number] = issue
+	}
+	lanes := make([]model.Lane, 0, len(locals)+len(pullRequests)+len(issues))
+
 	for index := range pullRequests {
 		pullRequest := pullRequests[index]
-		localIndex := matchingLocal(locals, used, pullRequest)
+		localIndex := matchingLocal(locals, usedLocals, pullRequest)
 		var local *gitscan.LocalLane
 		if localIndex >= 0 {
-			used[localIndex] = true
+			usedLocals[localIndex] = true
 			local = &locals[localIndex]
 		}
-		lanes = append(lanes, buildLane(repo, local, &pullRequest, staleAfter, now))
-	}
-	for index := range locals {
-		if !used[index] {
-			lanes = append(lanes, buildLane(repo, &locals[index], nil, staleAfter, now))
+		issue := matchingIssue(pullRequest, issuesByNumber)
+		if issue != nil {
+			usedIssues[issue.Number] = true
 		}
+		lanes = append(lanes, buildLane(repo, local, &pullRequest, issue, progressForLane(issue, pullRequest.HeadRefName, progressByIssue), staleAfter, now))
+	}
+
+	for index := range locals {
+		if usedLocals[index] {
+			continue
+		}
+		local := locals[index]
+		issue := issueForBranch(local.Branch, issuesByNumber)
+		if issue != nil {
+			usedIssues[issue.Number] = true
+		}
+		lanes = append(lanes, buildLane(repo, &local, nil, issue, progressForLane(issue, local.Branch, progressByIssue), staleAfter, now))
+	}
+
+	for index := range issues {
+		issue := issues[index]
+		if usedIssues[issue.Number] {
+			continue
+		}
+		lanes = append(lanes, buildLane(repo, nil, nil, &issue, progressFor(&issue, progressByIssue), staleAfter, now))
 	}
 	return lanes
 }
@@ -47,11 +75,69 @@ func matchingLocal(locals []gitscan.LocalLane, used []bool, pullRequest model.Pu
 	return fallback
 }
 
-func buildLane(repo config.Repository, local *gitscan.LocalLane, pullRequest *model.PullRequest, staleAfter time.Duration, now time.Time) model.Lane {
+func matchingIssue(pullRequest model.PullRequest, issues map[int]model.Issue) *model.Issue {
+	for _, closing := range pullRequest.ClosingIssues {
+		if issue, ok := issues[closing.Number]; ok {
+			copy := issue
+			return &copy
+		}
+		copy := closing
+		return &copy
+	}
+	return issueForBranch(pullRequest.HeadRefName, issues)
+}
+
+func issueForBranch(branch string, issues map[int]model.Issue) *model.Issue {
+	match := issueBranch.FindStringSubmatch(branch)
+	if len(match) != 2 {
+		return nil
+	}
+	var number int
+	if _, err := fmt.Sscanf(match[1], "%d", &number); err != nil {
+		return nil
+	}
+	issue, ok := issues[number]
+	if !ok {
+		return nil
+	}
+	return &issue
+}
+
+func progressFor(issue *model.Issue, progressByIssue map[int]model.Progress) *model.Progress {
+	if issue == nil {
+		return nil
+	}
+	progress, ok := progressByIssue[issue.Number]
+	if !ok {
+		return nil
+	}
+	return &progress
+}
+
+func progressForLane(issue *model.Issue, branch string, progressByIssue map[int]model.Progress) *model.Progress {
+	if progress := progressFor(issue, progressByIssue); progress != nil {
+		return progress
+	}
+	match := issueBranch.FindStringSubmatch(branch)
+	if len(match) != 2 {
+		return nil
+	}
+	var number int
+	if _, err := fmt.Sscanf(match[1], "%d", &number); err != nil {
+		return nil
+	}
+	progress, ok := progressByIssue[number]
+	if !ok {
+		return nil
+	}
+	return &progress
+}
+
+func buildLane(repo config.Repository, local *gitscan.LocalLane, pullRequest *model.PullRequest, issue *model.Issue, progress *model.Progress, staleAfter time.Duration, now time.Time) model.Lane {
 	lane := model.Lane{
 		Repository: repo.Name, GitHub: repo.GitHub, Base: repo.Base,
-		Signals: model.Signals{CI: model.CINone, Review: model.ReviewNone, Merge: model.MergeUnknown},
-		Reasons: []string{}, Warnings: []string{}, Blockers: []string{},
+		Signals: model.Signals{CI: model.CINone, Review: model.ReviewNone, Merge: model.MergeUnknown, Issue: model.IssueNone},
+		Reasons: []string{}, Warnings: []string{}, Blockers: []string{}, Progress: progress,
 	}
 	if local != nil {
 		lane.ID = local.ID
@@ -63,7 +149,7 @@ func buildLane(repo config.Repository, local *gitscan.LocalLane, pullRequest *mo
 		lane.UpdatedAt = worktree.UpdatedAt
 	} else {
 		lane.Signals.Worktree = model.WorktreeNotLocal
-		lane.Signals.Publication = model.PublicationPublished
+		lane.Signals.Publication = model.PublicationUnknown
 	}
 	if pullRequest != nil {
 		lane.ID = fmt.Sprintf("gh:%s#%d", repo.GitHub, pullRequest.Number)
@@ -76,11 +162,23 @@ func buildLane(repo config.Repository, local *gitscan.LocalLane, pullRequest *mo
 			lane.Signals.PullRequest = model.PullRequestDraft
 		}
 		lane.Signals.CI = pullRequest.CI
-		lane.Signals.Review = reviewState(pullRequest.ReviewDecision)
+		lane.Signals.Review = reviewState(*pullRequest)
 		lane.Signals.Merge = mergeState(pullRequest.MergeState, pullRequest.Mergeable)
+		lane.Signals.Publication = remotePublication(lane.Signals.Publication, local != nil)
 		lane.UpdatedAt = pullRequest.UpdatedAt
 	} else {
 		lane.Signals.PullRequest = model.PullRequestNone
+	}
+	if issue != nil {
+		copy := *issue
+		lane.Issue = &copy
+		lane.Signals.Issue = model.IssueOpen
+		if lane.ID == "" {
+			lane.ID = fmt.Sprintf("gh-issue:%s#%d", repo.GitHub, issue.Number)
+		}
+		if issue.UpdatedAt.After(lane.UpdatedAt) {
+			lane.UpdatedAt = issue.UpdatedAt
+		}
 	}
 	if lane.UpdatedAt.IsZero() {
 		lane.UpdatedAt = now
@@ -103,6 +201,13 @@ func buildLane(repo config.Repository, local *gitscan.LocalLane, pullRequest *mo
 	return lane
 }
 
+func remotePublication(current model.PublicationState, hasLocal bool) model.PublicationState {
+	if !hasLocal {
+		return model.PublicationPublished
+	}
+	return current
+}
+
 func worktreeState(worktree model.Worktree) model.WorktreeState {
 	if worktree.Prunable {
 		return model.WorktreeUnavailable
@@ -116,16 +221,26 @@ func worktreeState(worktree model.Worktree) model.WorktreeState {
 	return model.WorktreeClean
 }
 
-func reviewState(value string) model.ReviewState {
-	switch strings.ToUpper(value) {
-	case "":
-		return model.ReviewNone
-	case "REVIEW_REQUIRED":
-		return model.ReviewRequired
-	case "CHANGES_REQUESTED":
+func reviewState(pullRequest model.PullRequest) model.ReviewState {
+	// reviewDecision is GitHub's current aggregate decision. Feedback counts
+	// represent each reviewer's latest submitted state, so an active request is
+	// still actionable when branch protection does not publish a decision.
+	if pullRequest.Feedback.ChangesRequested > 0 || strings.EqualFold(pullRequest.ReviewDecision, "CHANGES_REQUESTED") {
 		return model.ReviewChangesRequested
+	}
+	if pullRequest.Feedback.UnresolvedThreads > 0 {
+		return model.ReviewFeedbackPending
+	}
+	switch strings.ToUpper(pullRequest.ReviewDecision) {
+	case "":
+		if pullRequest.Feedback.Approvals > 0 {
+			return model.ReviewApproved
+		}
+		return model.ReviewNone
 	case "APPROVED":
 		return model.ReviewApproved
+	case "REVIEW_REQUIRED":
+		return model.ReviewRequired
 	default:
 		return model.ReviewUnknown
 	}
@@ -155,7 +270,7 @@ func reviewReady(lane model.Lane) bool {
 	if lane.Signals.CI == model.CIFailure || lane.Signals.CI == model.CIUnknown {
 		return false
 	}
-	if lane.Signals.Review == model.ReviewChangesRequested || lane.Signals.Review == model.ReviewUnknown {
+	if lane.Signals.Review == model.ReviewChangesRequested || lane.Signals.Review == model.ReviewFeedbackPending || lane.Signals.Review == model.ReviewUnknown {
 		return false
 	}
 	if lane.Worktree != nil {
@@ -177,7 +292,7 @@ func nextAction(lane model.Lane) model.Action {
 	if lane.Signals.CI == model.CIFailure {
 		return model.ActionFixCI
 	}
-	if lane.Signals.Review == model.ReviewChangesRequested {
+	if lane.Signals.Review == model.ReviewChangesRequested || lane.Signals.Review == model.ReviewFeedbackPending {
 		return model.ActionAddressReview
 	}
 	if lane.Signals.Worktree == model.WorktreeDirty || lane.Signals.Worktree == model.WorktreeUnavailable {
@@ -186,7 +301,7 @@ func nextAction(lane model.Lane) model.Action {
 	if lane.Signals.Publication == model.PublicationUnpushed || lane.Signals.Publication == model.PublicationNoUpstream {
 		return model.ActionPushBranch
 	}
-	if lane.Signals.Publication == model.PublicationDiverged || lane.Signals.Publication == model.PublicationUnknown {
+	if lane.Signals.Publication == model.PublicationDiverged || (lane.Worktree != nil && lane.Signals.Publication == model.PublicationUnknown) {
 		return model.ActionRefreshState
 	}
 	if lane.PullRequest == nil && lane.Worktree != nil && lane.Branch != lane.Base && lane.Worktree.AheadBase > 0 {
@@ -198,14 +313,26 @@ func nextAction(lane model.Lane) model.Action {
 	if lane.Signals.PullRequest == model.PullRequestDraft {
 		return model.ActionMarkReady
 	}
-	if lane.Signals.CI == model.CIUnknown || lane.Signals.Merge == model.MergeUnknown || lane.Signals.Review == model.ReviewUnknown {
+	if lane.PullRequest != nil && lane.Signals.CI == model.CIPending {
+		return model.ActionWaitForCI
+	}
+	if lane.PullRequest != nil && (lane.Signals.CI == model.CIUnknown || lane.Signals.Merge == model.MergeUnknown || lane.Signals.Review == model.ReviewUnknown) {
 		return model.ActionRefreshState
+	}
+	if lane.ReviewReady && lane.Signals.CI == model.CISuccess && lane.Signals.Review == model.ReviewApproved && lane.Signals.Merge == model.MergeClean {
+		return model.ActionMergePR
+	}
+	if lane.ReviewReady && lane.Signals.CI == model.CISuccess && lane.Signals.Review == model.ReviewNone && lane.Signals.Merge == model.MergeClean {
+		return model.ActionManualTestMerge
 	}
 	if lane.ReviewReady {
 		return model.ActionReviewPR
 	}
-	if lane.Signals.Freshness == model.FreshnessStale && (lane.PullRequest != nil || (lane.Worktree != nil && lane.Branch != lane.Base)) {
+	if lane.Signals.Freshness == model.FreshnessStale && (lane.PullRequest != nil || lane.Issue != nil || (lane.Worktree != nil && lane.Branch != lane.Base)) {
 		return model.ActionResumeOrClose
+	}
+	if lane.Issue != nil && lane.PullRequest == nil && lane.Worktree == nil {
+		return model.ActionStartIssue
 	}
 	return model.ActionNone
 }
@@ -223,6 +350,9 @@ func applyEvidence(lane *model.Lane) {
 		if counts.Locked {
 			lane.Warnings = append(lane.Warnings, "worktree is locked")
 		}
+	}
+	if lane.Issue != nil {
+		lane.Reasons = append(lane.Reasons, fmt.Sprintf("linked open issue #%d", lane.Issue.Number))
 	}
 	switch lane.Signals.Publication {
 	case model.PublicationUnpushed:
@@ -252,6 +382,9 @@ func applyEvidence(lane *model.Lane) {
 	}
 	if lane.Signals.Review == model.ReviewChangesRequested {
 		lane.Blockers = append(lane.Blockers, "review changes are requested")
+	}
+	if lane.Signals.Review == model.ReviewFeedbackPending && lane.PullRequest != nil {
+		lane.Blockers = append(lane.Blockers, fmt.Sprintf("%d unresolved review thread(s)", lane.PullRequest.Feedback.UnresolvedThreads))
 	}
 	if lane.Signals.Merge == model.MergeConflicting {
 		lane.Blockers = append(lane.Blockers, "pull request has merge conflicts")

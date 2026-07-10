@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/jamesonstone/beacon/internal/config"
@@ -14,10 +13,7 @@ import (
 func (a App) configCommand(configPath *string) *cobra.Command {
 	command := &cobra.Command{Use: "config", Short: "Manage Beacon configuration"}
 	command.AddCommand(
-		&cobra.Command{
-			Use: "init", Short: "Create an example configuration", Args: noArgs,
-			RunE: func(_ *cobra.Command, _ []string) error { return initConfig(*configPath, a.Out) },
-		},
+		a.initCommandWithUse(configPath, "init"),
 		&cobra.Command{
 			Use: "path", Short: "Print the resolved configuration path", Args: noArgs,
 			RunE: func(_ *cobra.Command, _ []string) error {
@@ -36,7 +32,7 @@ func (a App) configCommand(configPath *string) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				_, err = fmt.Fprintf(a.Out, "valid configuration: %s (%d repositories)\n", cfg.Path, len(cfg.Repositories))
+				_, err = fmt.Fprintf(a.Out, "valid configuration: %s (%d sources, %d repositories)\n", cfg.Path, len(cfg.Sources), len(cfg.Repositories))
 				return err
 			},
 		},
@@ -58,27 +54,4 @@ func (a App) configCommand(configPath *string) *cobra.Command {
 		},
 	)
 	return command
-}
-
-func initConfig(explicit string, writer interface{ Write([]byte) (int, error) }) error {
-	path, err := config.ResolvePath(explicit)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("create config directory: %w", err)
-	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
-	if err != nil {
-		return fmt.Errorf("create config %s: %w", path, err)
-	}
-	if _, err := file.WriteString(config.Example()); err != nil {
-		file.Close()
-		return fmt.Errorf("write config %s: %w", path, err)
-	}
-	if err := file.Close(); err != nil {
-		return fmt.Errorf("close config %s: %w", path, err)
-	}
-	_, err = fmt.Fprintf(writer, "created %s\n", path)
-	return err
 }

@@ -64,33 +64,82 @@ struct MenuView: View {
         if !lanes.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 Label(title, systemImage: symbol).font(.subheadline.weight(.semibold))
-                ForEach(lanes) { lane in
-                    Button { state.open(lane) } label: {
-                        laneRow(lane)
+                ForEach(state.projectGroups(for: lanes)) { project in
+                    projectHeader(project)
+                    ForEach(project.lanes) { lane in
+                        Button { state.open(lane) } label: {
+                            laneRow(lane)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
     }
 
+    private func projectHeader(_ project: ProjectLaneGroup) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(project.name).font(.caption.weight(.semibold))
+            if let progress = project.progress {
+                Text("\(progress.feature) · \(actionLabel(progress.phase))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+        }
+        .padding(.top, 2)
+    }
+
     private func laneRow(_ lane: WorkLane) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
-                Text(lane.repository).fontWeight(.medium)
-                Text(lane.branch).foregroundStyle(.secondary)
+                Text(workItemTitle(lane)).fontWeight(.medium).lineLimit(1)
                 Spacer()
                 if let pullRequest = lane.pullRequest {
                     Text("PR #\(pullRequest.number)").foregroundStyle(.secondary)
+                } else if let issue = lane.issue {
+                    Text("Issue #\(issue.number)").foregroundStyle(.secondary)
+                } else if !lane.branch.isEmpty {
+                    Text(lane.branch).foregroundStyle(.secondary)
                 }
             }
             Text(actionLabel(lane.nextAction)).font(.caption)
-            Text("\(lane.signals.worktree) · \(lane.signals.publication) · CI \(lane.signals.ci)")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            if let progress = lane.progress {
+                Text("Kit \(actionLabel(progress.phase)) · \(progress.summary)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            evidenceBadges(lane)
         }
         .padding(8)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 7))
+    }
+
+    private func evidenceBadges(_ lane: WorkLane) -> some View {
+        HStack(spacing: 4) {
+            badge(lane.signals.worktree)
+            badge("CI \(lane.signals.ci)")
+            badge("Review \(lane.signals.review)")
+            badge(lane.signals.freshness)
+            if let feedback = lane.pullRequest?.feedback, feedback.unresolvedThreads > 0 {
+                badge("\(feedback.unresolvedThreads) unresolved", emphasized: true)
+            }
+        }
+        .lineLimit(1)
+    }
+
+    private func badge(_ text: String, emphasized: Bool = false) -> some View {
+        Text(actionLabel(text))
+            .font(.caption2)
+            .foregroundStyle(emphasized ? Color.red : Color.secondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(
+                emphasized ? Color.red.opacity(0.1) : Color.secondary.opacity(0.08),
+                in: Capsule()
+            )
     }
 
     private func errorBanner(_ message: String) -> some View {
@@ -104,5 +153,11 @@ struct MenuView: View {
 
     private func actionLabel(_ action: String) -> String {
         action.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
+    private func workItemTitle(_ lane: WorkLane) -> String {
+        lane.pullRequest?.title
+            ?? lane.issue?.title
+            ?? (lane.branch.isEmpty ? lane.repository : lane.branch)
     }
 }

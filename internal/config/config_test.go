@@ -70,6 +70,119 @@ repositories:
 	if cfg.Settings.MaxParallel != 4 || cfg.Settings.GitHubAuthor != "@me" {
 		t.Fatalf("setting defaults = %#v", cfg.Settings)
 	}
+	if cfg.Settings.GitHubScope != GitHubScopeMine {
+		t.Fatalf("github scope = %q", cfg.Settings.GitHubScope)
+	}
+}
+
+func TestLoadVersionTwoSources(t *testing.T) {
+	sourcePath := t.TempDir()
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	writeConfig(t, path, `version: 2
+settings:
+  github_scope: all
+sources:
+  - path: `+sourcePath+`
+`)
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Version != Version || cfg.Settings.GitHubScope != GitHubScopeAll {
+		t.Fatalf("config = %#v", cfg)
+	}
+	canonicalSource, err := filepath.EvalSymlinks(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Sources) != 1 || cfg.Sources[0].Path != canonicalSource {
+		t.Fatalf("sources = %#v", cfg.Sources)
+	}
+}
+
+func TestCanonicalizeSourcePathResolvesAncestorsButRejectsFinalSymlink(t *testing.T) {
+	root := t.TempDir()
+	realParent := filepath.Join(root, "real")
+	realSource := filepath.Join(realParent, "source")
+	if err := os.MkdirAll(realSource, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	linkedParent := filepath.Join(root, "linked-parent")
+	if err := os.Symlink(realParent, linkedParent); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := CanonicalizeSourcePath(filepath.Join(linkedParent, "source"))
+	canonicalRealSource, evalErr := filepath.EvalSymlinks(realSource)
+	if evalErr != nil {
+		t.Fatal(evalErr)
+	}
+	if err != nil || resolved != canonicalRealSource {
+		t.Fatalf("resolved = %q, %v", resolved, err)
+	}
+	finalLink := filepath.Join(root, "source-link")
+	if err := os.Symlink(realSource, finalLink); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := CanonicalizeSourcePath(finalLink); err == nil || !strings.Contains(err.Error(), "symbolic link") {
+		t.Fatalf("final symlink error = %v", err)
+	}
+}
+
+func TestLoadRejectsVersionSpecificAndSourceErrors(t *testing.T) {
+	sourcePath := t.TempDir()
+	symlinkPath := filepath.Join(t.TempDir(), "source-link")
+	if err := os.Symlink(sourcePath, symlinkPath); err != nil {
+		t.Fatal(err)
+	}
+	tests := map[string]string{
+		"unsupported version": `version: 3
+repositories:
+  - name: example
+    path: ` + sourcePath + `
+    github: owner/example
+`,
+		"v1 source": `version: 1
+sources:
+  - path: ` + sourcePath + `
+`,
+		"v1 scope": `version: 1
+settings:
+  github_scope: all
+repositories:
+  - name: example
+    path: ` + sourcePath + `
+    github: owner/example
+`,
+		"scope": `version: 2
+settings:
+  github_scope: friends
+sources:
+  - path: ` + sourcePath + `
+`,
+		"duplicate source": `version: 2
+sources:
+  - path: ` + sourcePath + `
+  - path: ` + sourcePath + `
+`,
+		"missing source": `version: 2
+sources:
+  - path: ` + filepath.Join(sourcePath, "missing") + `
+`,
+		"symlink source": `version: 2
+sources:
+  - path: ` + symlinkPath + `
+`,
+	}
+	for name, contents := range tests {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.yaml")
+			writeConfig(t, path, contents)
+			if _, err := Load(path); err == nil {
+				t.Fatal("expected validation error")
+			}
+		})
+	}
 }
 
 func TestLoadRejectsUnknownAndDuplicateFields(t *testing.T) {

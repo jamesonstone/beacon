@@ -2,7 +2,7 @@ package model
 
 import "time"
 
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 type WorktreeState string
 type PublicationState string
@@ -11,6 +11,7 @@ type CIState string
 type ReviewState string
 type MergeState string
 type FreshnessState string
+type IssueState string
 type Action string
 
 const (
@@ -40,6 +41,7 @@ const (
 
 	ReviewNone             ReviewState = "none"
 	ReviewRequired         ReviewState = "review_required"
+	ReviewFeedbackPending  ReviewState = "feedback_pending"
 	ReviewChangesRequested ReviewState = "changes_requested"
 	ReviewApproved         ReviewState = "approved"
 	ReviewUnknown          ReviewState = "unknown"
@@ -52,6 +54,9 @@ const (
 	FreshnessCurrent FreshnessState = "current"
 	FreshnessStale   FreshnessState = "stale"
 
+	IssueNone IssueState = "none"
+	IssueOpen IssueState = "open"
+
 	ActionReviewPR        Action = "review_pr"
 	ActionResolveConflict Action = "resolve_conflict"
 	ActionFixCI           Action = "fix_ci"
@@ -60,10 +65,49 @@ const (
 	ActionPushBranch      Action = "push_branch"
 	ActionCreatePR        Action = "create_pr"
 	ActionMarkReady       Action = "mark_ready"
+	ActionWaitForCI       Action = "wait_for_ci"
+	ActionManualTestMerge Action = "manual_test_then_merge"
+	ActionMergePR         Action = "merge_pr"
+	ActionStartIssue      Action = "start_issue"
 	ActionRefreshState    Action = "refresh_state"
 	ActionResumeOrClose   Action = "resume_or_close"
 	ActionNone            Action = "none"
 )
+
+type CheckSummary struct {
+	Total   int `json:"total"`
+	Success int `json:"success"`
+	Pending int `json:"pending"`
+	Failure int `json:"failure"`
+	Skipped int `json:"skipped"`
+	Unknown int `json:"unknown"`
+}
+
+type Feedback struct {
+	Comments          int `json:"comments"`
+	Reviews           int `json:"reviews"`
+	Approvals         int `json:"approvals"`
+	ChangesRequested  int `json:"changes_requested"`
+	UnresolvedThreads int `json:"unresolved_threads"`
+}
+
+type Issue struct {
+	Number    int       `json:"number"`
+	Title     string    `json:"title"`
+	URL       string    `json:"url"`
+	Labels    []string  `json:"labels"`
+	Assignees []string  `json:"assignees"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type Progress struct {
+	Source    string `json:"source"`
+	FeatureID string `json:"feature_id"`
+	Feature   string `json:"feature"`
+	Phase     string `json:"phase"`
+	Summary   string `json:"summary"`
+	Path      string `json:"path"`
+}
 
 type Worktree struct {
 	Path       string    `json:"path"`
@@ -84,18 +128,21 @@ type Worktree struct {
 }
 
 type PullRequest struct {
-	Number         int       `json:"number"`
-	Title          string    `json:"title"`
-	URL            string    `json:"url"`
-	HeadRefName    string    `json:"head_ref_name"`
-	HeadRefOID     string    `json:"head_ref_oid"`
-	BaseRefName    string    `json:"base_ref_name"`
-	IsDraft        bool      `json:"is_draft"`
-	UpdatedAt      time.Time `json:"updated_at"`
-	ReviewDecision string    `json:"review_decision,omitempty"`
-	MergeState     string    `json:"merge_state_status,omitempty"`
-	Mergeable      string    `json:"mergeable,omitempty"`
-	CI             CIState   `json:"ci_state"`
+	Number         int          `json:"number"`
+	Title          string       `json:"title"`
+	URL            string       `json:"url"`
+	HeadRefName    string       `json:"head_ref_name"`
+	HeadRefOID     string       `json:"head_ref_oid"`
+	BaseRefName    string       `json:"base_ref_name"`
+	IsDraft        bool         `json:"is_draft"`
+	UpdatedAt      time.Time    `json:"updated_at"`
+	ReviewDecision string       `json:"review_decision,omitempty"`
+	MergeState     string       `json:"merge_state_status,omitempty"`
+	Mergeable      string       `json:"mergeable,omitempty"`
+	CI             CIState      `json:"ci_state"`
+	Checks         CheckSummary `json:"checks"`
+	Feedback       Feedback     `json:"feedback"`
+	ClosingIssues  []Issue      `json:"closing_issues"`
 }
 
 type Signals struct {
@@ -106,6 +153,7 @@ type Signals struct {
 	Review      ReviewState      `json:"review"`
 	Merge       MergeState       `json:"merge"`
 	Freshness   FreshnessState   `json:"freshness"`
+	Issue       IssueState       `json:"issue"`
 }
 
 type Lane struct {
@@ -116,6 +164,8 @@ type Lane struct {
 	Branch      string       `json:"branch"`
 	Worktree    *Worktree    `json:"worktree,omitempty"`
 	PullRequest *PullRequest `json:"pull_request,omitempty"`
+	Issue       *Issue       `json:"issue,omitempty"`
+	Progress    *Progress    `json:"progress,omitempty"`
 	Signals     Signals      `json:"signals"`
 	ReviewReady bool         `json:"review_ready"`
 	NextAction  Action       `json:"next_action"`
@@ -140,12 +190,37 @@ type Refresh struct {
 }
 
 type Summary struct {
-	Total       int `json:"total"`
-	ReviewReady int `json:"review_ready"`
-	NeedsAction int `json:"needs_action"`
-	Waiting     int `json:"waiting"`
-	Idle        int `json:"idle"`
-	Errors      int `json:"errors"`
+	Projects           int `json:"projects"`
+	Total              int `json:"total"`
+	ReviewReady        int `json:"review_ready"`
+	NeedsAction        int `json:"needs_action"`
+	Waiting            int `json:"waiting"`
+	Idle               int `json:"idle"`
+	Errors             int `json:"errors"`
+	OpenIssues         int `json:"open_issues"`
+	UnresolvedFeedback int `json:"unresolved_feedback"`
+}
+
+type Project struct {
+	Name     string      `json:"name"`
+	Path     string      `json:"path"`
+	GitHub   string      `json:"github"`
+	Base     string      `json:"base"`
+	Remote   string      `json:"remote"`
+	Progress *Progress   `json:"progress,omitempty"`
+	LaneIDs  []string    `json:"lane_ids"`
+	Errors   []ScanError `json:"errors"`
+}
+
+type RemoteEvidence struct {
+	PullRequests []PullRequest `json:"pull_requests"`
+	Issues       []Issue       `json:"issues"`
+	Errors       []ScanError   `json:"errors"`
+}
+
+type RemoteCollection struct {
+	Repositories map[string]RemoteEvidence `json:"repositories"`
+	Errors       []ScanError               `json:"errors"`
 }
 
 type Groups struct {
@@ -162,6 +237,7 @@ type Snapshot struct {
 	Refresh       []Refresh   `json:"refresh"`
 	Summary       Summary     `json:"summary"`
 	Groups        Groups      `json:"groups"`
+	Projects      []Project   `json:"projects"`
 	Lanes         []Lane      `json:"lanes"`
 	Errors        []ScanError `json:"errors"`
 }

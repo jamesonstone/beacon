@@ -13,7 +13,10 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-const Version = 1
+const (
+	Version1 = 1
+	Version  = 2
+)
 
 var githubName = regexp.MustCompile(`^[^/\s]+/[^/\s]+$`)
 
@@ -23,19 +26,33 @@ type Settings struct {
 	StaleAfter            time.Duration
 	MaxParallel           int
 	GitHubAuthor          string
+	GitHubScope           GitHubScope
+}
+
+type GitHubScope string
+
+const (
+	GitHubScopeMine GitHubScope = "mine"
+	GitHubScopeAll  GitHubScope = "all"
+)
+
+type Source struct {
+	Path string `yaml:"path" json:"path"`
 }
 
 type Repository struct {
-	Name   string `yaml:"name" json:"name"`
-	Path   string `yaml:"path" json:"path"`
-	GitHub string `yaml:"github" json:"github"`
-	Base   string `yaml:"base" json:"base"`
-	Remote string `yaml:"remote" json:"remote"`
+	Name      string `yaml:"name" json:"name"`
+	Path      string `yaml:"path" json:"path"`
+	GitHub    string `yaml:"github" json:"github"`
+	Base      string `yaml:"base" json:"base"`
+	Remote    string `yaml:"remote" json:"remote"`
+	CommonDir string `yaml:"-" json:"-"`
 }
 
 type Config struct {
 	Version      int
 	Settings     Settings
+	Sources      []Source
 	Repositories []Repository
 	Path         string
 }
@@ -43,6 +60,7 @@ type Config struct {
 type rawConfig struct {
 	Version      int             `yaml:"version"`
 	Settings     rawSettings     `yaml:"settings"`
+	Sources      []rawSource     `yaml:"sources"`
 	Repositories []rawRepository `yaml:"repositories"`
 }
 
@@ -52,6 +70,11 @@ type rawSettings struct {
 	StaleAfter            string `yaml:"stale_after"`
 	MaxParallel           int    `yaml:"max_parallel"`
 	GitHubAuthor          string `yaml:"github_author"`
+	GitHubScope           string `yaml:"github_scope"`
+}
+
+type rawSource struct {
+	Path string `yaml:"path"`
 }
 
 type rawRepository struct {
@@ -64,10 +87,10 @@ type rawRepository struct {
 
 func ResolvePath(explicit string) (string, error) {
 	if explicit != "" {
-		return expandPath(explicit)
+		return CanonicalizePath(explicit)
 	}
 	if value := os.Getenv("BEACON_CONFIG"); value != "" {
-		return expandPath(value)
+		return CanonicalizePath(value)
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -104,17 +127,35 @@ func Load(path string) (Config, error) {
 }
 
 func normalize(raw rawConfig, path string) (Config, error) {
-	if raw.Version != Version {
-		return Config{}, fmt.Errorf("config version must be %d", Version)
+	if raw.Version != Version1 && raw.Version != Version {
+		return Config{}, fmt.Errorf("config version must be %d or %d", Version1, Version)
 	}
-	if len(raw.Repositories) == 0 {
-		return Config{}, errors.New("config must contain at least one repository")
+	if raw.Version == Version1 && len(raw.Sources) != 0 {
+		return Config{}, errors.New("config version 1 does not support sources")
+	}
+	if raw.Version == Version1 && raw.Settings.GitHubScope != "" {
+		return Config{}, errors.New("config version 1 does not support settings.github_scope")
+	}
+	if len(raw.Repositories) == 0 && len(raw.Sources) == 0 {
+		return Config{}, errors.New("config must contain at least one source or repository")
 	}
 	settings, err := normalizeSettings(raw.Settings)
 	if err != nil {
 		return Config{}, err
 	}
 	config := Config{Version: raw.Version, Settings: settings, Path: path}
+	seenSources := make(map[string]struct{}, len(raw.Sources))
+	for index, rawSource := range raw.Sources {
+		source, err := normalizeSource(rawSource)
+		if err != nil {
+			return Config{}, fmt.Errorf("source %d: %w", index+1, err)
+		}
+		if _, exists := seenSources[source.Path]; exists {
+			return Config{}, fmt.Errorf("source path %q is duplicated", source.Path)
+		}
+		seenSources[source.Path] = struct{}{}
+		config.Sources = append(config.Sources, source)
+	}
 	seen := make(map[string]struct{}, len(raw.Repositories))
 	for index, rawRepo := range raw.Repositories {
 		repo, err := normalizeRepository(rawRepo)
@@ -131,7 +172,10 @@ func normalize(raw rawConfig, path string) (Config, error) {
 }
 
 func normalizeSettings(raw rawSettings) (Settings, error) {
-	settings := Settings{MaxParallel: raw.MaxParallel, GitHubAuthor: raw.GitHubAuthor}
+	settings := Settings{
+		MaxParallel: raw.MaxParallel, GitHubAuthor: raw.GitHubAuthor,
+		GitHubScope: GitHubScope(strings.TrimSpace(raw.GitHubScope)),
+	}
 	if settings.MaxParallel == 0 {
 		settings.MaxParallel = 4
 	}
@@ -140,6 +184,12 @@ func normalizeSettings(raw rawSettings) (Settings, error) {
 	}
 	if settings.GitHubAuthor == "" {
 		settings.GitHubAuthor = "@me"
+	}
+	if settings.GitHubScope == "" {
+		settings.GitHubScope = GitHubScopeMine
+	}
+	if settings.GitHubScope != GitHubScopeMine && settings.GitHubScope != GitHubScopeAll {
+		return Settings{}, errors.New("settings.github_scope must be mine or all")
 	}
 	var err error
 	if settings.ScanInterval, err = durationOrDefault(raw.ScanInterval, time.Minute); err != nil {
@@ -152,6 +202,49 @@ func normalizeSettings(raw rawSettings) (Settings, error) {
 		return Settings{}, fmt.Errorf("settings.stale_after: %w", err)
 	}
 	return settings, nil
+}
+
+func normalizeSource(raw rawSource) (Source, error) {
+	if strings.TrimSpace(raw.Path) == "" {
+		return Source{}, errors.New("path is required")
+	}
+	path, err := CanonicalizeSourcePath(raw.Path)
+	if err != nil {
+		return Source{}, err
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return Source{}, fmt.Errorf("inspect path %s: %w", path, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return Source{}, fmt.Errorf("source path must not be a symbolic link: %s", path)
+	}
+	if !info.IsDir() {
+		return Source{}, fmt.Errorf("path is not a directory: %s", path)
+	}
+	return Source{Path: path}, nil
+}
+
+// CanonicalizeSourcePath rejects a source that is itself a symlink and
+// resolves any symlinked ancestors before discovery starts. Discovery can then
+// walk the canonical tree without crossing symlink directory entries.
+func CanonicalizeSourcePath(path string) (string, error) {
+	canonical, err := CanonicalizePath(path)
+	if err != nil {
+		return "", err
+	}
+	info, err := os.Lstat(canonical)
+	if err != nil {
+		return "", fmt.Errorf("inspect path %s: %w", canonical, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return "", fmt.Errorf("source path is a symbolic link: %s", canonical)
+	}
+	resolved, err := filepath.EvalSymlinks(canonical)
+	if err != nil {
+		return "", fmt.Errorf("resolve source path %s: %w", canonical, err)
+	}
+	return filepath.Clean(resolved), nil
 }
 
 func normalizeRepository(raw rawRepository) (Repository, error) {
@@ -171,7 +264,7 @@ func normalizeRepository(raw rawRepository) (Repository, error) {
 	if repo.Remote == "" {
 		repo.Remote = "origin"
 	}
-	path, err := expandPath(raw.Path)
+	path, err := CanonicalizePath(raw.Path)
 	if err != nil {
 		return Repository{}, err
 	}
@@ -197,7 +290,7 @@ func durationOrDefault(value string, fallback time.Duration) (time.Duration, err
 	return duration, nil
 }
 
-func expandPath(path string) (string, error) {
+func CanonicalizePath(path string) (string, error) {
 	if path == "~" || strings.HasPrefix(path, "~/") {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -213,7 +306,7 @@ func expandPath(path string) (string, error) {
 }
 
 func Example() string {
-	return `version: 1
+	return `version: 2
 
 settings:
   scan_interval: 1m
@@ -221,6 +314,10 @@ settings:
   stale_after: 24h
   max_parallel: 4
   github_author: "@me"
+  github_scope: mine
+
+sources:
+  - path: ~/go/src/github.com
 
 repositories:
   - name: beacon

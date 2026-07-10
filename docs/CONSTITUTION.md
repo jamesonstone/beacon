@@ -10,15 +10,16 @@ features. Feature-specific requirements and evidence belong in the applicable
 ### Durable Evidence Over Self-Reported Progress
 
 Beacon infers agent-work state from Git worktrees, branches, commits, remotes,
-and GitHub pull requests. Chat history, agent assertions, percentages, and
-private task state are not evidence of review readiness.
+GitHub pull requests and issues, automation results, review feedback, and
+optional Kit feature documents. Chat history, agent assertions, percentages,
+and private task state are not evidence of review readiness.
 
 ### The Work Lane Is the Unit of Attention
 
 A repository can contain several independent agent efforts. Beacon therefore
 tracks work lanes, not repositories. A work lane is a local Git worktree and
-branch optionally correlated with a GitHub pull request, or a remote-only pull
-request owned by the authenticated user.
+branch optionally correlated with a GitHub pull request and issue, a
+remote-only scoped pull request, or an unlinked scoped issue waiting to start.
 
 ### One Domain Model, Multiple Surfaces
 
@@ -36,7 +37,7 @@ or update pull requests, submit reviews, or merge.
 
 ### Independent Signals Before Conclusions
 
-Worktree, publication, pull-request, CI, review, merge, and freshness state are
+Worktree, publication, pull-request, issue, CI, review, merge, and freshness state are
 independent evidence. Beacon preserves those signals and then derives a
 `review_ready` decision and one deterministic `next_action`. It must not hide
 important evidence behind a single opaque status.
@@ -97,9 +98,11 @@ truthfully describe the highest completed state.
 ```text
 strict versioned YAML configuration
               |
+              +-- persistent source discovery
               +-- local Git worktree and branch evidence
               +-- bounded remote-tracking refresh
-              +-- GitHub pull-request evidence through gh
+              +-- GitHub pull-request, issue, check, and feedback evidence
+              +-- optional Kit progress documents
                               |
                       lane correlation
                               |
@@ -120,13 +123,18 @@ must not feed new policy back into the scanner.
 - `internal/cli` defines Cobra commands, flags, exit behavior, and dependency
   wiring.
 - `internal/config` resolves and strictly validates schema-versioned YAML.
+- `internal/discovery` recursively resolves configured sources into accessible
+  GitHub repositories without following symlinks.
 - `internal/command` is the only general external-process boundary and uses
   `exec.CommandContext` with argument arrays.
 - `internal/gitscan` discovers and inspects worktrees using stable,
   NUL-delimited Git porcelain output and performs bounded refreshes.
-- `internal/githubscan` queries open pull requests through authenticated `gh`
-  and normalizes checks, reviews, and merge state.
-- `internal/model` owns schema v1 types and typed signal/action enums.
+- `internal/githubscan` queries scoped open pull requests and issues through
+  authenticated `gh` and normalizes checks, comments, reviews, unresolved
+  threads, linked issues, and merge state.
+- `internal/progress` parses optional Kit project summaries and exact SPEC
+  issue references as non-authoritative progress evidence.
+- `internal/model` owns schema v2 types and typed signal/action enums.
 - `internal/policy` correlates local and remote evidence and derives readiness,
   explanations, and the next action as pure domain logic.
 - `internal/scan` coordinates bounded repository concurrency, preserves partial
@@ -145,9 +153,11 @@ reclassify lanes.
 - A pull-request-backed lane ID is `gh:<owner>/<repo>#<number>`.
 - A local-only lane ID is `git:<owner>/<repo>@<url-escaped-branch>`.
 - A head-object mismatch is retained as a warning rather than silently hidden.
-- Open pull requests authored by the configured GitHub author remain visible
-  even without a local worktree.
-- Version 1 scans active linked worktrees and open authored pull requests; it
+- Closing issues, `GH-<number>` branches, and exact Kit SPEC issue references
+  correlate in that order after pull-request/local matching.
+- Scoped pull requests remain visible without a local worktree, and unmatched
+  scoped issues become issue-only lanes.
+- Beacon scans active linked worktrees and scoped open GitHub work only; it
   does not enumerate every unattached local branch.
 
 ### Evidence and Policy
@@ -159,13 +169,15 @@ The public signal vocabulary is versioned with the JSON schema:
   `diverged`, `unknown`.
 - Pull request: `none`, `draft`, `open`.
 - CI: `success`, `pending`, `failure`, `none`, `unknown`.
-- Review: `none`, `review_required`, `changes_requested`, `approved`,
-  `unknown`.
+- Review: `none`, `review_required`, `feedback_pending`,
+  `changes_requested`, `approved`, `unknown`.
 - Merge: `clean`, `blocked`, `conflicting`, `unknown`.
 - Freshness: `current`, `stale`.
+- Issue: `none`, `open`.
 - Action: `review_pr`, `resolve_conflict`, `fix_ci`, `address_review`,
-  `inspect_local`, `push_branch`, `create_pr`, `mark_ready`, `refresh_state`,
-  `resume_or_close`, `none`.
+  `inspect_local`, `push_branch`, `create_pr`, `mark_ready`, `wait_for_ci`,
+  `manual_test_then_merge`, `merge_pr`, `refresh_state`, `resume_or_close`,
+  `start_issue`, `none`.
 
 A lane is review-ready only when it has an open, non-draft pull request; any
 matching local lane is clean and has no unpublished, missing-upstream,
@@ -175,10 +187,12 @@ review state. Remote-only pull requests may be review-ready. Pending or absent
 CI is permitted but remains a warning.
 
 Recommended actions use fixed precedence: resolve conflict, fix CI, address
-review, inspect local work, push the branch, refresh uncertain or diverged
-state, create a pull request, mark a draft ready, review a ready pull request,
-resume or close stale inactive work, then no action. Staleness remains an
-independent warning even when another action wins.
+actionable review feedback, inspect local work, push the branch, refresh
+uncertain or diverged state, create a pull request, mark a draft ready, wait
+for CI, merge an approved clean change, manually test then merge an unapproved
+clean change, review manually, resume or close stale work, start an unlinked
+issue, then no action. Ordinary PR comments remain visible but do not block.
+Staleness remains an independent warning even when another action wins.
 
 Review-ready lanes sort first and wait longest-first. Other lanes sort by
 action precedence, then oldest update, repository, and branch. Ordering changes
@@ -192,16 +206,19 @@ Configuration resolution order is:
 2. `BEACON_CONFIG`
 3. `$HOME/.config/beacon/config.yaml`
 
-Configuration is YAML schema version 1. Unknown fields, unsupported versions,
-duplicate repository names, invalid or non-positive durations, missing paths,
-and malformed `owner/repo` values are errors. A leading `~` is expanded and
-paths are canonicalized. Defaults are `main`, `origin`, a one-minute scan
-interval, a five-minute remote refresh interval, a 24-hour stale threshold,
-four workers, and GitHub author `@me`.
+Configuration accepts YAML schema versions 1 and 2. Version 2 adds persistent
+source roots and `github_scope: mine|all`; version 1 remains readable. Unknown
+fields, unsupported versions, duplicate names or sources, invalid durations or
+scope, missing paths, and malformed `owner/repo` values are errors. A leading
+`~` is expanded and paths are canonicalized. Defaults are `main`, `origin`, a
+one-minute scan interval, a five-minute remote refresh interval, a 24-hour
+stale threshold, four workers, GitHub author `@me`, and scope `mine`.
 
-`beacon config init` may create `$HOME/.config/beacon/` and an example config,
-but it must refuse to overwrite an existing file. GitHub credentials never
-belong in Beacon configuration; authentication is delegated to `gh`.
+`beacon init` and its `beacon config init` alias may merge new sources or
+explicit repositories, preview the result, and atomically rewrite the file
+only after confirmation. Existing entries are never removed. GitHub
+credentials never belong in Beacon configuration; authentication is delegated
+to `gh`.
 
 ### Process Execution, Timeouts, and Concurrency
 
@@ -222,6 +239,8 @@ belong in Beacon configuration; authentication is delegated to `gh`.
 The supported command surface is:
 
 ```text
+beacon [--color auto|always|never]
+beacon init [--source PATH ...] [--github-scope mine|all] [--yes]
 beacon scan [--repo NAME] [--json] [--no-refresh]
 beacon doctor [--json]
 beacon open <lane-id>
@@ -235,9 +254,10 @@ configuration or startup failures and failed required doctor checks exit `1`.
 Usage errors exit `2`. JSON mode writes JSON only to stdout and sends
 diagnostics to stderr.
 
-The snapshot is a public internal contract between the CLI and clients. It
-contains `schema_version`, generation/config/refresh metadata, summary counts,
-ordered lanes, grouped lane IDs, and repository-scoped or global errors.
+The schema-v2 snapshot is a public internal contract between the CLI and
+clients. It contains generation/config/refresh metadata, projects, summary
+counts, ordered enriched lanes, grouped lane IDs, and repository-scoped or
+global errors.
 Collections must encode as arrays rather than `null`. Additive changes must be
 safe for existing decoders; incompatible semantic or structural changes
 require a schema-version increment and coordinated client support.
@@ -246,8 +266,8 @@ require a schema-version increment and coordinated client support.
 
 The macOS application targets macOS 14 or later, uses SwiftUI `MenuBarExtra`
 with window style, and runs as an `LSUIElement` application without a Dock
-icon. It executes the bundled `beacon-cli` helper, decodes schema v1, and
-renders the CLI-provided groups and actions.
+icon. It executes the bundled `beacon-cli` helper, requires schema v2, and
+renders the CLI-provided projects, groups, evidence, and actions.
 
 The application scans at launch, at most once every 60 seconds, and on explicit
 request. Overlapping scans are prohibited. A failed scan keeps the last
@@ -282,7 +302,7 @@ architectures; the standalone CLI remains named `beacon`.
 
 ### Swift
 
-- Mirror schema v1 with explicit `Codable` models and snake-case coding keys.
+- Mirror schema v2 with explicit `Codable` models and snake-case coding keys.
 - Keep mutable application state on `@MainActor`.
 - Put process execution behind an injectable client protocol.
 - Run the helper away from the main actor and surface typed, user-readable
@@ -301,6 +321,8 @@ Dependencies must have a clear job and must not absorb domain policy:
 | Go standard library | Processes, contexts, JSON, concurrency, filesystem, time | Preferred implementation base |
 | Cobra `v1.10.2` | CLI command, flag, help, and usage structure | No configuration or domain policy |
 | `go.yaml.in/yaml/v3` `v3.0.4` | Strict YAML decoding | No Viper; normalization remains Beacon code |
+| Huh `v1` | Native keyboard-driven init forms | No configuration or discovery policy |
+| Lip Gloss `v1.1` and `x/term` | ANSI styling, visible widths, and TTY detection | JSON and policy remain style-free |
 | Git | Worktree, status, branch, commit, base, and remote evidence | Machine-readable porcelain only |
 | GitHub CLI `gh` | Authenticated pull-request/check/review evidence | GitHub is the only v1 remote provider |
 | SwiftUI, AppKit, Foundation | Native menu UI, URL/path opening, process and JSON support | Presentation and process-client concerns only |
