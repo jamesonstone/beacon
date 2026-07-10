@@ -23,6 +23,11 @@ final class AppState: ObservableObject {
 
     var readyCount: Int { snapshot?.summary.reviewReady ?? 0 }
 
+    var inProgressCount: Int {
+        guard let groups = snapshot?.groups else { return 0 }
+        return groups.ready.count + groups.action.count + groups.waiting.count
+    }
+
     func start() {
         guard pollingTask == nil else { return }
         pollingTask = Task { [weak self] in

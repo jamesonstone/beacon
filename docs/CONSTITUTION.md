@@ -272,7 +272,9 @@ renders the CLI-provided projects, groups, evidence, and actions.
 The application scans at launch, at most once every 60 seconds, and on explicit
 request. Overlapping scans are prohibited. A failed scan keeps the last
 successful snapshot visible with its timestamp and an error or stale banner.
-The ready-lane count belongs in the menu-bar label.
+The menu-bar label shows the number of non-idle lanes across the CLI-provided
+ready, action, and waiting groups. When that count is zero, it shows a compact
+color neon-space glyph instead of a numeric badge.
 
 The application may use `NSWorkspace` to open pull requests, worktree paths,
 and `$HOME/.config/beacon/config.yaml`. It must not execute Git or `gh`

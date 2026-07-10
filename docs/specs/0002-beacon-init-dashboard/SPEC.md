@@ -60,6 +60,7 @@ The user explicitly selected issue `#1`, branch `GH-1`, and PR `#2` for delivery
 - Kit progress documents are optional evidence and never a hard dependency.
 - Passing automation with no approval recommends manual testing followed by merge; an approved clean PR recommends merge.
 - The CLI and macOS app consume the same schema-v2 snapshot.
+- The menu-bar label counts non-idle ready, action, and waiting lanes. With no active lanes, it displays a compact color neon-space glyph.
 
 ## Requirements
 
@@ -94,7 +95,7 @@ The user explicitly selected issue `#1`, branch `GH-1`, and PR `#2` for delivery
 - [x] AC7: Every new action follows fixed precedence, including waiting for CI, manual test then merge, direct merge after approval, and starting an issue.
 - [x] AC8: Schema-v2 JSON contains projects and enriched lanes, uses non-null arrays, is deterministic, and never contains ANSI escapes.
 - [x] AC9: Terminal output respects `auto|always|never`, `NO_COLOR`, TTY width, and project grouping.
-- [x] AC10: The macOS app decodes schema v2, displays the same evidence, opens issue-only lanes, and retains last-good results.
+- [x] AC10: The macOS app decodes schema v2, displays the same evidence, opens issue-only lanes, retains last-good results, and switches its menu-bar label between the non-idle count and a neon-space zero-state glyph.
 - [x] AC11: Malformed Kit or one-repository GitHub evidence produces scoped warnings/errors without suppressing healthy projects.
 - [x] AC12: Formatting, vet, unit, race, CLI, config-isolation, and Xcode validations pass, and inspection confirms scanning remains read-only.
 
@@ -153,7 +154,7 @@ Continue on issue `#1`, branch `GH-1`, and ready PR `#2`, as explicitly directed
 
 - `make fmt-check`, `make vet`, `make test`, `make test-race`, and `make build` passed after the verifier repairs.
 - `make macos-build` succeeded for the macOS 14 universal helper/app target.
-- `make macos-test` passed all 12 Swift tests. Xcode emitted non-fatal `linkd.autoShortcut` host-service messages; the suite ended `TEST SUCCEEDED`.
+- `make macos-test` passed all 14 Swift tests, including non-idle menu-bar counting and the zero-state path. Xcode emitted non-fatal `linkd.autoShortcut` host-service messages; the suite ended `TEST SUCCEEDED`.
 - An isolated-`HOME` smoke test ran `beacon init --source <repository> --yes`, loaded the resulting version-2 config, and ran the bare dashboard without touching the real user config.
 - Live `beacon scan --no-refresh --json` returned schema version 2 with one project, PR #2, issue #1, Kit feature `0002`, two passing checks, zero unresolved threads, non-null arrays, and no scan errors.
 - CLI smoke checks confirmed `--color=always` emits ANSI, `NO_COLOR`/non-TTY output does not, invalid color and non-interactive bare init exit 2, and missing config exits 1 with an init hint.

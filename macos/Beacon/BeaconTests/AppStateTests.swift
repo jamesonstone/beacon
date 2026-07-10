@@ -12,6 +12,22 @@ final class AppStateTests: XCTestCase {
         XCTAssertFalse(state.isScanning)
     }
 
+    func testInProgressCountUsesEveryNonIdleGroup() async {
+        let state = AppState(client: StubClient(result: .success(TestSnapshots.withProgressGroups)))
+        await state.scan()
+
+        XCTAssertEqual(state.inProgressCount, 6)
+    }
+
+    func testInProgressCountIsZeroBeforeAndAfterEmptyScan() async {
+        let state = AppState(client: StubClient(result: .success(TestSnapshots.empty)))
+        XCTAssertEqual(state.inProgressCount, 0)
+
+        await state.scan()
+
+        XCTAssertEqual(state.inProgressCount, 0)
+    }
+
     func testFailedScanPreservesError() async {
         let state = AppState(client: StubClient(result: .failure(TestError.failed)))
         await state.scan()
@@ -248,6 +264,45 @@ private enum TestSnapshots {
                 errors: []
             )],
             lanes: [issueLane],
+            errors: []
+        )
+    }()
+
+    static let withProgressGroups: BeaconSnapshot = {
+        let progressLane = lane(issue: issue)
+        return BeaconSnapshot(
+            schemaVersion: 2,
+            generatedAt: "2026-07-09T16:00:00Z",
+            configPath: "/Users/test/.config/beacon/config.yaml",
+            refresh: [],
+            summary: SnapshotSummary(
+                projects: 1,
+                total: 10,
+                reviewReady: 2,
+                needsAction: 3,
+                waiting: 1,
+                idle: 4,
+                errors: 0,
+                openIssues: 1,
+                unresolvedFeedback: 0
+            ),
+            groups: LaneGroups(
+                ready: ["ready-1", "ready-2"],
+                action: ["action-1", "action-2", "action-3"],
+                waiting: ["waiting-1"],
+                idle: ["idle-1", "idle-2", "idle-3", "idle-4"]
+            ),
+            projects: [BeaconProject(
+                name: "repo",
+                path: "/Users/test/repo",
+                github: "owner/repo",
+                base: "main",
+                remote: "origin",
+                progress: progress,
+                laneIDs: [progressLane.id],
+                errors: []
+            )],
+            lanes: [progressLane],
             errors: []
         )
     }()
