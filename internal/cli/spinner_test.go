@@ -21,13 +21,90 @@ func TestScanLoaderUsesLighthouseSweepFrames(t *testing.T) {
 	}
 }
 
+func TestScanFactsContainsExactly150UniqueFacts(t *testing.T) {
+	if len(scanFacts) != 150 {
+		t.Fatalf("fact count = %d, want 150", len(scanFacts))
+	}
+	seen := make(map[string]struct{}, len(scanFacts))
+	for _, fact := range scanFacts {
+		if strings.TrimSpace(fact) == "" {
+			t.Fatal("fact deck contains an empty fact")
+		}
+		if _, exists := seen[fact]; exists {
+			t.Fatalf("duplicate fact = %q", fact)
+		}
+		seen[fact] = struct{}{}
+	}
+}
+
+func TestFactDeckNeverRepeatsDuringOneRun(t *testing.T) {
+	order := make([]int, len(scanFacts))
+	for index := range order {
+		order[index] = len(order) - index - 1
+	}
+	deck := newFactDeck(scanFacts, order)
+	seen := make(map[string]struct{}, len(scanFacts))
+	for {
+		fact := deck.current()
+		if _, exists := seen[fact]; exists {
+			t.Fatalf("fact repeated before deck exhaustion: %q", fact)
+		}
+		seen[fact] = struct{}{}
+		if !deck.advance() {
+			break
+		}
+	}
+	if len(seen) != 150 || deck.advance() {
+		t.Fatalf("visited %d facts; exhausted deck advanced again", len(seen))
+	}
+}
+
+func TestRandomFactDelayIsBetweenOneAndFiveSeconds(t *testing.T) {
+	for range 1000 {
+		delay := randomFactDelay()
+		if delay < time.Second || delay > 5*time.Second {
+			t.Fatalf("delay = %s", delay)
+		}
+	}
+}
+
+func TestScanLoaderChangesFactsWithoutRepeatingSelections(t *testing.T) {
+	var output bytes.Buffer
+	loader := startScanLoaderWithOptions(&output, true, false, scanLoaderOptions{
+		frameInterval: time.Hour,
+		minFactDelay:  time.Millisecond,
+		width:         120,
+		facts:         []string{"first odd fact", "second odd fact", "third odd fact"},
+		factOrder:     []int{0, 1, 2},
+		nextFactDelay: func() time.Duration { return time.Millisecond },
+	})
+	time.Sleep(20 * time.Millisecond)
+	loader.Stop(false)
+
+	text := output.String()
+	for _, fact := range []string{"first odd fact", "second odd fact", "third odd fact"} {
+		if strings.Count(text, fact) != 1 {
+			t.Fatalf("loader output selected %q %d times: %q", fact, strings.Count(text, fact), text)
+		}
+	}
+}
+
+func TestFitLoaderFactHonorsTerminalWidth(t *testing.T) {
+	if got := fitLoaderFact("a fact that is too long", 12); got != "a fact th…" {
+		t.Fatalf("fitted fact = %q", got)
+	}
+	if got := fitLoaderFact("short", 12); got != "short" {
+		t.Fatalf("short fact = %q", got)
+	}
+}
+
 func TestScanLoaderSuccessRestoresCursorAndPrintsReady(t *testing.T) {
 	var output bytes.Buffer
-	loader := startScanLoaderWithInterval(&output, true, true, time.Hour)
+	loader := testScanLoader(&output, true, true)
 	loader.Stop(true)
 
 	text := output.String()
-	for _, want := range []string{hideCursor, "◜", "beacon scanning the horizon…", clearLine, "✓", "beacon ready", showCursor} {
+	for _, want := range []string{hideCursor, "◜", "Octopuses have three hearts.", clearLine, "✓", "beacon ready", showCursor} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("loader output %q does not contain %q", text, want)
 		}
@@ -35,11 +112,14 @@ func TestScanLoaderSuccessRestoresCursorAndPrintsReady(t *testing.T) {
 	if !strings.Contains(text, scanLoaderColors[0]) {
 		t.Fatalf("colored loader output = %q", text)
 	}
+	if !strings.Contains(text, scanFactColors[0]) {
+		t.Fatalf("colored fact output = %q", text)
+	}
 }
 
 func TestScanLoaderFailureClearsLineAndRestoresCursor(t *testing.T) {
 	var output bytes.Buffer
-	loader := startScanLoaderWithInterval(&output, true, false, time.Hour)
+	loader := testScanLoader(&output, true, false)
 	loader.Stop(false)
 
 	text := output.String()
@@ -53,7 +133,7 @@ func TestScanLoaderFailureClearsLineAndRestoresCursor(t *testing.T) {
 
 func TestScanLoaderDisabledDoesNotWrite(t *testing.T) {
 	var output bytes.Buffer
-	loader := startScanLoaderWithInterval(&output, false, true, time.Millisecond)
+	loader := testScanLoader(&output, false, true)
 	loader.Stop(true)
 	if output.Len() != 0 {
 		t.Fatalf("disabled loader output = %q", output.String())
@@ -71,7 +151,7 @@ func TestBareDashboardShowsLoaderOnlyForTTY(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			output := executeScanCommand(t, test.outputIsTTY)
-			hasLoader := strings.Contains(output, "beacon scanning the horizon…")
+			hasLoader := strings.Contains(output, hideCursor) && containsScanFact(output)
 			if hasLoader != test.wantLoader {
 				t.Fatalf("loader present = %t, want %t; output = %q", hasLoader, test.wantLoader, output)
 			}
@@ -81,9 +161,29 @@ func TestBareDashboardShowsLoaderOnlyForTTY(t *testing.T) {
 
 func TestExplicitScanDoesNotShowLoader(t *testing.T) {
 	output := executeScanCommand(t, true, "scan", "--no-refresh")
-	if strings.Contains(output, "beacon scanning the horizon…") || strings.Contains(output, hideCursor) {
+	if strings.Contains(output, hideCursor) || containsScanFact(output) {
 		t.Fatalf("explicit scan included loader output: %q", output)
 	}
+}
+
+func testScanLoader(writer *bytes.Buffer, enabled, color bool) *scanLoader {
+	return startScanLoaderWithOptions(writer, enabled, color, scanLoaderOptions{
+		frameInterval: time.Hour,
+		minFactDelay:  time.Second,
+		width:         120,
+		facts:         []string{"Octopuses have three hearts."},
+		factOrder:     []int{0},
+		nextFactDelay: func() time.Duration { return time.Second },
+	})
+}
+
+func containsScanFact(output string) bool {
+	for _, fact := range scanFacts {
+		if strings.Contains(output, fact) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestBareDashboardScanFailureRestoresCursor(t *testing.T) {

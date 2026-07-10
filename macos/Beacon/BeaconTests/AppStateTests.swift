@@ -74,6 +74,18 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(groups.first?.lanes.map(\.id), ["issue:owner/repo#41"])
     }
 
+    func testQuietProjectsExcludeProjectsWithActiveWorkAndSupportSearch() async {
+        let state = AppState(client: StubClient(result: .success(TestSnapshots.withIdleInventory)))
+        await state.scan()
+
+        XCTAssertEqual(state.quietProjectCount, 1)
+        XCTAssertEqual(state.quietProjectGroups().map(\.name), ["quiet"])
+        XCTAssertEqual(state.quietProjectGroups().first?.lanes.map(\.id), ["quiet-base", "quiet-worktree"])
+        XCTAssertEqual(state.quietProjectGroups(matching: "WORKTREE").first?.lanes.count, 2)
+        XCTAssertTrue(state.quietProjectGroups(matching: "missing").isEmpty)
+        XCTAssertEqual(state.topLane()?.id, "active-work")
+    }
+
     func testOpenTargetPrefersPullRequestThenIssueThenWorktree() throws {
         let lane = TestSnapshots.lane(
             pullRequest: TestSnapshots.pullRequest,
@@ -201,16 +213,21 @@ private enum TestSnapshots {
     )
 
     static func lane(
+        id: String = "issue:owner/repo#41",
+        repository: String = "repo",
+        github: String = "owner/repo",
+        branch: String = "feature",
+        nextAction: String? = nil,
         pullRequest: PullRequestDetails? = nil,
         issue: IssueDetails? = nil,
         worktree: WorktreeDetails? = nil
     ) -> WorkLane {
         WorkLane(
-            id: "issue:owner/repo#41",
-            repository: "repo",
-            github: "owner/repo",
+            id: id,
+            repository: repository,
+            github: github,
             base: "main",
-            branch: "feature",
+            branch: branch,
             worktree: worktree,
             pullRequest: pullRequest,
             issue: issue,
@@ -226,7 +243,7 @@ private enum TestSnapshots {
                 issue: issue == nil ? "none" : "open"
             ),
             reviewReady: pullRequest != nil,
-            nextAction: pullRequest == nil ? "start_issue" : "manual_test_then_merge",
+            nextAction: nextAction ?? (pullRequest == nil ? "start_issue" : "manual_test_then_merge"),
             reasons: [],
             warnings: [],
             blockers: [],
@@ -264,6 +281,85 @@ private enum TestSnapshots {
                 errors: []
             )],
             lanes: [issueLane],
+            errors: []
+        )
+    }()
+
+    static let withIdleInventory: BeaconSnapshot = {
+        let activeWork = lane(
+            id: "active-work",
+            repository: "active",
+            github: "owner/active",
+            branch: "feature",
+            nextAction: "fix_ci",
+            issue: issue
+        )
+        let activeBase = lane(
+            id: "active-base",
+            repository: "active",
+            github: "owner/active",
+            branch: "main",
+            nextAction: "none"
+        )
+        let quietBase = lane(
+            id: "quiet-base",
+            repository: "quiet",
+            github: "owner/quiet",
+            branch: "main",
+            nextAction: "none"
+        )
+        let quietWorktree = lane(
+            id: "quiet-worktree",
+            repository: "quiet",
+            github: "owner/quiet",
+            branch: "old-worktree",
+            nextAction: "none"
+        )
+        return BeaconSnapshot(
+            schemaVersion: 2,
+            generatedAt: "2026-07-09T16:00:00Z",
+            configPath: "/Users/test/.config/beacon/config.yaml",
+            refresh: [],
+            summary: SnapshotSummary(
+                projects: 2,
+                total: 4,
+                reviewReady: 0,
+                needsAction: 1,
+                waiting: 0,
+                idle: 3,
+                errors: 0,
+                openIssues: 1,
+                unresolvedFeedback: 0
+            ),
+            groups: LaneGroups(
+                ready: [],
+                action: [activeWork.id],
+                waiting: [],
+                idle: [activeBase.id, quietBase.id, quietWorktree.id]
+            ),
+            projects: [
+                BeaconProject(
+                    name: "active",
+                    path: "/Users/test/active",
+                    github: "owner/active",
+                    base: "main",
+                    remote: "origin",
+                    progress: nil,
+                    laneIDs: [activeWork.id, activeBase.id],
+                    errors: []
+                ),
+                BeaconProject(
+                    name: "quiet",
+                    path: "/Users/test/quiet",
+                    github: "owner/quiet",
+                    base: "main",
+                    remote: "origin",
+                    progress: nil,
+                    laneIDs: [quietBase.id, quietWorktree.id],
+                    errors: []
+                ),
+            ],
+            lanes: [activeWork, activeBase, quietBase, quietWorktree],
             errors: []
         )
     }()

@@ -254,10 +254,14 @@ configuration or startup failures and failed required doctor checks exit `1`.
 Usage errors exit `2`. JSON mode writes JSON only to stdout and sends
 diagnostics to stderr.
 
-Bare `beacon` shows a rotating lighthouse sweep while an interactive terminal
-waits for the live scan. The loader starts only after configuration and any
-initialization prompt succeed, clears its line before dashboard output, and
-restores the cursor on success, error, cancellation, or panic unwinding.
+Bare `beacon` shows a rotating lighthouse sweep and a shuffled 150-item deck of
+original odd trivia while an interactive terminal waits for the live scan. A
+fact changes after an independently randomized one-to-five-second interval,
+never repeats within one command run, and is truncated to terminal width. Once
+the deck is exhausted, the final fact remains instead of reshuffling. The
+loader starts only after configuration and any initialization prompt succeed,
+clears its line before dashboard output, and restores the cursor on success,
+error, cancellation, or panic unwinding.
 Redirected output, JSON, and explicit `beacon scan` commands never emit loader
 frames or cursor-control sequences. `--color=never` keeps the animation but
 removes its color; `NO_COLOR` has the same effect in automatic mode.
@@ -292,6 +296,16 @@ menu-bar backgrounds. When that count is zero, it shows a compact color
 neon-space glyph instead of a numeric badge. The menu window may use coordinated
 pastel and neon accents to distinguish existing CLI-provided groups and signals,
 but color must not introduce readiness or action policy in the Swift client.
+
+Human-facing views treat idle work as inventory rather than primary queue
+content. The terminal hides all-idle projects by default, reports one compact
+project count, and reveals them with `--include-idle`; an explicit `--repo`
+filter always renders its matching idle project. The menu window replaces its
+expanded Idle section with one Quiet Projects row leading to a searchable
+secondary view. Both clients suppress an idle base lane when that project has
+any ready, action, or waiting lane, and top-item actions never fall back to idle
+inventory. These are presentation rules only:
+schema-v2 JSON continues to expose every project, lane, and group unchanged.
 
 The application may use `NSWorkspace` to open pull requests, worktree paths,
 and `$HOME/.config/beacon/config.yaml`. It must not execute Git or `gh`

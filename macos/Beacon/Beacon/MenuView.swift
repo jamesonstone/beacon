@@ -3,6 +3,8 @@ import SwiftUI
 
 struct MenuView: View {
     @ObservedObject var state: AppState
+    @State private var showingQuietProjects = false
+    @State private var quietSearch = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -11,33 +13,10 @@ struct MenuView: View {
                 errorBanner(error)
             }
             if let snapshot = state.snapshot {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 14) {
-                        laneSection(
-                            "Ready for Review",
-                            symbol: "checkmark.circle.fill",
-                            accent: BeaconPalette.mint,
-                            lanes: state.lanes(for: snapshot.groups.ready)
-                        )
-                        laneSection(
-                            "Needs Action",
-                            symbol: "exclamationmark.triangle.fill",
-                            accent: BeaconPalette.coral,
-                            lanes: state.lanes(for: snapshot.groups.action)
-                        )
-                        laneSection(
-                            "Waiting",
-                            symbol: "clock.fill",
-                            accent: BeaconPalette.gold,
-                            lanes: state.lanes(for: snapshot.groups.waiting)
-                        )
-                        laneSection(
-                            "Idle",
-                            symbol: "circle",
-                            accent: BeaconPalette.lavender,
-                            lanes: state.lanes(for: snapshot.groups.idle)
-                        )
-                    }
+                if showingQuietProjects {
+                    quietProjects
+                } else {
+                    activeDashboard(snapshot)
                 }
                 Text("Updated \(snapshot.generatedAt)")
                     .font(.caption2)
@@ -95,7 +74,7 @@ struct MenuView: View {
                 Label("Open Top", systemImage: "arrow.up.forward.app")
             }
             .tint(BeaconPalette.mint)
-            .disabled(state.snapshot?.lanes.isEmpty ?? true)
+            .disabled(state.inProgressCount == 0)
             Button { state.openConfig() } label: {
                 Label("Config", systemImage: "slider.horizontal.3")
             }
@@ -108,6 +87,100 @@ struct MenuView: View {
             .help("Quit Beacon")
         }
         .buttonStyle(.link)
+    }
+
+    private func activeDashboard(_ snapshot: BeaconSnapshot) -> some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                laneSection(
+                    "Ready for Review",
+                    symbol: "checkmark.circle.fill",
+                    accent: BeaconPalette.mint,
+                    lanes: state.lanes(for: snapshot.groups.ready)
+                )
+                laneSection(
+                    "Needs Action",
+                    symbol: "exclamationmark.triangle.fill",
+                    accent: BeaconPalette.coral,
+                    lanes: state.lanes(for: snapshot.groups.action)
+                )
+                laneSection(
+                    "Waiting",
+                    symbol: "clock.fill",
+                    accent: BeaconPalette.gold,
+                    lanes: state.lanes(for: snapshot.groups.waiting)
+                )
+                if state.quietProjectCount > 0 {
+                    Button {
+                        quietSearch = ""
+                        showingQuietProjects = true
+                    } label: {
+                        HStack(spacing: 9) {
+                            Image(systemName: "moon.stars.fill")
+                                .foregroundStyle(BeaconPalette.lavender)
+                                .shadow(color: BeaconPalette.lavender.opacity(0.45), radius: 2)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Quiet Projects")
+                                    .font(.subheadline.weight(.semibold))
+                                Text("\(state.quietProjectCount) idle project\(state.quietProjectCount == 1 ? "" : "s")")
+                                    .font(.caption2)
+                                    .foregroundStyle(BeaconPalette.lavender.opacity(0.85))
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(BeaconPalette.cyan)
+                        }
+                        .padding(10)
+                        .background(BeaconPalette.softGradient(BeaconPalette.lavender), in: RoundedRectangle(cornerRadius: 9))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 9)
+                                .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.lavender), lineWidth: 0.8)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var quietProjects: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Button {
+                    showingQuietProjects = false
+                    quietSearch = ""
+                } label: {
+                    Label("Dashboard", systemImage: "chevron.left")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(BeaconPalette.cyan)
+                Spacer()
+                Text("\(state.quietProjectCount) quiet")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(BeaconPalette.lavender)
+            }
+            TextField("Search quiet projects", text: $quietSearch)
+                .textFieldStyle(.roundedBorder)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    let groups = state.quietProjectGroups(matching: quietSearch)
+                    if groups.isEmpty {
+                        ContentUnavailableView.search(text: quietSearch)
+                            .foregroundStyle(BeaconPalette.lavender)
+                    } else {
+                        ForEach(groups) { project in
+                            projectHeader(project, accent: BeaconPalette.lavender)
+                            ForEach(project.lanes) { lane in
+                                Button { state.open(lane) } label: {
+                                    laneRow(lane, accent: BeaconPalette.lavender)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @ViewBuilder

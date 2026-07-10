@@ -203,9 +203,11 @@ init operation.
 
 ```bash
 beacon
+beacon --include-idle
 beacon --color=always
 beacon doctor
 beacon scan
+beacon scan --include-idle
 beacon scan --json
 beacon scan --color=never
 beacon scan --repo beacon
@@ -221,11 +223,19 @@ dashboard with project, work item, status, last durable progress, and next
 action. `--color=auto|always|never` controls ANSI styling; auto requires a TTY
 and honors `NO_COLOR`. Narrow terminals use wrapped evidence rows.
 
+Idle work is treated as inventory instead of queue content. Human output hides
+all-idle projects by default and replaces them with a compact count; pass
+`--include-idle` to list those quiet projects. `beacon scan --repo NAME` always
+shows the selected project even when it is idle. An idle base lane is omitted
+when its project already has active work. JSON remains complete regardless of
+these presentation filters.
+
 When bare `beacon` performs a live scan in an interactive terminal, a rotating
-lighthouse sweep keeps the session responsive until the dashboard is ready.
-The animation is omitted from explicit `beacon scan` commands, redirected
-output, and JSON. Cursor state is restored even when a scan fails or is
-cancelled.
+lighthouse sweep shows a shuffled deck of 150 original odd trivia facts. A new
+fact arrives after a random one-to-five-second interval, and no fact repeats
+during one command run. Facts are truncated to the current terminal width. The
+animation is omitted from explicit `beacon scan` commands, redirected output,
+and JSON. Cursor state is restored even when a scan fails or is cancelled.
 
 Non-blocking discovery, prunable-worktree, search-truncation, and optional Kit
 progress diagnostics contribute to the warning count in the dashboard header;
@@ -241,6 +251,7 @@ and automation.
 Common workflows:
 
 - Run `beacon` for the colorful project dashboard.
+- Run `beacon --include-idle` when auditing quiet projects.
 - Run `beacon open-next` to open the highest-priority review or action item.
 - Run `beacon scan --repo NAME` to focus on one configured project.
 - Run `beacon scan --json` for scripts or diagnostics.

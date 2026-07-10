@@ -61,6 +61,45 @@ func TestTerminalGroupsLanes(t *testing.T) {
 	}
 }
 
+func TestTerminalHidesQuietProjectsUntilRequested(t *testing.T) {
+	snapshot := quietProjectSnapshot()
+
+	var defaultOutput bytes.Buffer
+	if err := TerminalWithOptions(&defaultOutput, snapshot, TerminalOptions{Width: 120}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(defaultOutput.String(), "1 quiet project hidden · use --include-idle to show") {
+		t.Fatalf("default terminal output = %q", defaultOutput.String())
+	}
+	if strings.Contains(defaultOutput.String(), "quiet-main") || strings.Contains(defaultOutput.String(), "active-main") || strings.Contains(defaultOutput.String(), "Quiet Projects") {
+		t.Fatalf("default terminal exposed idle inventory: %q", defaultOutput.String())
+	}
+
+	var completeOutput bytes.Buffer
+	if err := TerminalWithOptions(&completeOutput, snapshot, TerminalOptions{Width: 120, IncludeIdle: true}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(completeOutput.String(), "Quiet Projects") || !strings.Contains(completeOutput.String(), "quiet-main") {
+		t.Fatalf("included terminal output = %q", completeOutput.String())
+	}
+	if strings.Contains(completeOutput.String(), "active-main") {
+		t.Fatalf("included terminal exposed redundant active-project base lane: %q", completeOutput.String())
+	}
+}
+
+func TestJSONPreservesIdleLanesHiddenFromHumanOutput(t *testing.T) {
+	snapshot := quietProjectSnapshot()
+	var buffer bytes.Buffer
+	if err := JSON(&buffer, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range snapshot.Groups.Idle {
+		if !strings.Contains(buffer.String(), id) {
+			t.Fatalf("JSON omitted idle lane %q: %s", id, buffer.String())
+		}
+	}
+}
+
 func TestTerminalSummarizesWarningsWithoutRenderingDiagnosticFlood(t *testing.T) {
 	snapshot := model.Snapshot{
 		GeneratedAt: time.Now(), Summary: model.Summary{Warnings: 2},
@@ -167,5 +206,21 @@ func TestJSONNeverContainsANSI(t *testing.T) {
 	}
 	if strings.Contains(buffer.String(), "\x1b[") {
 		t.Fatalf("JSON contains literal ANSI escape: %q", buffer.String())
+	}
+}
+
+func quietProjectSnapshot() model.Snapshot {
+	return model.Snapshot{
+		GeneratedAt: time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC),
+		Summary:     model.Summary{Projects: 2, Total: 3, NeedsAction: 1, Idle: 2},
+		Groups: model.Groups{
+			Action: []string{"active-work"},
+			Idle:   []string{"active-base", "quiet-base"},
+		},
+		Lanes: []model.Lane{
+			{ID: "active-work", Repository: "active", GitHub: "owner/active", Branch: "feature", NextAction: model.ActionFixCI},
+			{ID: "active-base", Repository: "active", GitHub: "owner/active", Branch: "active-main", NextAction: model.ActionNone},
+			{ID: "quiet-base", Repository: "quiet", GitHub: "owner/quiet", Branch: "quiet-main", NextAction: model.ActionNone},
+		},
 	}
 }

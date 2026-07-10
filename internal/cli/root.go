@@ -62,6 +62,7 @@ func New() *cobra.Command {
 func (a App) Root() *cobra.Command {
 	var configPath string
 	var colorMode string
+	var includeIdle bool
 	root := &cobra.Command{
 		Use:           "beacon",
 		Short:         "Review readiness for agent-driven Git work",
@@ -69,11 +70,12 @@ func (a App) Root() *cobra.Command {
 		SilenceUsage:  true,
 		Args:          noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return a.runHumanScan(cmd.Context(), configPath, "", true, colorMode, true, true)
+			return a.runHumanScan(cmd.Context(), configPath, "", true, colorMode, includeIdle, true, true)
 		},
 	}
 	root.PersistentFlags().StringVar(&configPath, "config", "", "configuration file path")
 	root.PersistentFlags().StringVar(&colorMode, "color", "auto", "color output: auto, always, or never")
+	root.Flags().BoolVar(&includeIdle, "include-idle", false, "show projects with only idle work")
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err} })
 	root.AddCommand(
 		a.initCommand(&configPath),
@@ -101,6 +103,7 @@ func (a App) scanCommand(configPath *string) *cobra.Command {
 	var repository string
 	var jsonOutput bool
 	var noRefresh bool
+	var includeIdle bool
 	command := &cobra.Command{
 		Use:   "scan",
 		Short: "Scan configured repositories",
@@ -121,16 +124,17 @@ func (a App) scanCommand(configPath *string) *cobra.Command {
 				}
 				return output.JSON(a.Out, snapshot)
 			}
-			return a.runHumanScan(cmd.Context(), *configPath, repository, !noRefresh, colorMode, false, false)
+			return a.runHumanScan(cmd.Context(), *configPath, repository, !noRefresh, colorMode, includeIdle || repository != "", false, false)
 		},
 	}
 	command.Flags().StringVar(&repository, "repo", "", "scan one configured repository")
 	command.Flags().BoolVar(&jsonOutput, "json", false, "emit JSON only")
 	command.Flags().BoolVar(&noRefresh, "no-refresh", false, "skip git fetch")
+	command.Flags().BoolVar(&includeIdle, "include-idle", false, "show projects with only idle work")
 	return command
 }
 
-func (a App) runHumanScan(ctx context.Context, path, repository string, refresh bool, colorMode string, offerInit, showLoader bool) error {
+func (a App) runHumanScan(ctx context.Context, path, repository string, refresh bool, colorMode string, includeIdle, offerInit, showLoader bool) error {
 	color, err := a.resolveColor(colorMode)
 	if err != nil {
 		return err
@@ -155,14 +159,14 @@ func (a App) runHumanScan(ctx context.Context, path, repository string, refresh 
 	if err != nil {
 		return err
 	}
-	loader := startScanLoader(a.Out, showLoader && a.outputIsTTY(), color)
+	loader := startScanLoader(a.Out, showLoader && a.outputIsTTY(), color, a.terminalWidth())
 	defer loader.Stop(false)
 	snapshot, err := a.scanner().Scan(ctx, cfg, repository, refresh)
 	loader.Stop(err == nil)
 	if err != nil {
 		return err
 	}
-	return output.TerminalWithOptions(a.Out, snapshot, output.TerminalOptions{Color: color, Width: a.terminalWidth()})
+	return output.TerminalWithOptions(a.Out, snapshot, output.TerminalOptions{Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle})
 }
 
 func (a App) resolveColor(mode string) (bool, error) {
@@ -245,12 +249,28 @@ func (a App) openNextCommand(configPath *string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(snapshot.Lanes) == 0 {
-				return errors.New("no work lanes found")
+			lane, ok := nextActiveLane(snapshot)
+			if !ok {
+				return errors.New("no active work lanes found")
 			}
-			return a.openLane(cmd.Context(), snapshot.Lanes[0])
+			return a.openLane(cmd.Context(), lane)
 		},
 	}
+}
+
+func nextActiveLane(snapshot model.Snapshot) (model.Lane, bool) {
+	byID := make(map[string]model.Lane, len(snapshot.Lanes))
+	for _, lane := range snapshot.Lanes {
+		byID[lane.ID] = lane
+	}
+	for _, group := range [][]string{snapshot.Groups.Ready, snapshot.Groups.Action, snapshot.Groups.Waiting} {
+		for _, id := range group {
+			if lane, ok := byID[id]; ok {
+				return lane, true
+			}
+		}
+	}
+	return model.Lane{}, false
 }
 
 func (a App) loadSnapshot(ctx context.Context, path string) (model.Snapshot, error) {

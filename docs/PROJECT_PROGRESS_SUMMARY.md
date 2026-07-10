@@ -5,7 +5,7 @@
 | ID | FEATURE | PATH | PHASE | PAUSED | CREATED | SUMMARY |
 | -- | ------- | ---- | ----- | ------ | ------- | ------- |
 | 0001 | beacon-v1 | `docs/specs/0001-beacon-v1` | deliver | no | 2026-07-09 | Build a read-only agent work-lane review radar as a Go CLI and native macOS menu application backed by the same versioned snapshot. |
-| 0002 | beacon-init-dashboard | `docs/specs/0002-beacon-init-dashboard` | deliver | no | 2026-07-10 | Add guided initialization, persistent repository-source discovery, GitHub issue and feedback evidence, Kit progress inference, a colorful default dashboard, and schema-v2 macOS parity. |
+| 0002 | beacon-init-dashboard | `docs/specs/0002-beacon-init-dashboard` | deliver | no | 2026-07-10 | Add guided initialization, persistent repository-source discovery, GitHub issue and feedback evidence, Kit progress inference, an active-first colorful dashboard, and schema-v2 macOS parity. |
 | 0003 | beacon-github-releases | `docs/specs/0003-beacon-github-releases` | deliver | no | 2026-07-10 | Publish synchronized SemVer CLI and universal macOS artifacts with generated notes and checksums after accepted merges to main. |
 
 ## PROJECT INTENT
@@ -39,8 +39,8 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Make Beacon immediately useful through guided setup and a project-grouped dashboard backed by durable Git, GitHub, and optional Kit evidence.
-- **APPROACH**: Persist and rediscover source roots, enrich the shared snapshot with issues, feedback, checks, and progress, derive deterministic next actions, and update both terminal and macOS surfaces.
-- **OPEN ITEMS**: No implementation items remain. Issue #1, branch `GH-1`, implementation commit `7572d9c`, and ready PR #2 contain the delivery and validation evidence; final review and merge remain human decisions.
+- **APPROACH**: Persist and rediscover source roots, enrich the shared snapshot with issues, feedback, checks, and progress, derive deterministic next actions, prioritize active work in both human views, and keep idle inventory searchable without removing it from schema-v2 JSON.
+- **OPEN ITEMS**: No implementation items remain. Issue #1, branch `GH-1`, and ready PR #2 contain the delivery and validation evidence; final review and merge remain human decisions.
 - **POINTERS**: `docs/specs/0002-beacon-init-dashboard/SPEC.md`
 
 ### beacon-github-releases

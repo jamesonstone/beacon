@@ -28,6 +28,8 @@ final class AppState: ObservableObject {
         return groups.ready.count + groups.action.count + groups.waiting.count
     }
 
+    var quietProjectCount: Int { quietProjectGroups().count }
+
     func start() {
         guard pollingTask == nil else { return }
         pollingTask = Task { [weak self] in
@@ -99,6 +101,25 @@ final class AppState: ObservableObject {
         return groups
     }
 
+    func quietProjectGroups(matching query: String = "") -> [ProjectLaneGroup] {
+        guard let snapshot else { return [] }
+        let activeProjects = Set(lanes(for: snapshot.groups.ready + snapshot.groups.action + snapshot.groups.waiting).map(\.github))
+        let quietLanes = lanes(for: snapshot.groups.idle).filter { !activeProjects.contains($0.github) }
+        let groups = projectGroups(for: quietLanes)
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalizedQuery.isEmpty else { return groups }
+        return groups.filter { group in
+            group.name.lowercased().contains(normalizedQuery)
+                || group.id.lowercased().contains(normalizedQuery)
+                || group.lanes.contains { lane in
+                    lane.repository.lowercased().contains(normalizedQuery)
+                        || lane.branch.lowercased().contains(normalizedQuery)
+                        || lane.pullRequest?.title.lowercased().contains(normalizedQuery) == true
+                        || lane.issue?.title.lowercased().contains(normalizedQuery) == true
+                }
+        }
+    }
+
     func open(_ lane: WorkLane) {
         if let target = Self.openTarget(for: lane) {
             NSWorkspace.shared.open(target)
@@ -106,13 +127,14 @@ final class AppState: ObservableObject {
     }
 
     func openTopItem() {
-        guard let snapshot else { return }
-        let identifiers = snapshot.groups.ready
-            + snapshot.groups.action
-            + snapshot.groups.waiting
-            + snapshot.groups.idle
-        guard let lane = lanes(for: identifiers).first else { return }
+        guard let lane = topLane() else { return }
         open(lane)
+    }
+
+    func topLane() -> WorkLane? {
+        guard let snapshot else { return nil }
+        let identifiers = snapshot.groups.ready + snapshot.groups.action + snapshot.groups.waiting
+        return lanes(for: identifiers).first
     }
 
     static func openTarget(for lane: WorkLane) -> URL? {

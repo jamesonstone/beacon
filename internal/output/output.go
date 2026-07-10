@@ -16,8 +16,9 @@ import (
 const narrowWidth = 100
 
 type TerminalOptions struct {
-	Color bool
-	Width int
+	Color       bool
+	Width       int
+	IncludeIdle bool
 }
 
 type styles struct {
@@ -74,6 +75,7 @@ func TerminalWithOptions(writer io.Writer, snapshot model.Snapshot, options Term
 	for _, lane := range snapshot.Lanes {
 		byID[lane.ID] = lane
 	}
+	quietIDs, quietProjects := quietInventory(snapshot)
 	sections := []struct {
 		title string
 		ids   []string
@@ -81,7 +83,12 @@ func TerminalWithOptions(writer io.Writer, snapshot model.Snapshot, options Term
 		{"Ready for Review", snapshot.Groups.Ready},
 		{"Needs Action", snapshot.Groups.Action},
 		{"Waiting", snapshot.Groups.Waiting},
-		{"Idle", snapshot.Groups.Idle},
+	}
+	if options.IncludeIdle && len(quietIDs) > 0 {
+		sections = append(sections, struct {
+			title string
+			ids   []string
+		}{"Quiet Projects", quietIDs})
 	}
 	for _, section := range sections {
 		if len(section.ids) == 0 {
@@ -106,6 +113,19 @@ func TerminalWithOptions(writer io.Writer, snapshot model.Snapshot, options Term
 				return err
 			}
 		} else if err := renderTable(writer, lanes, style); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(writer); err != nil {
+			return err
+		}
+	}
+	if !options.IncludeIdle && quietProjects > 0 {
+		message := style.dim.Render(fmt.Sprintf("%d quiet project%s hidden · use --include-idle to show", quietProjects, pluralSuffix(quietProjects)))
+		if options.Width < narrowWidth {
+			if err := writeWrapped(writer, "", style.wrap.Width(options.Width).Render(message)); err != nil {
+				return err
+			}
+		} else if _, err := fmt.Fprintln(writer, message); err != nil {
 			return err
 		}
 		if _, err := fmt.Fprintln(writer); err != nil {
