@@ -67,6 +67,7 @@ The user requested that this ship with the current first-release work. Because t
 - The app is ad-hoc signed for bundle integrity but is not Developer ID signed or notarized. Gatekeeper guidance must remain explicit.
 - GitHub-generated notes describe the release; a checksum manifest covers every uploaded binary archive.
 - Release automation never merges, commits back to `main`, changes branches, or modifies user configuration.
+- Development builds use Go's embedded VCS metadata for a revision-based version and dirty marker, while explicit release metadata always wins.
 
 ## Requirements
 
@@ -78,6 +79,7 @@ The user requested that this ship with the current first-release work. Because t
 6. Create or safely resume a GitHub release at the calculated tag with generated release notes and all artifacts.
 7. Update the README with release installation, first-run initialization, multi-source configuration, everyday usage, upgrades, and unsigned-app guidance.
 8. Update the user-authorized default config non-destructively to version 2 with the five requested persistent source roots.
+9. Preserve explicit release version metadata while making local source builds report embedded VCS revision, build time, and dirty state.
 
 ## Assumptions
 
@@ -98,6 +100,7 @@ The user requested that this ship with the current first-release work. Because t
 - [x] AC7: README instructions take a new user from release download through initialization, scanning, and opening the menu app, including Gatekeeper limitations.
 - [x] AC8: The personal config contains exactly the requested persistent source roots in valid version-2 form while preserving existing settings and explicit repository metadata.
 - [x] AC9: Go, race, version-script, macOS, workflow-lint, config-validation, and Kit project checks pass.
+- [x] AC10: Development builds derive revision/time/dirty details from embedded Go build information, and release metadata remains unchanged when provided explicitly.
 
 ## Implementation Plan
 
@@ -129,6 +132,7 @@ The user requested that this ship with the current first-release work. Because t
 | AC7 | README command and path review against current CLI help and config schema |
 | AC8 | `beacon config validate` against the default personal config and exact source comparison |
 | AC9 | `make fmt-check vet test test-race release-test build macos-test`, `actionlint`, `git diff --check`, and `kit check --all --project` |
+| AC10 | Focused build-detail tests for embedded VCS metadata, dirty markers, and explicit release precedence |
 
 ## Reflection Notes
 
@@ -153,6 +157,7 @@ Continue on issue `#1`, branch `GH-1`, and ready PR `#2` so the first merge cont
 - `shellcheck scripts/*.sh` passed for the SemVer, test, helper, and packaging scripts.
 - `actionlint v1.7.12` passed for CI and release workflows; release actions are pinned to the full commits for `actions/checkout v6.0.2` and `actions/setup-go v6.4.0`.
 - `make fmt-check`, `make vet`, `make test`, `make test-race`, `make release-test`, and `make build` passed.
+- Focused tests confirm local development versions use embedded module/VCS metadata, shorten raw revisions, mark dirty builds once, and never override explicit release versions, commits, or dates.
 - `make macos-test` passed all 14 Swift tests for both target architectures; Xcode's non-fatal local `linkd.autoShortcut` host messages remain unrelated to the suite result.
 - A release dry run produced four CLI archives, a 4.6 MB universal app zip, and `checksums.txt`; `shasum -a 256 -c` verified all five archives.
 - The native CLI archive and embedded helper reported `beacon 0.1.0` with the injected commit and UTC date.

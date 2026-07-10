@@ -254,6 +254,14 @@ configuration or startup failures and failed required doctor checks exit `1`.
 Usage errors exit `2`. JSON mode writes JSON only to stdout and sends
 diagnostics to stderr.
 
+Bare `beacon` shows a rotating lighthouse sweep while an interactive terminal
+waits for the live scan. The loader starts only after configuration and any
+initialization prompt succeed, clears its line before dashboard output, and
+restores the cursor on success, error, cancellation, or panic unwinding.
+Redirected output, JSON, and explicit `beacon scan` commands never emit loader
+frames or cursor-control sequences. `--color=never` keeps the animation but
+removes its color; `NO_COLOR` has the same effect in automatic mode.
+
 The schema-v2 snapshot is a public internal contract between the CLI and
 clients. It contains generation/config/refresh metadata, projects, summary
 counts, ordered enriched lanes, grouped lane IDs, and repository-scoped or

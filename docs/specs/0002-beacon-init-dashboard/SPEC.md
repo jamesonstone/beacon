@@ -61,13 +61,14 @@ The user explicitly selected issue `#1`, branch `GH-1`, and PR `#2` for delivery
 - Passing automation with no approval recommends manual testing followed by merge; an approved clean PR recommends merge.
 - The CLI and macOS app consume the same schema-v2 snapshot.
 - The menu-bar label counts non-idle ready, action, and waiting lanes. Active counts use a bordered, high-contrast neon badge; with no active lanes, it displays a compact color neon-space glyph. The menu window uses coordinated neon and pastel accents without duplicating policy.
+- Bare interactive `beacon` uses a rotating lighthouse sweep during its live scan. Redirected output, JSON, and explicit `beacon scan` commands remain animation-free, and cursor state is restored on every exit path.
 
 ## Requirements
 
 1. Support strict config versions 1 and 2, with v2 source roots and GitHub scope.
 2. Discover Git repositories recursively from persisted sources without following symlinks, and deduplicate repositories and worktrees deterministically.
 3. Implement `beacon init` with repeated sources, interactive selection, prerequisite checks, safe merging, preview, confirmation, and atomic writes.
-4. Make bare `beacon` run the dashboard and offer initialization when config is missing in a TTY.
+4. Make bare `beacon` run the dashboard, offer initialization when config is missing in a TTY, and show a TTY-only lighthouse loader during the live scan.
 5. Query relevant open PRs and issues through `gh`, enrich PRs with checks, linked issues, reviews, comments, mergeability, and unresolved threads, and preserve partial results.
 6. Parse optional Kit progress summaries and SPEC issue references without inventing progress percentages.
 7. Emit schema version 2 with projects, issues, feedback, check summaries, progress evidence, and new deterministic actions.
@@ -89,7 +90,7 @@ The user explicitly selected issue `#1`, branch `GH-1`, and PR `#2` for delivery
 - [x] AC1: Version-1 configs still load, and version-2 configs strictly validate sources and `mine|all` scope.
 - [x] AC2: Repeated source flags and interactive selection create or safely merge an atomic config without deleting existing entries.
 - [x] AC3: Repository roots, parent roots, worktree `.git` files, overlapping roots, non-GitHub remotes, missing paths, and unusual names are handled deterministically.
-- [x] AC4: Bare Beacon displays the same ordered snapshot as human `scan`, offers init only in a TTY, and keeps non-TTY behavior explicit.
+- [x] AC4: Bare Beacon displays the same ordered snapshot as human `scan`, offers init only in a TTY, animates only its interactive live scan, and keeps redirected, JSON, explicit-scan, error, cancellation, and cursor behavior clean.
 - [x] AC5: Mine/all issue and PR discovery, detailed checks, linked issues, feedback, and unresolved threads are normalized through bounded `gh` commands.
 - [x] AC6: PR, local branch, issue, and Kit feature correlation follows the documented precedence and retains unmatched issue-only work.
 - [x] AC7: Every new action follows fixed precedence, including waiting for CI, manual test then merge, direct merge after approval, and starting an issue.
@@ -160,6 +161,7 @@ Continue on issue `#1`, branch `GH-1`, and ready PR `#2`, as explicitly directed
 - Live `beacon scan --no-refresh --json` returned schema version 2 with one project, PR #2, issue #1, Kit feature `0002`, two passing checks, zero unresolved threads, non-null arrays, and no scan errors.
 - CLI smoke checks confirmed `--color=always` emits ANSI, `NO_COLOR`/non-TTY output does not, invalid color and non-interactive bare init exit 2, and missing config exits 1 with an init hint.
 - `beacon doctor --json` passed Git, `gh`, authentication, config-directory, repository, and GitHub-access checks.
+- Focused and race tests cover the lighthouse frames, TTY gating, color, successful completion, failed-scan cleanup, cursor restoration, and the absence of animation from explicit scans. A real one-repository PTY smoke test animated through multiple sweeps before handing off cleanly to the dashboard; redirected and JSON smoke outputs contained no loader state.
 - `kit check --all --project` reported that the project contract is coherent.
 - Independent read-only verification confirmed all reported edge cases were repaired and found no remaining findings after a final 20-column output check.
 - Production process execution uses `exec.CommandContext` with argument arrays. Inspection found no scanner writes beyond the documented bounded fetch; explicit confirmed init writes only Beacon's config through same-directory atomic replacement.

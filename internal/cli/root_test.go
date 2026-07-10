@@ -71,7 +71,7 @@ func TestOpenLanePrefersPullRequestThenIssueThenWorktree(t *testing.T) {
 func TestBareMissingConfigInNonTTYIncludesInitHint(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing.yaml")
 	app := App{Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Runner: &recordingRunner{}, InputIsTTY: func() bool { return false }}
-	err := app.runHumanScan(context.Background(), path, "", false, "never", true)
+	err := app.runHumanScan(context.Background(), path, "", false, "never", true, false)
 	if err == nil || !strings.Contains(err.Error(), "run beacon init") || !strings.Contains(err.Error(), path) {
 		t.Fatalf("error = %v", err)
 	}
@@ -84,7 +84,7 @@ func TestBareMissingConfigTTYCanDeclineInit(t *testing.T) {
 		Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Runner: &recordingRunner{},
 		InputIsTTY: func() bool { return true }, prompter: prompter,
 	}
-	err := app.runHumanScan(context.Background(), path, "", false, "never", true)
+	err := app.runHumanScan(context.Background(), path, "", false, "never", true, false)
 	if err == nil || !strings.Contains(err.Error(), "configuration is required") || prompter.confirmCalls != 1 {
 		t.Fatalf("error = %v, confirmations = %d", err, prompter.confirmCalls)
 	}

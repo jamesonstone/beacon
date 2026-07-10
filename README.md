@@ -123,6 +123,10 @@ Release packaging is validated with:
 make release-test
 ```
 
+Local `make build` binaries report embedded VCS information as a revision-based
+development version, including a `dirty` marker when applicable. Published
+artifacts report the exact release SemVer and release commit instead.
+
 ## Configuration
 
 Beacon resolves configuration in this order:
@@ -216,6 +220,12 @@ Bare `beacon` and human-readable `beacon scan` render the same project-grouped
 dashboard with project, work item, status, last durable progress, and next
 action. `--color=auto|always|never` controls ANSI styling; auto requires a TTY
 and honors `NO_COLOR`. Narrow terminals use wrapped evidence rows.
+
+When bare `beacon` performs a live scan in an interactive terminal, a rotating
+lighthouse sweep keeps the session responsive until the dashboard is ready.
+The animation is omitted from explicit `beacon scan` commands, redirected
+output, and JSON. Cursor state is restored even when a scan fails or is
+cancelled.
 
 `scan --json` emits schema version 2 with projects, ordered lanes, issues,
 checks, feedback, optional Kit progress, and scoped errors. It never emits ANSI

@@ -35,7 +35,12 @@ type App struct {
 	InputIsTTY    func() bool
 	OutputIsTTY   func() bool
 	TerminalWidth func() int
+	scannerSource snapshotScanner
 	prompter      initPrompter
+}
+
+type snapshotScanner interface {
+	Scan(context.Context, config.Config, string, bool) (model.Snapshot, error)
 }
 
 func New() *cobra.Command {
@@ -64,7 +69,7 @@ func (a App) Root() *cobra.Command {
 		SilenceUsage:  true,
 		Args:          noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return a.runHumanScan(cmd.Context(), configPath, "", true, colorMode, true)
+			return a.runHumanScan(cmd.Context(), configPath, "", true, colorMode, true, true)
 		},
 	}
 	root.PersistentFlags().StringVar(&configPath, "config", "", "configuration file path")
@@ -82,7 +87,10 @@ func (a App) Root() *cobra.Command {
 	return root
 }
 
-func (a App) scanner() scan.Scanner {
+func (a App) scanner() snapshotScanner {
+	if a.scannerSource != nil {
+		return a.scannerSource
+	}
 	git := gitscan.Scanner{Runner: a.Runner, Now: time.Now}
 	github := githubscan.Client{Runner: a.Runner}
 	discoverer := discovery.Discoverer{Runner: a.Runner}
@@ -113,7 +121,7 @@ func (a App) scanCommand(configPath *string) *cobra.Command {
 				}
 				return output.JSON(a.Out, snapshot)
 			}
-			return a.runHumanScan(cmd.Context(), *configPath, repository, !noRefresh, colorMode, false)
+			return a.runHumanScan(cmd.Context(), *configPath, repository, !noRefresh, colorMode, false, false)
 		},
 	}
 	command.Flags().StringVar(&repository, "repo", "", "scan one configured repository")
@@ -122,7 +130,7 @@ func (a App) scanCommand(configPath *string) *cobra.Command {
 	return command
 }
 
-func (a App) runHumanScan(ctx context.Context, path, repository string, refresh bool, colorMode string, offerInit bool) error {
+func (a App) runHumanScan(ctx context.Context, path, repository string, refresh bool, colorMode string, offerInit, showLoader bool) error {
 	color, err := a.resolveColor(colorMode)
 	if err != nil {
 		return err
@@ -147,7 +155,10 @@ func (a App) runHumanScan(ctx context.Context, path, repository string, refresh 
 	if err != nil {
 		return err
 	}
+	loader := startScanLoader(a.Out, showLoader && a.outputIsTTY(), color)
+	defer loader.Stop(false)
 	snapshot, err := a.scanner().Scan(ctx, cfg, repository, refresh)
+	loader.Stop(err == nil)
 	if err != nil {
 		return err
 	}
@@ -266,18 +277,6 @@ func (a App) openLane(ctx context.Context, lane model.Lane) error {
 	defer cancel()
 	_, err := a.Runner.Run(commandContext, "", "open", target)
 	return err
-}
-
-func versionCommand(writer io.Writer) *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
-		Args:  noArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			_, err := fmt.Fprintf(writer, "beacon %s (%s, %s)\n", Version, Commit, Date)
-			return err
-		},
-	}
 }
 
 type usageError struct{ error }
