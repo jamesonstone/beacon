@@ -199,6 +199,13 @@ durations or scope, missing paths, and malformed GitHub names are rejected.
 Existing version-1 files remain readable and are migrated only by a confirmed
 init operation.
 
+Project attention choices are stored separately in the sibling
+`$HOME/.config/beacon/tracking.yaml` file. Beacon creates this managed file only
+after you explicitly untrack a project; do not add exclusions to source roots
+or remove repositories from `config.yaml` just to quiet the dashboard. With a
+custom `--config` or `BEACON_CONFIG`, `tracking.yaml` is stored beside that
+resolved configuration file.
+
 ## Everyday Use
 
 ```bash
@@ -211,6 +218,10 @@ beacon scan --include-idle
 beacon scan --json
 beacon scan --color=never
 beacon scan --repo beacon
+beacon projects
+beacon projects --untracked
+beacon projects untrack owner/old-project
+beacon projects track owner/old-project
 beacon open 'gh:jamesonstone/beacon#2'
 beacon open-next
 beacon config path
@@ -229,6 +240,27 @@ all-idle projects by default and replaces them with a compact count; pass
 shows the selected project even when it is idle. An idle base lane is omitted
 when its project already has active work. JSON remains complete regardless of
 these presentation filters.
+
+Use `beacon projects` in a terminal for a searchable multi-select of every
+discovered project. Deselecting a project moves all of its lanes out of the
+active, quiet, and top-item views; `beacon projects --untracked` shows that
+secondary inventory. Repository-scoped warnings and errors from untracked
+projects remain in JSON but no longer consume the human dashboard; global
+diagnostics remain visible. The explicit `track` and `untrack` subcommands
+accept a stable `owner/repository` identity or a unique discovered project name.
+
+Untracking records the project's current Git and GitHub evidence as a baseline.
+Existing work therefore stays quiet, but any later commit, worktree-state,
+issue, pull-request, check, review, feedback, or merge-state change permanently
+restores the project to tracked views. Beacon will not establish or compare a
+baseline while the project's evidence scan has errors, preventing missing
+GitHub or Git data from causing a false reactivation.
+
+The menu application exposes the same controls under **Projects**, with
+separate **Tracked** and **Untracked** tabs, search, and Track/Untrack buttons.
+It delegates changes to the bundled CLI, refreshes the shared snapshot after a
+mutation, and shows an automatic-reactivation banner when new activity restores
+a project.
 
 When bare `beacon` performs a live scan in an interactive terminal, a rotating
 lighthouse sweep shows a shuffled deck of 150 original odd trivia facts. A new
@@ -252,6 +284,8 @@ Common workflows:
 
 - Run `beacon` for the colorful project dashboard.
 - Run `beacon --include-idle` when auditing quiet projects.
+- Run `beacon projects` to curate the tracked project set.
+- Run `beacon projects --untracked` to inspect deliberately quieted projects.
 - Run `beacon open-next` to open the highest-priority review or action item.
 - Run `beacon scan --repo NAME` to focus on one configured project.
 - Run `beacon scan --json` for scripts or diagnostics.
@@ -280,13 +314,14 @@ Upgrading does not rewrite `$HOME/.config/beacon/config.yaml`.
 
 Scanning may run a timeout-bounded `git fetch --prune --no-tags` to refresh
 remote-tracking metadata. Beacon never edits working files, changes branches,
-pushes commits, creates pull requests, changes reviews, or merges work. The only
-other write is an explicit, confirmed `beacon init` update to Beacon's own
-configuration file.
+pushes commits, creates pull requests, changes reviews, or merges work. Beacon
+writes only its own configuration during confirmed `beacon init` operations and
+its own managed `tracking.yaml` when the user changes project tracking or new
+evidence automatically reactivates a previously untracked project.
 
 ## Architecture
 
-- `cmd/beacon` and `internal/` implement config, source discovery, Git/GitHub/Kit evidence collection, lane correlation, policy, and output.
+- `cmd/beacon` and `internal/` implement config, source discovery, Git/GitHub/Kit evidence collection, lane correlation, managed tracking state, policy, and output.
 - `macos/Beacon` contains the SwiftUI `MenuBarExtra` app and its tests.
 - The Xcode build embeds the Go executable as `Contents/MacOS/beacon-cli`; the standalone executable remains `beacon`.
 - `.github/workflows/release.yml` validates, versions, packages, and publishes both products after a merge reaches `main`.

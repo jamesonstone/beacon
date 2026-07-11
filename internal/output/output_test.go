@@ -30,7 +30,8 @@ func TestJSONEmitsEmptyCollectionsAsArrays(t *testing.T) {
 	snapshot := model.Snapshot{
 		SchemaVersion: model.SchemaVersion,
 		Refresh:       []model.Refresh{},
-		Groups:        model.Groups{Ready: []string{}, Action: []string{}, Waiting: []string{}, Idle: []string{}},
+		Tracking:      model.Tracking{AutoReactivated: []string{}},
+		Groups:        model.Groups{Ready: []string{}, Action: []string{}, Waiting: []string{}, Idle: []string{}, Untracked: []string{}},
 		Projects:      []model.Project{},
 		Lanes:         []model.Lane{},
 		Errors:        []model.ScanError{},
@@ -40,10 +41,47 @@ func TestJSONEmitsEmptyCollectionsAsArrays(t *testing.T) {
 	if err := JSON(&buffer, snapshot); err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{`"refresh": []`, `"ready": []`, `"projects": []`, `"lanes": []`, `"errors": []`, `"warnings": []`} {
+	for _, expected := range []string{`"refresh": []`, `"ready": []`, `"untracked": []`, `"auto_reactivated": []`, `"projects": []`, `"lanes": []`, `"errors": []`, `"warnings": []`} {
 		if !strings.Contains(buffer.String(), expected) {
 			t.Fatalf("JSON missing %s: %s", expected, buffer.String())
 		}
+	}
+}
+
+func TestTerminalReplacesUntrackedInventoryWithManagementHint(t *testing.T) {
+	snapshot := model.Snapshot{
+		GeneratedAt: time.Now(),
+		Summary:     model.Summary{UntrackedProjects: 2, Warnings: 1, Errors: 2},
+		Groups:      model.Groups{Untracked: []string{"one", "two"}},
+		Projects: []model.Project{
+			{Name: "one", GitHub: "owner/one", TrackingState: model.TrackingUntracked},
+			{Name: "two", GitHub: "owner/two", TrackingState: model.TrackingUntracked},
+		},
+		Lanes: []model.Lane{
+			{ID: "one", Repository: "one", NextAction: model.ActionFixCI},
+			{ID: "two", Repository: "two", NextAction: model.ActionNone},
+		},
+		Errors: []model.ScanError{
+			{Repository: "one", Stage: "github", Message: "hidden project error"},
+			{Stage: "github-search", Message: "visible global error"},
+		},
+		Warnings: []model.ScanError{{Repository: "owner/two", Stage: "progress", Message: "hidden warning"}},
+	}
+	var buffer bytes.Buffer
+	if err := TerminalWithOptions(&buffer, snapshot, TerminalOptions{Width: 120}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buffer.String(), "2 untracked projects · run beacon projects --untracked to view") {
+		t.Fatalf("terminal output = %q", buffer.String())
+	}
+	if strings.Contains(buffer.String(), "one\t") || strings.Contains(buffer.String(), "two\t") {
+		t.Fatalf("terminal exposed untracked lanes: %q", buffer.String())
+	}
+	if strings.Contains(buffer.String(), "hidden project error") || strings.Contains(buffer.String(), "hidden warning") || strings.Contains(buffer.String(), "1 warnings") {
+		t.Fatalf("terminal exposed untracked diagnostics: %q", buffer.String())
+	}
+	if !strings.Contains(buffer.String(), "visible global error") {
+		t.Fatalf("terminal hid a global diagnostic: %q", buffer.String())
 	}
 }
 

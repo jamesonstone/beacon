@@ -13,6 +13,7 @@ final class AppState: ObservableObject {
     @Published private(set) var snapshot: BeaconSnapshot?
     @Published private(set) var isScanning = false
     @Published private(set) var lastError: String?
+    @Published private(set) var mutatingProjects: Set<String> = []
 
     private let client: CLIClientProtocol
     private var pollingTask: Task<Void, Never>?
@@ -29,6 +30,20 @@ final class AppState: ObservableObject {
     }
 
     var quietProjectCount: Int { quietProjectGroups().count }
+
+    var isProjectMutationInProgress: Bool { !mutatingProjects.isEmpty }
+
+    var untrackedProjectCount: Int {
+        snapshot?.summary.untrackedProjects ?? untrackedProjects.count
+    }
+
+    var trackedProjects: [BeaconProject] {
+        (snapshot?.projects ?? []).filter(\.isTracked)
+    }
+
+    var untrackedProjects: [BeaconProject] {
+        (snapshot?.projects ?? []).filter { !$0.isTracked }
+    }
 
     func start() {
         guard pollingTask == nil else { return }
@@ -48,7 +63,7 @@ final class AppState: ObservableObject {
     }
 
     func scan() async {
-        guard !isScanning else { return }
+        guard !isScanning, !isProjectMutationInProgress else { return }
         isScanning = true
         defer { isScanning = false }
         do {
@@ -61,6 +76,23 @@ final class AppState: ObservableObject {
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    func setProjectTracked(_ project: BeaconProject, tracked: Bool) async {
+        guard !isScanning, !isProjectMutationInProgress else { return }
+        mutatingProjects.insert(project.github)
+        do {
+            try await client.setProjectTracked(project.github, tracked: tracked)
+            mutatingProjects.remove(project.github)
+            await scan()
+        } catch {
+            mutatingProjects.remove(project.github)
+            lastError = error.localizedDescription
+        }
+    }
+
+    func isMutating(_ project: BeaconProject) -> Bool {
+        mutatingProjects.contains(project.github)
     }
 
     func lanes(for identifiers: [String]) -> [WorkLane] {

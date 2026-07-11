@@ -98,7 +98,7 @@ func (s Scanner) Scan(ctx context.Context, cfg config.Config, repositoryName str
 		ConfigPath:    cfg.Path,
 		Refresh:       []model.Refresh{},
 		Groups: model.Groups{
-			Ready: []string{}, Action: []string{}, Waiting: []string{}, Idle: []string{},
+			Ready: []string{}, Action: []string{}, Waiting: []string{}, Idle: []string{}, Untracked: []string{},
 		},
 		Projects: []model.Project{},
 		Lanes:    []model.Lane{},

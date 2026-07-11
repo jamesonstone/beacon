@@ -125,6 +125,7 @@ type Worktree struct {
 	Locked     bool      `json:"locked"`
 	Prunable   bool      `json:"prunable"`
 	UpdatedAt  time.Time `json:"updated_at"`
+	StatusHash string    `json:"-"`
 }
 
 type PullRequest struct {
@@ -191,6 +192,8 @@ type Refresh struct {
 
 type Summary struct {
 	Projects           int `json:"projects"`
+	TrackedProjects    int `json:"tracked_projects"`
+	UntrackedProjects  int `json:"untracked_projects"`
 	Total              int `json:"total"`
 	ReviewReady        int `json:"review_ready"`
 	NeedsAction        int `json:"needs_action"`
@@ -203,15 +206,28 @@ type Summary struct {
 }
 
 type Project struct {
-	Name     string      `json:"name"`
-	Path     string      `json:"path"`
-	GitHub   string      `json:"github"`
-	Base     string      `json:"base"`
-	Remote   string      `json:"remote"`
-	Progress *Progress   `json:"progress,omitempty"`
-	LaneIDs  []string    `json:"lane_ids"`
-	Errors   []ScanError `json:"errors"`
-	Warnings []ScanError `json:"warnings"`
+	Name          string        `json:"name"`
+	Path          string        `json:"path"`
+	GitHub        string        `json:"github"`
+	Base          string        `json:"base"`
+	Remote        string        `json:"remote"`
+	TrackingState TrackingState `json:"tracking_state"`
+	Progress      *Progress     `json:"progress,omitempty"`
+	LaneIDs       []string      `json:"lane_ids"`
+	Errors        []ScanError   `json:"errors"`
+	Warnings      []ScanError   `json:"warnings"`
+}
+
+type TrackingState string
+
+const (
+	TrackingTracked   TrackingState = "tracked"
+	TrackingUntracked TrackingState = "untracked"
+)
+
+type Tracking struct {
+	Path            string   `json:"path"`
+	AutoReactivated []string `json:"auto_reactivated"`
 }
 
 type RemoteEvidence struct {
@@ -228,16 +244,18 @@ type RemoteCollection struct {
 }
 
 type Groups struct {
-	Ready   []string `json:"ready"`
-	Action  []string `json:"action"`
-	Waiting []string `json:"waiting"`
-	Idle    []string `json:"idle"`
+	Ready     []string `json:"ready"`
+	Action    []string `json:"action"`
+	Waiting   []string `json:"waiting"`
+	Idle      []string `json:"idle"`
+	Untracked []string `json:"untracked"`
 }
 
 type Snapshot struct {
 	SchemaVersion int         `json:"schema_version"`
 	GeneratedAt   time.Time   `json:"generated_at"`
 	ConfigPath    string      `json:"config_path"`
+	Tracking      Tracking    `json:"tracking"`
 	Refresh       []Refresh   `json:"refresh"`
 	Summary       Summary     `json:"summary"`
 	Groups        Groups      `json:"groups"`

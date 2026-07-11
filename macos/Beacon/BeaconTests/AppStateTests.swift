@@ -86,6 +86,33 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(state.topLane()?.id, "active-work")
     }
 
+    func testProjectTrackingInventorySeparatesTrackedAndUntrackedProjects() async {
+        let state = AppState(client: StubClient(result: .success(TestSnapshots.withTrackingInventory)))
+        await state.scan()
+
+        XCTAssertEqual(state.trackedProjects.map(\.github), ["owner/tracked"])
+        XCTAssertEqual(state.untrackedProjects.map(\.github), ["owner/untracked"])
+        XCTAssertEqual(state.untrackedProjectCount, 1)
+        XCTAssertEqual(state.inProgressCount, 0)
+    }
+
+    func testProjectTrackingMutationRunsCLIAndRefreshesSnapshot() async {
+        let client = RecordingClient(results: [
+            .success(TestSnapshots.withTrackingInventory),
+            .success(TestSnapshots.withTrackedInventory),
+        ])
+        let state = AppState(client: client)
+        await state.scan()
+        let project = try! XCTUnwrap(state.untrackedProjects.first)
+
+        await state.setProjectTracked(project, tracked: true)
+
+        let calls = await client.trackingCalls
+        XCTAssertEqual(calls, [TrackingCall(github: "owner/untracked", tracked: true)])
+        XCTAssertTrue(state.untrackedProjects.isEmpty)
+        XCTAssertNil(state.lastError)
+    }
+
     func testOpenTargetPrefersPullRequestThenIssueThenWorktree() throws {
         let lane = TestSnapshots.lane(
             pullRequest: TestSnapshots.pullRequest,
@@ -115,6 +142,7 @@ final class AppStateTests: XCTestCase {
 private struct StubClient: CLIClientProtocol {
     let result: Result<BeaconSnapshot, Error>
     func scan() async throws -> BeaconSnapshot { try result.get() }
+    func setProjectTracked(_ github: String, tracked: Bool) async throws {}
 }
 
 private actor SequenceClient: CLIClientProtocol {
@@ -126,6 +154,30 @@ private actor SequenceClient: CLIClientProtocol {
 
     func scan() async throws -> BeaconSnapshot {
         try results.removeFirst().get()
+    }
+
+    func setProjectTracked(_ github: String, tracked: Bool) async throws {}
+}
+
+private struct TrackingCall: Equatable {
+    let github: String
+    let tracked: Bool
+}
+
+private actor RecordingClient: CLIClientProtocol {
+    var results: [Result<BeaconSnapshot, Error>]
+    private(set) var trackingCalls: [TrackingCall] = []
+
+    init(results: [Result<BeaconSnapshot, Error>]) {
+        self.results = results
+    }
+
+    func scan() async throws -> BeaconSnapshot {
+        try results.removeFirst().get()
+    }
+
+    func setProjectTracked(_ github: String, tracked: Bool) async throws {
+        trackingCalls.append(TrackingCall(github: github, tracked: tracked))
     }
 }
 
@@ -139,9 +191,12 @@ private enum TestSnapshots {
             schemaVersion: schemaVersion,
             generatedAt: "2026-07-09T16:00:00Z",
             configPath: "/Users/test/.config/beacon/config.yaml",
+            tracking: nil,
             refresh: [],
             summary: SnapshotSummary(
                 projects: 0,
+                trackedProjects: 0,
+                untrackedProjects: 0,
                 total: 0,
                 reviewReady: 0,
                 needsAction: 0,
@@ -151,7 +206,7 @@ private enum TestSnapshots {
                 openIssues: 0,
                 unresolvedFeedback: 0
             ),
-            groups: LaneGroups(ready: [], action: [], waiting: [], idle: []),
+            groups: LaneGroups(ready: [], action: [], waiting: [], idle: [], untracked: []),
             projects: [],
             lanes: [],
             errors: []
@@ -257,9 +312,12 @@ private enum TestSnapshots {
             schemaVersion: 2,
             generatedAt: "2026-07-09T16:00:00Z",
             configPath: "/Users/test/.config/beacon/config.yaml",
+            tracking: nil,
             refresh: [],
             summary: SnapshotSummary(
                 projects: 1,
+                trackedProjects: 1,
+                untrackedProjects: 0,
                 total: 1,
                 reviewReady: 0,
                 needsAction: 1,
@@ -269,13 +327,14 @@ private enum TestSnapshots {
                 openIssues: 1,
                 unresolvedFeedback: 0
             ),
-            groups: LaneGroups(ready: [], action: [issueLane.id], waiting: [], idle: []),
+            groups: LaneGroups(ready: [], action: [issueLane.id], waiting: [], idle: [], untracked: []),
             projects: [BeaconProject(
                 name: "repo",
                 path: "/Users/test/repo",
                 github: "owner/repo",
                 base: "main",
                 remote: "origin",
+                trackingState: "tracked",
                 progress: progress,
                 laneIDs: [issueLane.id],
                 errors: []
@@ -319,9 +378,12 @@ private enum TestSnapshots {
             schemaVersion: 2,
             generatedAt: "2026-07-09T16:00:00Z",
             configPath: "/Users/test/.config/beacon/config.yaml",
+            tracking: nil,
             refresh: [],
             summary: SnapshotSummary(
                 projects: 2,
+                trackedProjects: 2,
+                untrackedProjects: 0,
                 total: 4,
                 reviewReady: 0,
                 needsAction: 1,
@@ -335,7 +397,8 @@ private enum TestSnapshots {
                 ready: [],
                 action: [activeWork.id],
                 waiting: [],
-                idle: [activeBase.id, quietBase.id, quietWorktree.id]
+                idle: [activeBase.id, quietBase.id, quietWorktree.id],
+                untracked: []
             ),
             projects: [
                 BeaconProject(
@@ -344,6 +407,7 @@ private enum TestSnapshots {
                     github: "owner/active",
                     base: "main",
                     remote: "origin",
+                    trackingState: "tracked",
                     progress: nil,
                     laneIDs: [activeWork.id, activeBase.id],
                     errors: []
@@ -354,6 +418,7 @@ private enum TestSnapshots {
                     github: "owner/quiet",
                     base: "main",
                     remote: "origin",
+                    trackingState: "tracked",
                     progress: nil,
                     laneIDs: [quietBase.id, quietWorktree.id],
                     errors: []
@@ -364,15 +429,94 @@ private enum TestSnapshots {
         )
     }()
 
+    static let withTrackingInventory: BeaconSnapshot = trackingInventory(untracked: true)
+    static let withTrackedInventory: BeaconSnapshot = trackingInventory(untracked: false)
+
+    private static func trackingInventory(untracked: Bool) -> BeaconSnapshot {
+        let trackedLane = lane(
+            id: "tracked-base",
+            repository: "tracked",
+            github: "owner/tracked",
+            branch: "main",
+            nextAction: "none"
+        )
+        let untrackedLane = lane(
+            id: "untracked-base",
+            repository: "untracked",
+            github: "owner/untracked",
+            branch: "main",
+            nextAction: "none"
+        )
+        return BeaconSnapshot(
+            schemaVersion: 2,
+            generatedAt: "2026-07-09T16:00:00Z",
+            configPath: "/Users/test/.config/beacon/config.yaml",
+            tracking: TrackingDetails(
+                path: "/Users/test/.config/beacon/tracking.yaml",
+                autoReactivated: []
+            ),
+            refresh: [],
+            summary: SnapshotSummary(
+                projects: 2,
+                trackedProjects: untracked ? 1 : 2,
+                untrackedProjects: untracked ? 1 : 0,
+                total: untracked ? 1 : 2,
+                reviewReady: 0,
+                needsAction: 0,
+                waiting: 0,
+                idle: untracked ? 1 : 2,
+                errors: 0,
+                openIssues: 0,
+                unresolvedFeedback: 0
+            ),
+            groups: LaneGroups(
+                ready: [],
+                action: [],
+                waiting: [],
+                idle: untracked ? [trackedLane.id] : [trackedLane.id, untrackedLane.id],
+                untracked: untracked ? [untrackedLane.id] : []
+            ),
+            projects: [
+                BeaconProject(
+                    name: "tracked",
+                    path: "/Users/test/tracked",
+                    github: "owner/tracked",
+                    base: "main",
+                    remote: "origin",
+                    trackingState: "tracked",
+                    progress: nil,
+                    laneIDs: [trackedLane.id],
+                    errors: []
+                ),
+                BeaconProject(
+                    name: "untracked",
+                    path: "/Users/test/untracked",
+                    github: "owner/untracked",
+                    base: "main",
+                    remote: "origin",
+                    trackingState: untracked ? "untracked" : "tracked",
+                    progress: nil,
+                    laneIDs: [untrackedLane.id],
+                    errors: []
+                ),
+            ],
+            lanes: [trackedLane, untrackedLane],
+            errors: []
+        )
+    }
+
     static let withProgressGroups: BeaconSnapshot = {
         let progressLane = lane(issue: issue)
         return BeaconSnapshot(
             schemaVersion: 2,
             generatedAt: "2026-07-09T16:00:00Z",
             configPath: "/Users/test/.config/beacon/config.yaml",
+            tracking: nil,
             refresh: [],
             summary: SnapshotSummary(
                 projects: 1,
+                trackedProjects: 1,
+                untrackedProjects: 0,
                 total: 10,
                 reviewReady: 2,
                 needsAction: 3,
@@ -386,7 +530,8 @@ private enum TestSnapshots {
                 ready: ["ready-1", "ready-2"],
                 action: ["action-1", "action-2", "action-3"],
                 waiting: ["waiting-1"],
-                idle: ["idle-1", "idle-2", "idle-3", "idle-4"]
+                idle: ["idle-1", "idle-2", "idle-3", "idle-4"],
+                untracked: []
             ),
             projects: [BeaconProject(
                 name: "repo",
@@ -394,6 +539,7 @@ private enum TestSnapshots {
                 github: "owner/repo",
                 base: "main",
                 remote: "origin",
+                trackingState: "tracked",
                 progress: progress,
                 laneIDs: [progressLane.id],
                 errors: []

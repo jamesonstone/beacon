@@ -33,7 +33,9 @@ GitHub, correlation, or readiness rules.
 Observation must not change the work being observed. Beacon may perform a
 bounded `git fetch --prune --no-tags` to refresh remote-tracking metadata.
 Scanning must never edit files, switch branches, create commits, push, create
-or update pull requests, submit reviews, or merge.
+or update pull requests, submit reviews, or merge. Beacon may atomically update
+its own managed tracking state when explicit user choices change or fresh
+evidence reactivates a previously untracked project.
 
 ### Independent Signals Before Conclusions
 
@@ -139,6 +141,8 @@ must not feed new policy back into the scanner.
   explanations, and the next action as pure domain logic.
 - `internal/scan` coordinates bounded repository concurrency, preserves partial
   results, orders lanes, and creates groups and summary counts.
+- `internal/tracking` owns the strict attention-state store, evidence
+  fingerprints, tracked/untracked reconciliation, and automatic reactivation.
 - `internal/output` renders the same snapshot as compact terminal text or JSON.
 
 Package dependencies should follow this flow. In particular, scanners collect
@@ -220,6 +224,14 @@ only after confirmation. Existing entries are never removed. GitHub
 credentials never belong in Beacon configuration; authentication is delegated
 to `gh`.
 
+User attention state is separate from declarative discovery. It is stored in a
+strict version-1 `tracking.yaml` beside the resolved configuration file and is
+created only when a project is explicitly untracked. An untracked entry records
+the stable GitHub identity and a deterministic Git/GitHub evidence baseline.
+Time-derived freshness and recommended actions are excluded. Changed durable
+evidence removes the entry atomically before a tracked result is published;
+incomplete collection evidence must never establish or compare a baseline.
+
 ### Process Execution, Timeouts, and Concurrency
 
 - External commands use `exec.CommandContext` and explicit argument arrays.
@@ -242,6 +254,9 @@ The supported command surface is:
 beacon [--color auto|always|never]
 beacon init [--source PATH ...] [--github-scope mine|all] [--yes]
 beacon scan [--repo NAME] [--json] [--no-refresh]
+beacon projects [--untracked]
+beacon projects track <project>...
+beacon projects untrack <project>...
 beacon doctor [--json]
 beacon open <lane-id>
 beacon open-next
@@ -267,9 +282,10 @@ frames or cursor-control sequences. `--color=never` keeps the animation but
 removes its color; `NO_COLOR` has the same effect in automatic mode.
 
 The schema-v2 snapshot is a public internal contract between the CLI and
-clients. It contains generation/config/refresh metadata, projects, summary
-counts, ordered enriched lanes, grouped lane IDs, and repository-scoped or
-global warnings and errors. Expected partial conditions—including inaccessible
+clients. It contains generation/config/refresh/tracking metadata, projects,
+tracked and untracked summary counts, ordered enriched lanes, grouped lane IDs,
+project tracking state, automatic-reactivation evidence, and repository-scoped
+or global warnings and errors. Expected partial conditions—including inaccessible
 source discoveries, prunable worktrees, result truncation, and untrusted
 optional Kit progress documents—are warnings, not errors. Human output keeps
 their full detail out of the primary dashboard while JSON retains every
@@ -307,12 +323,21 @@ any ready, action, or waiting lane, and top-item actions never fall back to idle
 inventory. These are presentation rules only:
 schema-v2 JSON continues to expose every project, lane, and group unchanged.
 
+Untracked projects are deliberate secondary inventory, not merely idle work.
+They are excluded from active and quiet groups, summary/top-item selection, and
+the menu-bar count while remaining fully represented in schema-v2 JSON. The CLI
+provides an interactive multi-select plus explicit track/untrack commands; the
+menu application provides searchable Tracked and Untracked tabs. Both clients
+delegate persistence and automatic reactivation to the Go tracking service.
+
 The application may use `NSWorkspace` to open pull requests, worktree paths,
-and `$HOME/.config/beacon/config.yaml`. It must not execute Git or `gh`
-directly or contain correlation/readiness policy. The bundled helper is named
-`beacon-cli` to avoid a case-insensitive filename collision with the `Beacon`
-application executable. The helper build must support the target Mac
-architectures; the standalone CLI remains named `beacon`.
+and `$HOME/.config/beacon/config.yaml`. It may invoke the bundled helper's
+project track/untrack commands but must not execute Git or `gh` directly or
+contain correlation, readiness, fingerprint, or reactivation policy. The
+bundled helper is named `beacon-cli` to avoid a case-insensitive filename
+collision with the `Beacon` application executable. The helper build must
+support the target Mac architectures; the standalone CLI remains named
+`beacon`.
 
 ### Release And Distribution
 
@@ -390,8 +415,9 @@ reduction in complexity or risk and must be recorded in the applicable spec.
 ## CONSTRAINTS
 
 - The Go CLI remains the only source of scanning and readiness truth.
-- Beacon remains read-only except for its documented, bounded metadata fetch
-  and explicit configuration-file creation.
+- Beacon remains read-only with respect to observed repositories and GitHub,
+  except for its documented bounded metadata fetch. Its only application-state
+  writes are explicit configuration changes and managed project tracking.
 - Scanner code must never use shell-built command strings.
 - Every external command and concurrent operation must be bounded and
   cancellable.

@@ -7,6 +7,7 @@
 | 0001 | beacon-v1 | `docs/specs/0001-beacon-v1` | deliver | no | 2026-07-09 | Build a read-only agent work-lane review radar as a Go CLI and native macOS menu application backed by the same versioned snapshot. |
 | 0002 | beacon-init-dashboard | `docs/specs/0002-beacon-init-dashboard` | deliver | no | 2026-07-10 | Add guided initialization, persistent repository-source discovery, GitHub issue and feedback evidence, Kit progress inference, an active-first colorful dashboard, and schema-v2 macOS parity. |
 | 0003 | beacon-github-releases | `docs/specs/0003-beacon-github-releases` | deliver | no | 2026-07-10 | Publish synchronized SemVer CLI and universal macOS artifacts with generated notes and checksums after accepted merges to main. |
+| 0004 | project-tracking | `docs/specs/0004-project-tracking` | deliver | no | 2026-07-11 | Let users curate tracked projects while automatically restoring untracked projects when new Git or GitHub evidence appears. |
 
 ## PROJECT INTENT
 
@@ -52,6 +53,15 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **OPEN ITEMS**: Local implementation and validation are complete on `GH-1` / PR #2. The first live release and same-commit rerun behavior remain post-merge evidence because release automation intentionally runs only after a human merges to `main`.
 - **POINTERS**: `docs/specs/0003-beacon-github-releases/SPEC.md`
 
+### project-tracking
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Keep stale projects out of active organizational views without losing visibility when work resumes.
+- **APPROACH**: Persist user choices in a separate managed tracking state, baseline durable project evidence when deselected, reconcile changed evidence on every scan, and expose thin CLI and macOS management surfaces over the same Go authority.
+- **OPEN ITEMS**: No implementation items remain. AC1-AC10 are complete on issue #3 and branch `GH-3`; final review and merge remain human decisions.
+- **POINTERS**: `docs/specs/0004-project-tracking/SPEC.md`
+
 ## LAST UPDATED
 
-2026-07-10 EDT
+2026-07-11 EDT

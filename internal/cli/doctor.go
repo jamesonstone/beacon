@@ -12,6 +12,7 @@ import (
 
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/discovery"
+	"github.com/jamesonstone/beacon/internal/tracking"
 	"github.com/spf13/cobra"
 )
 
@@ -95,6 +96,14 @@ func (a App) runDoctor(ctx context.Context, configPath string) doctorReport {
 		add("config directory", false, "directory is not writable: "+configDirectory)
 	} else {
 		add("config directory", true, configDirectory)
+	}
+	trackingPath, trackingPathErr := tracking.ResolvePath(cfg.Path)
+	if trackingPathErr != nil {
+		add("tracking state", false, trackingPathErr.Error())
+	} else if _, trackingErr := (tracking.FileStore{}).Load(trackingPath); trackingErr != nil {
+		add("tracking state", false, trackingErr.Error())
+	} else {
+		add("tracking state", true, trackingPath)
 	}
 
 	repositories := append([]config.Repository{}, cfg.Repositories...)

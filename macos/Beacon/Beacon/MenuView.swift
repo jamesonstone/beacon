@@ -4,6 +4,8 @@ import SwiftUI
 struct MenuView: View {
     @ObservedObject var state: AppState
     @State private var showingQuietProjects = false
+    @State private var showingProjectTracking = false
+    @State private var projectTrackingTab = ProjectTrackingTab.tracked
     @State private var quietSearch = ""
 
     var body: some View {
@@ -12,8 +14,15 @@ struct MenuView: View {
             if let error = state.lastError {
                 errorBanner(error)
             }
+            if let reactivated = state.snapshot?.tracking?.autoReactivated, !reactivated.isEmpty {
+                reactivationBanner(reactivated)
+            }
             if let snapshot = state.snapshot {
-                if showingQuietProjects {
+                if showingProjectTracking {
+                    ProjectTrackingView(state: state, selectedTab: $projectTrackingTab) {
+                        showingProjectTracking = false
+                    }
+                } else if showingQuietProjects {
                     quietProjects
                 } else {
                     activeDashboard(snapshot)
@@ -69,7 +78,7 @@ struct MenuView: View {
                 Label("Scan Now", systemImage: "arrow.clockwise")
             }
             .tint(BeaconPalette.cyan)
-            .disabled(state.isScanning)
+            .disabled(state.isScanning || state.isProjectMutationInProgress)
             Button { state.openTopItem() } label: {
                 Label("Open Top", systemImage: "arrow.up.forward.app")
             }
@@ -79,6 +88,14 @@ struct MenuView: View {
                 Label("Config", systemImage: "slider.horizontal.3")
             }
             .tint(BeaconPalette.lavender)
+            Button {
+                showingQuietProjects = false
+                projectTrackingTab = .tracked
+                showingProjectTracking = true
+            } label: {
+                Label("Projects", systemImage: "checklist")
+            }
+            .tint(BeaconPalette.gold)
             Spacer()
             Button { NSApplication.shared.terminate(nil) } label: {
                 Image(systemName: "power")
@@ -135,6 +152,29 @@ struct MenuView: View {
                         .overlay {
                             RoundedRectangle(cornerRadius: 9)
                                 .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.lavender), lineWidth: 0.8)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+                if state.untrackedProjectCount > 0 {
+                    Button {
+                        projectTrackingTab = .untracked
+                        showingProjectTracking = true
+                    } label: {
+                        HStack(spacing: 9) {
+                            Image(systemName: "eye.slash.fill")
+                                .foregroundStyle(BeaconPalette.pink)
+                            Text("\(state.untrackedProjectCount) Untracked Project\(state.untrackedProjectCount == 1 ? "" : "s")")
+                                .font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(BeaconPalette.cyan)
+                        }
+                        .padding(10)
+                        .background(BeaconPalette.softGradient(BeaconPalette.pink), in: RoundedRectangle(cornerRadius: 9))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 9)
+                                .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.pink), lineWidth: 0.8)
                         }
                     }
                     .buttonStyle(.plain)
@@ -301,6 +341,15 @@ struct MenuView: View {
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.pink), lineWidth: 0.8)
             }
+    }
+
+    private func reactivationBanner(_ projects: [String]) -> some View {
+        Label("Automatically tracking \(projects.joined(separator: ", "))", systemImage: "bolt.fill")
+            .font(.caption)
+            .foregroundStyle(BeaconPalette.mint)
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(BeaconPalette.softGradient(BeaconPalette.mint), in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func signalColor(_ signal: String) -> Color {
