@@ -45,6 +45,8 @@ Beacon should let users curate the projects competing for attention without losi
 
 Persistent source roots intentionally rediscover every GitHub repository beneath them, so removing one repository from the declarative configuration is not a durable exclusion. The active-first dashboard reduces idle noise but does not let the user intentionally set aside a stale project. This feature adds a Beacon-managed tracking state separate from source configuration, project-management controls in both clients, and automatic reactivation owned by the Go CLI.
 
+Post-delivery evolution: `0005-beacon-background-agent` migrates the sibling YAML state described here to user-scoped JSON at `$HOME/.local/state/beacon/tracking.json`, retains the same baseline semantics, and adds muted-project probes and reactivation reasons. This artifact remains the historical source for the original project-tracking behavior.
+
 ## Clarifications
 
 - Declarative discovery remains in `config.yaml`; user tracking choices live in an atomic sibling `tracking.yaml`. With the default config, the path is `$HOME/.config/beacon/tracking.yaml`.

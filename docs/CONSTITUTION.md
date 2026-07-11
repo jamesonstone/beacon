@@ -23,19 +23,21 @@ remote-only scoped pull request, or an unlinked scoped issue waiting to start.
 
 ### One Domain Model, Multiple Surfaces
 
-The Go CLI is the source of truth for collection, correlation, policy,
-ordering, and actions. Terminal output, JSON output, and the macOS menu
-application must present the same snapshot. A client must not reimplement Git,
-GitHub, correlation, or readiness rules.
+Go is the source of truth for collection, correlation, policy, ordering,
+tracking, caching, and actions. The background agent, direct CLI scans,
+terminal output, JSON output, and the macOS menu application must present the
+same snapshot. A client must not reimplement Git, GitHub, correlation,
+reactivation, or readiness rules.
 
 ### Read-Only by Default
 
 Observation must not change the work being observed. Beacon may perform a
 bounded `git fetch --prune --no-tags` to refresh remote-tracking metadata.
-Scanning must never edit files, switch branches, create commits, push, create
+Scanning and background refresh must never edit files, switch branches, create commits, push, create
 or update pull requests, submit reviews, or merge. Beacon may atomically update
-its own managed tracking state when explicit user choices change or fresh
-evidence reactivates a previously untracked project.
+its own managed tracking state and cache when explicit user choices change,
+fresh evidence reactivates a previously untracked project, or a scan produces
+a new last-good result.
 
 ### Independent Signals Before Conclusions
 
@@ -111,6 +113,10 @@ strict versioned YAML configuration
                    independent signals
                               |
               readiness and next-action policy
+                              |
+                 atomic per-project cache
+                              |
+                versioned Unix socket agent
                        /              \
               terminal / JSON     SwiftUI menu
 ```
@@ -143,6 +149,9 @@ must not feed new policy back into the scanner.
   results, orders lanes, and creates groups and summary counts.
 - `internal/tracking` owns the strict attention-state store, evidence
   fingerprints, tracked/untracked reconciliation, and automatic reactivation.
+- `internal/agent` owns operational paths, per-project caches, protocol-v1
+  transport, scheduling, subscriptions, lifecycle locking, and LaunchAgent
+  installation.
 - `internal/output` renders the same snapshot as compact terminal text or JSON.
 
 Package dependencies should follow this flow. In particular, scanners collect
@@ -224,13 +233,17 @@ only after confirmation. Existing entries are never removed. GitHub
 credentials never belong in Beacon configuration; authentication is delegated
 to `gh`.
 
-User attention state is separate from declarative discovery. It is stored in a
-strict version-1 `tracking.yaml` beside the resolved configuration file and is
-created only when a project is explicitly untracked. An untracked entry records
-the stable GitHub identity and a deterministic Git/GitHub evidence baseline.
+User attention state is separate from declarative discovery. It is stored in
+strict JSON at `$HOME/.local/state/beacon/tracking.json`; legacy sibling
+`tracking.yaml` state is migrated atomically. Per-project last-good snapshots
+live under `$HOME/.cache/beacon/projects/`, and the agent socket lives at
+`$HOME/.cache/beacon/agent.sock`. An untracked entry records the stable GitHub
+identity and deterministic Git/GitHub evidence and probe baselines.
 Time-derived freshness and recommended actions are excluded. Changed durable
 evidence removes the entry atomically before a tracked result is published;
 incomplete collection evidence must never establish or compare a baseline.
+Operational files and directories are user-only and never contain GitHub
+credentials.
 
 ### Process Execution, Timeouts, and Concurrency
 
@@ -243,6 +256,8 @@ incomplete collection evidence must never establish or compare a baseline.
   is skipped until the configured refresh interval has elapsed.
 - Repository scans may run concurrently up to `settings.max_parallel`, which
   defaults to four and must remain bounded.
+- The background scheduler runs at most one job per project, coalesces duplicate
+  refresh requests, and uses separate tracked-refresh and muted-probe cadences.
 - Cancellation and command errors must retain enough command and repository
   context to diagnose the failed evidence stage.
 
@@ -251,12 +266,16 @@ incomplete collection evidence must never establish or compare a baseline.
 The supported command surface is:
 
 ```text
-beacon [--color auto|always|never]
+beacon [--color auto|always|never] [--no-watch]
 beacon init [--source PATH ...] [--github-scope mine|all] [--yes]
 beacon scan [--repo NAME] [--json] [--no-refresh]
-beacon projects [--untracked]
+beacon projects [--tracked|--untracked]
 beacon projects track <project>...
 beacon projects untrack <project>...
+beacon track <project>...
+beacon untrack <project>...
+beacon refresh [project]
+beacon agent install|serve|status|stop|uninstall
 beacon doctor [--json]
 beacon open <lane-id>
 beacon open-next
@@ -269,17 +288,20 @@ configuration or startup failures and failed required doctor checks exit `1`.
 Usage errors exit `2`. JSON mode writes JSON only to stdout and sends
 diagnostics to stderr.
 
-Bare `beacon` shows a rotating lighthouse sweep and a shuffled 150-item deck of
-original odd trivia while an interactive terminal waits for the live scan. A
-fact changes after an independently randomized one-to-five-second interval,
-never repeats within one command run, and is truncated to terminal width. Once
-the deck is exhausted, the final fact remains instead of reshuffling. The
-loader starts only after configuration and any initialization prompt succeed,
-clears its line before dashboard output, and restores the cursor on success,
-error, cancellation, or panic unwinding.
-Redirected output, JSON, and explicit `beacon scan` commands never emit loader
-frames or cursor-control sequences. `--color=never` keeps the animation but
-removes its color; `NO_COLOR` has the same effect in automatic mode.
+Bare `beacon` connects to the user agent, renders cached state before requesting
+a refresh, and remains subscribed until that refresh completes in a TTY.
+`--no-watch` and non-TTY execution return cache-only output immediately and
+never emit cursor-control sequences. The lighthouse trivia loader remains the
+cold-cache fallback while no cached snapshot exists. Explicit `beacon scan`
+and JSON modes remain blocking direct-scan compatibility paths and do not
+require the agent.
+
+Agent protocol version 1 is newline-delimited JSON over a user-only Unix-domain
+socket. It carries scan IDs, per-project revisions, stages, tracking changes,
+heartbeats, and snapshot-schema-v2 payloads. Protocol evolution is independent
+from the evidence snapshot schema. Clients discard events from a different
+active scan and older project revisions, then preserve last-good state on
+malformed events or disconnects.
 
 The schema-v2 snapshot is a public internal contract between the CLI and
 clients. It contains generation/config/refresh/tracking metadata, projects,
@@ -302,9 +324,11 @@ with window style, and runs as an `LSUIElement` application without a Dock
 icon. It executes the bundled `beacon-cli` helper, requires schema v2, and
 renders the CLI-provided projects, groups, evidence, and actions.
 
-The application scans at launch, at most once every 60 seconds, and on explicit
-request. Overlapping scans are prohibited. A failed scan keeps the last
-successful snapshot visible with its timestamp and an error or stale banner.
+The application connects to the background agent through a Swift actor,
+renders cached state immediately, applies monotonic incremental project events,
+and reconnects after disconnects. Only `@MainActor` publishes UI state. A
+failed refresh keeps the last successful snapshot visible with its timestamp
+and an error or stale banner.
 The menu-bar label shows the number of non-idle lanes across the CLI-provided
 ready, action, and waiting groups. Active counts use a high-contrast dark badge
 with a luminous neon-gradient border so the value remains visible over changing
@@ -333,7 +357,7 @@ delegate persistence and automatic reactivation to the Go tracking service.
 The application may use `NSWorkspace` to open pull requests, worktree paths,
 and `$HOME/.config/beacon/config.yaml`. It may invoke the bundled helper's
 project track/untrack commands but must not execute Git or `gh` directly or
-contain correlation, readiness, fingerprint, or reactivation policy. The
+contain correlation, readiness, fingerprint, cache, scheduling, or reactivation policy. The
 bundled helper is named `beacon-cli` to avoid a case-insensitive filename
 collision with the `Beacon` application executable. The helper build must
 support the target Mac architectures; the standalone CLI remains named
@@ -414,10 +438,11 @@ reduction in complexity or risk and must be recorded in the applicable spec.
 
 ## CONSTRAINTS
 
-- The Go CLI remains the only source of scanning and readiness truth.
+- Go remains the only source of scanning, caching, tracking, and readiness truth.
 - Beacon remains read-only with respect to observed repositories and GitHub,
   except for its documented bounded metadata fetch. Its only application-state
-  writes are explicit configuration changes and managed project tracking.
+  writes are explicit configuration changes, managed project tracking,
+  user-only caches, lifecycle files, and logs.
 - Scanner code must never use shell-built command strings.
 - Every external command and concurrent operation must be bounded and
   cancellable.
@@ -448,7 +473,6 @@ reduction in complexity or risk and must be recorded in the applicable spec.
 - Do not apply the code-file size guideline to documentation files, all `docs/**`, all `.kit/**`, or `.kit.yaml`.
 - Do not split or rewrite docs, generated state, or Kit config artifacts solely because they exceed 300 lines.
 <!-- END KIT-MANAGED BASELINE RULES -->
-
 ### Project Progress Summary
 
 - `docs/PROJECT_PROGRESS_SUMMARY.md` is the canonical project-level progress

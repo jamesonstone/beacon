@@ -51,15 +51,33 @@ func (AtomicWriter) Write(path string, cfg Config) error {
 }
 
 func Marshal(cfg Config) ([]byte, error) {
+	defaults := defaultSettings()
+	if cfg.Settings.ScanInterval <= 0 {
+		cfg.Settings.ScanInterval = defaults.ScanInterval
+	}
+	if cfg.Settings.TrackedRefreshInterval <= 0 {
+		cfg.Settings.TrackedRefreshInterval = cfg.Settings.ScanInterval
+	}
+	if cfg.Settings.UntrackedProbeInterval <= 0 {
+		cfg.Settings.UntrackedProbeInterval = defaults.UntrackedProbeInterval
+	}
+	if cfg.Settings.RemoteRefreshInterval <= 0 {
+		cfg.Settings.RemoteRefreshInterval = defaults.RemoteRefreshInterval
+	}
+	if cfg.Settings.StaleAfter <= 0 {
+		cfg.Settings.StaleAfter = defaults.StaleAfter
+	}
 	raw := rawConfig{
 		Version: Version,
 		Settings: rawSettings{
-			ScanInterval:          cfg.Settings.ScanInterval.String(),
-			RemoteRefreshInterval: cfg.Settings.RemoteRefreshInterval.String(),
-			StaleAfter:            cfg.Settings.StaleAfter.String(),
-			MaxParallel:           cfg.Settings.MaxParallel,
-			GitHubAuthor:          cfg.Settings.GitHubAuthor,
-			GitHubScope:           string(cfg.Settings.GitHubScope),
+			ScanInterval:           cfg.Settings.ScanInterval.String(),
+			TrackedRefreshInterval: cfg.Settings.TrackedRefreshInterval.String(),
+			UntrackedProbeInterval: cfg.Settings.UntrackedProbeInterval.String(),
+			RemoteRefreshInterval:  cfg.Settings.RemoteRefreshInterval.String(),
+			StaleAfter:             cfg.Settings.StaleAfter.String(),
+			MaxParallel:            cfg.Settings.MaxParallel,
+			GitHubAuthor:           cfg.Settings.GitHubAuthor,
+			GitHubScope:            string(cfg.Settings.GitHubScope),
 		},
 	}
 	for _, source := range cfg.Sources {

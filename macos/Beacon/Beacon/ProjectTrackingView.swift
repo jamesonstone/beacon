@@ -11,6 +11,7 @@ struct ProjectTrackingView: View {
     @ObservedObject var state: AppState
     @Binding var selectedTab: ProjectTrackingTab
     let onClose: () -> Void
+    var showsTabPicker = true
     @State private var search = ""
 
     var body: some View {
@@ -26,13 +27,15 @@ struct ProjectTrackingView: View {
                     .font(.caption.weight(.medium))
                     .foregroundStyle(BeaconPalette.lavender)
             }
-            Picker("Project tracking", selection: $selectedTab) {
-                ForEach(ProjectTrackingTab.allCases) { tab in
-                    Text(tab.rawValue).tag(tab)
+            if showsTabPicker {
+                Picker("Project tracking", selection: $selectedTab) {
+                    ForEach(ProjectTrackingTab.allCases) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .onChange(of: selectedTab) { _, _ in search = "" }
             }
-            .pickerStyle(.segmented)
-            .onChange(of: selectedTab) { _, _ in search = "" }
 
             TextField("Search \(selectedTab.rawValue.lowercased()) projects", text: $search)
                 .textFieldStyle(.roundedBorder)
@@ -81,6 +84,18 @@ struct ProjectTrackingView: View {
                     .font(.caption2)
                     .foregroundStyle(BeaconPalette.lavender.opacity(0.78))
                     .lineLimit(1)
+                let status = state.projectStatuses[project.github]
+                HStack(spacing: 6) {
+                    Text(stageLabel(state.stage(for: project.github)))
+                    if let mutedAt = status?.mutedAt, selectedTab == .untracked {
+                        Text("Muted \(mutedAt)")
+                    }
+                    if let probe = status?.lastProbeAt, selectedTab == .untracked {
+                        Text("Probed \(probe)")
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(accent.opacity(0.9))
             }
             Spacer()
             if state.isMutating(project) {
@@ -103,6 +118,17 @@ struct ProjectTrackingView: View {
         .overlay {
             RoundedRectangle(cornerRadius: 9)
                 .strokeBorder(BeaconPalette.borderGradient(accent), lineWidth: 0.8)
+        }
+    }
+
+    private func stageLabel(_ stage: String) -> String {
+        switch stage {
+        case "queued": "Queued"
+        case "local": "Checking local Git"
+        case "github": "Checking GitHub"
+        case "failed": "Refresh failed — showing previous result"
+        case "ready": "Ready"
+        default: "Cached"
         }
     }
 }

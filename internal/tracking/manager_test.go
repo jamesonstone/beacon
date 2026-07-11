@@ -138,6 +138,7 @@ func TestManagerDoesNotPublishReactivationWhenStateWriteFails(t *testing.T) {
 
 func managerSnapshot(t *testing.T) model.Snapshot {
 	t.Helper()
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	project, lanes := trackingFixture()
 	return model.Snapshot{
 		SchemaVersion: model.SchemaVersion,

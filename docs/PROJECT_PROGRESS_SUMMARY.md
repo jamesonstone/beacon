@@ -8,6 +8,7 @@
 | 0002 | beacon-init-dashboard | `docs/specs/0002-beacon-init-dashboard` | deliver | no | 2026-07-10 | Add guided initialization, persistent repository-source discovery, GitHub issue and feedback evidence, Kit progress inference, an active-first colorful dashboard, and schema-v2 macOS parity. |
 | 0003 | beacon-github-releases | `docs/specs/0003-beacon-github-releases` | deliver | no | 2026-07-10 | Publish synchronized SemVer CLI and universal macOS artifacts with generated notes and checksums after accepted merges to main. |
 | 0004 | project-tracking | `docs/specs/0004-project-tracking` | deliver | no | 2026-07-11 | Let users curate tracked projects while automatically restoring untracked projects when new Git or GitHub evidence appears. |
+| 0005 | beacon-background-agent | `docs/specs/0005-beacon-background-agent` | deliver | no | 2026-07-11 | Render cached state immediately while a user-scoped background agent refreshes projects incrementally and probes muted projects for reactivation. |
 
 ## PROJECT INTENT
 
@@ -61,6 +62,15 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **APPROACH**: Persist user choices in a separate managed tracking state, baseline durable project evidence when deselected, reconcile changed evidence on every scan, and expose thin CLI and macOS management surfaces over the same Go authority.
 - **OPEN ITEMS**: No implementation items remain. AC1-AC10 are complete on issue #3 and branch `GH-3`; final review and merge remain human decisions.
 - **POINTERS**: `docs/specs/0004-project-tracking/SPEC.md`
+
+### beacon-background-agent
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Remove synchronous scan latency from everyday CLI and menu use while preserving complete deterministic direct scans.
+- **APPROACH**: Run one user-scoped agent with a versioned Unix-socket protocol, bounded project scheduler, durable per-project cache, full tracked scans, lightweight muted probes, and thin CLI/Swift clients.
+- **OPEN ITEMS**: No implementation items remain. AC1-AC13 are complete on issue #3 and branch `GH-3`; final PR #4 review and merge remain human decisions.
+- **POINTERS**: `docs/specs/0005-beacon-background-agent/SPEC.md`
 
 ## LAST UPDATED
 

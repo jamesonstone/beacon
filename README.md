@@ -12,12 +12,12 @@
 Beacon discovers local GitHub projects and correlates linked worktrees, branches, pull requests, issues, checks, review feedback, and optional Kit feature evidence to answer one question: what needs attention next?
 
 <!-- BEGIN KIT-MANAGED README BADGES -->
-
 [![Last commit](https://img.shields.io/github/last-commit/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/commits) [![Open issues](https://img.shields.io/github/issues/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/issues) [![Pull requests](https://img.shields.io/github/issues-pr/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/pulls) [![CI](https://github.com/jamesonstone/beacon/actions/workflows/ci.yml/badge.svg)](https://github.com/jamesonstone/beacon/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/releases)
-
 <!-- END KIT-MANAGED README BADGES -->
 
-The Go CLI is the source of truth. The native macOS menu-bar app polls the same versioned JSON contract through a bundled copy of the CLI.
+The Go CLI and its user-scoped background agent are the source of truth. The
+native macOS menu-bar app consumes the same cached schema-v2 snapshots and
+incremental agent events through a bundled copy of the executable.
 
 ## Requirements
 
@@ -89,6 +89,7 @@ run the dashboard:
 ```bash
 gh auth login
 beacon init --source ~/go/src/github.com --yes
+beacon agent install
 beacon
 ```
 
@@ -151,7 +152,8 @@ beacon config validate
 `beacon config init` remains an alias for `beacon init`. Initialization checks
 for `git`, `gh`, and GitHub authentication, previews non-destructive changes,
 and atomically writes the configuration only after confirmation. It never
-installs software or removes existing sources or repositories.
+installs packages or removes existing sources or repositories; interactive
+setup may separately offer to enable Beacon's current-user background agent.
 
 Example:
 
@@ -165,6 +167,8 @@ settings:
   max_parallel: 4
   github_author: '@me'
   github_scope: mine
+  tracked_refresh_interval: 1m
+  untracked_probe_interval: 10m
 
 sources:
   - path: ~/go/src/github.com/jamesonstone
@@ -199,17 +203,22 @@ durations or scope, missing paths, and malformed GitHub names are rejected.
 Existing version-1 files remain readable and are migrated only by a confirmed
 init operation.
 
-Project attention choices are stored separately in the sibling
-`$HOME/.config/beacon/tracking.yaml` file. Beacon creates this managed file only
+Project attention choices are stored separately in
+`$HOME/.local/state/beacon/tracking.json`. Beacon creates this managed file only
 after you explicitly untrack a project; do not add exclusions to source roots
-or remove repositories from `config.yaml` just to quiet the dashboard. With a
-custom `--config` or `BEACON_CONFIG`, `tracking.yaml` is stored beside that
-resolved configuration file.
+or remove repositories from `config.yaml` just to quiet the dashboard. Existing
+sibling `tracking.yaml` state is migrated automatically and archived with a
+`.migrated` suffix.
+
+`tracked_refresh_interval` defaults to one minute and controls complete
+background refreshes. `untracked_probe_interval` defaults to ten minutes and
+controls inexpensive local/GitHub summary probes for muted projects.
 
 ## Everyday Use
 
 ```bash
 beacon
+beacon --no-watch
 beacon --include-idle
 beacon --color=always
 beacon doctor
@@ -219,9 +228,15 @@ beacon scan --json
 beacon scan --color=never
 beacon scan --repo beacon
 beacon projects
+beacon projects --tracked
 beacon projects --untracked
+beacon untrack owner/old-project
+beacon track owner/old-project
 beacon projects untrack owner/old-project
 beacon projects track owner/old-project
+beacon refresh
+beacon refresh beacon
+beacon agent status
 beacon open 'gh:jamesonstone/beacon#2'
 beacon open-next
 beacon config path
@@ -229,10 +244,17 @@ beacon config open
 beacon version
 ```
 
-Bare `beacon` and human-readable `beacon scan` render the same project-grouped
-dashboard with project, work item, status, last durable progress, and next
-action. `--color=auto|always|never` controls ANSI styling; auto requires a TTY
-and honors `NO_COLOR`. Narrow terminals use wrapped evidence rows.
+Bare `beacon` connects to the user background agent and renders cached projects
+before requesting a refresh. In a TTY it remains subscribed until that refresh
+finishes and updates project state as workers complete. `--no-watch` renders the
+cache without requesting or waiting for work; non-TTY bare execution is also
+cache-only and never emits cursor controls. If no agent is available, normal
+bare execution falls back to the direct scanner so Beacon remains usable.
+
+`beacon scan` remains the blocking compatibility path and always returns one
+fresh, complete snapshot. `scan --json` remains deterministic, ANSI-free, and
+does not require the agent. `--color=auto|always|never` controls human styling;
+auto requires a TTY and honors `NO_COLOR`.
 
 Idle work is treated as inventory instead of queue content. Human output hides
 all-idle projects by default and replaces them with a compact count; pass
@@ -258,16 +280,12 @@ GitHub or Git data from causing a false reactivation.
 
 The menu application exposes the same controls under **Projects**, with
 separate **Tracked** and **Untracked** tabs, search, and Track/Untrack buttons.
-It delegates changes to the bundled CLI, refreshes the shared snapshot after a
-mutation, and shows an automatic-reactivation banner when new activity restores
-a project.
+It sends changes through the shared agent protocol, consumes the same cached
+snapshot as the CLI, and shows an automatic-reactivation banner when new
+activity restores a project.
 
-When bare `beacon` performs a live scan in an interactive terminal, a rotating
-lighthouse sweep shows a shuffled deck of 150 original odd trivia facts. A new
-fact arrives after a random one-to-five-second interval, and no fact repeats
-during one command run. Facts are truncated to the current terminal width. The
-animation is omitted from explicit `beacon scan` commands, redirected output,
-and JSON. Cursor state is restored even when a scan fails or is cancelled.
+The rotating lighthouse trivia loader remains the cold/direct-scan fallback
+when no cached state or background agent is available.
 
 Non-blocking discovery, prunable-worktree, search-truncation, and optional Kit
 progress diagnostics contribute to the warning count in the dashboard header;
@@ -286,6 +304,8 @@ Common workflows:
 - Run `beacon --include-idle` when auditing quiet projects.
 - Run `beacon projects` to curate the tracked project set.
 - Run `beacon projects --untracked` to inspect deliberately quieted projects.
+- Run `beacon refresh [project]` to request background work without blocking.
+- Run `beacon agent status` to inspect the process, socket, cache count, and active refresh.
 - Run `beacon open-next` to open the highest-priority review or action item.
 - Run `beacon scan --repo NAME` to focus on one configured project.
 - Run `beacon scan --json` for scripts or diagnostics.
@@ -310,18 +330,52 @@ beacon version
 
 Upgrading does not rewrite `$HOME/.config/beacon/config.yaml`.
 
+## Background Agent
+
+Beacon uses the same executable for interactive commands and background work:
+
+```bash
+beacon agent install
+beacon agent status
+beacon agent stop
+beacon agent uninstall
+```
+
+On macOS, installation creates the current-user LaunchAgent at
+`~/Library/LaunchAgents/com.jamesonstone.beacon.agent.plist`. It runs only as
+the current user, uses the authenticated `gh` CLI, and never stores GitHub
+credentials. Authenticate `gh` persistently with `gh auth login`; environment-
+only tokens are not copied into the LaunchAgent.
+
+Operational files are user-only:
+
+```text
+~/.local/state/beacon/tracking.json
+~/.cache/beacon/projects/*.json
+~/.cache/beacon/agent.sock
+~/.cache/beacon/agent.pid
+~/Library/Logs/Beacon/agent.log
+~/Library/Logs/Beacon/agent-error.log
+```
+
+One bounded worker pool scans tracked projects independently. Untracked
+projects receive lightweight probes at the slower configured interval; Beacon
+runs a full scan only after a material delta is detected. Duplicate refreshes
+coalesce, and a project never has overlapping jobs.
+
 ## Read-only boundary
 
 Scanning may run a timeout-bounded `git fetch --prune --no-tags` to refresh
 remote-tracking metadata. Beacon never edits working files, changes branches,
 pushes commits, creates pull requests, changes reviews, or merges work. Beacon
 writes only its own configuration during confirmed `beacon init` operations and
-its own managed `tracking.yaml` when the user changes project tracking or new
-evidence automatically reactivates a previously untracked project.
+its own user-scoped tracking state, cache, PID/socket, LaunchAgent, and rotated
+logs. New evidence may automatically update tracking state when a previously
+untracked project is reactivated.
 
 ## Architecture
 
-- `cmd/beacon` and `internal/` implement config, source discovery, Git/GitHub/Kit evidence collection, lane correlation, managed tracking state, policy, and output.
+- `cmd/beacon` and `internal/` implement config, source discovery, Git/GitHub/Kit evidence collection, lane correlation, managed tracking state, cache/protocol/scheduling, policy, and output.
 - `macos/Beacon` contains the SwiftUI `MenuBarExtra` app and its tests.
 - The Xcode build embeds the Go executable as `Contents/MacOS/beacon-cli`; the standalone executable remains `beacon`.
 - `.github/workflows/release.yml` validates, versions, packages, and publishes both products after a merge reaches `main`.
@@ -329,7 +383,17 @@ evidence automatically reactivates a previously untracked project.
 
 ## Troubleshooting
 
-Run `beacon doctor` first. It checks `git`, `gh`, authentication, configuration, local repositories, and GitHub access. A repository-specific failure is reported in the snapshot without suppressing results from healthy repositories.
+Run `beacon doctor` first. It checks `git`, `gh`, authentication, configuration,
+tracking-state migration, the background agent, local repositories, and GitHub
+access. A repository-specific failure is reported without suppressing healthy
+cached or freshly scanned projects.
+
+If the agent is unavailable, inspect `beacon agent status` and the files under
+`~/Library/Logs/Beacon/`. Reinstalling the LaunchAgent does not remove caches or
+tracking choices. To reset only cached evidence, stop the agent, remove
+`~/.cache/beacon/projects/`, and start it again with `beacon agent install`;
+do not remove `tracking.json` unless you intentionally want to restore every
+project to Tracked.
 
 ## Maintainers
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/jamesonstone/beacon/internal/model"
@@ -14,13 +15,21 @@ type Manager struct {
 	Now   func() time.Time
 }
 
+var managerMutex sync.Mutex
+
 func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
+	managerMutex.Lock()
+	defer managerMutex.Unlock()
+	return m.reconcile(snapshot)
+}
+
+func (m Manager) reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 	store := m.store()
 	path, err := ResolvePath(snapshot.ConfigPath)
 	if err != nil {
 		return model.Snapshot{}, err
 	}
-	state, err := store.Load(path)
+	state, err := m.loadState(snapshot.ConfigPath, path)
 	if err != nil {
 		return model.Snapshot{}, err
 	}
@@ -30,6 +39,11 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 	autoReactivated := make([]string, 0)
 	changed := false
 	for _, entry := range state.Untracked {
+		if entry.State == StateIgnored {
+			remaining = append(remaining, entry)
+			untracked[entry.GitHub] = struct{}{}
+			continue
+		}
 		project, found := projects[entry.GitHub]
 		if !found || !hasCompleteEvidence(snapshot, project) {
 			remaining = append(remaining, entry)
@@ -50,6 +64,9 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 	}
 	if changed {
 		state.Untracked = remaining
+		for _, github := range autoReactivated {
+			state.Reactivations = append(state.Reactivations, Reactivation{GitHub: github, At: m.now(), Reason: "material project evidence changed"})
+		}
 		if err := store.Write(path, state); err != nil {
 			return model.Snapshot{}, fmt.Errorf("persist automatic project reactivation: %w", err)
 		}
@@ -59,7 +76,30 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 	return snapshot, nil
 }
 
+func (m Manager) RecordReactivation(configPath, github, reason string) error {
+	managerMutex.Lock()
+	defer managerMutex.Unlock()
+	path, err := ResolvePath(configPath)
+	if err != nil {
+		return err
+	}
+	state, err := m.loadState(configPath, path)
+	if err != nil {
+		return err
+	}
+	for index := len(state.Reactivations) - 1; index >= 0; index-- {
+		if state.Reactivations[index].GitHub == github {
+			state.Reactivations[index].Reason = reason
+			return m.store().Write(path, state)
+		}
+	}
+	state.Reactivations = append(state.Reactivations, Reactivation{GitHub: github, At: m.now(), Reason: reason})
+	return m.store().Write(path, state)
+}
+
 func (m Manager) SetTracked(snapshot model.Snapshot, targets []string, tracked bool) (model.Snapshot, error) {
+	managerMutex.Lock()
+	defer managerMutex.Unlock()
 	if len(targets) == 0 {
 		return model.Snapshot{}, errors.New("at least one project is required")
 	}
@@ -68,7 +108,7 @@ func (m Manager) SetTracked(snapshot model.Snapshot, targets []string, tracked b
 		return model.Snapshot{}, err
 	}
 	store := m.store()
-	state, err := store.Load(path)
+	state, err := m.loadState(snapshot.ConfigPath, path)
 	if err != nil {
 		return model.Snapshot{}, err
 	}
@@ -98,7 +138,7 @@ func (m Manager) SetTracked(snapshot model.Snapshot, targets []string, tracked b
 		}
 		entries[project.GitHub] = Entry{
 			GitHub: project.GitHub, Name: project.Name, Path: project.Path,
-			UntrackedAt: m.now(), Baseline: baseline,
+			State: StateMuted, UntrackedAt: m.now(), Baseline: baseline,
 		}
 		changed = true
 	}
@@ -108,10 +148,12 @@ func (m Manager) SetTracked(snapshot model.Snapshot, targets []string, tracked b
 			return model.Snapshot{}, err
 		}
 	}
-	return m.Reconcile(snapshot)
+	return m.reconcile(snapshot)
 }
 
 func (m Manager) SetSelection(snapshot model.Snapshot, trackedGitHub []string) (model.Snapshot, error) {
+	managerMutex.Lock()
+	defer managerMutex.Unlock()
 	desired := make(map[string]struct{}, len(trackedGitHub))
 	for _, github := range trackedGitHub {
 		desired[github] = struct{}{}
@@ -121,7 +163,7 @@ func (m Manager) SetSelection(snapshot model.Snapshot, trackedGitHub []string) (
 		return model.Snapshot{}, err
 	}
 	store := m.store()
-	state, err := store.Load(path)
+	state, err := m.loadState(snapshot.ConfigPath, path)
 	if err != nil {
 		return model.Snapshot{}, err
 	}
@@ -144,7 +186,7 @@ func (m Manager) SetSelection(snapshot model.Snapshot, trackedGitHub []string) (
 			}
 			entries[project.GitHub] = Entry{
 				GitHub: project.GitHub, Name: project.Name, Path: project.Path,
-				UntrackedAt: m.now(), Baseline: baseline,
+				State: StateMuted, UntrackedAt: m.now(), Baseline: baseline,
 			}
 			changed = true
 		}
@@ -155,7 +197,66 @@ func (m Manager) SetSelection(snapshot model.Snapshot, trackedGitHub []string) (
 			return model.Snapshot{}, err
 		}
 	}
-	return m.Reconcile(snapshot)
+	return m.reconcile(snapshot)
+}
+
+func (m Manager) Entry(configPath, github string) (Entry, bool, error) {
+	managerMutex.Lock()
+	defer managerMutex.Unlock()
+	path, err := ResolvePath(configPath)
+	if err != nil {
+		return Entry{}, false, err
+	}
+	state, err := m.loadState(configPath, path)
+	if err != nil {
+		return Entry{}, false, err
+	}
+	for _, entry := range state.Untracked {
+		if entry.GitHub == github {
+			return entry, true, nil
+		}
+	}
+	return Entry{}, false, nil
+}
+
+func (m Manager) UpdateProbe(configPath, github, baseline, local, remote string, at time.Time) error {
+	if !fingerprintPattern.MatchString(baseline) {
+		return errors.New("probe baseline must be a SHA-256 fingerprint")
+	}
+	if !fingerprintPattern.MatchString(local) || !fingerprintPattern.MatchString(remote) {
+		return errors.New("local and remote probe values must be SHA-256 fingerprints")
+	}
+	managerMutex.Lock()
+	defer managerMutex.Unlock()
+	path, err := ResolvePath(configPath)
+	if err != nil {
+		return err
+	}
+	state, err := m.loadState(configPath, path)
+	if err != nil {
+		return err
+	}
+	for index := range state.Untracked {
+		if state.Untracked[index].GitHub != github {
+			continue
+		}
+		state.Untracked[index].ProbeBaseline = baseline
+		state.Untracked[index].ProbeLocal = local
+		state.Untracked[index].ProbeRemote = remote
+		state.Untracked[index].LastProbeAt = at.UTC()
+		return m.store().Write(path, state)
+	}
+	return nil
+}
+
+func (m Manager) loadState(configPath, path string) (State, error) {
+	store := m.store()
+	if _, ok := store.(FileStore); ok {
+		if _, err := MigrateLegacy(configPath, path); err != nil {
+			return State{}, err
+		}
+	}
+	return store.Load(path)
 }
 
 func hasCompleteEvidence(snapshot model.Snapshot, project model.Project) bool {
@@ -232,6 +333,16 @@ func apply(snapshot *model.Snapshot, path string, untracked map[string]struct{},
 	}
 	snapshot.Summary = summary
 	snapshot.Tracking = model.Tracking{Path: path, AutoReactivated: append([]string{}, autoReactivated...)}
+}
+
+func ApplyCached(snapshot *model.Snapshot, path string) {
+	untracked := make(map[string]struct{})
+	for _, project := range snapshot.Projects {
+		if project.TrackingState == model.TrackingUntracked {
+			untracked[project.GitHub] = struct{}{}
+		}
+	}
+	apply(snapshot, path, untracked, nil)
 }
 
 func filterTracked(ids []string, untracked map[string]struct{}) []string {

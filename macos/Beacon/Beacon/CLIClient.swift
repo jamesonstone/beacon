@@ -5,6 +5,10 @@ protocol CLIClientProtocol {
     func setProjectTracked(_ github: String, tracked: Bool) async throws
 }
 
+protocol AgentInstallerProtocol {
+    func installAgent() async throws
+}
+
 enum CLIClientError: LocalizedError {
     case helperMissing(String)
     case commandFailed(Int32, String)
@@ -22,7 +26,7 @@ enum CLIClientError: LocalizedError {
     }
 }
 
-struct CLIClient: CLIClientProtocol {
+struct CLIClient: CLIClientProtocol, AgentInstallerProtocol {
     private let executableURL: URL
 
     init(executableURL: URL = CLIClient.defaultExecutableURL()) {
@@ -41,6 +45,10 @@ struct CLIClient: CLIClientProtocol {
     func setProjectTracked(_ github: String, tracked: Bool) async throws {
         let command = tracked ? "track" : "untrack"
         _ = try await execute(arguments: ["projects", command, github])
+    }
+
+    func installAgent() async throws {
+        _ = try await execute(arguments: ["agent", "install"])
     }
 
     private func execute(arguments: [String]) async throws -> Data {

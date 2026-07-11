@@ -14,6 +14,7 @@
 		100000000000000000000006 /* ModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000007 /* ModelsTests.swift */; };
 		100000000000000000000007 /* AppStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000008 /* AppStateTests.swift */; };
 		100000000000000000000008 /* ProjectTrackingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000B /* ProjectTrackingView.swift */; };
+		100000000000000000000009 /* AgentClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000C /* AgentClient.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,6 +39,7 @@
 		200000000000000000000009 /* Beacon.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Beacon.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		20000000000000000000000A /* BeaconTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BeaconTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		20000000000000000000000B /* ProjectTrackingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectTrackingView.swift; sourceTree = "<group>"; };
+		20000000000000000000000C /* AgentClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentClient.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,6 +66,7 @@
 				200000000000000000000004 /* AppState.swift */,
 				200000000000000000000005 /* MenuView.swift */,
 				20000000000000000000000B /* ProjectTrackingView.swift */,
+				20000000000000000000000C /* AgentClient.swift */,
 				200000000000000000000006 /* Info.plist */,
 			);
 			path = Beacon;
@@ -162,7 +165,7 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		800000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000001, 100000000000000000000002, 100000000000000000000003, 100000000000000000000004, 100000000000000000000005, 100000000000000000000008); runOnlyForDeploymentPostprocessing = 0; };
+		800000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000001, 100000000000000000000002, 100000000000000000000003, 100000000000000000000004, 100000000000000000000005, 100000000000000000000008, 100000000000000000000009); runOnlyForDeploymentPostprocessing = 0; };
 		800000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000006, 100000000000000000000007); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 

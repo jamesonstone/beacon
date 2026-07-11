@@ -14,14 +14,32 @@ struct MenuView: View {
             if let error = state.lastError {
                 errorBanner(error)
             }
+            if !state.agentAvailable {
+                enableAgentBanner
+            }
+            if let message = state.reactivationMessage {
+                Label(message, systemImage: "bolt.fill")
+                    .font(.caption)
+                    .foregroundStyle(BeaconPalette.mint)
+            }
             if let reactivated = state.snapshot?.tracking?.autoReactivated, !reactivated.isEmpty {
                 reactivationBanner(reactivated)
             }
             if let snapshot = state.snapshot {
-                if showingProjectTracking {
-                    ProjectTrackingView(state: state, selectedTab: $projectTrackingTab) {
-                        showingProjectTracking = false
+                Picker("Projects", selection: $projectTrackingTab) {
+                    ForEach(ProjectTrackingTab.allCases) { tab in
+                        Text(tab.rawValue).tag(tab)
                     }
+                }
+                .pickerStyle(.segmented)
+                if projectTrackingTab == .untracked {
+                    ProjectTrackingView(state: state, selectedTab: $projectTrackingTab, onClose: {
+                        projectTrackingTab = .tracked
+                    }, showsTabPicker: false)
+                } else if showingProjectTracking {
+                    ProjectTrackingView(state: state, selectedTab: $projectTrackingTab, onClose: {
+                        showingProjectTracking = false
+                    })
                 } else if showingQuietProjects {
                     quietProjects
                 } else {
@@ -106,9 +124,50 @@ struct MenuView: View {
         .buttonStyle(.link)
     }
 
+    private var enableAgentBanner: some View {
+        HStack {
+            Label("Background agent unavailable", systemImage: "antenna.radiowaves.left.and.right.slash")
+                .font(.caption)
+                .foregroundStyle(BeaconPalette.gold)
+            Spacer()
+            Button("Enable") { Task { await state.enableAgent() } }
+                .buttonStyle(.bordered)
+                .tint(BeaconPalette.cyan)
+        }
+        .padding(8)
+        .background(BeaconPalette.softGradient(BeaconPalette.gold), in: RoundedRectangle(cornerRadius: 8))
+    }
+
     private func activeDashboard(_ snapshot: BeaconSnapshot) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
+                if !state.loadingProjects.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Loading Projects", systemImage: "antenna.radiowaves.left.and.right")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(BeaconPalette.borderGradient(BeaconPalette.cyan))
+                        ForEach(state.loadingProjects, id: \.projectID) { project in
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .controlSize(.mini)
+                                    .tint(BeaconPalette.cyan)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(project.name)
+                                        .font(.caption.weight(.semibold))
+                                    Text(stageLabel(project.stage))
+                                        .font(.caption2)
+                                        .foregroundStyle(BeaconPalette.lavender)
+                                }
+                                Spacer()
+                                Text(project.projectID)
+                                    .font(.caption2)
+                                    .foregroundStyle(BeaconPalette.cyan.opacity(0.85))
+                            }
+                            .padding(8)
+                            .background(BeaconPalette.softGradient(BeaconPalette.cyan), in: RoundedRectangle(cornerRadius: 8))
+                        }
+                    }
+                }
                 laneSection(
                     "Ready for Review",
                     symbol: "checkmark.circle.fill",
@@ -180,6 +239,17 @@ struct MenuView: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+    }
+
+    private func stageLabel(_ stage: String) -> String {
+        switch stage {
+        case "queued": return "Queued"
+        case "local": return "Checking local Git"
+        case "github": return "Checking GitHub"
+        case "failed": return "Refresh failed — showing previous result"
+        case "ready": return "Ready"
+        default: return "Cached"
         }
     }
 
@@ -258,6 +328,12 @@ struct MenuView: View {
                     .font(.caption2)
                     .foregroundStyle(BeaconPalette.lavender.opacity(0.85))
                     .lineLimit(1)
+            }
+            let stage = state.stage(for: project.id)
+            if stage != "ready" && stage != "cached" {
+                Text(stage.replacingOccurrences(of: "_", with: " ").capitalized)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(BeaconPalette.gold)
             }
             Spacer()
         }

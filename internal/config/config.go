@@ -21,12 +21,14 @@ const (
 var githubName = regexp.MustCompile(`^[^/\s]+/[^/\s]+$`)
 
 type Settings struct {
-	ScanInterval          time.Duration
-	RemoteRefreshInterval time.Duration
-	StaleAfter            time.Duration
-	MaxParallel           int
-	GitHubAuthor          string
-	GitHubScope           GitHubScope
+	ScanInterval           time.Duration
+	TrackedRefreshInterval time.Duration
+	UntrackedProbeInterval time.Duration
+	RemoteRefreshInterval  time.Duration
+	StaleAfter             time.Duration
+	MaxParallel            int
+	GitHubAuthor           string
+	GitHubScope            GitHubScope
 }
 
 type GitHubScope string
@@ -65,12 +67,14 @@ type rawConfig struct {
 }
 
 type rawSettings struct {
-	ScanInterval          string `yaml:"scan_interval"`
-	RemoteRefreshInterval string `yaml:"remote_refresh_interval"`
-	StaleAfter            string `yaml:"stale_after"`
-	MaxParallel           int    `yaml:"max_parallel"`
-	GitHubAuthor          string `yaml:"github_author"`
-	GitHubScope           string `yaml:"github_scope"`
+	ScanInterval           string `yaml:"scan_interval"`
+	TrackedRefreshInterval string `yaml:"tracked_refresh_interval"`
+	UntrackedProbeInterval string `yaml:"untracked_probe_interval"`
+	RemoteRefreshInterval  string `yaml:"remote_refresh_interval"`
+	StaleAfter             string `yaml:"stale_after"`
+	MaxParallel            int    `yaml:"max_parallel"`
+	GitHubAuthor           string `yaml:"github_author"`
+	GitHubScope            string `yaml:"github_scope"`
 }
 
 type rawSource struct {
@@ -194,6 +198,12 @@ func normalizeSettings(raw rawSettings) (Settings, error) {
 	var err error
 	if settings.ScanInterval, err = durationOrDefault(raw.ScanInterval, time.Minute); err != nil {
 		return Settings{}, fmt.Errorf("settings.scan_interval: %w", err)
+	}
+	if settings.TrackedRefreshInterval, err = durationOrDefault(raw.TrackedRefreshInterval, settings.ScanInterval); err != nil {
+		return Settings{}, fmt.Errorf("settings.tracked_refresh_interval: %w", err)
+	}
+	if settings.UntrackedProbeInterval, err = durationOrDefault(raw.UntrackedProbeInterval, 10*time.Minute); err != nil {
+		return Settings{}, fmt.Errorf("settings.untracked_probe_interval: %w", err)
 	}
 	if settings.RemoteRefreshInterval, err = durationOrDefault(raw.RemoteRefreshInterval, 5*time.Minute); err != nil {
 		return Settings{}, fmt.Errorf("settings.remote_refresh_interval: %w", err)

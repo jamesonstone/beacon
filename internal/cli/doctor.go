@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/jamesonstone/beacon/internal/agent"
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/discovery"
 	"github.com/jamesonstone/beacon/internal/tracking"
@@ -100,10 +101,21 @@ func (a App) runDoctor(ctx context.Context, configPath string) doctorReport {
 	trackingPath, trackingPathErr := tracking.ResolvePath(cfg.Path)
 	if trackingPathErr != nil {
 		add("tracking state", false, trackingPathErr.Error())
+	} else if _, migrationErr := tracking.MigrateLegacy(cfg.Path, trackingPath); migrationErr != nil {
+		add("tracking state", false, migrationErr.Error())
 	} else if _, trackingErr := (tracking.FileStore{}).Load(trackingPath); trackingErr != nil {
 		add("tracking state", false, trackingErr.Error())
 	} else {
 		add("tracking state", true, trackingPath)
+	}
+	if paths, pathErr := agent.ResolvePaths(cfg.Path); pathErr != nil {
+		add("background agent", false, pathErr.Error())
+	} else if statusEvent, statusErr := (agent.Client{Socket: paths.Socket}).Request(ctx, agent.Request{Type: agent.RequestGetAgentStatus}); statusErr != nil {
+		add("background agent", false, statusErr.Error()+"; run beacon agent install")
+	} else if statusEvent.Status == nil || !statusEvent.Status.Running {
+		add("background agent", false, "agent did not report running")
+	} else {
+		add("background agent", true, fmt.Sprintf("pid %d, %d cached projects", statusEvent.Status.PID, statusEvent.Status.ProjectCount))
 	}
 
 	repositories := append([]config.Repository{}, cfg.Repositories...)

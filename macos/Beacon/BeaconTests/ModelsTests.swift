@@ -85,6 +85,39 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(CLIClient.defaultExecutableURL().lastPathComponent, "beacon-cli")
     }
 
+    func testDecodesAgentProtocolEventAndProjectStage() throws {
+        let object: [String: Any] = [
+            "protocol_version": 1,
+            "type": "project_updated",
+            "scan_id": "scan-1",
+            "project_id": "owner/repo",
+            "revision": 7,
+            "stage": "github",
+            "generated_at": "2026-07-11T16:00:00Z",
+            "projects": [[
+                "project_id": "owner/repo",
+                "name": "repo",
+                "path": "/repo",
+                "tracking_state": "muted",
+                "stage": "github",
+                "revision": 7,
+                "updated_at": "2026-07-11T16:00:00Z",
+                "muted_at": "2026-07-11T15:00:00Z",
+                "last_probe_at": "2026-07-11T15:50:00Z",
+            ]],
+        ]
+        let data = try JSONSerialization.data(withJSONObject: object)
+        let event = try JSONDecoder().decode(AgentEvent.self, from: data)
+        XCTAssertEqual(event.protocolVersion, 1)
+        XCTAssertEqual(event.projects?.first?.stage, "github")
+        XCTAssertEqual(event.projects?.first?.trackingState, "muted")
+        XCTAssertEqual(event.projects?.first?.lastProbeAt, "2026-07-11T15:50:00Z")
+    }
+
+    func testDefaultAgentSocketUsesCacheDirectory() {
+        XCTAssertTrue(AgentClient.defaultSocketPath().hasSuffix("/.cache/beacon/agent.sock"))
+    }
+
     private static func snapshotObject() throws -> [String: Any] {
         let object = try JSONSerialization.jsonObject(with: Data(snapshotJSON.utf8))
         return try XCTUnwrap(object as? [String: Any])

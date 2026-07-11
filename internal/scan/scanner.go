@@ -54,7 +54,7 @@ func (s Scanner) Scan(ctx context.Context, cfg config.Config, repositoryName str
 	if s.Now == nil {
 		s.Now = time.Now
 	}
-	repositories, discoveryErrors, discoveryWarnings := s.repositories(ctx, cfg)
+	repositories, discoveryErrors, discoveryWarnings := s.Repositories(ctx, cfg)
 	if repositoryName != "" {
 		filtered := repositories[:0]
 		for _, repository := range repositories {
@@ -112,9 +112,30 @@ func (s Scanner) Scan(ctx context.Context, cfg config.Config, repositoryName str
 		snapshot.Errors = append(snapshot.Errors, result.errors...)
 		snapshot.Warnings = append(snapshot.Warnings, result.warnings...)
 	}
-	orderLanes(snapshot.Lanes)
-	orderProjectLanes(snapshot.Projects, snapshot.Lanes)
-	group(&snapshot)
+	Finalize(&snapshot)
+	return snapshot, nil
+}
+
+func (s Scanner) ScanOne(ctx context.Context, cfg config.Config, repository config.Repository, refresh bool, stage func(string)) (model.Snapshot, error) {
+	if s.Now == nil {
+		s.Now = time.Now
+	}
+	local := s.Git.Scan(ctx, repository, refresh, cfg.Settings.RemoteRefreshInterval)
+	if stage != nil {
+		stage("local")
+	}
+	remote := s.GitHub.Collect(ctx, []config.Repository{repository}, string(cfg.Settings.GitHubScope), cfg.Settings.GitHubAuthor, 1)
+	if stage != nil {
+		stage("github")
+	}
+	result := s.buildRepository(cfg, 0, repository, local, remote.Repositories[repository.GitHub])
+	snapshot := model.Snapshot{
+		SchemaVersion: model.SchemaVersion, GeneratedAt: s.Now(), ConfigPath: cfg.Path,
+		Refresh: []model.Refresh{result.refresh}, Projects: []model.Project{result.project},
+		Lanes: result.lanes, Errors: append(append([]model.ScanError{}, remote.Errors...), result.errors...),
+		Warnings: append(append([]model.ScanError{}, remote.Warnings...), result.warnings...),
+	}
+	Finalize(&snapshot)
 	return snapshot, nil
 }
 
@@ -131,7 +152,7 @@ func orderProjectLanes(projects []model.Project, lanes []model.Lane) {
 	}
 }
 
-func (s Scanner) repositories(ctx context.Context, cfg config.Config) ([]config.Repository, []model.ScanError, []model.ScanError) {
+func (s Scanner) Repositories(ctx context.Context, cfg config.Config) ([]config.Repository, []model.ScanError, []model.ScanError) {
 	discovered := discovery.Result{Repositories: []config.Repository{}, Warnings: []discovery.Warning{}}
 	if len(cfg.Sources) > 0 {
 		if s.Discovery == nil {
@@ -204,6 +225,10 @@ func (s Scanner) repositories(ctx context.Context, cfg config.Config) ([]config.
 
 func (s Scanner) scanRepository(ctx context.Context, cfg config.Config, index int, repository config.Repository, remote model.RemoteEvidence, refresh bool) repositoryResult {
 	local := s.Git.Scan(ctx, repository, refresh, cfg.Settings.RemoteRefreshInterval)
+	return s.buildRepository(cfg, index, repository, local, remote)
+}
+
+func (s Scanner) buildRepository(cfg config.Config, index int, repository config.Repository, local gitscan.Result, remote model.RemoteEvidence) repositoryResult {
 	progressResult := progress.Load(repository.Path)
 	projectProgress, progressByIssue := correlateProgress(repository, progressResult)
 	errors := append([]model.ScanError{}, local.Errors...)
@@ -232,6 +257,14 @@ func (s Scanner) scanRepository(ctx context.Context, cfg config.Config, index in
 			LaneIDs: laneIDs, Errors: projectErrors, Warnings: projectWarnings,
 		},
 	}
+}
+
+func Finalize(snapshot *model.Snapshot) {
+	snapshot.Groups = model.Groups{Ready: []string{}, Action: []string{}, Waiting: []string{}, Idle: []string{}, Untracked: []string{}}
+	snapshot.Summary = model.Summary{}
+	orderLanes(snapshot.Lanes)
+	orderProjectLanes(snapshot.Projects, snapshot.Lanes)
+	group(snapshot)
 }
 
 func correlateProgress(repository config.Repository, result progress.Result) (*model.Progress, map[int]model.Progress) {

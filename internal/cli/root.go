@@ -72,6 +72,7 @@ func (a App) Root() *cobra.Command {
 	var configPath string
 	var colorMode string
 	var includeIdle bool
+	var noWatch bool
 	root := &cobra.Command{
 		Use:           "beacon",
 		Short:         "Review readiness for agent-driven Git work",
@@ -79,17 +80,22 @@ func (a App) Root() *cobra.Command {
 		SilenceUsage:  true,
 		Args:          noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return a.runHumanScan(cmd.Context(), configPath, "", true, colorMode, includeIdle, true, true)
+			return a.runAgentDashboard(cmd.Context(), configPath, colorMode, includeIdle, noWatch)
 		},
 	}
 	root.PersistentFlags().StringVar(&configPath, "config", "", "configuration file path")
 	root.PersistentFlags().StringVar(&colorMode, "color", "auto", "color output: auto, always, or never")
 	root.Flags().BoolVar(&includeIdle, "include-idle", false, "show projects with only idle work")
+	root.Flags().BoolVar(&noWatch, "no-watch", false, "render cached agent state without waiting for refresh")
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err} })
 	root.AddCommand(
 		a.initCommand(&configPath),
 		a.scanCommand(&configPath),
 		a.projectsCommand(&configPath),
+		a.rootTrackingCommand(&configPath, true),
+		a.rootTrackingCommand(&configPath, false),
+		a.refreshCommand(&configPath),
+		a.agentCommand(&configPath),
 		a.doctorCommand(&configPath),
 		a.openCommand(&configPath),
 		a.openNextCommand(&configPath),
@@ -103,6 +109,10 @@ func (a App) scanner() snapshotScanner {
 	if a.scannerSource != nil {
 		return a.scannerSource
 	}
+	return a.scannerComponents()
+}
+
+func (a App) scannerComponents() scan.Scanner {
 	git := gitscan.Scanner{Runner: a.Runner, Now: time.Now}
 	github := githubscan.Client{Runner: a.Runner}
 	discoverer := discovery.Discoverer{Runner: a.Runner}

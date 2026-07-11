@@ -19,11 +19,15 @@ type projectPrompter interface {
 
 func (a App) projectsCommand(configPath *string) *cobra.Command {
 	var showUntracked bool
+	var showTracked bool
 	command := &cobra.Command{
 		Use:   "projects",
 		Short: "Manage tracked and untracked projects",
 		Args:  noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if showTracked && showUntracked {
+				return usageError{errors.New("--tracked and --untracked cannot be used together")}
+			}
 			colorMode, _ := cmd.Flags().GetString("color")
 			color, err := a.resolveColor(colorMode)
 			if err != nil {
@@ -35,6 +39,9 @@ func (a App) projectsCommand(configPath *string) *cobra.Command {
 			}
 			if showUntracked {
 				return output.Projects(a.Out, snapshot, model.TrackingUntracked, output.TerminalOptions{Color: color, Width: a.terminalWidth()})
+			}
+			if showTracked {
+				return output.Projects(a.Out, snapshot, model.TrackingTracked, output.TerminalOptions{Color: color, Width: a.terminalWidth()})
 			}
 			if !a.inputIsTTY() {
 				return usageError{errors.New("beacon projects requires a TTY; use beacon projects --untracked, track OWNER/REPO, or untrack OWNER/REPO")}
@@ -63,6 +70,7 @@ func (a App) projectsCommand(configPath *string) *cobra.Command {
 		},
 	}
 	command.Flags().BoolVar(&showUntracked, "untracked", false, "list untracked projects")
+	command.Flags().BoolVar(&showTracked, "tracked", false, "list tracked projects")
 	command.AddCommand(
 		a.setProjectTrackingCommand(configPath, true),
 		a.setProjectTrackingCommand(configPath, false),
@@ -85,17 +93,22 @@ func (a App) setProjectTrackingCommand(configPath *string, tracked bool) *cobra.
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			snapshot, err := a.projectSnapshot(cmd.Context(), *configPath)
-			if err != nil {
+			if err := a.setProjectsDirect(cmd.Context(), *configPath, args, tracked); err != nil {
 				return err
 			}
-			if _, err := a.tracker().SetTracked(snapshot, args, tracked); err != nil {
-				return err
-			}
-			_, err = fmt.Fprintf(a.Out, "%s %d project%s\n", verbPastTense(tracked), len(args), pluralSuffix(len(args)))
+			_, err := fmt.Fprintf(a.Out, "%s %d project%s\n", verbPastTense(tracked), len(args), pluralSuffix(len(args)))
 			return err
 		},
 	}
+}
+
+func (a App) setProjectsDirect(ctx context.Context, configPath string, targets []string, tracked bool) error {
+	snapshot, err := a.projectSnapshot(ctx, configPath)
+	if err != nil {
+		return err
+	}
+	_, err = a.tracker().SetTracked(snapshot, targets, tracked)
+	return err
 }
 
 func (a App) projectSnapshot(ctx context.Context, configPath string) (model.Snapshot, error) {
