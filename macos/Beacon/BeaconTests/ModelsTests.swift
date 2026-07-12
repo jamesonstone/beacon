@@ -31,6 +31,20 @@ final class ModelsTests: XCTestCase {
         XCTAssertTrue(DashboardViewMode.kanban.title.contains("Experimental"))
     }
 
+    func testEvidenceBadgeDismissalsAreExactValueScopedAndDeterministic() {
+        let none = EvidenceBadgeDismissals.key(laneID: "lane-1", dimension: "CI", value: "none")
+        let success = EvidenceBadgeDismissals.key(laneID: "lane-1", dimension: "ci", value: "success")
+        let anotherLane = EvidenceBadgeDismissals.key(laneID: "lane-2", dimension: "ci", value: "none")
+
+        XCTAssertNotEqual(none, success)
+        XCTAssertNotEqual(none, anotherLane)
+
+        let encoded = EvidenceBadgeDismissals.encode([success, none])
+        XCTAssertEqual(encoded, EvidenceBadgeDismissals.encode([none, success]))
+        XCTAssertEqual(EvidenceBadgeDismissals.decode(encoded), [none, success])
+        XCTAssertTrue(EvidenceBadgeDismissals.decode("not-json").isEmpty)
+    }
+
     func testDecodesPartialRepositoryErrorWithoutDiscardingLanes() throws {
         var object = try Self.snapshotObject()
         object["errors"] = [["repository": "owner/repo", "stage": "github", "message": "timeout"]]

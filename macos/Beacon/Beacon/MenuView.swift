@@ -22,6 +22,7 @@ struct MenuView: View {
     @State private var manualTitle = ""
     @State private var showingManualEditor = false
     @AppStorage("beacon.dashboard.view-mode") private var viewModeValue = DashboardViewMode.stacked.rawValue
+    @AppStorage("beacon.dismissed-evidence-badges") private var dismissedEvidenceBadgesValue = "[]"
 
     private var viewMode: DashboardViewMode {
         get { DashboardViewMode(rawValue: viewModeValue) ?? .stacked }
@@ -181,6 +182,12 @@ struct MenuView: View {
                 Label("Quiet Projects", systemImage: "moon.stars")
             }
             Button { state.openConfig() } label: { Label("Open Config", systemImage: "slider.horizontal.3") }
+            Button {
+                dismissedEvidenceBadgesValue = "[]"
+            } label: {
+                Label("Restore Hidden Badges", systemImage: "eye")
+            }
+            .disabled(dismissedEvidenceBadges.isEmpty)
             Divider()
             Toggle(
                 "Open Beacon at Login",
@@ -744,15 +751,45 @@ struct MenuView: View {
 
     private func evidenceBadges(_ lane: WorkLane) -> some View {
         HStack(spacing: 4) {
-            badge(lane.signals.worktree, accent: signalColor(lane.signals.worktree))
-            badge("CI \(lane.signals.ci)", accent: signalColor(lane.signals.ci))
-            badge("Review \(lane.signals.review)", accent: signalColor(lane.signals.review))
-            badge(lane.signals.freshness, accent: signalColor(lane.signals.freshness))
+            dismissibleBadge(lane, dimension: "worktree", value: lane.signals.worktree, text: lane.signals.worktree, accent: signalColor(lane.signals.worktree))
+            dismissibleBadge(lane, dimension: "ci", value: lane.signals.ci, text: "CI \(lane.signals.ci)", accent: signalColor(lane.signals.ci))
+            dismissibleBadge(lane, dimension: "review", value: lane.signals.review, text: "Review \(lane.signals.review)", accent: signalColor(lane.signals.review))
+            dismissibleBadge(lane, dimension: "freshness", value: lane.signals.freshness, text: lane.signals.freshness, accent: signalColor(lane.signals.freshness))
             if let feedback = lane.pullRequest?.feedback, feedback.unresolvedThreads > 0 {
-                badge("\(feedback.unresolvedThreads) unresolved", accent: BeaconPalette.pink, emphasized: true)
+                dismissibleBadge(
+                    lane,
+                    dimension: "unresolved-feedback",
+                    value: String(feedback.unresolvedThreads),
+                    text: "\(feedback.unresolvedThreads) unresolved",
+                    accent: BeaconPalette.pink,
+                    emphasized: true
+                )
             }
         }
         .lineLimit(1)
+    }
+
+    private var dismissedEvidenceBadges: Set<String> {
+        EvidenceBadgeDismissals.decode(dismissedEvidenceBadgesValue)
+    }
+
+    @ViewBuilder
+    private func dismissibleBadge(
+        _ lane: WorkLane,
+        dimension: String,
+        value: String,
+        text: String,
+        accent: Color,
+        emphasized: Bool = false
+    ) -> some View {
+        let key = EvidenceBadgeDismissals.key(laneID: lane.id, dimension: dimension, value: value)
+        if !dismissedEvidenceBadges.contains(key) {
+            DismissibleEvidenceBadge(text: actionLabel(text), accent: accent, emphasized: emphasized) {
+                var hidden = dismissedEvidenceBadges
+                hidden.insert(key)
+                dismissedEvidenceBadgesValue = EvidenceBadgeDismissals.encode(hidden)
+            }
+        }
     }
 
     private func timeSinceActivity(_ value: String) -> String {
@@ -761,23 +798,6 @@ struct MenuView: View {
         let date = formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
         guard let date else { return "activity unknown" }
         return RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date())
-    }
-
-    private func badge(_ text: String, accent: Color, emphasized: Bool = false) -> some View {
-        Text(actionLabel(text))
-            .font(.caption2.weight(.medium))
-            .foregroundStyle(accent)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(
-                BeaconPalette.softGradient(accent),
-                in: Capsule()
-            )
-            .overlay {
-                Capsule()
-                    .strokeBorder(accent.opacity(emphasized ? 0.8 : 0.34), lineWidth: 0.6)
-            }
-            .shadow(color: emphasized ? accent.opacity(0.28) : .clear, radius: 2)
     }
 
     private func errorBanner(_ message: String) -> some View {

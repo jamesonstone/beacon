@@ -389,6 +389,10 @@ experimental kanban board; the selection persists across launches.
 Beacon uses JetBrains Mono Nerd Font when it is installed and falls back to the
 system monospaced font when it is unavailable. Lane notation appears as compact
 tag chips: use **Tag** to add context and the chip's close control to remove it.
+Evidence badges such as **Dirty**, **CI None**, and **Review None** also reveal
+a trailing close control on hover. Hiding a badge is local presentation state:
+it does not change the underlying evidence or next action, and a changed signal
+appears again. Use **Restore Hidden Badges** in Settings to clear all dismissals.
 
 Use **Open Beacon at Login** in either view to enable quiet startup. Beacon
 registers its embedded login helper through macOS Service Management. A login

@@ -149,6 +149,10 @@ presentation path must become lane-centered and local-first.
     design as a safe fallback. Typography, spacing, cards, and column widths
     must remain readable in both the 430-point menu surface and detachable
     window.
+23. Evidence badges are locally dismissible without mutating their underlying
+    Git/GitHub signal. Hover reveals a clickable trailing close control;
+    dismissal is scoped to lane, evidence dimension, and exact value so a new
+    signal value appears normally. Settings provides a single restore action.
 
 ## Assumptions
 
@@ -197,6 +201,9 @@ presentation path must become lane-centered and local-first.
   removed, and all three persisted view modes render the same working set.
 - [x] AC16: The compact menu and detachable window remain readable with
   JetBrains Mono Nerd Font installed and with the system fallback.
+- [x] AC17: Every evidence badge exposes a hover-only close control, exact-value
+  dismissals persist across launches, changed evidence reappears, and Settings
+  can restore all hidden badges without changing lane policy.
 
 ## Implementation Plan
 
@@ -211,6 +218,8 @@ presentation path must become lane-centered and local-first.
    a ready PR stacked on `GH-3`.
 7. Add shared lane tags and refine the macOS dashboard with a compact Settings
    menu, improved spacing, Nerd Font typography, and three presentation modes.
+8. Add reversible macOS-only evidence-badge dismissals keyed by lane,
+   dimension, and exact signal value.
 
 ## Task Checklist
 
@@ -222,6 +231,7 @@ presentation path must become lane-centered and local-first.
 - [x] T6: Reconcile docs and complete validation.
 - [x] T7: Commit, push, and create the ready stacked PR.
 - [x] T8: Add shared tags and the macOS settings/view-mode design pass.
+- [x] T9: Add hover-to-dismiss evidence badges and restore controls.
 
 ## Validation Map
 
@@ -236,6 +246,7 @@ presentation path must become lane-centered and local-first.
 | AC13 | complete repository validation commands |
 | AC14 | workset mutation, protocol, CLI, Swift decoding, and tag interaction tests |
 | AC15-AC16 | Swift view-model tests, XCTest, Xcode Debug build, and manual app smoke test |
+| AC17 | dismissal-key unit tests, XCTest, Xcode build, and hover/click manual smoke test |
 
 ## Reflection Notes
 
@@ -266,6 +277,9 @@ presentation path must become lane-centered and local-first.
 - Tags remain durable context without entering candidate or next-action policy;
   inactive tagged lanes retain their tags in local state without entering the
   visible working set.
+- Evidence-badge dismissals use lane, dimension, and exact signal value as the
+  presentation key. This keeps the action reversible, avoids hiding changed
+  evidence, and leaves the Go snapshot and next-action policy untouched.
 
 ## Documentation Updates
 
@@ -298,6 +312,10 @@ until prerequisite PR #4 lands.
 - Manual inspection verified the compact gear menu, JetBrains Mono Nerd Font
   rendering, tag chips, and stacked, horizontal-tile, and kanban layouts; the
   persisted selection was restored to the default stacked view afterward.
+- `make macos-test macos-build` passed with 35 Swift tests after adding
+  deterministic evidence-badge dismissal keys and the hover-only close control.
+- Manual inspection verified the hover affordance and the disabled/enabled
+  `Restore Hidden Badges` Settings action without changing canonical evidence.
 - `bin/beacon config validate` passed for the user's five-source configuration,
   whose remote refresh interval is now 45 minutes.
 - `bin/beacon scan --repo beacon --no-refresh --json | jq ...` returned

@@ -416,6 +416,10 @@ menu-bar backgrounds. When that count is zero, it shows a compact color
 neon-space glyph instead of a numeric badge. The menu window may use coordinated
 pastel and neon accents to distinguish existing CLI-provided groups and signals,
 but color must not introduce readiness or action policy in the Swift client.
+Individual evidence badges may be hidden as reversible local presentation
+state. Dismissal is scoped to lane, evidence dimension, and exact value so a
+changed signal reappears; it must never mutate or suppress canonical evidence
+in the Go snapshot.
 
 Human-facing default views are lane-centered: Active, Waiting, Recently Active,
 and a collapsed Parked inventory. The CLI reveals parked lanes explicitly and
