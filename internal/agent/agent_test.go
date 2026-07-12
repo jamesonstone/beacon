@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -399,6 +400,9 @@ func TestLaunchAgentPlistEscapesPathsAndUsesSingleBinary(t *testing.T) {
 }
 
 func TestLifecycleInstallAndUninstallUseUserOnlyFiles(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("LaunchAgent lifecycle is supported on macOS only")
+	}
 	paths := testPaths(t.TempDir())
 	runner := &lifecycleCommandRunner{}
 	lifecycle := Lifecycle{Paths: paths, Runner: runner, Executable: "/Applications/Beacon & Co/Beacon"}
