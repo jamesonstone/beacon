@@ -26,6 +26,7 @@ type Entry struct {
 	Pinned             bool                  `json:"pinned"`
 	Manual             bool                  `json:"manual"`
 	Explicit           bool                  `json:"explicit"`
+	Tags               []string              `json:"tags,omitempty"`
 	Note               string                `json:"note,omitempty"`
 	NoteUpdatedAt      time.Time             `json:"note_updated_at,omitempty"`
 	LastSeenAt         time.Time             `json:"last_seen_at,omitempty"`
@@ -161,7 +162,8 @@ func validate(state *State) error {
 		state.Entries = []Entry{}
 	}
 	seen := make(map[string]struct{}, len(state.Entries))
-	for _, entry := range state.Entries {
+	for index := range state.Entries {
+		entry := &state.Entries[index]
 		if strings.TrimSpace(entry.ID) == "" {
 			return errors.New("lane id is required")
 		}
@@ -177,6 +179,35 @@ func validate(state *State) error {
 		if entry.Manual && strings.TrimSpace(entry.Title) == "" {
 			return fmt.Errorf("manual lane %q requires a title", entry.ID)
 		}
+		tags, err := normalizeTags(entry.Tags)
+		if err != nil {
+			return fmt.Errorf("lane %q: %w", entry.ID, err)
+		}
+		entry.Tags = tags
 	}
 	return nil
+}
+
+func normalizeTags(tags []string) ([]string, error) {
+	if len(tags) > 12 {
+		return nil, errors.New("lane may have at most 12 tags")
+	}
+	normalized := make([]string, 0, len(tags))
+	seen := make(map[string]struct{}, len(tags))
+	for _, tag := range tags {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			return nil, errors.New("lane tag cannot be empty")
+		}
+		if len([]rune(tag)) > 48 {
+			return nil, errors.New("lane tag must be 48 characters or fewer")
+		}
+		key := strings.ToLower(tag)
+		if _, found := seen[key]; found {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, tag)
+	}
+	return normalized, nil
 }

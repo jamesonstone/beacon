@@ -21,6 +21,14 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(snapshot.groups.ready, ["gh:owner/repo#42"])
         XCTAssertEqual(snapshot.workingSet?.active, ["gh:owner/repo#42"])
         XCTAssertEqual(snapshot.lanes.first?.attention?.delta, "CI changed from pending to success")
+        XCTAssertEqual(snapshot.lanes.first?.attention?.tags, ["manual test", "release"])
+    }
+
+    func testDashboardViewModesHaveStablePresentationContracts() {
+        XCTAssertEqual(DashboardViewMode.allCases.map(\.rawValue), ["stacked", "tiles", "kanban"])
+        XCTAssertEqual(DashboardViewMode.stacked.title, "Stacked")
+        XCTAssertEqual(DashboardViewMode.tiles.symbol, "rectangle.grid.1x2")
+        XCTAssertTrue(DashboardViewMode.kanban.title.contains("Experimental"))
     }
 
     func testDecodesPartialRepositoryErrorWithoutDiscardingLanes() throws {
@@ -153,7 +161,7 @@ final class ModelsTests: XCTestCase {
         "progress": {"source": "kit", "feature_id": "0002", "feature": "Dashboard", "phase": "deliver", "summary": "Ready", "path": "docs/specs/0002/SPEC.md"},
         "signals": {"worktree": "not_local", "publication": "published", "pull_request": "open", "ci": "success", "review": "feedback_pending", "merge": "clean", "freshness": "current", "issue": "open"},
         "review_ready": true, "next_action": "address_review", "reasons": [], "warnings": [], "blockers": [], "updated_at": "2026-07-09T16:00:00Z",
-        "attention": {"state": "active", "pinned": true, "manual": false, "note": "test manually", "note_stale": true, "delta": "CI changed from pending to success", "previous": {}, "current": {}}
+        "attention": {"state": "active", "pinned": true, "manual": false, "tags": ["manual test", "release"], "note": "test manually", "note_stale": true, "delta": "CI changed from pending to success", "previous": {}, "current": {}}
       }],
       "errors": []
     }

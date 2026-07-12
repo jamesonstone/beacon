@@ -12,8 +12,8 @@
 Beacon keeps a small, durable memory of the three to eight work lanes that need
 your attention. It combines near-real-time local Git evidence, conservatively
 cached GitHub evidence, factual changes since you last looked, and optional
-short notes to answer: what am I working on, what changed, and what should I do
-next?
+short notes and tags to answer: what am I working on, what changed, and what
+should I do next?
 
 <!-- BEGIN KIT-MANAGED README BADGES -->
 [![Last commit](https://img.shields.io/github/last-commit/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/commits) [![Open issues](https://img.shields.io/github/issues/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/issues) [![Pull requests](https://img.shields.io/github/issues-pr/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/pulls) [![CI](https://github.com/jamesonstone/beacon/actions/workflows/ci.yml/badge.svg)](https://github.com/jamesonstone/beacon/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/releases)
@@ -265,6 +265,8 @@ beacon pin 'gh:jamesonstone/beacon#5'
 beacon park 'git:jamesonstone/beacon@GH-5'
 beacon resume 'git:jamesonstone/beacon@GH-5'
 beacon note 'git:jamesonstone/beacon@GH-5' 'finish the macOS smoke test'
+beacon tag 'git:jamesonstone/beacon@GH-5' 'manual test'
+beacon untag 'git:jamesonstone/beacon@GH-5' 'manual test'
 beacon seen 'git:jamesonstone/beacon@GH-5'
 beacon add --manual 'Research a smaller cache format'
 beacon scan
@@ -313,12 +315,14 @@ working set. Old authored PRs stay out unless pinned. `beacon lanes --parked`
 reveals parked lanes without allowing a large historical inventory to consume
 the primary view.
 
-Lane notes are optional memory cues, never status truth. Beacon stores them
+Lane notes and tags are optional memory cues, never status truth. Beacon stores them
 with attention and last-seen observations in the user-only strict JSON file
 `$HOME/.local/state/beacon/lanes.json`. When Git or GitHub evidence changes
 after a note, both clients label that note as stale and show a factual delta
 such as `new commit observed`, `PR #5 opened`, or `CI changed from pending to
-success`. Manual lanes support planning or research without requiring Git,
+success`. Tags are short, deduplicated labels that can be added or removed from
+the CLI and macOS lane cards; they never affect Beacon's attention or action
+policy. Manual lanes support planning or research without requiring Git,
 GitHub, Kit, or a Codex task API.
 
 Idle work is treated as inventory instead of queue content. Human output hides
@@ -372,12 +376,19 @@ Beacon remains in the menu bar and also runs as a regular macOS application,
 so its neon-space icon is available in the Dock and Command-Tab when a camera
 notch or a crowded menu bar hides the menu item. Ordinary launches open one
 compact dashboard window. Close the window to keep Beacon running quietly;
-choose **Window** in the menu extra or activate Beacon from the Dock or
+choose **Open Dashboard** in the top-right Settings menu or activate Beacon from the Dock or
 Command-Tab to reopen the same window.
 
 The menu and detached window are two views over one shared background-agent
 connection. They show the same active, quiet, and untracked projects and never
-start duplicate repository scans.
+start duplicate repository scans. Secondary actions live in the top-right gear
+menu so lane evidence receives the full height. The adjacent view button
+switches between the default stacked list, horizontal state tiles, and an
+experimental kanban board; the selection persists across launches.
+
+Beacon uses JetBrains Mono Nerd Font when it is installed and falls back to the
+system monospaced font when it is unavailable. Lane notation appears as compact
+tag chips: use **Tag** to add context and the chip's close control to remove it.
 
 Use **Open Beacon at Login** in either view to enable quiet startup. Beacon
 registers its embedded login helper through macOS Service Management. A login
@@ -394,8 +405,9 @@ they do not appear as fatal errors. Full warning detail remains available in
 `beacon scan --json`. The red `Errors` section is reserved for failures that
 prevent Beacon from collecting expected evidence.
 
-`scan --json` emits schema version 2 with projects, ordered lanes, issues,
-checks, feedback, optional Kit progress, scoped warnings, and scoped errors. It
+`scan --json` emits schema version 3 with projects, ordered lanes, issues,
+checks, feedback, optional Kit progress, lane attention and tags, scoped
+warnings, and scoped errors. It
 never emits ANSI or additional stdout logging, making it safe for the macOS app
 and automation.
 

@@ -247,6 +247,11 @@ func workingSetTerminal(writer io.Writer, snapshot model.Snapshot, options Termi
 					return err
 				}
 			}
+			if len(lane.Attention.Tags) > 0 {
+				if _, err := fmt.Fprintln(writer, "    "+style.project.Render("Tags: "+strings.Join(lane.Attention.Tags, ", "))); err != nil {
+					return err
+				}
+			}
 		}
 		if _, err := fmt.Fprintln(writer); err != nil {
 			return err

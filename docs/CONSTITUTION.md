@@ -31,6 +31,9 @@ optional short local note. Notes are memory cues, never canonical progress.
 Beacon reports factual evidence deltas and marks notes stale when evidence
 changes after the note. Parking is lane-specific; unrelated repository
 activity must not reactivate it.
+Lanes may also carry short, deduplicated user tags. Tags and notes are optional
+context only and must not alter evidence, attention, readiness, or next-action
+policy.
 
 ### One Domain Model, Multiple Surfaces
 
@@ -160,7 +163,7 @@ must not feed new policy back into the scanner.
   results, orders lanes, and creates groups and summary counts.
 - `internal/tracking` owns the strict attention-state store, evidence
   fingerprints, tracked/untracked reconciliation, and automatic reactivation.
-- `internal/workset` owns strict lane attention, pins, notes, last-seen
+- `internal/workset` owns strict lane attention, pins, notes, tags, last-seen
   observations, factual deltas, manual lanes, and project-tracking migration.
 - `internal/agent` owns operational paths, per-project caches, protocol-v1
   transport, scheduling, subscriptions, lifecycle locking, and LaunchAgent
@@ -324,6 +327,8 @@ beacon pin <lane-id> [--off]
 beacon park <lane-id>
 beacon resume <lane-id>
 beacon note <lane-id> [text]
+beacon tag <lane-id> <tag>
+beacon untag <lane-id> <tag>
 beacon add --manual <title>
 beacon seen <lane-id>
 beacon refresh [project]
@@ -360,7 +365,7 @@ The schema-v3 snapshot is a public internal contract between the CLI and
 clients. It contains generation/config/refresh/tracking and working-set
 metadata, projects,
 tracked and untracked summary counts, ordered enriched lanes, grouped lane IDs,
-lane attention, optional notes, previous/current observations, factual deltas,
+lane attention, optional notes and tags, previous/current observations, factual deltas,
 project tracking state, automatic-reactivation evidence, and repository-scoped
 or global warnings and errors. Expected partial conditions—including inaccessible
 source discoveries, prunable worktrees, result truncation, and untrusted
@@ -397,6 +402,13 @@ snapshot interpretation. An embedded, signed login-item helper may launch the
 main app quietly with `--login` when the user explicitly enables Open at Login.
 Service Management owns registration and approval, and the helper performs no
 evidence collection itself.
+Secondary commands and preferences live in a top-right Settings menu. A
+separate compact view control offers a persisted stacked list, horizontal tile
+strips, and an experimental state-column kanban board over the same ordered
+lanes. View selection is presentation state only. Lane tags render as removable
+chips and mutate through the Go background-agent authority. JetBrains Mono Nerd
+Font is preferred when locally available, with a system monospaced fallback so
+typography cannot become an application-startup dependency.
 The menu-bar label shows the number of lanes across the CLI-provided active,
 waiting, and recently-active groups. Active counts use a high-contrast dark badge
 with a luminous neon-gradient border so the value remains visible over changing

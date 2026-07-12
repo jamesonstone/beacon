@@ -60,6 +60,59 @@ func (m Manager) SetNote(snapshot model.Snapshot, id, note string) (model.Snapsh
 	return m.Reconcile(snapshot)
 }
 
+func (m Manager) AddTag(snapshot model.Snapshot, id, tag string) (model.Snapshot, error) {
+	if _, err := m.Reconcile(snapshot); err != nil {
+		return model.Snapshot{}, err
+	}
+	if err := m.ensure(snapshot, id); err != nil {
+		return model.Snapshot{}, err
+	}
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return model.Snapshot{}, errors.New("lane tag is required")
+	}
+	var mutationErr error
+	if err := m.update(id, func(entry *Entry) {
+		tags, err := normalizeTags(append(entry.Tags, tag))
+		if err != nil {
+			mutationErr = err
+			return
+		}
+		entry.Tags = tags
+	}); err != nil {
+		return model.Snapshot{}, err
+	}
+	if mutationErr != nil {
+		return model.Snapshot{}, mutationErr
+	}
+	return m.Reconcile(snapshot)
+}
+
+func (m Manager) RemoveTag(snapshot model.Snapshot, id, tag string) (model.Snapshot, error) {
+	if _, err := m.Reconcile(snapshot); err != nil {
+		return model.Snapshot{}, err
+	}
+	if err := m.ensure(snapshot, id); err != nil {
+		return model.Snapshot{}, err
+	}
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return model.Snapshot{}, errors.New("lane tag is required")
+	}
+	if err := m.update(id, func(entry *Entry) {
+		filtered := make([]string, 0, len(entry.Tags))
+		for _, existing := range entry.Tags {
+			if !strings.EqualFold(existing, tag) {
+				filtered = append(filtered, existing)
+			}
+		}
+		entry.Tags = filtered
+	}); err != nil {
+		return model.Snapshot{}, err
+	}
+	return m.Reconcile(snapshot)
+}
+
 func (m Manager) MarkSeen(snapshot model.Snapshot, id string) (model.Snapshot, error) {
 	if _, err := m.Reconcile(snapshot); err != nil {
 		return model.Snapshot{}, err

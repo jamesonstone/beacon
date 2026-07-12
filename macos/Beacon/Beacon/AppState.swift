@@ -135,6 +135,14 @@ final class AppState: ObservableObject {
         await applyLaneMutation { try await agent.setLaneNote(lane.id, note: note) }
     }
 
+    func addLaneTag(_ lane: WorkLane, tag: String) async {
+        await applyLaneMutation { try await agent.addLaneTag(lane.id, tag: tag) }
+    }
+
+    func removeLaneTag(_ lane: WorkLane, tag: String) async {
+        await applyLaneMutation { try await agent.removeLaneTag(lane.id, tag: tag) }
+    }
+
     func markLaneSeen(_ lane: WorkLane) async {
         await applyLaneMutation { try await agent.markLaneSeen(lane.id) }
     }

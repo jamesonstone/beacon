@@ -109,8 +109,8 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Make Beacon a personal memory for the small set of Git, PR, and manual lanes currently competing for attention.
-- **APPROACH**: Persist lane-level attention, pins, notes, last-seen observations, and factual deltas; observe local Git frequently without network work; discover GitHub activity globally and enrich only recent active work by default; retain the broad scanner as an explicit diagnostic.
-- **OPEN ITEMS**: Implementation and validation are complete on issue #5, branch `GH-5`, and ready stacked PR #6. Final review and merge remain human decisions after prerequisite PR #4 lands.
+- **APPROACH**: Persist lane-level attention, pins, notes, tags, last-seen observations, and factual deltas; observe local Git frequently without network work; discover GitHub activity globally and enrich only recent active work by default; present the same lanes through stacked, horizontal-tile, and experimental kanban macOS views; retain the broad scanner as an explicit diagnostic.
+- **OPEN ITEMS**: Implementation and validation, including the Settings, tags, typography, spacing, and view-mode design pass, are complete on issue #5, branch `GH-5`, and ready stacked PR #6. Final review and merge remain human decisions after prerequisite PR #4 lands.
 - **POINTERS**: `docs/specs/0009-beacon-working-set-radar/SPEC.md`
 
 ## LAST UPDATED

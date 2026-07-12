@@ -206,6 +206,7 @@ type LaneAttention struct {
 	Pinned             bool            `json:"pinned"`
 	Manual             bool            `json:"manual"`
 	Title              string          `json:"title,omitempty"`
+	Tags               []string        `json:"tags"`
 	Note               string          `json:"note,omitempty"`
 	NoteUpdatedAt      time.Time       `json:"note_updated_at,omitempty"`
 	NoteStale          bool            `json:"note_stale"`

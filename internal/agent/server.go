@@ -151,6 +151,20 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 		}
 		snapshot := s.Engine.Snapshot()
 		response(Event{Type: EventWorkingSetChanged, ProjectID: request.LaneID, Stage: "ready", Snapshot: &snapshot})
+	case RequestAddLaneTag:
+		if err := s.Engine.AddLaneTag(request.LaneID, request.Tag); err != nil {
+			response(Event{Type: EventProjectFailed, ProjectID: request.LaneID, Stage: "failed", Message: err.Error()})
+			return
+		}
+		snapshot := s.Engine.Snapshot()
+		response(Event{Type: EventWorkingSetChanged, ProjectID: request.LaneID, Stage: "ready", Snapshot: &snapshot})
+	case RequestRemoveLaneTag:
+		if err := s.Engine.RemoveLaneTag(request.LaneID, request.Tag); err != nil {
+			response(Event{Type: EventProjectFailed, ProjectID: request.LaneID, Stage: "failed", Message: err.Error()})
+			return
+		}
+		snapshot := s.Engine.Snapshot()
+		response(Event{Type: EventWorkingSetChanged, ProjectID: request.LaneID, Stage: "ready", Snapshot: &snapshot})
 	case RequestMarkLaneSeen:
 		if err := s.Engine.MarkLaneSeen(request.LaneID); err != nil {
 			response(Event{Type: EventProjectFailed, ProjectID: request.LaneID, Stage: "failed", Message: err.Error()})

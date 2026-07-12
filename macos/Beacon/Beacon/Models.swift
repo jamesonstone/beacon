@@ -147,6 +147,7 @@ struct LaneAttentionDetails: Codable, Equatable {
     let pinned: Bool
     let manual: Bool
     let title: String?
+    let tags: [String]?
     let note: String?
     let noteUpdatedAt: String?
     let noteStale: Bool
@@ -155,7 +156,7 @@ struct LaneAttentionDetails: Codable, Equatable {
     let reactivationReason: String?
 
     enum CodingKeys: String, CodingKey {
-        case state, pinned, manual, title, note, delta
+        case state, pinned, manual, title, tags, note, delta
         case noteUpdatedAt = "note_updated_at"
         case noteStale = "note_stale"
         case lastSeenAt = "last_seen_at"

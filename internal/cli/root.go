@@ -99,6 +99,8 @@ func (a App) Root() *cobra.Command {
 		a.laneAttentionCommand(&configPath, "park", agent.RequestSetLaneAttention),
 		a.laneAttentionCommand(&configPath, "resume", agent.RequestSetLaneAttention),
 		a.laneNoteCommand(&configPath),
+		a.laneTagCommand(&configPath, "tag", agent.RequestAddLaneTag),
+		a.laneTagCommand(&configPath, "untag", agent.RequestRemoveLaneTag),
 		a.laneAddCommand(&configPath),
 		a.laneSeenCommand(&configPath),
 		a.selectCommand(&configPath),

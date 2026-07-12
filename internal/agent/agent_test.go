@@ -208,6 +208,14 @@ func TestServerClientMutatesWorkingSetThroughSharedAuthority(t *testing.T) {
 	if err != nil || noted.Snapshot == nil || noted.Snapshot.Lanes[0].Attention.Note != "compare storage contracts" {
 		t.Fatalf("note event=%#v err=%v", noted, err)
 	}
+	tagged, err := client.Request(context.Background(), Request{Type: RequestAddLaneTag, LaneID: laneID, Tag: "manual test"})
+	if err != nil || tagged.Snapshot == nil || len(tagged.Snapshot.Lanes[0].Attention.Tags) != 1 {
+		t.Fatalf("tag event=%#v err=%v", tagged, err)
+	}
+	untagged, err := client.Request(context.Background(), Request{Type: RequestRemoveLaneTag, LaneID: laneID, Tag: "manual test"})
+	if err != nil || untagged.Snapshot == nil || len(untagged.Snapshot.Lanes[0].Attention.Tags) != 0 {
+		t.Fatalf("untag event=%#v err=%v", untagged, err)
+	}
 	parked, err := client.Request(context.Background(), Request{Type: RequestSetLaneAttention, LaneID: laneID, AttentionState: string(model.AttentionParked)})
 	if err != nil || parked.Snapshot == nil || len(parked.Snapshot.WorkingSet.Parked) != 1 {
 		t.Fatalf("park event=%#v err=%v", parked, err)

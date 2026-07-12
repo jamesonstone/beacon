@@ -91,8 +91,10 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 		entry.Repository, entry.GitHub, entry.Branch = lane.Repository, lane.GitHub, lane.Branch
 		entries[lane.ID] = entry
 		if !candidate && !entry.Pinned && !entry.Manual && !entry.Explicit && entry.State != model.AttentionParked {
-			delete(entries, lane.ID)
-			changed = true
+			if len(entry.Tags) == 0 && entry.Note == "" {
+				delete(entries, lane.ID)
+				changed = true
+			}
 			continue
 		}
 		attention := attention(entry)

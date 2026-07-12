@@ -42,6 +42,30 @@ func (e *Engine) SetLaneNote(id, note string) error {
 	return nil
 }
 
+func (e *Engine) AddLaneTag(id, tag string) error {
+	if e.WorkingSet == nil {
+		return errors.New("working-set authority is unavailable")
+	}
+	snapshot, err := e.WorkingSet.AddTag(e.Snapshot(), id, tag)
+	if err != nil {
+		return err
+	}
+	e.publish(EventWorkingSetChanged, "", id, 0, "ready", "tag added", &snapshot)
+	return nil
+}
+
+func (e *Engine) RemoveLaneTag(id, tag string) error {
+	if e.WorkingSet == nil {
+		return errors.New("working-set authority is unavailable")
+	}
+	snapshot, err := e.WorkingSet.RemoveTag(e.Snapshot(), id, tag)
+	if err != nil {
+		return err
+	}
+	e.publish(EventWorkingSetChanged, "", id, 0, "ready", "tag removed", &snapshot)
+	return nil
+}
+
 func (e *Engine) MarkLaneSeen(id string) error {
 	if e.WorkingSet == nil {
 		return errors.New("working-set authority is unavailable")

@@ -16,11 +16,17 @@ struct MenuView: View {
     @State private var showingProjectTracking = false
     @State private var projectTrackingTab = ProjectTrackingTab.tracked
     @State private var quietSearch = ""
-    @State private var noteLane: WorkLane?
-    @State private var noteText = ""
-    @State private var showingNoteEditor = false
+    @State private var tagLane: WorkLane?
+    @State private var tagText = ""
+    @State private var showingTagEditor = false
     @State private var manualTitle = ""
     @State private var showingManualEditor = false
+    @AppStorage("beacon.dashboard.view-mode") private var viewModeValue = DashboardViewMode.stacked.rawValue
+
+    private var viewMode: DashboardViewMode {
+        get { DashboardViewMode(rawValue: viewModeValue) ?? .stacked }
+        nonmutating set { viewModeValue = newValue.rawValue }
+    }
 
     var body: some View {
         Group {
@@ -38,10 +44,12 @@ struct MenuView: View {
             }
         }
         .onAppear { loginItem.refresh() }
-        .alert("Lane note", isPresented: $showingNoteEditor) {
-            TextField("Short context note", text: $noteText)
-            Button("Save") { if let lane = noteLane { Task { await state.setLaneNote(lane, note: noteText) } } }
+        .alert("Add lane tag", isPresented: $showingTagEditor) {
+            TextField("Short tag", text: $tagText)
+            Button("Add") { if let lane = tagLane { Task { await state.addLaneTag(lane, tag: tagText) } } }
             Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Tags are local context and never change Beacon's status inference.")
         }
         .alert("Add manual lane", isPresented: $showingManualEditor) {
             TextField("Planning or research lane", text: $manualTitle)
@@ -51,7 +59,7 @@ struct MenuView: View {
     }
 
     private var dashboard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             header
             if let error = state.lastError {
                 errorBanner(error)
@@ -71,17 +79,7 @@ struct MenuView: View {
                 reactivationBanner(reactivated)
             }
             if let snapshot = state.snapshot {
-                Picker("Projects", selection: $projectTrackingTab) {
-                    ForEach(ProjectTrackingTab.allCases) { tab in
-                        Text(tab.rawValue).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                if projectTrackingTab == .untracked {
-                    ProjectTrackingView(state: state, selectedTab: $projectTrackingTab, onClose: {
-                        projectTrackingTab = .tracked
-                    }, showsTabPicker: false)
-                } else if showingProjectTracking {
+                if showingProjectTracking {
                     ProjectTrackingView(state: state, selectedTab: $projectTrackingTab, onClose: {
                         showingProjectTracking = false
                     })
@@ -92,9 +90,6 @@ struct MenuView: View {
                 } else {
                     activeDashboard(snapshot)
                 }
-                Text("Updated \(snapshot.generatedAt)")
-                    .font(.caption2)
-                    .foregroundStyle(BeaconPalette.lavender.opacity(0.9))
             } else if state.isScanning {
                 ProgressView("Scanning repositories…")
                     .tint(BeaconPalette.cyan)
@@ -104,16 +99,14 @@ struct MenuView: View {
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(BeaconPalette.cyan, BeaconPalette.lavender)
             }
-            loginItemControls
-            Divider()
-            actions
         }
-        .padding(14)
+        .padding(12)
+        .font(BeaconTypography.regular(12))
         .background(BeaconPalette.panelBackground)
     }
 
     private var header: some View {
-        HStack {
+        HStack(alignment: .top, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 15, weight: .bold))
@@ -121,11 +114,16 @@ struct MenuView: View {
                     .shadow(color: BeaconPalette.cyan.opacity(0.55), radius: 2)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Beacon")
-                        .font(.headline)
+                        .font(BeaconTypography.bold(17))
                         .foregroundStyle(BeaconPalette.neonGradient)
                     Text("\(state.inProgressCount) lanes in focus")
-                        .font(.caption.weight(.medium))
+                        .font(BeaconTypography.medium(11))
                         .foregroundStyle(BeaconPalette.mint)
+                    if let generatedAt = state.snapshot?.generatedAt {
+                        Text("Updated \(timeSinceActivity(generatedAt))")
+                            .font(BeaconTypography.regular(9))
+                            .foregroundStyle(BeaconPalette.lavender.opacity(0.82))
+                    }
                 }
             }
             Spacer()
@@ -134,56 +132,56 @@ struct MenuView: View {
                     .controlSize(.small)
                     .tint(BeaconPalette.cyan)
             }
+            viewModeMenu
+            settingsMenu
         }
     }
 
-    private var actions: some View {
-        HStack {
-            if surface == .menu {
-                Button(action: openDashboard) {
-                    Label("Window", systemImage: "macwindow")
+    private var viewModeMenu: some View {
+        Menu {
+            Picker("View mode", selection: Binding(get: { viewMode }, set: { viewMode = $0 })) {
+                ForEach(DashboardViewMode.allCases) { mode in
+                    Label(mode.title, systemImage: mode.symbol).tag(mode)
                 }
-                .tint(BeaconPalette.pink)
-                .help("Open Beacon Dashboard")
             }
-            Button { Task { await state.scan() } } label: {
-                Label("Scan Now", systemImage: "arrow.clockwise")
-            }
-            .tint(BeaconPalette.cyan)
-            .disabled(state.isScanning)
-            Button { state.openTopItem() } label: {
-                Label("Open Top", systemImage: "arrow.up.forward.app")
-            }
-            .tint(BeaconPalette.mint)
-            .disabled(state.inProgressCount == 0)
-            Button { manualTitle = ""; showingManualEditor = true } label: {
-                Label("Add Lane", systemImage: "plus.circle")
-            }
-            .tint(BeaconPalette.pink)
-            Button { state.openConfig() } label: {
-                Label("Config", systemImage: "slider.horizontal.3")
-            }
-            .tint(BeaconPalette.lavender)
-            Button {
-                showingQuietProjects = false
-                projectTrackingTab = .tracked
-                showingProjectTracking = true
-            } label: {
-                Label("Projects", systemImage: "checklist")
-            }
-            .tint(BeaconPalette.gold)
-            Spacer()
-            Button { NSApplication.shared.terminate(nil) } label: {
-                Image(systemName: "power")
-            }
-            .tint(BeaconPalette.pink)
-            .help("Quit Beacon")
+        } label: {
+            Image(systemName: viewMode.symbol)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(BeaconPalette.cyan)
+                .frame(width: 28, height: 28)
+                .background(BeaconPalette.softGradient(BeaconPalette.cyan), in: RoundedRectangle(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(BeaconPalette.cyan.opacity(0.35), lineWidth: 0.7)
+                }
         }
-        .buttonStyle(.link)
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("View mode: \(viewMode.title)")
     }
 
-    private var loginItemControls: some View {
-        HStack(spacing: 8) {
+    private var settingsMenu: some View {
+        Menu {
+            if surface == .menu {
+                Button(action: openDashboard) { Label("Open Dashboard", systemImage: "macwindow") }
+            }
+            Button { Task { await state.scan() } } label: { Label("Scan Now", systemImage: "arrow.clockwise") }
+                .disabled(state.isScanning)
+            Button { state.openTopItem() } label: { Label("Open Top Item", systemImage: "arrow.up.forward.app") }
+                .disabled(state.inProgressCount == 0)
+            Button { manualTitle = ""; showingManualEditor = true } label: { Label("Add Manual Lane", systemImage: "plus.circle") }
+            Divider()
+            Button { showProjects(.tracked) } label: { Label("Tracked Projects", systemImage: "checkmark.circle") }
+            Button { showProjects(.untracked) } label: { Label("Untracked Projects", systemImage: "eye.slash") }
+            Button { showingParkedLanes = true; showingProjectTracking = false; showingQuietProjects = false } label: {
+                Label("Parked Lanes", systemImage: "pause.circle")
+            }
+            Button { quietSearch = ""; showingQuietProjects = true; showingProjectTracking = false; showingParkedLanes = false } label: {
+                Label("Quiet Projects", systemImage: "moon.stars")
+            }
+            Button { state.openConfig() } label: { Label("Open Config", systemImage: "slider.horizontal.3") }
+            Divider()
             Toggle(
                 "Open Beacon at Login",
                 isOn: Binding(
@@ -191,21 +189,40 @@ struct MenuView: View {
                     set: { loginItem.setEnabled($0) }
                 )
             )
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .tint(BeaconPalette.cyan)
-            Spacer()
             if loginItem.requiresApproval {
                 Button("Approve in Settings") {
                     loginItem.openSystemSettings()
                 }
-                .buttonStyle(.link)
-                .font(.caption)
-                .foregroundStyle(BeaconPalette.gold)
             }
+            if !state.agentAvailable {
+                Button { Task { await state.enableAgent() } } label: {
+                    Label("Enable Background Agent", systemImage: "antenna.radiowaves.left.and.right")
+                }
+            }
+            Divider()
+            Button("Quit Beacon", systemImage: "power") { NSApplication.shared.terminate(nil) }
+        } label: {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(BeaconPalette.neonGradient)
+                .frame(width: 28, height: 28)
+                .background(BeaconPalette.softGradient(BeaconPalette.lavender), in: RoundedRectangle(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.lavender), lineWidth: 0.7)
+                }
         }
-        .font(.caption.weight(.medium))
-        .foregroundStyle(loginItem.requiresApproval ? BeaconPalette.gold : BeaconPalette.lavender)
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Settings")
+    }
+
+    private func showProjects(_ tab: ProjectTrackingTab) {
+        projectTrackingTab = tab
+        showingQuietProjects = false
+        showingParkedLanes = false
+        showingProjectTracking = true
     }
 
     private var enableAgentBanner: some View {
@@ -222,9 +239,21 @@ struct MenuView: View {
         .background(BeaconPalette.softGradient(BeaconPalette.gold), in: RoundedRectangle(cornerRadius: 8))
     }
 
+    @ViewBuilder
     private func activeDashboard(_ snapshot: BeaconSnapshot) -> some View {
+        switch viewMode {
+        case .stacked:
+            stackedDashboard(snapshot)
+        case .tiles:
+            tileDashboard(snapshot)
+        case .kanban:
+            kanbanDashboard(snapshot)
+        }
+    }
+
+    private func stackedDashboard(_ snapshot: BeaconSnapshot) -> some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 14) {
+            LazyVStack(alignment: .leading, spacing: 10) {
                 if !state.loadingProjects.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Label("Loading Projects", systemImage: "antenna.radiowaves.left.and.right")
@@ -335,6 +364,127 @@ struct MenuView: View {
         }
     }
 
+    private func tileDashboard(_ snapshot: BeaconSnapshot) -> some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 12) {
+                loadingProjectStrip
+                if let working = snapshot.workingSet {
+                    tileSection("Active", symbol: "bolt.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: working.active))
+                    tileSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: working.waiting))
+                    tileSection("Recently Active", symbol: "sparkles", accent: BeaconPalette.cyan, lanes: state.lanes(for: working.recent))
+                    tileSection("Parked", symbol: "pause.circle.fill", accent: BeaconPalette.lavender, lanes: state.lanes(for: working.parked))
+                } else {
+                    tileSection("Ready for Review", symbol: "checkmark.circle.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: snapshot.groups.ready))
+                    tileSection("Needs Action", symbol: "exclamationmark.triangle.fill", accent: BeaconPalette.coral, lanes: state.lanes(for: snapshot.groups.action))
+                    tileSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: snapshot.groups.waiting))
+                }
+            }
+        }
+    }
+
+    private func kanbanDashboard(_ snapshot: BeaconSnapshot) -> some View {
+        GeometryReader { geometry in
+            ScrollView(.horizontal) {
+                HStack(alignment: .top, spacing: 10) {
+                    if let working = snapshot.workingSet {
+                        kanbanColumn("Active", symbol: "bolt.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: working.active), height: geometry.size.height)
+                        kanbanColumn("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: working.waiting), height: geometry.size.height)
+                        kanbanColumn("Recent", symbol: "sparkles", accent: BeaconPalette.cyan, lanes: state.lanes(for: working.recent), height: geometry.size.height)
+                        kanbanColumn("Parked", symbol: "pause.circle.fill", accent: BeaconPalette.lavender, lanes: state.lanes(for: working.parked), height: geometry.size.height)
+                    } else {
+                        kanbanColumn("Ready", symbol: "checkmark.circle.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: snapshot.groups.ready), height: geometry.size.height)
+                        kanbanColumn("Action", symbol: "exclamationmark.triangle.fill", accent: BeaconPalette.coral, lanes: state.lanes(for: snapshot.groups.action), height: geometry.size.height)
+                        kanbanColumn("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: snapshot.groups.waiting), height: geometry.size.height)
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var loadingProjectStrip: some View {
+        if !state.loadingProjects.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(state.loadingProjects, id: \.projectID) { project in
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.mini).tint(BeaconPalette.cyan)
+                            Text(project.name).font(BeaconTypography.medium(10))
+                            Text(stageLabel(project.stage))
+                                .font(BeaconTypography.regular(9))
+                                .foregroundStyle(BeaconPalette.lavender)
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 6)
+                        .background(BeaconPalette.softGradient(BeaconPalette.cyan), in: Capsule())
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func tileSection(_ title: String, symbol: String, accent: Color, lanes: [WorkLane]) -> some View {
+        if !lanes.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                sectionHeader(title, symbol: symbol, accent: accent, count: lanes.count)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(alignment: .top, spacing: 9) {
+                        ForEach(lanes) { lane in
+                            laneCard(lane, accent: accent, compact: true)
+                                .frame(width: 248)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
+    private func kanbanColumn(_ title: String, symbol: String, accent: Color, lanes: [WorkLane], height: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            sectionHeader(title, symbol: symbol, accent: accent, count: lanes.count)
+            ScrollView {
+                LazyVStack(spacing: 8) {
+                    ForEach(lanes) { lane in
+                        laneCard(lane, accent: accent, compact: true)
+                    }
+                    if lanes.isEmpty {
+                        Text("No lanes")
+                            .font(BeaconTypography.regular(10))
+                            .foregroundStyle(BeaconPalette.lavender.opacity(0.65))
+                            .frame(maxWidth: .infinity, minHeight: 70)
+                    }
+                }
+            }
+        }
+        .padding(9)
+        .frame(width: 238, height: height, alignment: .top)
+        .background(BeaconPalette.softGradient(accent), in: RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(accent.opacity(0.28), lineWidth: 0.7)
+        }
+    }
+
+    private func sectionHeader(_ title: String, symbol: String, accent: Color, count: Int) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol)
+                .foregroundStyle(accent)
+                .shadow(color: accent.opacity(0.45), radius: 2)
+            Text(title).foregroundStyle(BeaconPalette.borderGradient(accent))
+            Spacer()
+            Text("\(count)")
+                .font(BeaconTypography.medium(9))
+                .foregroundStyle(accent)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(accent.opacity(0.12), in: Capsule())
+        }
+        .font(BeaconTypography.semibold(12))
+    }
+
     private func stageLabel(_ stage: String) -> String {
         switch stage {
         case "queued": return "Queued"
@@ -374,11 +524,7 @@ struct MenuView: View {
                         ForEach(groups) { project in
                             projectHeader(project, accent: BeaconPalette.lavender)
                             ForEach(project.lanes) { lane in
-                                Button { state.open(lane) } label: {
-                                    laneRow(lane, accent: BeaconPalette.lavender)
-                                }
-                                .buttonStyle(.plain)
-                                .contextMenu { laneActions(lane) }
+                                laneCard(lane, accent: BeaconPalette.lavender)
                             }
                         }
                     }
@@ -412,11 +558,7 @@ struct MenuView: View {
                         ForEach(state.projectGroups(for: parked)) { project in
                             projectHeader(project, accent: BeaconPalette.lavender)
                             ForEach(project.lanes) { lane in
-                                Button { state.open(lane) } label: {
-                                    laneRow(lane, accent: BeaconPalette.lavender)
-                                }
-                                .buttonStyle(.plain)
-                                .contextMenu { laneActions(lane) }
+                                laneCard(lane, accent: BeaconPalette.lavender)
                             }
                         }
                     }
@@ -429,22 +571,11 @@ struct MenuView: View {
     private func laneSection(_ title: String, symbol: String, accent: Color, lanes: [WorkLane]) -> some View {
         if !lanes.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Image(systemName: symbol)
-                        .foregroundStyle(accent)
-                        .shadow(color: accent.opacity(0.45), radius: 2)
-                    Text(title)
-                        .foregroundStyle(BeaconPalette.borderGradient(accent))
-                }
-                .font(.subheadline.weight(.semibold))
+                sectionHeader(title, symbol: symbol, accent: accent, count: lanes.count)
                 ForEach(state.projectGroups(for: lanes)) { project in
                     projectHeader(project, accent: accent)
                     ForEach(project.lanes) { lane in
-                        Button { state.open(lane) } label: {
-                            laneRow(lane, accent: accent)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu { laneActions(lane) }
+                        laneCard(lane, accent: accent)
                     }
                 }
             }
@@ -454,18 +585,18 @@ struct MenuView: View {
     private func projectHeader(_ project: ProjectLaneGroup, accent: Color) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(project.name)
-                .font(.caption.weight(.semibold))
+                .font(BeaconTypography.semibold(10))
                 .foregroundStyle(BeaconPalette.borderGradient(accent))
             if let progress = project.progress {
                 Text("\(progress.feature) · \(actionLabel(progress.phase))")
-                    .font(.caption2)
+                    .font(BeaconTypography.regular(9))
                     .foregroundStyle(BeaconPalette.lavender.opacity(0.85))
                     .lineLimit(1)
             }
             let stage = state.stage(for: project.id)
             if stage != "ready" && stage != "cached" {
                 Text(stage.replacingOccurrences(of: "_", with: " ").capitalized)
-                    .font(.caption2.weight(.medium))
+                    .font(BeaconTypography.medium(9))
                     .foregroundStyle(BeaconPalette.gold)
             }
             Spacer()
@@ -473,51 +604,112 @@ struct MenuView: View {
         .padding(.top, 2)
     }
 
-    private func laneRow(_ lane: WorkLane, accent: Color) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+    private func laneCard(_ lane: WorkLane, accent: Color, compact: Bool = false) -> some View {
+        laneRow(lane, accent: accent, compact: compact)
+            .contentShape(RoundedRectangle(cornerRadius: 9))
+            .onTapGesture { state.open(lane) }
+            .contextMenu { laneActions(lane) }
+    }
+
+    private func laneRow(_ lane: WorkLane, accent: Color, compact: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
             HStack {
+                if compact {
+                    projectGlyph(lane, accent: accent)
+                }
                 Text(workItemTitle(lane))
-                    .fontWeight(.medium)
-                    .lineLimit(1)
+                    .font(BeaconTypography.semibold(compact ? 11 : 13))
+                    .lineLimit(compact ? 2 : 1)
                 Spacer()
                 if let pullRequest = lane.pullRequest {
-                    Text("PR #\(pullRequest.number)").foregroundStyle(accent)
+                    Text("PR #\(pullRequest.number)").font(BeaconTypography.medium(10)).foregroundStyle(accent)
                 } else if let issue = lane.issue {
-                    Text("Issue #\(issue.number)").foregroundStyle(accent)
+                    Text("Issue #\(issue.number)").font(BeaconTypography.medium(10)).foregroundStyle(accent)
                 } else if !lane.branch.isEmpty {
-                    Text(lane.branch).foregroundStyle(accent)
+                    Text(lane.branch).font(BeaconTypography.medium(9)).foregroundStyle(accent).lineLimit(1)
                 }
             }
             Text(actionLabel(lane.nextAction))
-                .font(.caption.weight(.medium))
+                .font(BeaconTypography.medium(10))
                 .foregroundStyle(accent)
             if let attention = lane.attention {
                 Text("\(attention.delta) · \(timeSinceActivity(lane.updatedAt))")
-                    .font(.caption2)
+                    .font(BeaconTypography.regular(9))
                     .foregroundStyle(BeaconPalette.cyan)
+                    .lineLimit(1)
+                tagChips(lane, tags: attention.tags ?? [], accent: accent)
                 if let note = attention.note, !note.isEmpty {
-                    Text("Note: \(note)\(attention.noteStale ? " · evidence changed" : "")")
-                        .font(.caption2)
+                    Label("\(note)\(attention.noteStale ? " · evidence changed" : "")", systemImage: "note.text")
+                        .font(BeaconTypography.regular(9))
                         .foregroundStyle(attention.noteStale ? BeaconPalette.gold : BeaconPalette.lavender)
                         .lineLimit(2)
                 }
             }
-            if let progress = lane.progress {
+            if !compact, let progress = lane.progress {
                 Text("Kit \(actionLabel(progress.phase)) · \(progress.summary)")
-                    .font(.caption2)
+                    .font(BeaconTypography.regular(9))
                     .foregroundStyle(BeaconPalette.lavender.opacity(0.85))
                     .lineLimit(1)
             }
             evidenceBadges(lane)
         }
-        .padding(8)
-        .background(BeaconPalette.softGradient(accent), in: RoundedRectangle(cornerRadius: 8))
+        .padding(compact ? 9 : 10)
+        .background(BeaconPalette.softGradient(accent), in: RoundedRectangle(cornerRadius: 9))
         .overlay {
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 9)
                 .strokeBorder(BeaconPalette.borderGradient(accent), lineWidth: 0.8)
         }
         .shadow(color: accent.opacity(0.09), radius: 4, y: 2)
-        .contentShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func projectGlyph(_ lane: WorkLane, accent: Color) -> some View {
+        Text(String((lane.repository.isEmpty ? "?" : lane.repository).prefix(1)).uppercased())
+            .font(BeaconTypography.bold(10))
+            .foregroundStyle(accent)
+            .frame(width: 24, height: 24)
+            .background(BeaconPalette.softGradient(accent), in: RoundedRectangle(cornerRadius: 7))
+            .overlay {
+                RoundedRectangle(cornerRadius: 7).strokeBorder(accent.opacity(0.45), lineWidth: 0.7)
+            }
+    }
+
+    @ViewBuilder
+    private func tagChips(_ lane: WorkLane, tags: [String], accent: Color) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 5) {
+                ForEach(tags, id: \.self) { tag in
+                    HStack(spacing: 3) {
+                        Text("#\(tag)")
+                            .font(BeaconTypography.medium(9))
+                        Button {
+                            Task { await state.removeLaneTag(lane, tag: tag) }
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 7, weight: .bold))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Remove \(tag)")
+                    }
+                    .foregroundStyle(BeaconPalette.lavender)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(BeaconPalette.softGradient(BeaconPalette.lavender), in: Capsule())
+                    .overlay { Capsule().strokeBorder(BeaconPalette.lavender.opacity(0.38), lineWidth: 0.6) }
+                }
+                Button {
+                    beginAddingTag(to: lane)
+                } label: {
+                    Label("Tag", systemImage: "plus")
+                        .font(BeaconTypography.medium(9))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(accent)
+                .background(BeaconPalette.softGradient(accent), in: Capsule())
+                .overlay { Capsule().strokeBorder(accent.opacity(0.35), lineWidth: 0.6) }
+            }
+        }
     }
 
     @ViewBuilder
@@ -530,12 +722,24 @@ struct MenuView: View {
         Button(lane.attention?.pinned == true ? "Unpin" : "Pin") {
             Task { await state.setLanePinned(lane, pinned: lane.attention?.pinned != true) }
         }
-        Button("Edit Note") {
-            noteLane = lane
-            noteText = lane.attention?.note ?? ""
-            showingNoteEditor = true
+        Button("Add Tag") { beginAddingTag(to: lane) }
+        if let tags = lane.attention?.tags, !tags.isEmpty {
+            Menu("Remove Tag") {
+                ForEach(tags, id: \.self) { tag in
+                    Button(tag) { Task { await state.removeLaneTag(lane, tag: tag) } }
+                }
+            }
+        }
+        if lane.attention?.note?.isEmpty == false {
+            Button("Clear Legacy Note") { Task { await state.setLaneNote(lane, note: "") } }
         }
         Button("Mark Seen") { Task { await state.markLaneSeen(lane) } }
+    }
+
+    private func beginAddingTag(to lane: WorkLane) {
+        tagLane = lane
+        tagText = ""
+        showingTagEditor = true
     }
 
     private func evidenceBadges(_ lane: WorkLane) -> some View {

@@ -92,6 +92,25 @@ func (a App) laneNoteCommand(configPath *string) *cobra.Command {
 	}
 }
 
+func (a App) laneTagCommand(configPath *string, name, requestType string) *cobra.Command {
+	return &cobra.Command{
+		Use: name + " <lane-id> <tag>", Short: commandTitle(name) + " a working-set lane", Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 2 {
+				return usageError{fmt.Errorf("%s requires a lane id and tag", cmd.CommandPath())}
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			tag := strings.Join(args[1:], " ")
+			_, err := a.laneRequest(cmd.Context(), *configPath, agent.Request{Type: requestType, LaneID: args[0], Tag: tag})
+			if err == nil {
+				_, err = fmt.Fprintf(a.Out, "%s %s: %s\n", name, args[0], tag)
+			}
+			return err
+		},
+	}
+}
+
 func (a App) laneAddCommand(configPath *string) *cobra.Command {
 	var manual bool
 	command := &cobra.Command{

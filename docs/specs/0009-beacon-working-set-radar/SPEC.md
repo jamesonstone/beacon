@@ -82,6 +82,8 @@ presentation path must become lane-centered and local-first.
   near-real-time and explicit Refresh remains available.
 - Notes are short local memory cues. Evidence remains canonical, and the UI
   identifies notes written before a later evidence change.
+- Lane notation also supports short reusable tags. Tags are user context, not
+  durable evidence, and never influence attention or next-action policy.
 - Parking is explicit and lane-specific. Unrelated activity elsewhere in the
   repository cannot resume a parked lane.
 - Project discovery remains configuration and inventory authority, but project
@@ -134,6 +136,19 @@ presentation path must become lane-centered and local-first.
     intact and reversible.
 18. Agents are never required to write Beacon, Kit, repository files, or an
     external task system for working-set correctness.
+19. Persist zero or more short, deduplicated user tags per lane through the Go
+    working-set authority. Preserve existing notes for compatibility, while
+    presenting new notation in macOS as removable tag chips.
+20. The macOS dashboard moves secondary controls into a top-right Settings
+    menu, retains a separate compact view-mode control, and removes the fixed
+    action/footer region so lane evidence receives the available height.
+21. The macOS dashboard offers persisted `stacked`, `tiles`, and experimental
+    `kanban` presentation modes. These modes only rearrange the same ordered
+    schema-v3 lanes and must not duplicate policy or alter attention state.
+22. Use JetBrains Mono Nerd Font when installed, with the system monospaced
+    design as a safe fallback. Typography, spacing, cards, and column widths
+    must remain readable in both the 430-point menu surface and detachable
+    window.
 
 ## Assumptions
 
@@ -145,6 +160,9 @@ presentation path must become lane-centered and local-first.
   objective. Pins and explicit resume preserve longer-lived attention.
 - An additive protocol command set is preferable to a second local control
   channel.
+- The Nerd Font is an optional local presentation enhancement in v1 of this
+  design pass; Beacon must remain legible when the font is unavailable rather
+  than making application startup depend on a separately installed font.
 - Stacking this branch on `GH-3` is required until PR #4 lands because this
   feature intentionally reuses its background-agent and API-budget work.
 
@@ -173,6 +191,12 @@ presentation path must become lane-centered and local-first.
 - [x] AC12: Migration retains user configuration and converts prior muted intent
   without false lane reactivation.
 - [x] AC13: Go, race, Kit, Swift, build, and release validation passes.
+- [x] AC14: Lane tags persist through the shared Go authority, render as
+  removable macOS chips, and do not affect evidence or next-action policy.
+- [x] AC15: Settings actions live behind a top-right gear, the fixed footer is
+  removed, and all three persisted view modes render the same working set.
+- [x] AC16: The compact menu and detachable window remain readable with
+  JetBrains Mono Nerd Font installed and with the system fallback.
 
 ## Implementation Plan
 
@@ -185,6 +209,8 @@ presentation path must become lane-centered and local-first.
 5. Render lane-centered CLI groups and update Swift models and interactions.
 6. Update canonical docs, validate, and deliver on issue #5 / branch `GH-5` as
    a ready PR stacked on `GH-3`.
+7. Add shared lane tags and refine the macOS dashboard with a compact Settings
+   menu, improved spacing, Nerd Font typography, and three presentation modes.
 
 ## Task Checklist
 
@@ -195,6 +221,7 @@ presentation path must become lane-centered and local-first.
 - [x] T5: Implement CLI and macOS primary working-set views.
 - [x] T6: Reconcile docs and complete validation.
 - [x] T7: Commit, push, and create the ready stacked PR.
+- [x] T8: Add shared tags and the macOS settings/view-mode design pass.
 
 ## Validation Map
 
@@ -207,6 +234,8 @@ presentation path must become lane-centered and local-first.
 | AC11 | existing scan/golden tests plus explicit diagnostic smoke test |
 | AC12 | temporary v1 tracking-state migration fixture |
 | AC13 | complete repository validation commands |
+| AC14 | workset mutation, protocol, CLI, Swift decoding, and tag interaction tests |
+| AC15-AC16 | Swift view-model tests, XCTest, Xcode Debug build, and manual app smoke test |
 
 ## Reflection Notes
 
@@ -231,6 +260,12 @@ presentation path must become lane-centered and local-first.
 - Live rollout evidence reduced the automatic recent window to six hours,
   excludes clean base branches, and parks stale dirty work. This keeps old
   unsaved evidence recoverable without presenting it as current focus.
+- A shared gear menu recovers the fixed footer's height without hiding primary
+  evidence. A separate persisted mode button keeps layout selection discoverable
+  while stacked, horizontal-tile, and kanban views remain policy-free.
+- Tags remain durable context without entering candidate or next-action policy;
+  inactive tagged lanes retain their tags in local state without entering the
+  visible working set.
 
 ## Documentation Updates
 
@@ -256,6 +291,13 @@ until prerequisite PR #4 lands.
 - `make macos-test` passed 33 Swift tests with zero failures.
 - `make macos-build` completed with `** BUILD SUCCEEDED **`.
 - `kit check --all` passed all nine feature specifications.
+- `make fmt-check vet test test-race build release-test` passed after the
+  settings, tags, typography, and view-mode design pass.
+- `make macos-test macos-build` passed 34 Swift tests and produced the Debug
+  application successfully.
+- Manual inspection verified the compact gear menu, JetBrains Mono Nerd Font
+  rendering, tag chips, and stacked, horizontal-tile, and kanban layouts; the
+  persisted selection was restored to the default stacked view afterward.
 - `bin/beacon config validate` passed for the user's five-source configuration,
   whose remote refresh interval is now 45 minutes.
 - `bin/beacon scan --repo beacon --no-refresh --json | jq ...` returned

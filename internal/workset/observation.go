@@ -67,6 +67,7 @@ func attention(entry Entry) model.LaneAttention {
 		Pinned:             entry.Pinned,
 		Manual:             entry.Manual,
 		Title:              entry.Title,
+		Tags:               append([]string{}, entry.Tags...),
 		Note:               entry.Note,
 		NoteUpdatedAt:      entry.NoteUpdatedAt,
 		NoteStale:          entry.Note != "" && entry.NoteUpdatedAt.Before(entry.Current.ObservedAt) && observationChanged(entry.Previous, entry.Current),
