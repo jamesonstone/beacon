@@ -8,6 +8,11 @@ struct ProjectLaneGroup: Identifiable, Equatable {
     let lanes: [WorkLane]
 }
 
+private struct TrackingMutation {
+    let projectID: String
+    let tracked: Bool
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published private(set) var snapshot: BeaconSnapshot?
@@ -23,6 +28,10 @@ final class AppState: ObservableObject {
     private var subscriptionTask: Task<Void, Never>?
     private var revisions: [String: UInt64] = [:]
     private var activeScanID: String?
+    private var pendingTrackingStates: [String: Bool] = [:]
+    private var trackingQueue: [TrackingMutation] = []
+    private var trackingTask: Task<Void, Never>?
+    private var trackingFailures: [String: String] = [:]
 
     init(agent: AgentClientProtocol = AgentClient(), installer: AgentInstallerProtocol? = CLIClient()) {
         self.agent = agent
@@ -42,18 +51,22 @@ final class AppState: ObservableObject {
 
     var quietProjectCount: Int { quietProjectGroups().count }
 
-    var isProjectMutationInProgress: Bool { !mutatingProjects.isEmpty }
+    var queuedTrackingCount: Int { mutatingProjects.count }
 
     var untrackedProjectCount: Int {
         snapshot?.summary.untrackedProjects ?? untrackedProjects.count
     }
 
     var trackedProjects: [BeaconProject] {
-        (snapshot?.projects ?? []).filter(\.isTracked)
+        (snapshot?.projects ?? []).filter {
+            pendingTrackingStates[$0.github] ?? $0.isTracked
+        }
     }
 
     var untrackedProjects: [BeaconProject] {
-        (snapshot?.projects ?? []).filter { !$0.isTracked }
+        (snapshot?.projects ?? []).filter {
+            !(pendingTrackingStates[$0.github] ?? $0.isTracked)
+        }
     }
 
     var loadingProjects: [AgentProjectStatus] {
@@ -79,7 +92,7 @@ final class AppState: ObservableObject {
     }
 
     func scan() async {
-        guard !isScanning, !isProjectMutationInProgress else { return }
+        guard !isScanning else { return }
         isScanning = true
         do {
             activeScanID = try await agent.refresh(project: nil)
@@ -95,17 +108,48 @@ final class AppState: ObservableObject {
         }
     }
 
-    func setProjectTracked(_ project: BeaconProject, tracked: Bool) async {
-        guard !isScanning, !isProjectMutationInProgress else { return }
+    func setProjectTracked(_ project: BeaconProject, tracked: Bool) {
+        guard !mutatingProjects.contains(project.github) else { return }
+        pendingTrackingStates[project.github] = tracked
         mutatingProjects.insert(project.github)
-        do {
-            try await agent.setProjectTracked(project.github, tracked: tracked)
-            mutatingProjects.remove(project.github)
-            apply(try await agent.snapshot())
-        } catch {
-            mutatingProjects.remove(project.github)
-            lastError = error.localizedDescription
+        trackingFailures.removeValue(forKey: project.github)
+        trackingQueue.append(TrackingMutation(projectID: project.github, tracked: tracked))
+        startTrackingQueue()
+    }
+
+    private func startTrackingQueue() {
+        guard trackingTask == nil else { return }
+        trackingTask = Task { [weak self] in
+            await self?.drainTrackingQueue()
         }
+    }
+
+    private func drainTrackingQueue() async {
+        while !Task.isCancelled, !trackingQueue.isEmpty {
+            let mutation = trackingQueue.removeFirst()
+            do {
+                let event = try await agent.setProjectTracked(
+                    mutation.projectID,
+                    tracked: mutation.tracked
+                )
+                apply(event)
+            } catch {
+                trackingFailures[mutation.projectID] = error.localizedDescription
+            }
+            pendingTrackingStates.removeValue(forKey: mutation.projectID)
+            mutatingProjects.remove(mutation.projectID)
+            if !trackingFailures.isEmpty {
+                lastError = trackingFailureSummary()
+            }
+        }
+        trackingTask = nil
+    }
+
+    private func trackingFailureSummary() -> String {
+        trackingFailures
+            .sorted { $0.key < $1.key }
+            .map { "\($0.key): \($0.value)" }
+            .joined(separator: "\n")
     }
 
     func isMutating(_ project: BeaconProject) -> Bool {
@@ -346,9 +390,10 @@ private actor DirectAgentAdapter: AgentClientProtocol {
         return "direct"
     }
 
-    func setProjectTracked(_ github: String, tracked: Bool) async throws {
+    func setProjectTracked(_ github: String, tracked: Bool) async throws -> AgentEvent {
         try await client.setProjectTracked(github, tracked: tracked)
         latest = try await client.scan()
+        return event(type: "tracking_changed", snapshot: latest)
     }
 
     func status() async throws -> AgentStatusDetails {

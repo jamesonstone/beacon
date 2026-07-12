@@ -63,6 +63,7 @@ xcodebuild \
 
 application="$derived_data/Build/Products/Release/Beacon.app"
 helper="$application/Contents/MacOS/beacon-cli"
+login_item="$application/Contents/Library/LoginItems/BeaconLoginItem.app"
 info_plist="$application/Contents/Info.plist"
 
 [[ -d "$application" ]]
@@ -71,6 +72,13 @@ info_plist="$application/Contents/Info.plist"
 [[ "$(/usr/bin/lipo -archs "$application/Contents/MacOS/Beacon")" == *x86_64* ]]
 [[ "$(/usr/bin/lipo -archs "$helper")" == *arm64* ]]
 [[ "$(/usr/bin/lipo -archs "$helper")" == *x86_64* ]]
+[[ -x "$login_item/Contents/MacOS/BeaconLoginItem" ]]
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$login_item/Contents/Info.plist")" == "com.jamesonstone.beacon.login-item" ]]
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$info_plist")" == "AppIcon" ]]
+if /usr/libexec/PlistBuddy -c 'Print :LSUIElement' "$info_plist" >/dev/null 2>&1; then
+  printf 'Beacon.app must not set LSUIElement\n' >&2
+  exit 1
+fi
 "$helper" version | grep -F "beacon $version ($commit, $build_date)"
 
 /usr/bin/codesign --force --deep --sign - --timestamp=none "$application"

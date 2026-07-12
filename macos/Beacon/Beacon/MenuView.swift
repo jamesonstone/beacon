@@ -1,18 +1,47 @@
 import AppKit
 import SwiftUI
 
+enum DashboardSurface {
+    case menu
+    case window
+}
+
 struct MenuView: View {
     @ObservedObject var state: AppState
+    @ObservedObject var loginItem: LoginItemController
+    let surface: DashboardSurface
+    let openDashboard: () -> Void
     @State private var showingQuietProjects = false
     @State private var showingProjectTracking = false
     @State private var projectTrackingTab = ProjectTrackingTab.tracked
     @State private var quietSearch = ""
 
     var body: some View {
+        Group {
+            if surface == .menu {
+                dashboard
+                    .frame(width: 430, height: 540)
+            } else {
+                dashboard
+                    .frame(
+                        minWidth: 430,
+                        maxWidth: .infinity,
+                        minHeight: 540,
+                        maxHeight: .infinity
+                    )
+            }
+        }
+        .onAppear { loginItem.refresh() }
+    }
+
+    private var dashboard: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
             if let error = state.lastError {
                 errorBanner(error)
+            }
+            if let error = loginItem.errorMessage {
+                errorBanner("Open at Login: \(error)")
             }
             if !state.agentAvailable {
                 enableAgentBanner
@@ -57,11 +86,11 @@ struct MenuView: View {
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(BeaconPalette.cyan, BeaconPalette.lavender)
             }
+            loginItemControls
             Divider()
             actions
         }
         .padding(14)
-        .frame(width: 430, height: 540)
         .background(BeaconPalette.panelBackground)
     }
 
@@ -92,11 +121,18 @@ struct MenuView: View {
 
     private var actions: some View {
         HStack {
+            if surface == .menu {
+                Button(action: openDashboard) {
+                    Label("Window", systemImage: "macwindow")
+                }
+                .tint(BeaconPalette.pink)
+                .help("Open Beacon Dashboard")
+            }
             Button { Task { await state.scan() } } label: {
                 Label("Scan Now", systemImage: "arrow.clockwise")
             }
             .tint(BeaconPalette.cyan)
-            .disabled(state.isScanning || state.isProjectMutationInProgress)
+            .disabled(state.isScanning)
             Button { state.openTopItem() } label: {
                 Label("Open Top", systemImage: "arrow.up.forward.app")
             }
@@ -122,6 +158,32 @@ struct MenuView: View {
             .help("Quit Beacon")
         }
         .buttonStyle(.link)
+    }
+
+    private var loginItemControls: some View {
+        HStack(spacing: 8) {
+            Toggle(
+                "Open Beacon at Login",
+                isOn: Binding(
+                    get: { loginItem.isEnabled },
+                    set: { loginItem.setEnabled($0) }
+                )
+            )
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .tint(BeaconPalette.cyan)
+            Spacer()
+            if loginItem.requiresApproval {
+                Button("Approve in Settings") {
+                    loginItem.openSystemSettings()
+                }
+                .buttonStyle(.link)
+                .font(.caption)
+                .foregroundStyle(BeaconPalette.gold)
+            }
+        }
+        .font(.caption.weight(.medium))
+        .foregroundStyle(loginItem.requiresApproval ? BeaconPalette.gold : BeaconPalette.lavender)
     }
 
     private var enableAgentBanner: some View {

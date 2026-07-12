@@ -67,7 +67,7 @@ protocol AgentClientProtocol {
     func snapshot() async throws -> AgentEvent
     func subscribe() async throws -> AsyncThrowingStream<AgentEvent, Error>
     func refresh(project: String?) async throws -> String
-    func setProjectTracked(_ github: String, tracked: Bool) async throws
+    func setProjectTracked(_ github: String, tracked: Bool) async throws -> AgentEvent
     func status() async throws -> AgentStatusDetails
 }
 
@@ -107,7 +107,7 @@ actor AgentClient: AgentClientProtocol {
         return event.scanID ?? ""
     }
 
-    func setProjectTracked(_ github: String, tracked: Bool) async throws {
+    func setProjectTracked(_ github: String, tracked: Bool) async throws -> AgentEvent {
         let event = try await request(
             type: "set_tracking_state",
             projectID: github,
@@ -116,6 +116,7 @@ actor AgentClient: AgentClientProtocol {
         guard event.type != "project_failed" else {
             throw AgentClientError.command(event.message ?? "tracking update failed")
         }
+        return event
     }
 
     func status() async throws -> AgentStatusDetails {

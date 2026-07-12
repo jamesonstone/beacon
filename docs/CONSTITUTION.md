@@ -25,7 +25,7 @@ remote-only scoped pull request, or an unlinked scoped issue waiting to start.
 
 Go is the source of truth for collection, correlation, policy, ordering,
 tracking, caching, and actions. The background agent, direct CLI scans,
-terminal output, JSON output, and the macOS menu application must present the
+terminal output, JSON output, and the macOS application must present the
 same snapshot. A client must not reimplement Git, GitHub, correlation,
 reactivation, or readiness rules.
 
@@ -64,7 +64,7 @@ scan itself.
 
 Given the same inputs, Beacon must produce the same lane identities, ordering,
 groups, readiness decisions, actions, and JSON shape. Stable output allows
-humans, the menu application, scripts, and future integrations to trust the
+humans, the macOS application, scripts, and future integrations to trust the
 CLI as a contract.
 
 ### Explicit, Minimal Implementation
@@ -89,7 +89,7 @@ truthfully describe the highest completed state.
   remote-only work, and idle base work.
 - Recommend the next useful human or agent action without mutating work.
 - Preserve situational awareness across multiple repositories and worktrees.
-- Provide a useful standalone CLI and a native macOS menu application backed
+- Provide a useful standalone CLI and a native macOS application backed
   by the identical versioned snapshot.
 - Remain predictable under partial failures, unusual Git paths, stale remote
   state, and concurrent repository scans.
@@ -258,6 +258,13 @@ credentials.
   defaults to four and must remain bounded.
 - The background scheduler runs at most one job per project, coalesces duplicate
   refresh requests, and uses separate tracked-refresh and muted-probe cadences.
+- All background `gh` collection shares one process-local response cache and
+  rate-budget guard. Beacon reserves 1,000 GraphQL points, five Search requests,
+  and 500 REST Core requests for the user's other GitHub work; cached successful
+  evidence may be served stale while a bucket is protected.
+- Tracking mutations use cached complete evidence and never require a
+  synchronous GitHub probe. The next scheduled muted probe establishes its
+  compact comparison baseline.
 - Cancellation and command errors must retain enough command and repository
   context to diagnose the failed evidence stage.
 
@@ -297,8 +304,8 @@ and JSON modes remain blocking direct-scan compatibility paths and do not
 require the agent.
 
 Agent protocol version 1 is newline-delimited JSON over a user-only Unix-domain
-socket. It carries scan IDs, per-project revisions, stages, tracking changes,
-heartbeats, and snapshot-schema-v2 payloads. Protocol evolution is independent
+socket. It carries scan IDs, per-project revisions, stages, single and batch
+tracking changes, heartbeats, and snapshot-schema-v2 payloads. Protocol evolution is independent
 from the evidence snapshot schema. Clients discard events from a different
 active scan and older project revisions, then preserve last-good state on
 malformed events or disconnects.
@@ -319,16 +326,26 @@ require a schema-version increment and coordinated client support.
 
 ### macOS Application Boundary
 
-The macOS application targets macOS 14 or later, uses SwiftUI `MenuBarExtra`
-with window style, and runs as an `LSUIElement` application without a Dock
-icon. It executes the bundled `beacon-cli` helper, requires schema v2, and
-renders the CLI-provided projects, groups, evidence, and actions.
+The macOS application targets macOS 14 or later and combines SwiftUI
+`MenuBarExtra` with one compact detachable dashboard window. It runs as a
+regular application with a Dock icon and Command-Tab presence so users retain
+an entry point when the menu-bar item is obscured. Closing the dashboard leaves
+the menu extra and background connection running; ordinary launches and later
+user activation reopen the singleton window. It executes the bundled
+`beacon-cli` helper, requires schema v2, and renders the CLI-provided projects,
+groups, evidence, and actions.
 
 The application connects to the background agent through a Swift actor,
 renders cached state immediately, applies monotonic incremental project events,
 and reconnects after disconnects. Only `@MainActor` publishes UI state. A
 failed refresh keeps the last successful snapshot visible with its timestamp
 and an error or stale banner.
+Both macOS surfaces render one reusable SwiftUI dashboard over the same
+`AppState`; they must not duplicate subscriptions, scans, Git/GitHub policy, or
+snapshot interpretation. An embedded, signed login-item helper may launch the
+main app quietly with `--login` when the user explicitly enables Open at Login.
+Service Management owns registration and approval, and the helper performs no
+evidence collection itself.
 The menu-bar label shows the number of non-idle lanes across the CLI-provided
 ready, action, and waiting groups. Active counts use a high-contrast dark badge
 with a luminous neon-gradient border so the value remains visible over changing
@@ -351,7 +368,7 @@ Untracked projects are deliberate secondary inventory, not merely idle work.
 They are excluded from active and quiet groups, summary/top-item selection, and
 the menu-bar count while remaining fully represented in schema-v2 JSON. The CLI
 provides an interactive multi-select plus explicit track/untrack commands; the
-menu application provides searchable Tracked and Untracked tabs. Both clients
+macOS application provides searchable Tracked and Untracked tabs. Both clients
 delegate persistence and automatic reactivation to the Go tracking service.
 
 The application may use `NSWorkspace` to open pull requests, worktree paths,
@@ -452,7 +469,7 @@ reduction in complexity or risk and must be recorded in the applicable spec.
 - Beacon v1 supports GitHub through authenticated `gh`; another provider needs
   an explicit feature specification and an adapter that preserves the domain
   model.
-- The menu application remains developer-local and unsandboxed so it can read
+- The macOS application remains developer-local and unsandboxed so it can read
   configured repositories and invoke the bundled helper and system tools.
 - The macOS target is 14 or later. GitHub release packaging and ad-hoc signing
   follow `docs/specs/0003-beacon-github-releases/SPEC.md`; Developer ID signing,
@@ -595,9 +612,9 @@ specification, threat and compatibility analysis, and user-visible controls.
 - Enumerating every unattached local branch in version 1.
 - Supporting non-GitHub forges, multiple users, or hosted collaboration in
   version 1.
-- A history database, background daemon, web dashboard, notifications,
-  launch-at-login, Homebrew distribution, Developer ID signing, notarization,
-  App Store distribution, automatic updates, or an in-app configuration editor.
+- A history database, web dashboard, notifications, Homebrew distribution,
+  Developer ID signing, notarization, App Store distribution, automatic
+  updates, or an in-app configuration editor.
 
 These items may become future features only through explicit requirements; they
 are not implied by Beacon's long-term vision.

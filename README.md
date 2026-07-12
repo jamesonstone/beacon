@@ -16,14 +16,15 @@ Beacon discovers local GitHub projects and correlates linked worktrees, branches
 <!-- END KIT-MANAGED README BADGES -->
 
 The Go CLI and its user-scoped background agent are the source of truth. The
-native macOS menu-bar app consumes the same cached schema-v2 snapshots and
-incremental agent events through a bundled copy of the executable.
+native macOS application provides both a menu-bar extra and a detachable Dock
+window; both consume the same cached schema-v2 snapshots and incremental agent
+events through a bundled copy of the executable.
 
 ## Requirements
 
 - `git`
 - [GitHub CLI](https://cli.github.com/) authenticated with `gh auth login`
-- macOS 14 or later for the menu-bar app
+- macOS 14 or later for the macOS app
 - Go 1.26 and Xcode only when building from source
 
 ## Install From A Release
@@ -33,7 +34,7 @@ Each [GitHub release](https://github.com/jamesonstone/beacon/releases) contains:
 - `beacon_<version>_darwin_arm64.tar.gz` for Apple Silicon Macs
 - `beacon_<version>_darwin_amd64.tar.gz` for Intel Macs
 - `beacon_<version>_linux_arm64.tar.gz` and `beacon_<version>_linux_amd64.tar.gz`
-- `Beacon_<version>_macos_universal.zip` for the macOS menu application
+- `Beacon_<version>_macos_universal.zip` for the universal macOS application
 - `checksums.txt` for SHA-256 verification
 
 Download the archive for your platform from the latest release. For example,
@@ -54,7 +55,7 @@ beacon version
 Use the `amd64` archive on an Intel Mac or x86-64 Linux machine. Ensure
 `~/.local/bin` is on your `PATH`.
 
-For the menu application, download the universal zip, verify it against
+For the macOS application, download the universal zip, verify it against
 `checksums.txt`, expand it, and move `Beacon.app` into `/Applications`.
 
 ```bash
@@ -94,7 +95,7 @@ beacon
 ```
 
 Run `beacon init` without flags for an interactive directory and repository
-selector. The menu application uses the same configuration and displays the
+selector. The macOS application uses the same configuration and displays the
 same scan snapshot as the CLI.
 
 ## Build From Source
@@ -110,7 +111,7 @@ The standalone executable is written to `bin/beacon`. Install it on your `PATH` 
 make install
 ```
 
-Build, test, or launch the menu-bar app with:
+Build, test, or launch the macOS app with:
 
 ```bash
 make macos-build
@@ -212,7 +213,18 @@ sibling `tracking.yaml` state is migrated automatically and archived with a
 
 `tracked_refresh_interval` defaults to one minute and controls complete
 background refreshes. `untracked_probe_interval` defaults to ten minutes and
-controls inexpensive local/GitHub summary probes for muted projects.
+controls inexpensive local/GitHub summary probes for muted projects. If you
+manage a large deliberately quiet inventory, increase it to `1h` to reduce
+background GitHub traffic while retaining automatic reactivation.
+
+Beacon shares one in-memory cache across repository discovery, pull requests,
+issues, review feedback, and muted probes. Most GitHub evidence is reused for
+`remote_refresh_interval`; stable repository metadata is reused for 24 hours.
+Before a cache miss Beacon reads `gh api rate_limit` and preserves 1,000
+GraphQL points, five Search requests, and 500 REST Core requests for your own
+interactive `gh` use. When a bucket reaches its reserve, Beacon serves its last
+successful process-local result when available and pauses new calls until the
+reported reset. Beacon never changes your `gh` credentials or stores a token.
 
 ## Everyday Use
 
@@ -231,6 +243,7 @@ beacon projects
 beacon projects --tracked
 beacon projects --untracked
 beacon untrack owner/old-project
+beacon untrack owner/one owner/two owner/three
 beacon track owner/old-project
 beacon projects untrack owner/old-project
 beacon projects track owner/old-project
@@ -245,11 +258,12 @@ beacon version
 ```
 
 Bare `beacon` connects to the user background agent and renders cached projects
-before requesting a refresh. In a TTY it remains subscribed until that refresh
-finishes and updates project state as workers complete. `--no-watch` renders the
-cache without requesting or waiting for work; non-TTY bare execution is also
-cache-only and never emits cursor controls. If no agent is available, normal
-bare execution falls back to the direct scanner so Beacon remains usable.
+before requesting a non-blocking refresh. It returns immediately while the
+agent discovers and updates projects in the background. `--no-watch` renders
+the cache without requesting work. If no agent is available, bare execution
+returns an installation hint instead of silently paying direct-scan latency;
+use `beacon agent install` to restore cache-first operation or `beacon scan` for
+an explicit blocking scan.
 
 `beacon scan` remains the blocking compatibility path and always returns one
 fresh, complete snapshot. `scan --json` remains deterministic, ANSI-free, and
@@ -270,6 +284,8 @@ secondary inventory. Repository-scoped warnings and errors from untracked
 projects remain in JSON but no longer consume the human dashboard; global
 diagnostics remain visible. The explicit `track` and `untrack` subcommands
 accept a stable `owner/repository` identity or a unique discovered project name.
+Multiple arguments are applied as one atomic agent mutation without a GitHub
+scan.
 
 Untracking records the project's current Git and GitHub evidence as a baseline.
 Existing work therefore stays quiet, but any later commit, worktree-state,
@@ -278,14 +294,40 @@ restores the project to tracked views. Beacon will not establish or compare a
 baseline while the project's evidence scan has errors, preventing missing
 GitHub or Git data from causing a false reactivation.
 
-The menu application exposes the same controls under **Projects**, with
+The macOS application exposes the same controls under **Projects**, with
 separate **Tracked** and **Untracked** tabs, search, and Track/Untrack buttons.
 It sends changes through the shared agent protocol, consumes the same cached
 snapshot as the CLI, and shows an automatic-reactivation banner when new
 activity restores a project.
 
-The rotating lighthouse trivia loader remains the cold/direct-scan fallback
-when no cached state or background agent is available.
+Track and Untrack actions are optimistic and nonblocking. Each selection moves
+the project immediately and joins a visible background queue. The Go agent
+acknowledges from complete cached evidence without a network probe; the next
+scheduled muted probe establishes the compact comparison baseline. Beacon
+processes the queue in selection order, keeps navigation and scanning
+available, and rolls back only the affected project if a request fails.
+
+## macOS Dashboard
+
+Beacon remains in the menu bar and also runs as a regular macOS application,
+so its neon-space icon is available in the Dock and Command-Tab when a camera
+notch or a crowded menu bar hides the menu item. Ordinary launches open one
+compact dashboard window. Close the window to keep Beacon running quietly;
+choose **Window** in the menu extra or activate Beacon from the Dock or
+Command-Tab to reopen the same window.
+
+The menu and detached window are two views over one shared background-agent
+connection. They show the same active, quiet, and untracked projects and never
+start duplicate repository scans.
+
+Use **Open Beacon at Login** in either view to enable quiet startup. Beacon
+registers its embedded login helper through macOS Service Management. A login
+launch starts without opening the dashboard; selecting Beacon later opens it.
+If macOS requires approval, choose **Approve in Settings** and enable Beacon in
+System Settings > General > Login Items. This preference is off by default.
+
+The rotating lighthouse trivia loader remains available during interactive
+onboarding before the first background cache is ready.
 
 Non-blocking discovery, prunable-worktree, search-truncation, and optional Kit
 progress diagnostics contribute to the warning count in the dashboard header;
@@ -295,7 +337,7 @@ prevent Beacon from collecting expected evidence.
 
 `scan --json` emits schema version 2 with projects, ordered lanes, issues,
 checks, feedback, optional Kit progress, scoped warnings, and scoped errors. It
-never emits ANSI or additional stdout logging, making it safe for the menu app
+never emits ANSI or additional stdout logging, making it safe for the macOS app
 and automation.
 
 Common workflows:
@@ -309,13 +351,13 @@ Common workflows:
 - Run `beacon open-next` to open the highest-priority review or action item.
 - Run `beacon scan --repo NAME` to focus on one configured project.
 - Run `beacon scan --json` for scripts or diagnostics.
-- Click a menu-app lane to open its pull request, issue, or local worktree.
+- Click a macOS-app lane to open its pull request, issue, or local worktree.
 - Run `beacon init --source <new-root> --yes` to merge another persistent source
   into the existing configuration without removing current entries.
 
 ## Updating
 
-Merges to `main` create one semantic version for both the CLI and menu app.
+Merges to `main` create one semantic version for both the CLI and macOS app.
 Breaking Conventional Commits bump the major version, `feat` commits bump the
 minor version, and all other accepted commits bump the patch version. GitHub
 generates release notes from the merged changes.
@@ -376,7 +418,8 @@ untracked project is reactivated.
 ## Architecture
 
 - `cmd/beacon` and `internal/` implement config, source discovery, Git/GitHub/Kit evidence collection, lane correlation, managed tracking state, cache/protocol/scheduling, policy, and output.
-- `macos/Beacon` contains the SwiftUI `MenuBarExtra` app and its tests.
+- `macos/Beacon` contains the shared SwiftUI menu/dashboard app, embedded login
+  item, app icon, and tests.
 - The Xcode build embeds the Go executable as `Contents/MacOS/beacon-cli`; the standalone executable remains `beacon`.
 - `.github/workflows/release.yml` validates, versions, packages, and publishes both products after a merge reaches `main`.
 - Work lanes are active Git worktrees, scoped open pull requests, and scoped open issues. Unattached local branches are not scanned.

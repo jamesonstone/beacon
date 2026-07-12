@@ -26,6 +26,11 @@ struct ProjectTrackingView: View {
                 Text("\(projects.count) \(selectedTab.rawValue.lowercased())")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(BeaconPalette.lavender)
+                if state.queuedTrackingCount > 0 {
+                    Text("\(state.queuedTrackingCount) queued")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(BeaconPalette.gold)
+                }
             }
             if showsTabPicker {
                 Picker("Project tracking", selection: $selectedTab) {
@@ -104,13 +109,12 @@ struct ProjectTrackingView: View {
                     .tint(accent)
             } else {
                 Button {
-                    Task { await state.setProjectTracked(project, tracked: tracking) }
+                    state.setProjectTracked(project, tracked: tracking)
                 } label: {
                     Label(tracking ? "Track" : "Untrack", systemImage: tracking ? "eye.fill" : "eye.slash.fill")
                 }
                 .buttonStyle(.bordered)
                 .tint(accent)
-                .disabled(state.isScanning || state.isProjectMutationInProgress)
             }
         }
         .padding(9)

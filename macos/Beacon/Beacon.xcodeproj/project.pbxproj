@@ -15,6 +15,12 @@
 		100000000000000000000007 /* AppStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000008 /* AppStateTests.swift */; };
 		100000000000000000000008 /* ProjectTrackingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000B /* ProjectTrackingView.swift */; };
 		100000000000000000000009 /* AgentClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000C /* AgentClient.swift */; };
+		10000000000000000000000A /* AppLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000D /* AppLifecycle.swift */; };
+		10000000000000000000000B /* LoginItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000E /* LoginItemController.swift */; };
+		10000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000000F /* Assets.xcassets */; };
+		10000000000000000000000D /* BeaconLoginItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000010 /* BeaconLoginItem.swift */; };
+		10000000000000000000000E /* BeaconLoginItem.app in Embed Login Items */ = {isa = PBXBuildFile; fileRef = 200000000000000000000012 /* BeaconLoginItem.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		10000000000000000000000F /* ApplicationLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000013 /* ApplicationLifecycleTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -25,7 +31,26 @@
 			remoteGlobalIDString = 500000000000000000000001;
 			remoteInfo = Beacon;
 		};
+		300000000000000000000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 400000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 500000000000000000000003;
+			remoteInfo = BeaconLoginItem;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		600000000000000000000005 /* Embed Login Items */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Library/LoginItems;
+			dstSubfolderSpec = 1;
+			files = (10000000000000000000000E /* BeaconLoginItem.app in Embed Login Items */);
+			name = "Embed Login Items";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		200000000000000000000001 /* BeaconApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconApp.swift; sourceTree = "<group>"; };
@@ -40,11 +65,19 @@
 		20000000000000000000000A /* BeaconTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BeaconTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		20000000000000000000000B /* ProjectTrackingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectTrackingView.swift; sourceTree = "<group>"; };
 		20000000000000000000000C /* AgentClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentClient.swift; sourceTree = "<group>"; };
+		20000000000000000000000D /* AppLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLifecycle.swift; sourceTree = "<group>"; };
+		20000000000000000000000E /* LoginItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItemController.swift; sourceTree = "<group>"; };
+		20000000000000000000000F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		200000000000000000000010 /* BeaconLoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconLoginItem.swift; sourceTree = "<group>"; };
+		200000000000000000000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		200000000000000000000012 /* BeaconLoginItem.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BeaconLoginItem.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		200000000000000000000013 /* ApplicationLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationLifecycleTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		600000000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		600000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		600000000000000000000003 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -52,6 +85,7 @@
 			isa = PBXGroup;
 			children = (
 				700000000000000000000002 /* Beacon */,
+				700000000000000000000005 /* BeaconLoginItem */,
 				700000000000000000000003 /* BeaconTests */,
 				700000000000000000000004 /* Products */,
 			);
@@ -67,6 +101,9 @@
 				200000000000000000000005 /* MenuView.swift */,
 				20000000000000000000000B /* ProjectTrackingView.swift */,
 				20000000000000000000000C /* AgentClient.swift */,
+				20000000000000000000000D /* AppLifecycle.swift */,
+				20000000000000000000000E /* LoginItemController.swift */,
+				20000000000000000000000F /* Assets.xcassets */,
 				200000000000000000000006 /* Info.plist */,
 			);
 			path = Beacon;
@@ -77,6 +114,7 @@
 			children = (
 				200000000000000000000007 /* ModelsTests.swift */,
 				200000000000000000000008 /* AppStateTests.swift */,
+				200000000000000000000013 /* ApplicationLifecycleTests.swift */,
 			);
 			path = BeaconTests;
 			sourceTree = "<group>";
@@ -86,8 +124,18 @@
 			children = (
 				200000000000000000000009 /* Beacon.app */,
 				20000000000000000000000A /* BeaconTests.xctest */,
+				200000000000000000000012 /* BeaconLoginItem.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		700000000000000000000005 /* BeaconLoginItem */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000010 /* BeaconLoginItem.swift */,
+				200000000000000000000011 /* Info.plist */,
+			);
+			path = BeaconLoginItem;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -99,10 +147,12 @@
 			buildPhases = (
 				800000000000000000000001 /* Sources */,
 				600000000000000000000001 /* Frameworks */,
+				600000000000000000000004 /* Resources */,
 				900000000000000000000001 /* Build Go Helper */,
+				600000000000000000000005 /* Embed Login Items */,
 			);
 			buildRules = ();
-			dependencies = ();
+			dependencies = (300000000000000000000004 /* PBXTargetDependency */);
 			name = Beacon;
 			productName = Beacon;
 			productReference = 200000000000000000000009 /* Beacon.app */;
@@ -122,6 +172,20 @@
 			productReference = 20000000000000000000000A /* BeaconTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		500000000000000000000003 /* BeaconLoginItem */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000003 /* Build configuration list for PBXNativeTarget "BeaconLoginItem" */;
+			buildPhases = (
+				800000000000000000000003 /* Sources */,
+				600000000000000000000003 /* Frameworks */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = BeaconLoginItem;
+			productName = BeaconLoginItem;
+			productReference = 200000000000000000000012 /* BeaconLoginItem.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -134,6 +198,7 @@
 				TargetAttributes = {
 					500000000000000000000001 = {CreatedOnToolsVersion = 26.6;};
 					500000000000000000000002 = {CreatedOnToolsVersion = 26.6; TestTargetID = 500000000000000000000001;};
+					500000000000000000000003 = {CreatedOnToolsVersion = 26.6;};
 				};
 			};
 			buildConfigurationList = A00000000000000000000000 /* Build configuration list for PBXProject "Beacon" */;
@@ -145,9 +210,13 @@
 			productRefGroup = 700000000000000000000004 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (500000000000000000000001 /* Beacon */, 500000000000000000000002 /* BeaconTests */);
+			targets = (500000000000000000000001 /* Beacon */, 500000000000000000000002 /* BeaconTests */, 500000000000000000000003 /* BeaconLoginItem */);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		600000000000000000000004 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (10000000000000000000000C /* Assets.xcassets in Resources */); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		900000000000000000000001 /* Build Go Helper */ = {
@@ -165,27 +234,32 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		800000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000001, 100000000000000000000002, 100000000000000000000003, 100000000000000000000004, 100000000000000000000005, 100000000000000000000008, 100000000000000000000009); runOnlyForDeploymentPostprocessing = 0; };
-		800000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000006, 100000000000000000000007); runOnlyForDeploymentPostprocessing = 0; };
+		800000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000001, 100000000000000000000002, 100000000000000000000003, 100000000000000000000004, 100000000000000000000005, 100000000000000000000008, 100000000000000000000009, 10000000000000000000000A, 10000000000000000000000B); runOnlyForDeploymentPostprocessing = 0; };
+		800000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000006, 100000000000000000000007, 10000000000000000000000F); runOnlyForDeploymentPostprocessing = 0; };
+		800000000000000000000003 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (10000000000000000000000D); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 		300000000000000000000002 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = 500000000000000000000001 /* Beacon */; targetProxy = 300000000000000000000001 /* PBXContainerItemProxy */; };
+		300000000000000000000004 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = 500000000000000000000003 /* BeaconLoginItem */; targetProxy = 300000000000000000000003 /* PBXContainerItemProxy */; };
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		B00000000000000000000001 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; MACOSX_DEPLOYMENT_TARGET = 14.0; SDKROOT = macosx; SWIFT_VERSION = 5.0;}; name = Debug;};
 		B00000000000000000000002 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; MACOSX_DEPLOYMENT_TARGET = 14.0; SDKROOT = macosx; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_OPTIMIZATION_LEVEL = "-O"; SWIFT_VERSION = 5.0;}; name = Release;};
-		B00000000000000000000003 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; COMBINE_HIDPI_IMAGES = YES; CURRENT_PROJECT_VERSION = 1; ENABLE_TESTABILITY = YES; ENABLE_USER_SCRIPT_SANDBOXING = NO; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Beacon/Info.plist; MARKETING_VERSION = 0.0.0; PRODUCT_BUNDLE_IDENTIFIER = com.jamesonstone.beacon; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_VERSION = 5.0;}; name = Debug;};
-		B00000000000000000000004 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; COMBINE_HIDPI_IMAGES = YES; CURRENT_PROJECT_VERSION = 1; ENABLE_USER_SCRIPT_SANDBOXING = NO; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Beacon/Info.plist; MARKETING_VERSION = 0.0.0; PRODUCT_BUNDLE_IDENTIFIER = com.jamesonstone.beacon; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0;}; name = Release;};
+		B00000000000000000000003 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_STYLE = Automatic; COMBINE_HIDPI_IMAGES = YES; CURRENT_PROJECT_VERSION = 1; ENABLE_TESTABILITY = YES; ENABLE_USER_SCRIPT_SANDBOXING = NO; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Beacon/Info.plist; MARKETING_VERSION = 0.0.0; PRODUCT_BUNDLE_IDENTIFIER = com.jamesonstone.beacon; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_VERSION = 5.0;}; name = Debug;};
+		B00000000000000000000004 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_STYLE = Automatic; COMBINE_HIDPI_IMAGES = YES; CURRENT_PROJECT_VERSION = 1; ENABLE_USER_SCRIPT_SANDBOXING = NO; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Beacon/Info.plist; MARKETING_VERSION = 0.0.0; PRODUCT_BUNDLE_IDENTIFIER = com.jamesonstone.beacon; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0;}; name = Release;};
 		B00000000000000000000005 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = com.jamesonstone.beacon.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Beacon.app/Contents/MacOS/Beacon";}; name = Debug;};
 		B00000000000000000000006 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = com.jamesonstone.beacon.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Beacon.app/Contents/MacOS/Beacon";}; name = Release;};
+		B00000000000000000000007 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; ENABLE_USER_SCRIPT_SANDBOXING = NO; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = BeaconLoginItem/Info.plist; MARKETING_VERSION = 0.0.0; PRODUCT_BUNDLE_IDENTIFIER = com.jamesonstone.beacon.login-item; PRODUCT_NAME = "$(TARGET_NAME)"; SKIP_INSTALL = YES; SWIFT_VERSION = 5.0;}; name = Debug;};
+		B00000000000000000000008 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; ENABLE_USER_SCRIPT_SANDBOXING = NO; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = BeaconLoginItem/Info.plist; MARKETING_VERSION = 0.0.0; PRODUCT_BUNDLE_IDENTIFIER = com.jamesonstone.beacon.login-item; PRODUCT_NAME = "$(TARGET_NAME)"; SKIP_INSTALL = YES; SWIFT_VERSION = 5.0;}; name = Release;};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
 		A00000000000000000000000 /* Build configuration list for PBXProject "Beacon" */ = {isa = XCConfigurationList; buildConfigurations = (B00000000000000000000001, B00000000000000000000002); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
 		A00000000000000000000001 /* Build configuration list for PBXNativeTarget "Beacon" */ = {isa = XCConfigurationList; buildConfigurations = (B00000000000000000000003, B00000000000000000000004); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
 		A00000000000000000000002 /* Build configuration list for PBXNativeTarget "BeaconTests" */ = {isa = XCConfigurationList; buildConfigurations = (B00000000000000000000005, B00000000000000000000006); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+		A00000000000000000000003 /* Build configuration list for PBXNativeTarget "BeaconLoginItem" */ = {isa = XCConfigurationList; buildConfigurations = (B00000000000000000000007, B00000000000000000000008); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
 /* End XCConfigurationList section */
 	};
 	rootObject = 400000000000000000000001 /* Project object */;

@@ -105,12 +105,106 @@ final class AppStateTests: XCTestCase {
         await state.scan()
         let project = try! XCTUnwrap(state.untrackedProjects.first)
 
-        await state.setProjectTracked(project, tracked: true)
+        state.setProjectTracked(project, tracked: true)
+
+        XCTAssertTrue(state.untrackedProjects.isEmpty)
+        XCTAssertEqual(state.queuedTrackingCount, 1)
+        for _ in 0..<50 where state.queuedTrackingCount > 0 {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
 
         let calls = await client.trackingCalls
         XCTAssertEqual(calls, [TrackingCall(github: "owner/untracked", tracked: true)])
         XCTAssertTrue(state.untrackedProjects.isEmpty)
+        XCTAssertEqual(state.queuedTrackingCount, 0)
         XCTAssertNil(state.lastError)
+    }
+
+    func testProjectTrackingMutationsQueueImmediatelyAndRunSerially() async {
+        let client = RecordingClient(
+            results: [
+                .success(TestSnapshots.withTrackingInventory),
+                .success(TestSnapshots.withTrackingInventory),
+                .success(TestSnapshots.withTrackingInventory),
+            ],
+            trackingDelay: .milliseconds(50)
+        )
+        let state = AppState(client: client)
+        await state.scan()
+        let tracked = try! XCTUnwrap(state.trackedProjects.first)
+        let untracked = try! XCTUnwrap(state.untrackedProjects.first)
+
+        state.setProjectTracked(untracked, tracked: true)
+        state.setProjectTracked(tracked, tracked: false)
+
+        XCTAssertEqual(state.queuedTrackingCount, 2)
+        XCTAssertEqual(state.trackedProjects.map(\.github), ["owner/untracked"])
+        XCTAssertEqual(state.untrackedProjects.map(\.github), ["owner/tracked"])
+
+        for _ in 0..<100 where state.queuedTrackingCount > 0 {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        let trackingCalls = await client.trackingCalls
+        let maximumConcurrentCalls = await client.maximumConcurrentTrackingCalls
+        XCTAssertEqual(trackingCalls, [
+            TrackingCall(github: "owner/untracked", tracked: true),
+            TrackingCall(github: "owner/tracked", tracked: false),
+        ])
+        XCTAssertEqual(maximumConcurrentCalls, 1)
+        XCTAssertEqual(state.queuedTrackingCount, 0)
+    }
+
+    func testTwentyProjectsCanBeQueuedWithoutWaiting() async {
+        let initial = TestSnapshots.trackedInventory(count: 20)
+        let client = RecordingClient(
+            results: Array(repeating: .success(initial), count: 21),
+            trackingDelay: .milliseconds(2)
+        )
+        let state = AppState(client: client)
+        await state.scan()
+        let projects = state.trackedProjects
+
+        for project in projects {
+            state.setProjectTracked(project, tracked: false)
+        }
+
+        XCTAssertEqual(state.queuedTrackingCount, 20)
+        XCTAssertTrue(state.trackedProjects.isEmpty)
+        XCTAssertEqual(state.untrackedProjects.count, 20)
+
+        for _ in 0..<200 where state.queuedTrackingCount > 0 {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        let calls = await client.trackingCalls
+        let maximumConcurrentCalls = await client.maximumConcurrentTrackingCalls
+        XCTAssertEqual(calls.map(\.github), projects.map(\.github))
+        XCTAssertEqual(maximumConcurrentCalls, 1)
+        XCTAssertEqual(state.queuedTrackingCount, 0)
+    }
+
+    func testProjectTrackingQueueContinuesAfterFailure() async {
+        let client = RecordingClient(
+            results: [
+                .success(TestSnapshots.withTrackingInventory),
+                .success(TestSnapshots.withTrackingInventory),
+            ],
+            trackingResults: [.failure(TestError.failed), .success(())]
+        )
+        let state = AppState(client: client)
+        await state.scan()
+        let tracked = try! XCTUnwrap(state.trackedProjects.first)
+        let untracked = try! XCTUnwrap(state.untrackedProjects.first)
+
+        state.setProjectTracked(tracked, tracked: false)
+        state.setProjectTracked(untracked, tracked: true)
+
+        for _ in 0..<100 where state.queuedTrackingCount > 0 {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        let trackingCallCount = await client.trackingCalls.count
+        XCTAssertEqual(trackingCallCount, 2)
+        XCTAssertEqual(state.queuedTrackingCount, 0)
+        XCTAssertTrue(state.lastError?.contains("owner/tracked") == true)
     }
 
     func testOpenTargetPrefersPullRequestThenIssueThenWorktree() throws {
@@ -250,9 +344,19 @@ private struct TrackingCall: Equatable {
 private actor RecordingClient: CLIClientProtocol {
     var results: [Result<BeaconSnapshot, Error>]
     private(set) var trackingCalls: [TrackingCall] = []
+    private(set) var maximumConcurrentTrackingCalls = 0
+    private var activeTrackingCalls = 0
+    private var trackingResults: [Result<Void, Error>]
+    private let trackingDelay: Duration
 
-    init(results: [Result<BeaconSnapshot, Error>]) {
+    init(
+        results: [Result<BeaconSnapshot, Error>],
+        trackingResults: [Result<Void, Error>] = [],
+        trackingDelay: Duration = .zero
+    ) {
         self.results = results
+        self.trackingResults = trackingResults
+        self.trackingDelay = trackingDelay
     }
 
     func scan() async throws -> BeaconSnapshot {
@@ -261,6 +365,15 @@ private actor RecordingClient: CLIClientProtocol {
 
     func setProjectTracked(_ github: String, tracked: Bool) async throws {
         trackingCalls.append(TrackingCall(github: github, tracked: tracked))
+        activeTrackingCalls += 1
+        maximumConcurrentTrackingCalls = max(maximumConcurrentTrackingCalls, activeTrackingCalls)
+        defer { activeTrackingCalls -= 1 }
+        if trackingDelay > .zero {
+            try await Task.sleep(for: trackingDelay)
+        }
+        if !trackingResults.isEmpty {
+            try trackingResults.removeFirst().get()
+        }
     }
 }
 
@@ -293,7 +406,9 @@ private actor ScriptedAgent: AgentClientProtocol {
     }
 
     func refresh(project: String?) async throws -> String { "scan" }
-    func setProjectTracked(_ github: String, tracked: Bool) async throws {}
+    func setProjectTracked(_ github: String, tracked: Bool) async throws -> AgentEvent {
+        try XCTUnwrap(events.first)
+    }
     func status() async throws -> AgentStatusDetails {
         AgentStatusDetails(running: true, pid: 1, startedAt: nil, refreshing: false, scanID: nil, projectCount: 1, socket: "/socket")
     }
@@ -301,6 +416,46 @@ private actor ScriptedAgent: AgentClientProtocol {
 
 private enum TestSnapshots {
     static let empty = empty()
+
+    static func trackedInventory(count: Int) -> BeaconSnapshot {
+        let projects = (0..<count).map { index in
+            BeaconProject(
+                name: "project-\(index)",
+                path: "/Users/test/project-\(index)",
+                github: "owner/project-\(index)",
+                base: "main",
+                remote: "origin",
+                trackingState: "tracked",
+                progress: nil,
+                laneIDs: [],
+                errors: []
+            )
+        }
+        return BeaconSnapshot(
+            schemaVersion: 2,
+            generatedAt: "2026-07-12T13:00:00Z",
+            configPath: "/Users/test/.config/beacon/config.yaml",
+            tracking: nil,
+            refresh: [],
+            summary: SnapshotSummary(
+                projects: count,
+                trackedProjects: count,
+                untrackedProjects: 0,
+                total: 0,
+                reviewReady: 0,
+                needsAction: 0,
+                waiting: 0,
+                idle: 0,
+                errors: 0,
+                openIssues: 0,
+                unresolvedFeedback: 0
+            ),
+            groups: LaneGroups(ready: [], action: [], waiting: [], idle: [], untracked: []),
+            projects: projects,
+            lanes: [],
+            errors: []
+        )
+    }
 
     static func empty(schemaVersion: Int = 2) -> BeaconSnapshot {
         BeaconSnapshot(
