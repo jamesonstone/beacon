@@ -97,7 +97,7 @@ func (c Client) enrichMinePullRequests(ctx context.Context, configured map[strin
 	}
 	var tasks []task
 	includeInactive := IncludeInactivePullRequests(ctx)
-	cutoff := c.now().Add(-7 * 24 * time.Hour)
+	cutoff := c.now().Add(-48 * time.Hour)
 	for _, match := range matches {
 		if _, ok := configured[match.Repository.NameWithOwner]; ok && (includeInactive || match.UpdatedAt.After(cutoff)) {
 			tasks = append(tasks, task{repository: match.Repository.NameWithOwner, number: match.Number})

@@ -186,14 +186,20 @@ func retainedLane(entry Entry) model.Lane {
 }
 
 func (m Manager) candidate(lane model.Lane) (model.AttentionState, bool) {
+	cutoff := m.now().Add(-m.recentWindow())
 	if lane.Signals.CI == model.CIPending || lane.NextAction == model.ActionWaitForCI {
 		return model.AttentionWaiting, true
 	}
-	if lane.Signals.Worktree == model.WorktreeDirty || lane.Signals.Worktree == model.WorktreeConflicted || lane.Signals.Publication == model.PublicationUnpushed || lane.Signals.Publication == model.PublicationNoUpstream || lane.Signals.Publication == model.PublicationDiverged {
+	if lane.Signals.Worktree == model.WorktreeDirty || lane.Signals.Worktree == model.WorktreeConflicted {
+		if lane.UpdatedAt.Before(cutoff) {
+			return model.AttentionParked, true
+		}
 		return model.AttentionActive, true
 	}
-	cutoff := m.now().Add(-m.recentWindow())
-	if lane.Worktree != nil && lane.Worktree.UpdatedAt.After(cutoff) {
+	if lane.Signals.Publication == model.PublicationUnpushed || lane.Signals.Publication == model.PublicationNoUpstream || lane.Signals.Publication == model.PublicationDiverged {
+		return model.AttentionActive, true
+	}
+	if lane.Worktree != nil && lane.Branch != lane.Base && lane.Worktree.UpdatedAt.After(cutoff) {
 		return model.AttentionRecent, true
 	}
 	if lane.PullRequest != nil && lane.PullRequest.UpdatedAt.After(cutoff) {
@@ -249,5 +255,5 @@ func (m Manager) recentWindow() time.Duration {
 	if m.RecentWindow > 0 {
 		return m.RecentWindow
 	}
-	return 7 * 24 * time.Hour
+	return 48 * time.Hour
 }

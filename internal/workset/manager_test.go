@@ -206,6 +206,23 @@ func TestPinnedInactiveRemotePullRequestSurvivesDefaultEnrichmentFilter(t *testi
 	}
 }
 
+func TestStaleDirtyLaneStartsParkedAndCleanBaseStaysOut(t *testing.T) {
+	manager, now := testManager(t)
+	staleDirty := testLane("stale-dirty", "owner/repo", "old", model.WorktreeDirty, model.PublicationPublished, now.Add(-30*24*time.Hour))
+	cleanBase := testLane("base", "owner/repo", "main", model.WorktreeClean, model.PublicationBase, now.Add(-time.Hour))
+	cleanBase.Base = "main"
+	updated, err := manager.Reconcile(testSnapshot(now, staleDirty, cleanBase))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.WorkingSet.Parked) != 1 || updated.WorkingSet.Parked[0] != staleDirty.ID {
+		t.Fatalf("working set = %#v", updated.WorkingSet)
+	}
+	if updated.Lanes[1].Attention != nil {
+		t.Fatalf("clean base entered focus: %#v", updated.Lanes[1].Attention)
+	}
+}
+
 func testManager(t *testing.T) (Manager, time.Time) {
 	t.Helper()
 	root := t.TempDir()

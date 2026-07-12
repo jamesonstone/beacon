@@ -245,7 +245,7 @@ stored with user-only permissions under `$HOME/.cache/beacon/github/`.
 With the default `github_scope: mine`, every due-project batch uses one global
 authored-PR search and one global assigned-issue search, independent of the
 number of configured repositories. Beacon enriches only matching PRs with
-activity in the last seven days during background collection; explicit scans
+activity in the last 48 hours during background collection; explicit scans
 and lane refreshes can inspect older work. Muted projects share that same
 batched evidence instead of polling each repository. `github_scope: all`
 is intentionally more expensive because it must enumerate repository-scoped
