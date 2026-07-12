@@ -2,8 +2,8 @@
 kit_metadata_version: 1
 artifact: spec
 workflow_version: 2
-phase: validate
-delivery_intent: issue_branch_pr_in_progress
+phase: deliver
+delivery_intent: existing_ready_pull_request
 clarification:
   status: ready
   confidence: 100
@@ -33,6 +33,14 @@ references:
     relation: uses
     read_policy: must
     used_for: background protocol, cached snapshots, and rate-budget foundation
+    status: active
+  - id: pull-request-6
+    name: Focus Beacon on working-set lanes
+    type: github-pull-request
+    target: https://github.com/jamesonstone/beacon/pull/6
+    relation: verifies
+    read_policy: evidence
+    used_for: ready stacked delivery and hosted validation
     status: active
   - id: constitution
     name: Beacon constitution
@@ -184,7 +192,7 @@ presentation path must become lane-centered and local-first.
 - [x] T4: Implement conservative local/remote working-set collection.
 - [x] T5: Implement CLI and macOS primary working-set views.
 - [x] T6: Reconcile docs and complete validation.
-- [ ] T7: Commit, push, and create the ready stacked PR.
+- [x] T7: Commit, push, and create the ready stacked PR.
 
 ## Validation Map
 
@@ -241,3 +249,6 @@ until prerequisite PR #4 lands.
   whose remote refresh interval is now 45 minutes.
 - `bin/beacon scan --repo beacon --no-refresh --json | jq ...` returned
   schema version 3, one project, two diagnostic lanes, and zero errors.
+- Commit `28ca6c8` was pushed on `GH-5`, and ready PR
+  [#6](https://github.com/jamesonstone/beacon/pull/6) targets prerequisite
+  branch `GH-3` with issue #5 assigned to Jameson Stone.
