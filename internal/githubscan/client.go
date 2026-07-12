@@ -34,6 +34,11 @@ func (c Client) Collect(ctx context.Context, repositories []config.Repository, s
 		configured[repository.GitHub] = repository
 		collection.Repositories[repository.GitHub] = emptyEvidence()
 	}
+	if len(repositories) == 1 {
+		repository := repositories[0]
+		collection.Repositories[repository.GitHub] = c.collectRepository(ctx, repository, scope, author)
+		return collection
+	}
 	if scope == "all" {
 		c.collectAll(ctx, repositories, maxParallel, &collection)
 		return collection
@@ -156,7 +161,7 @@ func (c Client) collectAll(ctx context.Context, repositories []config.Repository
 			defer waitGroup.Done()
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
-			evidence := c.collectRepository(ctx, repository)
+			evidence := c.collectRepository(ctx, repository, "all", "")
 			mutex.Lock()
 			collection.Repositories[repository.GitHub] = evidence
 			mutex.Unlock()
@@ -165,9 +170,13 @@ func (c Client) collectAll(ctx context.Context, repositories []config.Repository
 	waitGroup.Wait()
 }
 
-func (c Client) collectRepository(ctx context.Context, repository config.Repository) model.RemoteEvidence {
+func (c Client) collectRepository(ctx context.Context, repository config.Repository, scope, author string) model.RemoteEvidence {
 	evidence := emptyEvidence()
-	prOutput, err := c.run(ctx, "gh", "pr", "list", "--repo", repository.GitHub, "--state", "open", "--limit", strconv.Itoa(searchLimit), "--json", pullRequestFields)
+	prArguments := []string{"pr", "list", "--repo", repository.GitHub, "--state", "open", "--limit", strconv.Itoa(searchLimit), "--json", pullRequestFields}
+	if scope != "all" {
+		prArguments = append(prArguments, "--author", author)
+	}
+	prOutput, err := c.run(ctx, "gh", prArguments...)
 	if err != nil {
 		evidence.Errors = append(evidence.Errors, model.ScanError{Repository: repository.Name, Stage: "github-prs", Message: err.Error()})
 	} else if pullRequests, parseErr := parsePullRequests(prOutput); parseErr != nil {
@@ -190,7 +199,11 @@ func (c Client) collectRepository(ctx context.Context, repository config.Reposit
 			}
 		}
 	}
-	issueOutput, err := c.run(ctx, "gh", "issue", "list", "--repo", repository.GitHub, "--state", "open", "--limit", strconv.Itoa(searchLimit), "--json", "number,title,url,updatedAt,labels,assignees")
+	issueArguments := []string{"issue", "list", "--repo", repository.GitHub, "--state", "open", "--limit", strconv.Itoa(searchLimit), "--json", "number,title,url,updatedAt,labels,assignees"}
+	if scope != "all" {
+		issueArguments = append(issueArguments, "--assignee", author)
+	}
+	issueOutput, err := c.run(ctx, "gh", issueArguments...)
 	if err != nil {
 		evidence.Errors = append(evidence.Errors, model.ScanError{Repository: repository.Name, Stage: "github-issues", Message: err.Error()})
 	} else if issues, parseErr := parseIssues(issueOutput); parseErr != nil {

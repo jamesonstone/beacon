@@ -126,9 +126,6 @@ func (m Manager) SetTracked(snapshot model.Snapshot, targets []string, tracked b
 			}
 			continue
 		}
-		if _, exists := entries[project.GitHub]; exists {
-			continue
-		}
 		if !hasCompleteEvidence(snapshot, project) {
 			return model.Snapshot{}, fmt.Errorf("cannot untrack %s while its evidence scan has errors", project.GitHub)
 		}
@@ -176,7 +173,7 @@ func (m Manager) SetSelection(snapshot model.Snapshot, trackedGitHub []string) (
 		case shouldTrack && isUntracked:
 			delete(entries, project.GitHub)
 			changed = true
-		case !shouldTrack && !isUntracked:
+		case !shouldTrack:
 			if !hasCompleteEvidence(snapshot, project) {
 				return model.Snapshot{}, fmt.Errorf("cannot untrack %s while its evidence scan has errors", project.GitHub)
 			}

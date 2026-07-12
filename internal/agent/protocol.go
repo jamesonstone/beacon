@@ -19,6 +19,8 @@ const (
 	RequestRefreshAll       = "refresh_all"
 	RequestRefreshProject   = "refresh_project"
 	RequestSetTrackingState = "set_tracking_state"
+	RequestSetTrackingBatch = "set_tracking_batch"
+	RequestSetSelection     = "set_tracking_selection"
 	RequestListProjects     = "list_projects"
 	RequestGetAgentStatus   = "get_agent_status"
 	RequestShutdown         = "shutdown"
@@ -39,11 +41,12 @@ const (
 )
 
 type Request struct {
-	ProtocolVersion int    `json:"protocol_version"`
-	RequestID       string `json:"request_id"`
-	Type            string `json:"type"`
-	ProjectID       string `json:"project_id,omitempty"`
-	TrackingState   string `json:"tracking_state,omitempty"`
+	ProtocolVersion int      `json:"protocol_version"`
+	RequestID       string   `json:"request_id"`
+	Type            string   `json:"type"`
+	ProjectID       string   `json:"project_id,omitempty"`
+	ProjectIDs      []string `json:"project_ids,omitempty"`
+	TrackingState   string   `json:"tracking_state,omitempty"`
 }
 
 type ProjectStatus struct {

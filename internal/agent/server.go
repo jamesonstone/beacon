@@ -114,6 +114,20 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 		}
 		snapshot := s.Engine.Snapshot()
 		response(Event{Type: EventTrackingChanged, ProjectID: request.ProjectID, Stage: "ready", Snapshot: &snapshot})
+	case RequestSetTrackingBatch:
+		if err := s.Engine.SetTrackingBatch(request.ProjectIDs, request.TrackingState); err != nil {
+			response(Event{Type: EventProjectFailed, Stage: "failed", Message: err.Error()})
+			return
+		}
+		snapshot := s.Engine.Snapshot()
+		response(Event{Type: EventTrackingChanged, Stage: "ready", Snapshot: &snapshot})
+	case RequestSetSelection:
+		if err := s.Engine.SetSelection(request.ProjectIDs); err != nil {
+			response(Event{Type: EventProjectFailed, Stage: "failed", Message: err.Error()})
+			return
+		}
+		snapshot := s.Engine.Snapshot()
+		response(Event{Type: EventTrackingChanged, Stage: "ready", Snapshot: &snapshot})
 	case RequestSubscribe:
 		events, unsubscribe := s.Engine.Subscribe()
 		defer unsubscribe()

@@ -11,6 +11,7 @@ import (
 
 	"github.com/jamesonstone/beacon/internal/agent"
 	"github.com/jamesonstone/beacon/internal/config"
+	"github.com/jamesonstone/beacon/internal/githubapi"
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/output"
 	"github.com/jamesonstone/beacon/internal/tracking"
@@ -145,10 +146,9 @@ func (a App) refreshCommand(configPath *string) *cobra.Command {
 
 func (a App) rootTrackingCommand(configPath *string, tracked bool) *cobra.Command {
 	verb := "untrack"
-	state := "muted"
 	label := "Untracked"
 	if tracked {
-		verb, state = "track", "tracked"
+		verb = "track"
 		label = "Tracked"
 	}
 	return &cobra.Command{
@@ -160,27 +160,10 @@ func (a App) rootTrackingCommand(configPath *string, tracked bool) *cobra.Comman
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, paths, err := a.agentConfig(*configPath)
-			if err == nil {
-				client := agent.Client{Socket: paths.Socket}
-				if _, statusErr := client.Request(cmd.Context(), agent.Request{Type: agent.RequestGetAgentStatus}); statusErr == nil {
-					for _, project := range args {
-						event, requestErr := client.Request(cmd.Context(), agent.Request{Type: agent.RequestSetTrackingState, ProjectID: project, TrackingState: state})
-						if requestErr != nil {
-							return requestErr
-						}
-						if event.Type == agent.EventProjectFailed {
-							return errors.New(event.Message)
-						}
-					}
-					_, err = fmt.Fprintf(a.Out, "%s %d project%s\n", verbPastTense(tracked), len(args), pluralSuffix(len(args)))
-					return err
-				}
-			}
-			if err := a.setProjectsDirect(cmd.Context(), *configPath, args, tracked); err != nil {
+			if err := a.setProjects(cmd.Context(), *configPath, args, tracked); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(a.Out, "%s %d project%s\n", verbPastTense(tracked), len(args), pluralSuffix(len(args)))
+			_, err := fmt.Fprintf(a.Out, "%s %d project%s\n", verbPastTense(tracked), len(args), pluralSuffix(len(args)))
 			return err
 		},
 	}
@@ -198,86 +181,28 @@ func (a App) runAgentDashboard(ctx context.Context, configPath, colorMode string
 		}
 		return err
 	}
-	client := agent.Client{Socket: paths.Socket}
-	if noWatch || !a.outputIsTTY() {
-		event, err := client.Request(ctx, agent.Request{Type: agent.RequestGetSnapshot})
-		if err != nil {
-			if noWatch {
-				return err
-			}
-			return a.runHumanScan(ctx, configPath, "", true, colorMode, includeIdle, true, true)
-		}
-		if event.Snapshot == nil {
-			return errors.New("agent returned no cached snapshot")
-		}
-		return output.TerminalWithOptions(a.Out, *event.Snapshot, output.TerminalOptions{Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle})
-	}
-	events, eventErrors, err := client.Subscribe(ctx)
-	if err != nil {
+	// Injected scanners are used by command tests and do not have an agent
+	// process. Production commands must not hide an unavailable agent behind a
+	// slow foreground scan.
+	if a.scannerSource != nil {
 		return a.runHumanScan(ctx, configPath, "", true, colorMode, includeIdle, true, true)
 	}
-	initial, ok := <-events
-	if !ok || initial.Snapshot == nil {
-		return errors.New("agent subscription returned no cached snapshot")
-	}
-	if err := output.TerminalWithOptions(a.Out, *initial.Snapshot, output.TerminalOptions{Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle}); err != nil {
-		return err
-	}
-	queued, err := client.Request(ctx, agent.Request{Type: agent.RequestRefreshAll})
+	client := agent.Client{Socket: paths.Socket}
+	event, err := client.Request(ctx, agent.Request{Type: agent.RequestGetSnapshot})
 	if err != nil {
+		return fmt.Errorf("Beacon background agent is unavailable: %w; run beacon agent install, or use beacon scan for a blocking scan", err)
+	}
+	if event.Snapshot == nil {
+		return errors.New("agent returned no cached snapshot")
+	}
+	if err := output.TerminalWithOptions(a.Out, *event.Snapshot, output.TerminalOptions{Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle}); err != nil {
 		return err
 	}
-	revisions := make(map[string]uint64)
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case eventErr := <-eventErrors:
-			return eventErr
-		case event, open := <-events:
-			if !open {
-				return errors.New("agent subscription closed")
-			}
-			if event.ScanID != "" && event.ScanID != queued.ScanID && event.Type != agent.EventHeartbeat {
-				continue
-			}
-			if event.ProjectID != "" && event.Revision < revisions[event.ProjectID] {
-				continue
-			}
-			if event.ProjectID != "" {
-				revisions[event.ProjectID] = event.Revision
-			}
-			if event.Snapshot == nil && event.ProjectID != "" {
-				fmt.Fprintf(a.Out, "\r\033[2K%s · %s", event.ProjectID, agentStageLabel(event.Stage))
-			}
-			if event.Snapshot != nil {
-				fmt.Fprint(a.Out, "\033[H\033[2J")
-				if err := output.TerminalWithOptions(a.Out, *event.Snapshot, output.TerminalOptions{Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle}); err != nil {
-					return err
-				}
-			}
-			if event.Type == agent.EventScanCompleted && event.ScanID == queued.ScanID {
-				return nil
-			}
-		}
+	if noWatch {
+		return nil
 	}
-}
-
-func agentStageLabel(stage string) string {
-	switch stage {
-	case "queued":
-		return "Queued"
-	case "local":
-		return "Checking local Git"
-	case "github":
-		return "Checking GitHub"
-	case "failed":
-		return "Refresh failed — showing previous result"
-	case "ready":
-		return "Ready"
-	default:
-		return "Cached"
-	}
+	_, err = client.Request(ctx, agent.Request{Type: agent.RequestRefreshAll})
+	return err
 }
 
 func (a App) agentConfig(path string) (config.Config, agent.Paths, error) {
@@ -297,7 +222,8 @@ func (a App) newAgentEngine(ctx context.Context, path string) (*agent.Engine, ag
 	if err := paths.EnsureRuntime(); err != nil {
 		return nil, agent.Paths{}, err
 	}
-	scanner := a.scannerComponents()
+	githubRunner := githubapi.NewRunner(a.Runner, cfg.Settings.RemoteRefreshInterval)
+	scanner := a.scannerComponentsWithRunner(githubRunner)
 	tracker := tracking.Manager{Store: tracking.FileStore{}, Now: time.Now}
 	repositories := func(repositoryContext context.Context) ([]config.Repository, error) {
 		values, scanErrors, _ := scanner.Repositories(repositoryContext, cfg)
@@ -317,7 +243,7 @@ func (a App) newAgentEngine(ctx context.Context, path string) (*agent.Engine, ag
 		return tracker.Reconcile(snapshot)
 	}
 	cache := agent.Cache{Directory: paths.Projects, Now: time.Now}
-	engine := agent.NewEngine(cfg, paths, cache, repositories, projectScanner, agent.Prober{Runner: a.Runner}, tracker)
+	engine := agent.NewEngine(cfg, paths, cache, repositories, projectScanner, agent.Prober{Runner: githubRunner}, tracker)
 	_ = ctx
 	return engine, paths, nil
 }

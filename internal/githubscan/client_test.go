@@ -42,7 +42,10 @@ func TestCollectMineFiltersRepositoriesAndEnrichesEvidence(t *testing.T) {
 	}}
 	runner.responses["gh pr view"] = []byte(`{"number":2,"title":"Feature","url":"https://github.com/owner/beacon/pull/2","headRefName":"GH-1","headRefOid":"abc","baseRefName":"main","isDraft":false,"updatedAt":"2026-07-10T12:00:00Z","reviewDecision":"","statusCheckRollup":[{"status":"COMPLETED","conclusion":"SUCCESS"}],"mergeStateStatus":"CLEAN","mergeable":"MERGEABLE","comments":[{}],"reviews":[],"closingIssuesReferences":[{"number":1,"title":"Build Beacon","url":"https://github.com/owner/beacon/issues/1","updatedAt":"2026-07-10T12:00:00Z","labels":[],"assignees":[]}]}`)
 
-	collection := (Client{Runner: runner}).Collect(context.Background(), []config.Repository{{Name: "beacon", GitHub: "owner/beacon"}}, "mine", "@me", 2)
+	collection := (Client{Runner: runner}).Collect(context.Background(), []config.Repository{
+		{Name: "beacon", GitHub: "owner/beacon"},
+		{Name: "other", GitHub: "owner/other"},
+	}, "mine", "@me", 2)
 	evidence := collection.Repositories["owner/beacon"]
 	if len(collection.Errors) != 0 || len(collection.Warnings) != 0 || len(evidence.Errors) != 0 || len(evidence.Warnings) != 0 {
 		t.Fatalf("diagnostics = %#v / %#v", collection, evidence)
@@ -55,6 +58,25 @@ func TestCollectMineFiltersRepositoriesAndEnrichesEvidence(t *testing.T) {
 	}
 	if runner.count("gh pr view") != 1 {
 		t.Fatalf("PR detail calls = %d", runner.count("gh pr view"))
+	}
+}
+
+func TestCollectMineForOneRepositoryUsesScopedListQueries(t *testing.T) {
+	runner := &fixtureRunner{responses: map[string][]byte{
+		"gh pr list":    []byte(`[]`),
+		"gh issue list": []byte(`[]`),
+	}}
+	collection := (Client{Runner: runner}).Collect(context.Background(), []config.Repository{{Name: "beacon", GitHub: "owner/beacon"}}, "mine", "@me", 2)
+	if len(collection.Errors) != 0 || len(collection.Repositories["owner/beacon"].Errors) != 0 {
+		t.Fatalf("collection = %#v", collection)
+	}
+	joined := strings.Join(runner.calls, "\n")
+	if !strings.Contains(joined, "gh pr list --repo owner/beacon") || !strings.Contains(joined, "--author @me") ||
+		!strings.Contains(joined, "gh issue list --repo owner/beacon") || !strings.Contains(joined, "--assignee @me") {
+		t.Fatalf("repository-scoped calls = %v", runner.calls)
+	}
+	if strings.Contains(joined, "gh search") {
+		t.Fatalf("single-repository collection used account-wide search: %v", runner.calls)
 	}
 }
 
@@ -85,7 +107,10 @@ func TestCollectMineWarnsWhenIssueSearchHitsCap(t *testing.T) {
 		"gh search prs":    []byte(`[]`),
 		"gh search issues": issueJSON,
 	}}
-	collection := (Client{Runner: runner}).Collect(context.Background(), []config.Repository{{Name: "beacon", GitHub: "owner/beacon"}}, "mine", "@me", 2)
+	collection := (Client{Runner: runner}).Collect(context.Background(), []config.Repository{
+		{Name: "beacon", GitHub: "owner/beacon"},
+		{Name: "other", GitHub: "owner/other"},
+	}, "mine", "@me", 2)
 	if len(collection.Errors) != 0 || len(collection.Warnings) != 1 || collection.Warnings[0].Stage != "github-search-issues" || !strings.Contains(collection.Warnings[0].Message, "truncated") {
 		t.Fatalf("diagnostics = %#v", collection)
 	}
@@ -104,13 +129,13 @@ func (r *fixtureRunner) Run(_ context.Context, _ string, name string, args ...st
 	defer r.mutex.Unlock()
 	for prefix, failure := range r.failures {
 		if strings.HasPrefix(command, prefix) {
-			r.calls = append(r.calls, prefix)
+			r.calls = append(r.calls, command)
 			return nil, failure
 		}
 	}
 	for prefix, response := range r.responses {
 		if strings.HasPrefix(command, prefix) {
-			r.calls = append(r.calls, prefix)
+			r.calls = append(r.calls, command)
 			return append([]byte(nil), response...), nil
 		}
 	}
@@ -122,7 +147,7 @@ func (r *fixtureRunner) count(prefix string) int {
 	defer r.mutex.Unlock()
 	count := 0
 	for _, call := range r.calls {
-		if call == prefix {
+		if strings.HasPrefix(call, prefix) {
 			count++
 		}
 	}

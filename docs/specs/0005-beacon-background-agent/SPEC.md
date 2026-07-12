@@ -57,8 +57,8 @@ The attached plan requested feature ID `0004`; that ID already belongs to `0004-
 - Cache corruption is isolated per file: the bad file is quarantined with a `.corrupt-<timestamp>` suffix and healthy cached projects remain usable.
 - Warm clients never wait for repository collection before receiving a snapshot. A cold cache may initially contain no lanes; the agent then publishes discovery and stage events.
 - `beacon scan` and `beacon scan --json` remain blocking, complete, deterministic direct-scan compatibility paths.
-- Bare `beacon` prefers the agent, renders cache immediately, requests refresh, and watches until that refresh completes in a TTY. `--no-watch` renders cache only.
-- Non-TTY bare output is cache-only and never emits cursor control or incremental frames.
+- Bare `beacon` requires the agent, renders cache immediately, requests a non-blocking refresh, and returns without waiting for discovery or collection. `--no-watch` renders cache only.
+- Non-TTY bare output uses the same cache-first behavior and never emits cursor control or incremental frames.
 - The scheduler runs logical per-project jobs with bounded concurrency, one active job per project, and duplicate request coalescing.
 - Tracked jobs collect complete evidence. Muted jobs run a local and remote summary probe; a material delta queues a complete scan and durable reactivation.
 - Fetch timestamps, scan timestamps, freshness, and derived actions are excluded from probe fingerprints.
@@ -119,7 +119,7 @@ No final action is derived from incomplete `queued`, `local`, or `github` eviden
 4. Add stable project IDs based on GitHub `owner/repo`, deterministic cache inventory, and project-scoped snapshot merging that preserves schema-v2 ordering and summary/group semantics.
 5. Add lightweight muted probes covering local HEAD/status/upstream evidence and scoped GitHub PR/issue summaries, with material fingerprint comparison and reasoned durable reactivation.
 6. Add `agent install|serve|status|stop|uninstall`, a user LaunchAgent plist, PID/socket locking, user-only socket/cache/state permissions, and bounded rotating logs.
-7. Make bare CLI cache-first and watch-capable, add `--no-watch` and `refresh`, add root `track`/`untrack` aliases, and preserve blocking deterministic scan/JSON behavior.
+7. Make bare CLI cache-first with non-blocking refresh requests, add `--no-watch` and `refresh`, add root `track`/`untrack` aliases, and preserve blocking deterministic scan/JSON behavior.
 8. Replace macOS subprocess polling with a Swift actor agent client, cached startup, incremental project stages, reconnect behavior, and last-good retention.
 9. Add primary Tracked and Untracked menu tabs, stage badges, muted timestamps/probe timestamps, search/multi-selection, manual restoration, and automatic-reactivation reasons.
 10. Offer agent installation during interactive init, show an Enable Background Agent action when missing, and keep all repository and GitHub operations read-only.
@@ -144,7 +144,7 @@ No final action is derived from incomplete `queued`, `local`, or `github` eviden
 - [x] AC6: Protocol revisions and scan IDs prevent stale or out-of-order events from replacing newer client state.
 - [x] AC7: One cache, project, socket, or collection failure preserves healthy cached/project results and last-good UI state.
 - [x] AC8: `beacon scan --json` remains ANSI-free, deterministic, blocking, and complete without requiring the agent.
-- [x] AC9: Bare TTY execution renders cache first and may watch a refresh; `--no-watch` and non-TTY execution return cache without incremental control output.
+- [x] AC9: Bare execution renders cache and queues refresh without waiting; `--no-watch` returns cache without requesting work, and non-TTY output contains no incremental control output.
 - [x] AC10: Agent install/status/stop/uninstall and duplicate-process prevention work with user-only state, socket, PID, plist, and rotated logs.
 - [x] AC11: CLI and macOS clients consume the same agent snapshot/events; Swift transport runs in an actor and UI mutation remains on `@MainActor`.
 - [x] AC12: No agent operation changes tracked files, branches, commits, remotes, pull requests, reviews, or issues.

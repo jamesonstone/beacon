@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"time"
 
+	"github.com/jamesonstone/beacon/internal/agent"
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/output"
@@ -62,7 +64,7 @@ func (a App) projectsCommand(configPath *string) *cobra.Command {
 			if !confirmed {
 				return errors.New("project tracking update cancelled")
 			}
-			if _, err := a.tracker().SetSelection(snapshot, selected); err != nil {
+			if err := a.setProjectSelection(cmd.Context(), *configPath, snapshot, selected); err != nil {
 				return err
 			}
 			_, err = fmt.Fprintf(a.Out, "updated project tracking: %d tracked, %d untracked\n", len(selected), len(snapshot.Projects)-len(selected))
@@ -93,13 +95,34 @@ func (a App) setProjectTrackingCommand(configPath *string, tracked bool) *cobra.
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := a.setProjectsDirect(cmd.Context(), *configPath, args, tracked); err != nil {
+			if err := a.setProjects(cmd.Context(), *configPath, args, tracked); err != nil {
 				return err
 			}
 			_, err := fmt.Fprintf(a.Out, "%s %d project%s\n", verbPastTense(tracked), len(args), pluralSuffix(len(args)))
 			return err
 		},
 	}
+}
+
+func (a App) setProjects(ctx context.Context, configPath string, targets []string, tracked bool) error {
+	if a.scannerSource == nil {
+		if _, paths, err := a.agentConfig(configPath); err == nil {
+			state := "muted"
+			if tracked {
+				state = "tracked"
+			}
+			event, requestErr := (agent.Client{Socket: paths.Socket}).Request(ctx, agent.Request{
+				Type: agent.RequestSetTrackingBatch, ProjectIDs: targets, TrackingState: state,
+			})
+			if requestErr == nil {
+				if event.Type == agent.EventProjectFailed {
+					return errors.New(event.Message)
+				}
+				return nil
+			}
+		}
+	}
+	return a.setProjectsDirect(ctx, configPath, targets, tracked)
 }
 
 func (a App) setProjectsDirect(ctx context.Context, configPath string, targets []string, tracked bool) error {
@@ -111,10 +134,42 @@ func (a App) setProjectsDirect(ctx context.Context, configPath string, targets [
 	return err
 }
 
+func (a App) setProjectSelection(ctx context.Context, configPath string, snapshot model.Snapshot, selected []string) error {
+	if a.scannerSource == nil {
+		if _, paths, err := a.agentConfig(configPath); err == nil {
+			event, requestErr := (agent.Client{Socket: paths.Socket}).Request(ctx, agent.Request{
+				Type: agent.RequestSetSelection, ProjectIDs: selected,
+			})
+			if requestErr == nil {
+				if event.Type == agent.EventProjectFailed {
+					return errors.New(event.Message)
+				}
+				return nil
+			}
+		}
+	}
+	_, err := a.tracker().SetSelection(snapshot, selected)
+	return err
+}
+
 func (a App) projectSnapshot(ctx context.Context, configPath string) (model.Snapshot, error) {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return model.Snapshot{}, err
+	}
+	if a.scannerSource == nil {
+		paths, pathErr := agent.ResolvePaths(cfg.Path)
+		if pathErr == nil {
+			event, requestErr := (agent.Client{Socket: paths.Socket}).Request(ctx, agent.Request{Type: agent.RequestGetSnapshot})
+			if requestErr == nil && event.Snapshot != nil && len(event.Snapshot.Projects) > 0 {
+				return *event.Snapshot, nil
+			}
+			records, _ := (agent.Cache{Directory: paths.Projects, Now: time.Now}).LoadAll()
+			if len(records) > 0 {
+				snapshot := agent.Assemble(records, cfg.Path, paths.State, time.Now().UTC())
+				return a.tracker().Reconcile(snapshot)
+			}
+		}
 	}
 	return a.scanSnapshot(ctx, cfg, "", false)
 }

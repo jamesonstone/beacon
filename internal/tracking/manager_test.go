@@ -102,6 +102,26 @@ func TestManagerManualTrackingAndSelectionAreIdempotent(t *testing.T) {
 	}
 }
 
+func TestManagerExplicitUntrackReplacesStaleBaseline(t *testing.T) {
+	manager := Manager{Store: FileStore{}, Now: func() time.Time { return time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC) }}
+	snapshot := managerSnapshot(t)
+	untracked, err := manager.SetTracked(snapshot, []string{"owner/repo"}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	untracked.Lanes[0].Worktree.HeadOID = "new-head"
+	reaffirmed, err := manager.SetTracked(untracked, []string{"owner/repo"}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertUntracked(t, reaffirmed)
+	unchanged, err := manager.Reconcile(untracked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertUntracked(t, unchanged)
+}
+
 func TestManagerProjectAliasesMustExistAndBeUnique(t *testing.T) {
 	manager := Manager{Store: FileStore{}, Now: func() time.Time { return time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC) }}
 	snapshot := managerSnapshot(t)

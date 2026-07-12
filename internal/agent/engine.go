@@ -139,33 +139,36 @@ func (e *Engine) Refresh(ctx context.Context, project string, force bool) (strin
 		e.active[project] = struct{}{}
 	}
 	e.mutex.Unlock()
+	go e.startRefresh(ctx, scanID, project, force)
+	return scanID, nil
+}
 
+func (e *Engine) startRefresh(ctx context.Context, scanID, project string, force bool) {
 	repositories, err := e.Repositories(ctx)
 	if err != nil {
+		e.failProject(scanID, project, 0, err)
 		e.completeScan(scanID)
-		return "", err
+		return
 	}
 	selected := e.selectRepositories(repositories, project, force)
 	if project != "" && len(selected) == 0 {
+		e.failProject(scanID, project, 0, fmt.Errorf("project not found: %s", project))
 		e.completeScan(scanID)
-		return "", fmt.Errorf("project not found: %s", project)
+		return
 	}
 	e.markActive(selected)
 	e.publishQueued(scanID, selected)
-	go func() {
-		batch := selected
-		for {
-			e.runBatch(ctx, scanID, batch, force)
-			var pendingForce bool
-			batch, pendingForce = e.nextBatch(scanID, repositories)
-			if batch == nil {
-				return
-			}
-			force = pendingForce
-			e.publishQueued(scanID, batch)
+	batch := selected
+	for {
+		e.runBatch(ctx, scanID, batch, force)
+		var pendingForce bool
+		batch, pendingForce = e.nextBatch(scanID, repositories)
+		if batch == nil {
+			return
 		}
-	}()
-	return scanID, nil
+		force = pendingForce
+		e.publishQueued(scanID, batch)
+	}
 }
 
 func (e *Engine) queueRefreshLocked(project string, force bool) {
@@ -359,8 +362,17 @@ func (e *Engine) refreshProject(ctx context.Context, scanID string, repository c
 		e.failProject(scanID, repository.GitHub, revision, err)
 		return
 	}
-	if err := snapshotCollectionError(snapshot); err != nil {
-		e.failProject(scanID, repository.GitHub, revision, err)
+	if collectionErr := snapshotCollectionError(snapshot); collectionErr != nil {
+		if !cached && len(snapshot.Projects) == 1 && snapshot.Projects[0].GitHub == repository.GitHub {
+			record = ProjectRecord{
+				Version: CacheVersion, ProjectID: repository.GitHub, Revision: revision,
+				Stage: "failed", UpdatedAt: e.now(), Snapshot: snapshot,
+			}
+			if err := e.Cache.Write(record); err == nil {
+				e.storeRecord(record)
+			}
+		}
+		e.failProject(scanID, repository.GitHub, revision, collectionErr)
 		return
 	}
 	if len(snapshot.Projects) != 1 || snapshot.Projects[0].GitHub != repository.GitHub {
@@ -399,15 +411,40 @@ func (e *Engine) refreshProject(ctx context.Context, scanID string, repository c
 }
 
 func (e *Engine) SetTracking(ctx context.Context, projectID, state string) error {
+	_ = ctx
+	return e.SetTrackingBatch([]string{projectID}, state)
+}
+
+func (e *Engine) SetTrackingBatch(projectIDs []string, state string) error {
 	tracked := state == "tracked"
 	if !tracked && state != "muted" {
 		return fmt.Errorf("tracking state must be tracked or muted: %q", state)
 	}
 	snapshot := e.Snapshot()
-	updated, err := e.Tracker.SetTracked(snapshot, []string{projectID}, tracked)
+	updated, err := e.Tracker.SetTracked(snapshot, projectIDs, tracked)
 	if err != nil {
 		return err
 	}
+	if err := e.applyTrackingSnapshot(updated); err != nil {
+		return err
+	}
+	e.publish(EventTrackingChanged, "", "", 0, "ready", state, pointer(e.Snapshot()))
+	return nil
+}
+
+func (e *Engine) SetSelection(projectIDs []string) error {
+	updated, err := e.Tracker.SetSelection(e.Snapshot(), projectIDs)
+	if err != nil {
+		return err
+	}
+	if err := e.applyTrackingSnapshot(updated); err != nil {
+		return err
+	}
+	e.publish(EventTrackingChanged, "", "", 0, "ready", "selection", pointer(e.Snapshot()))
+	return nil
+}
+
+func (e *Engine) applyTrackingSnapshot(updated model.Snapshot) error {
 	byID := make(map[string]model.Project, len(updated.Projects))
 	for _, project := range updated.Projects {
 		byID[project.GitHub] = project
@@ -418,7 +455,14 @@ func (e *Engine) SetTracking(ctx context.Context, projectID, state string) error
 		if !found || len(record.Snapshot.Projects) == 0 {
 			continue
 		}
+		previous := record.Snapshot.Projects[0].TrackingState
 		record.Snapshot.Projects[0].TrackingState = project.TrackingState
+		if previous != model.TrackingUntracked && project.TrackingState == model.TrackingUntracked {
+			record.LastProbeAt = e.now()
+		}
+		if project.TrackingState != model.TrackingUntracked {
+			record.LastProbeAt = time.Time{}
+		}
 		record.Revision++
 		record.UpdatedAt = e.now()
 		e.records[id] = record
@@ -428,22 +472,6 @@ func (e *Engine) SetTracking(ctx context.Context, projectID, state string) error
 		}
 	}
 	e.mutex.Unlock()
-	if !tracked && e.Prober != nil {
-		repositories, repositoryErr := e.Repositories(ctx)
-		if repositoryErr == nil {
-			for _, repository := range repositories {
-				if repository.GitHub != projectID && repository.Name != projectID {
-					continue
-				}
-				probe, probeErr := e.Prober.Probe(ctx, repository, e.probeAuthor())
-				if probeErr == nil {
-					_ = e.Tracker.UpdateProbe(e.Config.Path, repository.GitHub, probe.Combined, probe.Local, probe.Remote, e.now())
-				}
-				break
-			}
-		}
-	}
-	e.publish(EventTrackingChanged, "", projectID, e.revision(projectID), "ready", state, pointer(e.Snapshot()))
 	return nil
 }
 

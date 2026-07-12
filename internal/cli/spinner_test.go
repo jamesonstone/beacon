@@ -21,6 +21,27 @@ func TestScanLoaderUsesLighthouseSweepFrames(t *testing.T) {
 	}
 }
 
+func TestScanBeamUsesFullTerminalWidthAndMovesAcrossIt(t *testing.T) {
+	const width = 48
+	positions := make(map[int]struct{})
+	for _, frame := range []int{0, 9, 24, 47, 60} {
+		line := scanBeamLine(frame, width)
+		if got := len([]rune(line)); got != width {
+			t.Fatalf("frame %d width = %d, want %d: %q", frame, got, width, line)
+		}
+		if strings.Count(line, "✦") != 1 {
+			t.Fatalf("frame %d marker count is not one: %q", frame, line)
+		}
+		positions[strings.Index(line, "✦")] = struct{}{}
+	}
+	if len(positions) < 4 {
+		t.Fatalf("beam did not travel across the terminal: positions=%v", positions)
+	}
+	if line := scanBeamLine(12, width); !strings.Contains(line, "━") || !strings.Contains(line, "╺") {
+		t.Fatalf("forward beam has no comet trail: %q", line)
+	}
+}
+
 func TestScanFactsContainsExactly150UniqueFacts(t *testing.T) {
 	if len(scanFacts) != 150 {
 		t.Fatalf("fact count = %d, want 150", len(scanFacts))
@@ -126,7 +147,7 @@ func TestScanLoaderFailureClearsLineAndRestoresCursor(t *testing.T) {
 	if strings.Contains(text, "beacon ready") {
 		t.Fatalf("failed loader reported ready: %q", text)
 	}
-	if !strings.HasSuffix(text, clearLine+showCursor) {
+	if !strings.HasSuffix(text, clearLine+moveUpLine+clearLine+showCursor) {
 		t.Fatalf("failed loader did not clear and restore: %q", text)
 	}
 }
@@ -191,7 +212,7 @@ func TestBareDashboardScanFailureRestoresCursor(t *testing.T) {
 	if err == nil || err.Error() != "scan failed" {
 		t.Fatalf("error = %v", err)
 	}
-	if !strings.HasSuffix(output, clearLine+showCursor) {
+	if !strings.HasSuffix(output, clearLine+moveUpLine+clearLine+showCursor) {
 		t.Fatalf("failed bare scan did not clear and restore: %q", output)
 	}
 	if strings.Contains(output, "beacon ready") {
@@ -210,6 +231,7 @@ func executeScanCommand(t *testing.T, outputIsTTY bool, args ...string) string {
 
 func executeScanCommandResult(t *testing.T, outputIsTTY bool, scanErr error, args ...string) (string, error) {
 	t.Helper()
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	repository := t.TempDir()
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	writeTestConfig(t, configPath, `version: 2

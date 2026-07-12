@@ -180,7 +180,14 @@ func TestRefreshPublishesUncachedProjectPlaceholderBeforeCollection(t *testing.T
 	if _, err := engine.Refresh(context.Background(), "", true); err != nil {
 		t.Fatal(err)
 	}
-	defer close(release)
+	defer func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+		waitForRefresh(t, engine)
+	}()
 	for deadline := time.After(2 * time.Second); ; {
 		select {
 		case event := <-events:
@@ -195,6 +202,46 @@ func TestRefreshPublishesUncachedProjectPlaceholderBeforeCollection(t *testing.T
 			t.Fatal("project discovery event was not published")
 		}
 	}
+}
+
+func TestRefreshReturnsBeforeRepositoryDiscoveryCompletes(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
+	paths := testPaths(root)
+	discoveryStarted := make(chan struct{})
+	releaseDiscovery := make(chan struct{})
+	engine := NewEngine(
+		config.Config{Path: filepath.Join(root, "config.yaml"), Settings: config.Settings{MaxParallel: 1, TrackedRefreshInterval: time.Minute, UntrackedProbeInterval: time.Minute}},
+		paths,
+		Cache{Directory: paths.Projects},
+		func(context.Context) ([]config.Repository, error) {
+			close(discoveryStarted)
+			<-releaseDiscovery
+			return []config.Repository{}, nil
+		},
+		nil,
+		nil,
+		tracking.Manager{},
+	)
+
+	startedAt := time.Now()
+	scanID, err := engine.Refresh(context.Background(), "", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scanID == "" {
+		t.Fatal("refresh returned an empty scan ID")
+	}
+	if elapsed := time.Since(startedAt); elapsed > 100*time.Millisecond {
+		t.Fatalf("refresh acknowledgement took %s", elapsed)
+	}
+	select {
+	case <-discoveryStarted:
+	case <-time.After(time.Second):
+		t.Fatal("repository discovery did not start")
+	}
+	close(releaseDiscovery)
+	waitForRefresh(t, engine)
 }
 
 func TestConcurrentDistinctRefreshIsQueuedAndDuplicateIsCoalesced(t *testing.T) {
@@ -320,6 +367,39 @@ func TestCollectionErrorPreservesLastGoodProjectCache(t *testing.T) {
 	}
 }
 
+func TestFirstCollectionErrorCachesPartialProjectEvidence(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
+	paths := testPaths(root)
+	repository := config.Repository{Name: "repo", Path: root, GitHub: "owner/repo"}
+	cache := Cache{Directory: paths.Projects}
+	partial := cachedRecord(repository.GitHub, 1, model.TrackingTracked).Snapshot
+	partial.Errors = []model.ScanError{{Repository: repository.Name, Stage: "github", Message: "authentication required"}}
+	engine := NewEngine(
+		config.Config{Path: filepath.Join(root, "config.yaml"), Settings: config.Settings{MaxParallel: 1, TrackedRefreshInterval: time.Minute, UntrackedProbeInterval: time.Minute}},
+		paths,
+		cache,
+		func(context.Context) ([]config.Repository, error) { return []config.Repository{repository}, nil },
+		func(context.Context, config.Repository, bool, func(string)) (model.Snapshot, error) {
+			return partial, nil
+		},
+		nil,
+		tracking.Manager{Store: tracking.FileStore{}},
+	)
+	if _, err := engine.Refresh(context.Background(), repository.GitHub, true); err != nil {
+		t.Fatal(err)
+	}
+	waitForRefresh(t, engine)
+	snapshot := engine.Snapshot()
+	if len(snapshot.Projects) != 1 || len(snapshot.Errors) != 1 {
+		t.Fatalf("partial snapshot was not retained: %#v", snapshot)
+	}
+	records, failures := cache.LoadAll()
+	if len(failures) != 0 || len(records) != 1 || records[0].Stage != "failed" {
+		t.Fatalf("cache records=%#v failures=%v", records, failures)
+	}
+}
+
 func TestProbeScopesPullRequestsAndIssuesToConfiguredIdentity(t *testing.T) {
 	runner := &probeCommandRunner{}
 	result, err := (Prober{Runner: runner}).Probe(context.Background(), config.Repository{Name: "repo", Path: "/repo", GitHub: "owner/repo"}, "@me")
@@ -386,6 +466,51 @@ func TestMutedProbeSkipsFullScanUntilMaterialDelta(t *testing.T) {
 	waitForRefresh(t, engine)
 	if scanCalls.Load() != 1 || engine.Snapshot().Projects[0].TrackingState != model.TrackingTracked {
 		t.Fatalf("material probe did not reactivate project")
+	}
+}
+
+func TestSetSelectionUpdatesManyProjectsWithoutProbing(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
+	paths := testPaths(root)
+	cache := Cache{Directory: paths.Projects}
+	const projectCount = 25
+	for index := 0; index < projectCount; index++ {
+		id := fmt.Sprintf("owner/repo-%02d", index)
+		record := cachedRecord(id, 1, model.TrackingTracked)
+		record.Snapshot.Projects[0].Name = fmt.Sprintf("repo-%02d", index)
+		record.Snapshot.Projects[0].GitHub = id
+		record.Snapshot.Lanes[0].GitHub = id
+		record.Snapshot.Lanes[0].ID = "git:" + id + "@main"
+		record.Snapshot.Projects[0].LaneIDs = []string{record.Snapshot.Lanes[0].ID}
+		if err := cache.Write(record); err != nil {
+			t.Fatal(err)
+		}
+	}
+	prober := &countingProber{}
+	tracker := tracking.Manager{Store: tracking.FileStore{}, Now: time.Now}
+	engine := NewEngine(
+		config.Config{Path: filepath.Join(root, "config.yaml")}, paths, cache,
+		func(context.Context) ([]config.Repository, error) { return nil, nil }, nil, prober, tracker,
+	)
+	if err := engine.SetSelection([]string{"owner/repo-00"}); err != nil {
+		t.Fatal(err)
+	}
+	snapshot := engine.Snapshot()
+	if snapshot.Summary.TrackedProjects != 1 || snapshot.Summary.UntrackedProjects != projectCount-1 {
+		t.Fatalf("summary = %#v", snapshot.Summary)
+	}
+	if prober.calls.Load() != 0 {
+		t.Fatalf("tracking selection performed %d probes", prober.calls.Load())
+	}
+	records, failures := cache.LoadAll()
+	if len(failures) != 0 || len(records) != projectCount {
+		t.Fatalf("records=%d failures=%v", len(records), failures)
+	}
+	for _, record := range records {
+		if record.ProjectID != "owner/repo-00" && record.LastProbeAt.IsZero() {
+			t.Fatalf("newly untracked %s was immediately due for a probe", record.ProjectID)
+		}
 	}
 }
 
@@ -458,6 +583,13 @@ func TestPIDLockRejectsDuplicateAgentAndRecoversAfterRelease(t *testing.T) {
 type mutableProber struct {
 	mutex  sync.Mutex
 	result ProbeResult
+}
+
+type countingProber struct{ calls atomic.Int32 }
+
+func (p *countingProber) Probe(context.Context, config.Repository, string) (ProbeResult, error) {
+	p.calls.Add(1)
+	return ProbeResult{}, nil
 }
 
 type probeCommandRunner struct{ commands []string }

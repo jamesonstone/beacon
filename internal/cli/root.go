@@ -12,6 +12,7 @@ import (
 	"github.com/jamesonstone/beacon/internal/command"
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/discovery"
+	"github.com/jamesonstone/beacon/internal/githubapi"
 	"github.com/jamesonstone/beacon/internal/githubscan"
 	"github.com/jamesonstone/beacon/internal/gitscan"
 	"github.com/jamesonstone/beacon/internal/model"
@@ -86,7 +87,7 @@ func (a App) Root() *cobra.Command {
 	root.PersistentFlags().StringVar(&configPath, "config", "", "configuration file path")
 	root.PersistentFlags().StringVar(&colorMode, "color", "auto", "color output: auto, always, or never")
 	root.Flags().BoolVar(&includeIdle, "include-idle", false, "show projects with only idle work")
-	root.Flags().BoolVar(&noWatch, "no-watch", false, "render cached agent state without waiting for refresh")
+	root.Flags().BoolVar(&noWatch, "no-watch", false, "render cached agent state without requesting a refresh")
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err} })
 	root.AddCommand(
 		a.initCommand(&configPath),
@@ -113,9 +114,13 @@ func (a App) scanner() snapshotScanner {
 }
 
 func (a App) scannerComponents() scan.Scanner {
-	git := gitscan.Scanner{Runner: a.Runner, Now: time.Now}
-	github := githubscan.Client{Runner: a.Runner}
-	discoverer := discovery.Discoverer{Runner: a.Runner}
+	return a.scannerComponentsWithRunner(githubapi.NewRunner(a.Runner, 5*time.Minute))
+}
+
+func (a App) scannerComponentsWithRunner(runner command.Runner) scan.Scanner {
+	git := gitscan.Scanner{Runner: runner, Now: time.Now}
+	github := githubscan.Client{Runner: runner}
+	discoverer := discovery.Discoverer{Runner: runner}
 	return scan.Scanner{Git: git, GitHub: github, Discovery: discoverer, Now: time.Now}
 }
 
