@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,6 +39,31 @@ func TestScanPreservesHealthyResultsWhenRepositoryFails(t *testing.T) {
 	}
 	if snapshot.Summary.Total != 2 || snapshot.Summary.Errors != 1 {
 		t.Fatalf("summary = %#v", snapshot.Summary)
+	}
+}
+
+func TestScanManyCollectsRemoteEvidenceOnceForEntireBatch(t *testing.T) {
+	now := time.Date(2026, 7, 12, 16, 0, 0, 0, time.UTC)
+	repositories := make([]config.Repository, 80)
+	for index := range repositories {
+		repositories[index] = config.Repository{
+			Name: "repo-" + strconv.Itoa(index), GitHub: "owner/repo-" + strconv.Itoa(index),
+			Base: "main", Remote: "origin",
+		}
+	}
+	cfg := config.Config{Settings: config.Settings{
+		MaxParallel: 4, RemoteRefreshInterval: 15 * time.Minute,
+		StaleAfter: time.Hour, GitHubAuthor: "@me", GitHubScope: config.GitHubScopeMine,
+	}}
+	remote := &countingGitHubClient{}
+	scanner := Scanner{Git: fakeGitScanner{now: now}, GitHub: remote, Now: func() time.Time { return now }}
+
+	snapshots, err := scanner.ScanMany(context.Background(), cfg, repositories, false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshots) != len(repositories) || remote.callCount() != 1 || remote.batchSize() != len(repositories) {
+		t.Fatalf("snapshots=%d calls=%d batch=%d", len(snapshots), remote.callCount(), remote.batchSize())
 	}
 }
 
@@ -171,6 +198,32 @@ func (fakeGitHubClient) Collect(_ context.Context, repositories []config.Reposit
 		collection.Repositories[repository.GitHub] = evidence
 	}
 	return collection
+}
+
+type countingGitHubClient struct {
+	mutex sync.Mutex
+	calls int
+	size  int
+}
+
+func (c *countingGitHubClient) Collect(_ context.Context, repositories []config.Repository, _, _ string, _ int) model.RemoteCollection {
+	c.mutex.Lock()
+	c.calls++
+	c.size = len(repositories)
+	c.mutex.Unlock()
+	return fakeGitHubClient{}.Collect(context.Background(), repositories, "mine", "@me", 1)
+}
+
+func (c *countingGitHubClient) callCount() int {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.calls
+}
+
+func (c *countingGitHubClient) batchSize() int {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.size
 }
 
 type fakeRepositoryDiscoverer struct{ result discovery.Result }

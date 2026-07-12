@@ -56,8 +56,35 @@ func TestCollectMineFiltersRepositoriesAndEnrichesEvidence(t *testing.T) {
 	if len(evidence.Issues) != 1 || evidence.Issues[0].Number != 1 {
 		t.Fatalf("issues = %#v", evidence.Issues)
 	}
-	if runner.count("gh pr view") != 1 {
-		t.Fatalf("PR detail calls = %d", runner.count("gh pr view"))
+	if runner.count("gh pr view") != 1 || runner.count("gh api graphql") != 1 {
+		t.Fatalf("PR detail calls = view:%d threads:%d", runner.count("gh pr view"), runner.count("gh api graphql"))
+	}
+}
+
+func TestCollectMineBatchesEightyRepositoriesIntoTwoSearches(t *testing.T) {
+	runner := &fixtureRunner{responses: map[string][]byte{
+		"gh search prs":    []byte(`[]`),
+		"gh search issues": []byte(`[]`),
+	}}
+	repositories := make([]config.Repository, 80)
+	for index := range repositories {
+		repositories[index] = config.Repository{
+			Name:   fmt.Sprintf("repo-%02d", index),
+			GitHub: fmt.Sprintf("owner/repo-%02d", index),
+		}
+	}
+
+	collection := (Client{Runner: runner}).Collect(context.Background(), repositories, "mine", "@me", 4)
+	if len(collection.Errors) != 0 || len(collection.Repositories) != len(repositories) {
+		t.Fatalf("collection = %#v", collection)
+	}
+	if runner.count("gh search prs") != 1 || runner.count("gh search issues") != 1 {
+		t.Fatalf("calls = %v", runner.calls)
+	}
+	for _, call := range runner.calls {
+		if strings.HasPrefix(call, "gh pr list") || strings.HasPrefix(call, "gh issue list") {
+			t.Fatalf("batch collection used repository-scoped list: %s", call)
+		}
 	}
 }
 

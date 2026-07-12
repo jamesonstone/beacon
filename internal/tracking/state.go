@@ -37,6 +37,7 @@ type Entry struct {
 	UntrackedAt        time.Time `json:"muted_at" yaml:"untracked_at"`
 	Baseline           string    `json:"baseline" yaml:"baseline"`
 	ProbeBaseline      string    `json:"probe_baseline,omitempty" yaml:"-"`
+	ProbeFormat        string    `json:"probe_format,omitempty" yaml:"-"`
 	ProbeLocal         string    `json:"probe_local,omitempty" yaml:"-"`
 	ProbeRemote        string    `json:"probe_remote,omitempty" yaml:"-"`
 	LastProbeAt        time.Time `json:"last_probe_at,omitempty" yaml:"-"`

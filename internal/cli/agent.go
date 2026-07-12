@@ -246,7 +246,28 @@ func (a App) newAgentEngine(ctx context.Context, path string) (*agent.Engine, ag
 		return tracker.Reconcile(snapshot)
 	}
 	cache := agent.Cache{Directory: paths.Projects, Now: time.Now}
-	engine := agent.NewEngine(cfg, paths, cache, repositories, projectScanner, agent.Prober{Runner: githubRunner}, tracker)
+	prober := agent.Prober{Runner: githubRunner, Remote: scanner.GitHub}
+	engine := agent.NewEngine(cfg, paths, cache, repositories, projectScanner, prober, tracker)
+	engine.ScanBatch = func(
+		scanContext context.Context,
+		repositories []config.Repository,
+		refresh bool,
+		stage func(string, string),
+	) (map[string]model.Snapshot, error) {
+		snapshots, scanErr := scanner.ScanMany(scanContext, cfg, repositories, refresh, stage)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		for projectID, snapshot := range snapshots {
+			reconciled, reconcileErr := tracker.Reconcile(snapshot)
+			if reconcileErr != nil {
+				return nil, reconcileErr
+			}
+			snapshots[projectID] = reconciled
+		}
+		return snapshots, nil
+	}
+	engine.ProbeBatch = prober.ProbeMany
 	_ = ctx
 	return engine, paths, nil
 }

@@ -48,12 +48,13 @@ without triggering network scans.
 
 ## Context
 
-The background agent refreshes repositories independently. Source discovery and
-each project refresh can issue GraphQL-backed `gh repo`, `gh pr`, `gh issue`,
-and review-thread commands. With many configured source repositories, the same
-metadata is requested repeatedly and can consume the user's shared GraphQL
-quota. Tracking changes also perform unnecessary synchronous probes even though
-the cached full snapshot already supplies a durable reactivation baseline.
+The background agent refreshes repositories independently. Each project refresh
+can issue GraphQL-backed `gh pr`, `gh issue`, and review-thread commands. With
+many configured source repositories, per-project status polling consumes the
+user's shared GraphQL quota even when one global authored/assigned search could
+cover the entire configured inventory. The macOS client also forces a full
+refresh whenever it subscribes, bypassing normal cadence, and can leave its
+spinner active if a fast completion event arrives before the refresh response.
 
 ## Clarifications
 
@@ -77,6 +78,13 @@ the cached full snapshot already supplies a durable reactivation baseline.
   collection later verifies remote accessibility.
 - Untracking uses the last complete cached snapshot. The next scheduled muted
   probe establishes its compact probe baseline without blocking the selection.
+- Subscribing clients are observers: initial subscription renders the cached
+  snapshot and never initiates collection. Only the agent schedule and explicit
+  `Scan Now` requests start scans.
+- Under the default `mine` scope, one due-project batch uses one global PR
+  search and one global issue search, then fetches detailed evidence only for
+  matching open PRs. Muted probes use the same batch evidence instead of two
+  repository-specific calls per project.
 
 ## Requirements
 
@@ -115,6 +123,23 @@ the cached full snapshot already supplies a durable reactivation baseline.
     same tracking-change snapshot.
 16. Apply durable tracking state to cached records when the agent starts, before
     its scheduler decides which projects need full refreshes.
+17. The macOS subscription path must not request a refresh. It must reconcile
+    loading state from agent status and clear a manual spinner even when scan
+    completion races ahead of the refresh acknowledgement.
+18. Batch every due-project scheduler cycle before GitHub collection. Under
+    `github_scope: mine`, remote collection must use the existing global search
+    path once for the whole batch and enrich only matching pull requests.
+19. Batch muted-project probes so one remote collection supplies fingerprints
+    for every due muted project. Local probe evidence remains per repository and
+    performs no fetch.
+20. Probe fingerprint formats must be versioned so migration from repository
+    polling to batch evidence initializes the new baseline without falsely
+    reactivating projects.
+21. A cached subscription followed by no explicit scan must execute zero `gh`
+    commands and zero `git fetch` commands.
+22. A scheduler tick must consult cached project due times before source
+    discovery. When no cached project is due, the agent must remain idle and
+    publish no scan lifecycle.
 
 ## Assumptions
 
@@ -155,6 +180,21 @@ the cached full snapshot already supplies a durable reactivation baseline.
   `beacon projects` compatibility.
 - [x] AC14: An agent restart immediately reports and schedules from the durable
   tracked/untracked selection without requiring a fresh scan.
+- [x] AC15: Starting or reconnecting the macOS client renders cached state
+  without sending `refresh_all`.
+- [x] AC16: A scan that completes before its request response cannot leave the
+  macOS spinner active; later status reconciliation remains authoritative.
+- [x] AC17: Eighty due projects under `github_scope: mine` execute two global
+  search commands plus two detail commands per matching open PR, rather than
+  per-repository PR and issue list commands.
+- [x] AC18: Eighty unchanged muted projects execute one batch remote collection,
+  no `git fetch`, and remain untracked after probe-format migration.
+- [x] AC19: The user's live installation returns to zero tracked projects, the
+  fixed agent remains idle after its initial cached subscription, and opening
+  the fixed macOS app adds no GitHub cache writes.
+- [x] AC20: A complete one-minute scheduler observation with 80 muted, non-due
+  projects reports no refresh and changes neither GitHub-cache nor
+  `FETCH_HEAD` manifests.
 
 ## Implementation Plan
 
@@ -171,6 +211,16 @@ the cached full snapshot already supplies a durable reactivation baseline.
    semantics for explicit choices during evidence errors.
 7. Reconcile durable tracking state into cache records before scheduling.
 8. Update project docs and deliver on the active PR.
+9. Remove subscription-driven refresh and reconcile Swift loading state against
+   agent status before and after explicit scans.
+10. Add batched full-scan and muted-probe collection to the background engine,
+    retaining the per-project implementation only as a compatibility fallback.
+11. Version compact probe fingerprints and migrate old baselines without a
+    false reactivation.
+12. Stop the old processes, rebuild, restart the fixed agent and app, restore an
+    empty tracked selection, and measure the resulting external-call delta.
+13. Skip scheduled discovery and scan lifecycle publication when cached
+    evidence proves no project is due.
 
 ## Task Checklist
 
@@ -182,6 +232,11 @@ the cached full snapshot already supplies a durable reactivation baseline.
 - [x] T6: Add `beacon select` and pending-baseline reconciliation.
 - [x] T7: Apply durable tracking state during agent startup.
 - [x] T8: Update documentation and complete validation.
+- [x] T9: Fix macOS subscription and spinner state.
+- [x] T10: Batch full remote evidence across due projects.
+- [x] T11: Batch muted probes and version probe fingerprints.
+- [x] T12: Rebuild, restart, measure, and update PR #4.
+- [x] T13: Suppress no-op scheduled discovery and spinner activity.
 
 ## Validation Map
 
@@ -198,6 +253,11 @@ the cached full snapshot already supplies a durable reactivation baseline.
 | AC12 | tracking-manager recovery test with incomplete then complete evidence |
 | AC13 | Cobra selector tests for shared persistence and non-TTY guidance |
 | AC14 | engine-construction test with tracked cache and durable untracked state |
+| AC15-AC16 | Swift tests with a scripted agent that counts refreshes and completes before acknowledgement |
+| AC17 | agent/scan test with 80 repositories and command-count assertions |
+| AC18 | batch-probe test with 80 muted repositories, one collector call, no fetch, and format migration |
+| AC19 | live agent/app restart plus before-and-after GitHub cache mtime and process inspection |
+| AC20 | scheduler unit test plus a live observation spanning one complete scheduler interval |
 
 ## Reflection Notes
 
@@ -207,12 +267,17 @@ every source checkout. Local-only discovery removes that cost completely, while
 a shared persistent runner makes the seven-day repository cache effective
 across full scans and muted probes. A tracking revision guard was also required:
 without it, an older scan could finish after an explicit selection and restore
-the stale tracking value.
+the stale tracking value. Batching remote evidence reduced an 80-project muted
+probe from 160 repository list commands to two global searches plus matched-PR
+detail. Persisting all probe baselines in one state transaction avoids an
+O(N-squared) tracking-file rewrite. Finally, cached due-time gating prevents a
+no-op once-per-minute discovery pass from presenting as continuous activity.
 
 ## Documentation Updates
 
-- Document the shared API reserve/cache behavior and muted probe tuning in the
-  README, constitution, and project progress summary.
+- Documented cache-only subscriptions, due-time scheduling, batched collection,
+  API reserves, and muted-probe tuning in the README, constitution, and project
+  progress summary.
 
 ## Delivery Decision
 
@@ -238,7 +303,16 @@ Continue on issue #3, branch `GH-3`, and ready PR #4 as requested.
   the shared snapshot consumed by macOS.
 - `make fmt-check vet test test-race build release-test` passed.
 - `kit check --all` passed for all eight features.
-- `make macos-test` passed 31 tests.
+- `make macos-test` passed 32 tests.
 - Release packaging passed for four CLI archives and the universal macOS app,
   including embedded helper, login item, icon, version metadata, and signing
   checks.
+- Swift coverage included zero-refresh subscription startup
+  and completion-before-acknowledgement spinner reconciliation.
+- Eighty-project Go fixtures verified one batch collector call, exactly two
+  global searches under `mine`, no repository list calls, one atomic probe-state
+  update, no fetch, and no false reactivation during probe-format migration.
+- The rebuilt live agent reports 80 projects and `refreshing=false` before and
+  after the rebuilt macOS app subscribes. Across a complete 65-second scheduler
+  observation, refresh remained false and both the GitHub cache manifest
+  (`d195f044...`) and `FETCH_HEAD` manifest (`08cc1fbf...`) were unchanged.

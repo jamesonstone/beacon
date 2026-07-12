@@ -215,7 +215,9 @@ sibling `tracking.yaml` state is migrated automatically and archived with a
 background refreshes. `untracked_probe_interval` defaults to ten minutes and
 controls inexpensive local/GitHub summary probes for muted projects. If you
 manage a large deliberately quiet inventory, increase it to `1h` to reduce
-background GitHub traffic while retaining automatic reactivation.
+background GitHub traffic while retaining automatic reactivation. The agent
+checks cached due times before discovery, so a scheduler tick with no due
+project performs no source walk, `git fetch`, or `gh` command.
 
 Beacon shares a persistent user-only cache across pull requests, issues, review
 feedback, and muted probes. Most GitHub evidence is
@@ -234,6 +236,14 @@ available and pauses new calls until the reported reset. Source discovery uses
 only local Git remote and branch metadata and never calls GitHub. Beacon
 never changes your `gh` credentials or stores a token. Cached evidence is
 stored with user-only permissions under `$HOME/.cache/beacon/github/`.
+
+With the default `github_scope: mine`, every due-project batch uses one global
+authored-PR search and one global assigned-issue search, independent of the
+number of configured repositories. Beacon then runs one detail query and one
+review-thread query only for each matching open PR. Muted projects share that
+same batched evidence instead of polling each repository. `github_scope: all`
+is intentionally more expensive because it must enumerate repository-scoped
+work.
 
 ## Everyday Use
 
@@ -267,10 +277,11 @@ beacon config open
 beacon version
 ```
 
-Bare `beacon` connects to the user background agent and renders cached projects
-before requesting a non-blocking refresh. It returns immediately while the
-agent discovers and updates projects in the background. `--no-watch` renders
-the cache without requesting work. If no agent is available, bare execution
+Bare `beacon` connects to the user background agent, renders cached projects,
+and observes scheduled updates without requesting a refresh. Opening or
+reconnecting either client is cache-only. Use `beacon refresh`, the macOS
+`Scan Now` action, or `beacon scan` when you explicitly want current evidence.
+`--no-watch` renders the cache and exits. If no agent is available, bare execution
 returns an installation hint instead of silently paying direct-scan latency;
 use `beacon agent install` to restore cache-first operation or `beacon scan` for
 an explicit blocking scan.

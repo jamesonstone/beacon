@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,6 +14,15 @@ import (
 type Manager struct {
 	Store Store
 	Now   func() time.Time
+}
+
+type ProbeUpdate struct {
+	GitHub   string
+	Format   string
+	Baseline string
+	Local    string
+	Remote   string
+	At       time.Time
 }
 
 var managerMutex sync.Mutex
@@ -230,30 +240,53 @@ func (m Manager) SetSelection(snapshot model.Snapshot, trackedGitHub []string) (
 }
 
 func (m Manager) Entry(configPath, github string) (Entry, bool, error) {
-	managerMutex.Lock()
-	defer managerMutex.Unlock()
-	path, err := ResolvePath(configPath)
+	entries, err := m.Entries(configPath)
 	if err != nil {
 		return Entry{}, false, err
 	}
-	state, err := m.loadState(configPath, path)
-	if err != nil {
-		return Entry{}, false, err
-	}
-	for _, entry := range state.Untracked {
-		if entry.GitHub == github {
-			return entry, true, nil
-		}
-	}
-	return Entry{}, false, nil
+	entry, found := entries[github]
+	return entry, found, nil
 }
 
-func (m Manager) UpdateProbe(configPath, github, baseline, local, remote string, at time.Time) error {
-	if !fingerprintPattern.MatchString(baseline) {
-		return errors.New("probe baseline must be a SHA-256 fingerprint")
+func (m Manager) Entries(configPath string) (map[string]Entry, error) {
+	managerMutex.Lock()
+	defer managerMutex.Unlock()
+	path, err := ResolvePath(configPath)
+	if err != nil {
+		return nil, err
 	}
-	if !fingerprintPattern.MatchString(local) || !fingerprintPattern.MatchString(remote) {
-		return errors.New("local and remote probe values must be SHA-256 fingerprints")
+	state, err := m.loadState(configPath, path)
+	if err != nil {
+		return nil, err
+	}
+	entries := make(map[string]Entry, len(state.Untracked))
+	for _, entry := range state.Untracked {
+		entries[entry.GitHub] = entry
+	}
+	return entries, nil
+}
+
+func (m Manager) UpdateProbe(configPath, github, format, baseline, local, remote string, at time.Time) error {
+	return m.UpdateProbes(configPath, []ProbeUpdate{{
+		GitHub: github, Format: format, Baseline: baseline,
+		Local: local, Remote: remote, At: at,
+	}})
+}
+
+func (m Manager) UpdateProbes(configPath string, updates []ProbeUpdate) error {
+	for _, update := range updates {
+		if strings.TrimSpace(update.Format) == "" {
+			return errors.New("probe format is required")
+		}
+		if !fingerprintPattern.MatchString(update.Baseline) {
+			return errors.New("probe baseline must be a SHA-256 fingerprint")
+		}
+		if !fingerprintPattern.MatchString(update.Local) || !fingerprintPattern.MatchString(update.Remote) {
+			return errors.New("local and remote probe values must be SHA-256 fingerprints")
+		}
+	}
+	if len(updates) == 0 {
+		return nil
 	}
 	managerMutex.Lock()
 	defer managerMutex.Unlock()
@@ -265,17 +298,27 @@ func (m Manager) UpdateProbe(configPath, github, baseline, local, remote string,
 	if err != nil {
 		return err
 	}
+	updatesByGitHub := make(map[string]ProbeUpdate, len(updates))
+	for _, update := range updates {
+		updatesByGitHub[update.GitHub] = update
+	}
+	changed := false
 	for index := range state.Untracked {
-		if state.Untracked[index].GitHub != github {
+		update, found := updatesByGitHub[state.Untracked[index].GitHub]
+		if !found {
 			continue
 		}
-		state.Untracked[index].ProbeBaseline = baseline
-		state.Untracked[index].ProbeLocal = local
-		state.Untracked[index].ProbeRemote = remote
-		state.Untracked[index].LastProbeAt = at.UTC()
-		return m.store().Write(path, state)
+		state.Untracked[index].ProbeBaseline = update.Baseline
+		state.Untracked[index].ProbeFormat = update.Format
+		state.Untracked[index].ProbeLocal = update.Local
+		state.Untracked[index].ProbeRemote = update.Remote
+		state.Untracked[index].LastProbeAt = update.At.UTC()
+		changed = true
 	}
-	return nil
+	if !changed {
+		return nil
+	}
+	return m.store().Write(path, state)
 }
 
 func (m Manager) loadState(configPath, path string) (State, error) {

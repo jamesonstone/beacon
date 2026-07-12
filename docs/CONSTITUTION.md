@@ -258,6 +258,8 @@ credentials.
   defaults to four and must remain bounded.
 - The background scheduler runs at most one job per project, coalesces duplicate
   refresh requests, and uses separate tracked-refresh and muted-probe cadences.
+  It consults cached due times before discovery; when no cached project is due,
+  a scheduler tick performs no source walk, fetch, or GitHub collection.
 - All background `gh` collection shares one persistent user-only response cache
   and rate-budget guard. Beacon reserves 2,500 GraphQL points, 15 Search
   requests, and 1,500 REST Core requests for the user's other GitHub work;
@@ -266,6 +268,10 @@ credentials.
   conservatively debited at 25 points per command, and authoritative allowance
   state is refreshed after no more than five misses. Repository discovery uses
   only local Git remote and branch metadata and spends no GitHub capacity.
+- Under the default `mine` scope, one due-project batch performs one global
+  authored-PR search and one global assigned-issue search, then enriches only
+  matching open PRs. Muted projects share the batch evidence. The `all` scope
+  remains an explicitly more expensive repository-scoped mode.
 - Tracking mutations use cached complete evidence and never require a
   synchronous GitHub probe. The next scheduled muted probe establishes its
   compact comparison baseline. Explicit selection may persist a pending
@@ -302,13 +308,14 @@ configuration or startup failures and failed required doctor checks exit `1`.
 Usage errors exit `2`. JSON mode writes JSON only to stdout and sends
 diagnostics to stderr.
 
-Bare `beacon` connects to the user agent, renders cached state before requesting
-a refresh, and remains subscribed until that refresh completes in a TTY.
-`--no-watch` and non-TTY execution return cache-only output immediately and
-never emit cursor-control sequences. The lighthouse trivia loader remains the
-cold-cache fallback while no cached snapshot exists. Explicit `beacon scan`
-and JSON modes remain blocking direct-scan compatibility paths and do not
-require the agent.
+Bare `beacon` connects to the user agent, renders cached state, and observes
+scheduled updates without requesting a refresh. Opening or reconnecting a
+client is cache-only. `--no-watch` and non-TTY execution return cache-only
+output immediately and never emit cursor-control sequences. The lighthouse
+trivia loader remains the cold-cache fallback while no cached snapshot exists.
+Explicit `beacon refresh`, macOS `Scan Now`, `beacon scan`, and JSON scan modes
+remain the intentional paths for current evidence; direct scans do not require
+the agent.
 
 Agent protocol version 1 is newline-delimited JSON over a user-only Unix-domain
 socket. It carries scan IDs, per-project revisions, stages, single and batch
@@ -344,7 +351,10 @@ groups, evidence, and actions.
 
 The application connects to the background agent through a Swift actor,
 renders cached state immediately, applies monotonic incremental project events,
-and reconnects after disconnects. Only `@MainActor` publishes UI state. A
+and reconnects after disconnects without initiating collection. `Scan Now` is
+the only macOS action that forces a full refresh. Agent status is authoritative
+for loading state, including scans that complete before their request
+acknowledgement. Only `@MainActor` publishes UI state. A
 failed refresh keeps the last successful snapshot visible with its timestamp
 and an error or stale banner.
 Both macOS surfaces render one reusable SwiftUI dashboard over the same

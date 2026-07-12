@@ -222,14 +222,29 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(AppState.openTarget(for: localLane)?.path, "/Users/test/repo")
     }
 
-    func testStartScansBeforeMenuOpens() async {
-        let state = AppState(client: StubClient(result: .success(TestSnapshots.empty)))
+    func testStartLoadsCachedSnapshotWithoutRefreshing() async {
+        let agent = ScriptedAgent(events: [TestSnapshots.snapshotEvent(TestSnapshots.empty)])
+        let state = AppState(agent: agent, installer: nil)
         state.start()
         defer { state.stop() }
         for _ in 0..<20 where state.snapshot == nil {
             try? await Task.sleep(for: .milliseconds(10))
         }
+        let refreshCalls = await agent.refreshCalls
         XCTAssertEqual(state.snapshot, TestSnapshots.empty)
+        XCTAssertEqual(refreshCalls, 0)
+        XCTAssertFalse(state.isScanning)
+    }
+
+    func testFastCompletedScanReconcilesSpinnerWithAgentStatus() async {
+        let agent = ScriptedAgent(events: [TestSnapshots.snapshotEvent(TestSnapshots.empty)])
+        let state = AppState(agent: agent, installer: nil)
+
+        await state.scan()
+
+        let refreshCalls = await agent.refreshCalls
+        XCTAssertEqual(refreshCalls, 1)
+        XCTAssertFalse(state.isScanning)
     }
 
     func testAgentEventsRejectOlderProjectRevision() async {
@@ -247,10 +262,16 @@ final class AppStateTests: XCTestCase {
     }
 
     func testAgentEventsRejectDifferentScanWhileRefreshIsActive() async {
-        let agent = ScriptedAgent(events: [
-            TestSnapshots.snapshotEvent(TestSnapshots.withLane),
-            TestSnapshots.agentEvent(snapshot: TestSnapshots.empty, projectID: "owner/repo", revision: 2, scanID: "older-scan"),
-        ])
+        let agent = ScriptedAgent(
+            events: [
+                TestSnapshots.snapshotEvent(TestSnapshots.withLane),
+                TestSnapshots.agentEvent(snapshot: TestSnapshots.empty, projectID: "owner/repo", revision: 2, scanID: "older-scan"),
+            ],
+            statusDetails: AgentStatusDetails(
+                running: true, pid: 1, startedAt: nil, refreshing: true,
+                scanID: "scan", projectCount: 1, socket: "/socket"
+            )
+        )
         let state = AppState(agent: agent, installer: nil)
         state.start()
         defer { state.stop() }
@@ -382,10 +403,20 @@ private enum TestError: Error { case failed }
 private actor ScriptedAgent: AgentClientProtocol {
     let events: [AgentEvent]
     let terminalError: Error?
+    let statusDetails: AgentStatusDetails
+    private(set) var refreshCalls = 0
 
-    init(events: [AgentEvent], terminalError: Error? = nil) {
+    init(
+        events: [AgentEvent],
+        terminalError: Error? = nil,
+        statusDetails: AgentStatusDetails = AgentStatusDetails(
+            running: true, pid: 1, startedAt: nil, refreshing: false,
+            scanID: nil, projectCount: 1, socket: "/socket"
+        )
+    ) {
         self.events = events
         self.terminalError = terminalError
+        self.statusDetails = statusDetails
     }
 
     func snapshot() async throws -> AgentEvent {
@@ -405,12 +436,15 @@ private actor ScriptedAgent: AgentClientProtocol {
         }
     }
 
-    func refresh(project: String?) async throws -> String { "scan" }
+    func refresh(project: String?) async throws -> String {
+        refreshCalls += 1
+        return "scan"
+    }
     func setProjectTracked(_ github: String, tracked: Bool) async throws -> AgentEvent {
         try XCTUnwrap(events.first)
     }
     func status() async throws -> AgentStatusDetails {
-        AgentStatusDetails(running: true, pid: 1, startedAt: nil, refreshing: false, scanID: nil, projectCount: 1, socket: "/socket")
+        statusDetails
     }
 }
 

@@ -17,6 +17,8 @@ import (
 
 type RepositoryProvider func(context.Context) ([]config.Repository, error)
 type ProjectScanner func(context.Context, config.Repository, bool, func(string)) (model.Snapshot, error)
+type ProjectBatchScanner func(context.Context, []config.Repository, bool, func(string, string)) (map[string]model.Snapshot, error)
+type ProjectBatchProber func(context.Context, []config.Repository, string, string, int) (map[string]ProbeResult, map[string]error)
 
 type ProjectProber interface {
 	Probe(context.Context, config.Repository, string) (ProbeResult, error)
@@ -28,7 +30,9 @@ type Engine struct {
 	Cache        Cache
 	Repositories RepositoryProvider
 	ScanProject  ProjectScanner
+	ScanBatch    ProjectBatchScanner
 	Prober       ProjectProber
+	ProbeBatch   ProjectBatchProber
 	Tracker      tracking.Manager
 	Now          func() time.Time
 	StartedAt    time.Time
@@ -250,6 +254,20 @@ func (e *Engine) publishQueued(scanID string, repositories map[string]config.Rep
 }
 
 func (e *Engine) runBatch(ctx context.Context, scanID string, repositories map[string]config.Repository, force bool) {
+	if e.ScanBatch != nil && e.ProbeBatch != nil {
+		e.runCollectedBatch(ctx, scanID, repositories, force)
+	} else {
+		e.runProjectBatch(ctx, scanID, repositories, force)
+	}
+	e.mutex.Lock()
+	for projectID := range repositories {
+		delete(e.active, projectID)
+		delete(e.active, repositories[projectID].Name)
+	}
+	e.mutex.Unlock()
+}
+
+func (e *Engine) runProjectBatch(ctx context.Context, scanID string, repositories map[string]config.Repository, force bool) {
 	projectIDs := make([]string, 0, len(repositories))
 	for projectID := range repositories {
 		projectIDs = append(projectIDs, projectID)
@@ -258,12 +276,6 @@ func (e *Engine) runBatch(ctx context.Context, scanID string, repositories map[s
 	Scheduler{MaxParallel: e.Config.Settings.MaxParallel}.Run(ctx, projectIDs, func(jobContext context.Context, projectID string) {
 		e.refreshProject(jobContext, scanID, repositories[projectID], force)
 	})
-	e.mutex.Lock()
-	for _, projectID := range projectIDs {
-		delete(e.active, projectID)
-		delete(e.active, repositories[projectID].Name)
-	}
-	e.mutex.Unlock()
 }
 
 func (e *Engine) nextBatch(scanID string, repositories []config.Repository) (map[string]config.Repository, bool) {
@@ -325,15 +337,46 @@ func (e *Engine) RunSchedule(ctx context.Context) {
 	}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	_, _ = e.Refresh(ctx, "", false)
+	if e.hasDueCachedProject() {
+		_, _ = e.Refresh(ctx, "", false)
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_, _ = e.Refresh(ctx, "", false)
+			if e.hasDueCachedProject() {
+				_, _ = e.Refresh(ctx, "", false)
+			}
 		}
 	}
+}
+
+func (e *Engine) hasDueCachedProject() bool {
+	e.mutex.RLock()
+	records := make([]ProjectRecord, 0, len(e.records))
+	for _, record := range e.records {
+		records = append(records, record)
+	}
+	e.mutex.RUnlock()
+	if len(records) == 0 {
+		return true
+	}
+	for _, record := range records {
+		if len(record.Snapshot.Projects) == 0 {
+			return true
+		}
+		if record.Snapshot.Projects[0].TrackingState != model.TrackingUntracked {
+			if e.now().Sub(record.UpdatedAt) >= e.Config.Settings.TrackedRefreshInterval {
+				return true
+			}
+			continue
+		}
+		if record.LastProbeAt.IsZero() || e.now().Sub(record.LastProbeAt) >= e.Config.Settings.UntrackedProbeInterval {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) refreshProject(ctx context.Context, scanID string, repository config.Repository, force bool) {
@@ -351,8 +394,8 @@ func (e *Engine) refreshProject(ctx context.Context, scanID string, repository c
 			return
 		}
 		now := e.now()
-		if entry.ProbeBaseline == "" || probe.Combined == entry.ProbeBaseline {
-			if err := e.Tracker.UpdateProbe(e.Config.Path, repository.GitHub, probe.Combined, probe.Local, probe.Remote, now); err != nil {
+		if entry.ProbeBaseline == "" || entry.ProbeFormat != probe.Format || probe.Combined == entry.ProbeBaseline {
+			if err := e.Tracker.UpdateProbe(e.Config.Path, repository.GitHub, probe.Format, probe.Combined, probe.Local, probe.Remote, now); err != nil {
 				e.failProject(scanID, repository.GitHub, record.Revision+1, err)
 				return
 			}
@@ -385,56 +428,7 @@ func (e *Engine) refreshProject(ctx context.Context, scanID string, repository c
 		e.failProject(scanID, repository.GitHub, revision, err)
 		return
 	}
-	if e.revision(repository.GitHub) >= revision {
-		e.publish(EventProjectUpdated, scanID, repository.GitHub, e.revision(repository.GitHub), "ready", "superseded scan result ignored", pointer(e.Snapshot()))
-		return
-	}
-	if collectionErr := snapshotCollectionError(snapshot); collectionErr != nil {
-		if !cached && len(snapshot.Projects) == 1 && snapshot.Projects[0].GitHub == repository.GitHub {
-			record = ProjectRecord{
-				Version: CacheVersion, ProjectID: repository.GitHub, Revision: revision,
-				Stage: "failed", UpdatedAt: e.now(), Snapshot: snapshot,
-			}
-			if err := e.Cache.Write(record); err == nil {
-				e.storeRecord(record)
-			}
-		}
-		e.failProject(scanID, repository.GitHub, revision, collectionErr)
-		return
-	}
-	if len(snapshot.Projects) != 1 || snapshot.Projects[0].GitHub != repository.GitHub {
-		e.failProject(scanID, repository.GitHub, revision, errors.New("project scan returned mismatched identity"))
-		return
-	}
-	reactivated := muted && snapshot.Projects[0].TrackingState == model.TrackingTracked
-	reason := ""
-	if reactivated && changedProbe != nil {
-		reason = reactivationReason(entry, *changedProbe)
-		if err := e.Tracker.RecordReactivation(e.Config.Path, repository.GitHub, reason); err != nil {
-			e.failProject(scanID, repository.GitHub, revision, err)
-			return
-		}
-	} else if muted && changedProbe != nil {
-		if err := e.Tracker.UpdateProbe(e.Config.Path, repository.GitHub, changedProbe.Combined, changedProbe.Local, changedProbe.Remote, e.now()); err != nil {
-			e.failProject(scanID, repository.GitHub, revision, err)
-			return
-		}
-		record.LastProbeAt = e.now()
-	}
-	record = ProjectRecord{
-		Version: CacheVersion, ProjectID: repository.GitHub, Revision: revision,
-		Stage: "ready", UpdatedAt: e.now(), Snapshot: snapshot,
-	}
-	if err := e.Cache.Write(record); err != nil {
-		e.failProject(scanID, repository.GitHub, revision, err)
-		return
-	}
-	e.storeRecord(record)
-	if reactivated {
-		e.publish(EventProjectReactivated, scanID, repository.GitHub, revision, "ready", reason, pointer(e.Snapshot()))
-	} else {
-		e.publish(EventProjectUpdated, scanID, repository.GitHub, revision, "ready", "", pointer(e.Snapshot()))
-	}
+	e.finishScannedProject(scanID, repository, revision, record, cached, muted, entry, changedProbe, snapshot)
 }
 
 func (e *Engine) SetTracking(ctx context.Context, projectID, state string) error {

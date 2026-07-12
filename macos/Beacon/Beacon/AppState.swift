@@ -101,9 +101,12 @@ final class AppState: ObservableObject {
             if activeScanID == "direct" {
                 activeScanID = nil
                 isScanning = false
+            } else {
+                reconcile(try await agent.status())
             }
         } catch {
             isScanning = false
+            activeScanID = nil
             lastError = error.localizedDescription
         }
     }
@@ -286,19 +289,11 @@ final class AppState: ObservableObject {
                 let stream = try await agent.subscribe()
                 agentAvailable = true
                 lastError = nil
-                var requestedRefresh = false
                 for try await event in stream {
                     guard !Task.isCancelled else { return }
                     apply(event)
-                    if !requestedRefresh, event.type == "snapshot" {
-                        requestedRefresh = true
-                        isScanning = true
-                        activeScanID = try await agent.refresh(project: nil)
-                        if activeScanID == "direct" {
-                            apply(try await agent.snapshot())
-                            activeScanID = nil
-                            isScanning = false
-                        }
+                    if event.type == "snapshot" || event.type == "heartbeat" {
+                        reconcile(try await agent.status())
                     }
                 }
             } catch {
@@ -313,6 +308,11 @@ final class AppState: ObservableObject {
         guard event.protocolVersion == 1 else {
             lastError = "Beacon agent returned invalid data: unsupported protocol \(event.protocolVersion)"
             return
+        }
+        if activeScanID == nil, let eventScanID = event.scanID,
+           !eventScanID.isEmpty, event.type != "scan_completed" {
+            activeScanID = eventScanID
+            isScanning = true
         }
         if let activeScanID, let eventScanID = event.scanID,
            !eventScanID.isEmpty, eventScanID != activeScanID,
@@ -361,6 +361,12 @@ final class AppState: ObservableObject {
             isScanning = false
             activeScanID = nil
         }
+    }
+
+    private func reconcile(_ status: AgentStatusDetails) {
+        agentAvailable = status.running
+        isScanning = status.refreshing
+        activeScanID = status.refreshing ? status.scanID : nil
     }
 }
 
