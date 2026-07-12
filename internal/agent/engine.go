@@ -13,6 +13,7 @@ import (
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/tracking"
+	"github.com/jamesonstone/beacon/internal/workset"
 )
 
 type RepositoryProvider func(context.Context) ([]config.Repository, error)
@@ -34,6 +35,7 @@ type Engine struct {
 	Prober       ProjectProber
 	ProbeBatch   ProjectBatchProber
 	Tracker      tracking.Manager
+	WorkingSet   *workset.Manager
 	Now          func() time.Time
 	StartedAt    time.Time
 
@@ -106,6 +108,15 @@ func (e *Engine) Snapshot() model.Snapshot {
 		snapshot.Warnings = append(snapshot.Warnings, model.ScanError{Stage: "cache", Message: cacheError.Error()})
 	}
 	snapshot.Summary.Warnings = len(snapshot.Warnings)
+	if e.WorkingSet != nil {
+		reconciled, err := e.WorkingSet.Reconcile(snapshot)
+		if err != nil {
+			snapshot.Warnings = append(snapshot.Warnings, model.ScanError{Stage: "working-set", Message: err.Error()})
+			snapshot.Summary.Warnings = len(snapshot.Warnings)
+		} else {
+			snapshot = reconciled
+		}
+	}
 	return snapshot
 }
 
@@ -217,11 +228,12 @@ func (e *Engine) queueRefreshLocked(project string, force bool) {
 
 func (e *Engine) selectRepositories(repositories []config.Repository, project string, force bool) map[string]config.Repository {
 	selected := make(map[string]config.Repository)
+	frequent := e.frequentRepositories()
 	for _, repository := range repositories {
 		if project != "" && project != repository.GitHub && project != repository.Name {
 			continue
 		}
-		if !force && !e.due(repository) {
+		if !force && !e.due(repository, frequent) {
 			continue
 		}
 		selected[repository.GitHub] = repository
@@ -362,11 +374,24 @@ func (e *Engine) hasDueCachedProject() bool {
 	if len(records) == 0 {
 		return true
 	}
+	frequent := e.frequentRepositories()
 	for _, record := range records {
 		if len(record.Snapshot.Projects) == 0 {
 			return true
 		}
-		if record.Snapshot.Projects[0].TrackingState != model.TrackingUntracked {
+		project := record.Snapshot.Projects[0]
+		_, laneNeedsFrequentObservation := frequent[project.GitHub]
+		if e.WorkingSet != nil {
+			interval := e.Config.Settings.UntrackedProbeInterval
+			if laneNeedsFrequentObservation {
+				interval = e.Config.Settings.TrackedRefreshInterval
+			}
+			if e.now().Sub(record.UpdatedAt) >= interval {
+				return true
+			}
+			continue
+		}
+		if project.TrackingState != model.TrackingUntracked {
 			if e.now().Sub(record.UpdatedAt) >= e.Config.Settings.TrackedRefreshInterval {
 				return true
 			}
@@ -497,15 +522,34 @@ func (e *Engine) applyTrackingSnapshot(updated model.Snapshot) error {
 	return nil
 }
 
-func (e *Engine) due(repository config.Repository) bool {
+func (e *Engine) due(repository config.Repository, frequent map[string]struct{}) bool {
 	record, exists := e.record(repository.GitHub)
 	if !exists || len(record.Snapshot.Projects) == 0 {
 		return true
+	}
+	_, laneNeedsFrequentObservation := frequent[repository.GitHub]
+	if e.WorkingSet != nil {
+		interval := e.Config.Settings.UntrackedProbeInterval
+		if laneNeedsFrequentObservation {
+			interval = e.Config.Settings.TrackedRefreshInterval
+		}
+		return e.now().Sub(record.UpdatedAt) >= interval
 	}
 	if record.Snapshot.Projects[0].TrackingState != model.TrackingUntracked {
 		return e.now().Sub(record.UpdatedAt) >= e.Config.Settings.TrackedRefreshInterval
 	}
 	return record.LastProbeAt.IsZero() || e.now().Sub(record.LastProbeAt) >= e.Config.Settings.UntrackedProbeInterval
+}
+
+func (e *Engine) frequentRepositories() map[string]struct{} {
+	if e.WorkingSet == nil {
+		return map[string]struct{}{}
+	}
+	repositories, err := e.WorkingSet.FrequentRepositories()
+	if err != nil {
+		return map[string]struct{}{}
+	}
+	return repositories
 }
 
 func (e *Engine) completeScan(scanID string) {

@@ -8,6 +8,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/jamesonstone/beacon/internal/model"
 )
 
 type Server struct {
@@ -128,6 +130,42 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 		}
 		snapshot := s.Engine.Snapshot()
 		response(Event{Type: EventTrackingChanged, Stage: "ready", Snapshot: &snapshot})
+	case RequestSetLaneAttention:
+		if err := s.Engine.SetLaneAttention(request.LaneID, model.AttentionState(request.AttentionState)); err != nil {
+			response(Event{Type: EventProjectFailed, ProjectID: request.LaneID, Stage: "failed", Message: err.Error()})
+			return
+		}
+		snapshot := s.Engine.Snapshot()
+		response(Event{Type: EventWorkingSetChanged, ProjectID: request.LaneID, Stage: "ready", Snapshot: &snapshot})
+	case RequestSetLanePinned:
+		if err := s.Engine.SetLanePinned(request.LaneID, request.Pinned); err != nil {
+			response(Event{Type: EventProjectFailed, ProjectID: request.LaneID, Stage: "failed", Message: err.Error()})
+			return
+		}
+		snapshot := s.Engine.Snapshot()
+		response(Event{Type: EventWorkingSetChanged, ProjectID: request.LaneID, Stage: "ready", Snapshot: &snapshot})
+	case RequestSetLaneNote:
+		if err := s.Engine.SetLaneNote(request.LaneID, request.Note); err != nil {
+			response(Event{Type: EventProjectFailed, ProjectID: request.LaneID, Stage: "failed", Message: err.Error()})
+			return
+		}
+		snapshot := s.Engine.Snapshot()
+		response(Event{Type: EventWorkingSetChanged, ProjectID: request.LaneID, Stage: "ready", Snapshot: &snapshot})
+	case RequestMarkLaneSeen:
+		if err := s.Engine.MarkLaneSeen(request.LaneID); err != nil {
+			response(Event{Type: EventProjectFailed, ProjectID: request.LaneID, Stage: "failed", Message: err.Error()})
+			return
+		}
+		snapshot := s.Engine.Snapshot()
+		response(Event{Type: EventWorkingSetChanged, ProjectID: request.LaneID, Stage: "ready", Snapshot: &snapshot})
+	case RequestAddManualLane:
+		id, err := s.Engine.AddManualLane(request.Title)
+		if err != nil {
+			response(Event{Type: EventProjectFailed, Stage: "failed", Message: err.Error()})
+			return
+		}
+		snapshot := s.Engine.Snapshot()
+		response(Event{Type: EventWorkingSetChanged, ProjectID: id, Stage: "ready", Snapshot: &snapshot})
 	case RequestSubscribe:
 		events, unsubscribe := s.Engine.Subscribe()
 		defer unsubscribe()

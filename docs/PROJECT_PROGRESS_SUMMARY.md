@@ -12,13 +12,15 @@
 | 0006 | beacon-detachable-dashboard | `docs/specs/0006-beacon-detachable-dashboard` | deliver | no | 2026-07-12 | Add a Dock- and Command-Tab-accessible singleton dashboard plus a quiet optional login item without duplicating Beacon evidence logic. |
 | 0007 | queued-project-tracking | `docs/specs/0007-queued-project-tracking` | deliver | no | 2026-07-12 | Make macOS Track and Untrack selections optimistic and nonblocking through an ordered background queue. |
 | 0008 | github-api-budget | `docs/specs/0008-github-api-budget` | deliver | no | 2026-07-12 | Preserve the user's GitHub API allowance with shared caching, rate-budget circuit breaking, and network-free batch tracking changes. |
+| 0009 | beacon-working-set-radar | `docs/specs/0009-beacon-working-set-radar` | validate | no | 2026-07-12 | Refocus Beacon on a small lane-level working set with durable attention, notes, factual deltas, and conservative recent-PR enrichment. |
 
 ## PROJECT INTENT
 
-Beacon provides a dependable local signal layer for supervising coding-agent
-work lanes. It derives review readiness and the next useful action from durable
-Git and GitHub evidence without relying on chat history, synthetic progress, or
-agent-private task state.
+Beacon provides a dependable local working-set memory for the small set of
+coding-agent lanes competing for attention. It derives factual change and the
+next useful action from durable Git and GitHub evidence, plus optional local
+notes, without relying on chat history, synthetic progress, or agent-private
+task state.
 
 ## GLOBAL CONSTRAINTS
 
@@ -101,6 +103,15 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **APPROACH**: Persist user-only cached `gh` results across agent restarts, keep subscriptions cache-only, skip scheduler collection when no cached project is due, batch default-scope GitHub searches across every due project, enrich only matching PRs, serialize cache misses behind 50% rate-bucket reserves, and probe quiet inventory on a slower cadence.
 - **OPEN ITEMS**: Implementation, local state migration, and validation are complete on issue #3, branch `GH-3`, and ready PR #4; final review and merge remain human decisions.
 - **POINTERS**: `docs/specs/0008-github-api-budget/SPEC.md`
+
+### beacon-working-set-radar
+
+- **STATUS**: validate
+- **PAUSED**: no
+- **INTENT**: Make Beacon a personal memory for the small set of Git, PR, and manual lanes currently competing for attention.
+- **APPROACH**: Persist lane-level attention, pins, notes, last-seen observations, and factual deltas; observe local Git frequently without network work; discover GitHub activity globally and enrich only recent active work by default; retain the broad scanner as an explicit diagnostic.
+- **OPEN ITEMS**: Implementation and local validation are complete on issue #5 and branch `GH-5`, stacked on prerequisite ready PR #4. The ready stacked PR remains to be created.
+- **POINTERS**: `docs/specs/0009-beacon-working-set-radar/SPEC.md`
 
 ## LAST UPDATED
 

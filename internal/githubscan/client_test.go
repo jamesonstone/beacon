@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/model"
@@ -35,14 +36,14 @@ func TestNormalizeCI(t *testing.T) {
 
 func TestCollectMineFiltersRepositoriesAndEnrichesEvidence(t *testing.T) {
 	runner := &fixtureRunner{responses: map[string][]byte{
-		"gh search prs":    []byte(`[{"number":2,"repository":{"nameWithOwner":"owner/beacon"}},{"number":9,"repository":{"nameWithOwner":"other/repo"}}]`),
+		"gh search prs":    []byte(`[{"number":2,"updatedAt":"2099-07-10T12:00:00Z","repository":{"nameWithOwner":"owner/beacon"}},{"number":9,"updatedAt":"2099-07-10T12:00:00Z","repository":{"nameWithOwner":"other/repo"}}]`),
 		"gh pr view":       []byte(`[REPLACED]`),
 		"gh api graphql":   []byte(`{"data":{"repository":{"pullRequest":{"reviewThreads":{"totalCount":2,"nodes":[{"isResolved":false},{"isResolved":true}]}}}}}`),
 		"gh search issues": []byte(`[{"number":1,"title":"Build Beacon","url":"https://github.com/owner/beacon/issues/1","updatedAt":"2026-07-10T12:00:00Z","labels":[{"name":"feature"}],"assignees":[{"login":"me"}],"repository":{"nameWithOwner":"owner/beacon"}}]`),
 	}}
 	runner.responses["gh pr view"] = []byte(`{"number":2,"title":"Feature","url":"https://github.com/owner/beacon/pull/2","headRefName":"GH-1","headRefOid":"abc","baseRefName":"main","isDraft":false,"updatedAt":"2026-07-10T12:00:00Z","reviewDecision":"","statusCheckRollup":[{"status":"COMPLETED","conclusion":"SUCCESS"}],"mergeStateStatus":"CLEAN","mergeable":"MERGEABLE","comments":[{}],"reviews":[],"closingIssuesReferences":[{"number":1,"title":"Build Beacon","url":"https://github.com/owner/beacon/issues/1","updatedAt":"2026-07-10T12:00:00Z","labels":[],"assignees":[]}]}`)
 
-	collection := (Client{Runner: runner}).Collect(context.Background(), []config.Repository{
+	collection := (Client{Runner: runner, Now: func() time.Time { return time.Date(2099, 7, 12, 0, 0, 0, 0, time.UTC) }}).Collect(context.Background(), []config.Repository{
 		{Name: "beacon", GitHub: "owner/beacon"},
 		{Name: "other", GitHub: "owner/other"},
 	}, "mine", "@me", 2)
@@ -88,22 +89,41 @@ func TestCollectMineBatchesEightyRepositoriesIntoTwoSearches(t *testing.T) {
 	}
 }
 
-func TestCollectMineForOneRepositoryUsesScopedListQueries(t *testing.T) {
+func TestCollectMineForOneRepositoryStillUsesGlobalSearches(t *testing.T) {
 	runner := &fixtureRunner{responses: map[string][]byte{
-		"gh pr list":    []byte(`[]`),
-		"gh issue list": []byte(`[]`),
+		"gh search prs":    []byte(`[]`),
+		"gh search issues": []byte(`[]`),
 	}}
 	collection := (Client{Runner: runner}).Collect(context.Background(), []config.Repository{{Name: "beacon", GitHub: "owner/beacon"}}, "mine", "@me", 2)
 	if len(collection.Errors) != 0 || len(collection.Repositories["owner/beacon"].Errors) != 0 {
 		t.Fatalf("collection = %#v", collection)
 	}
 	joined := strings.Join(runner.calls, "\n")
-	if !strings.Contains(joined, "gh pr list --repo owner/beacon") || !strings.Contains(joined, "--author @me") ||
-		!strings.Contains(joined, "gh issue list --repo owner/beacon") || !strings.Contains(joined, "--assignee @me") {
-		t.Fatalf("repository-scoped calls = %v", runner.calls)
+	if !strings.Contains(joined, "gh search prs --author @me") || !strings.Contains(joined, "gh search issues --assignee @me") {
+		t.Fatalf("global calls = %v", runner.calls)
 	}
-	if strings.Contains(joined, "gh search") {
-		t.Fatalf("single-repository collection used account-wide search: %v", runner.calls)
+}
+
+func TestCollectMineSkipsInactivePullRequestEnrichmentUnlessExplicit(t *testing.T) {
+	now := time.Date(2026, 7, 12, 0, 0, 0, 0, time.UTC)
+	responses := map[string][]byte{
+		"gh search prs":    []byte(`[{"number":2,"updatedAt":"2026-06-01T12:00:00Z","repository":{"nameWithOwner":"owner/beacon"}}]`),
+		"gh search issues": []byte(`[]`),
+		"gh pr view":       []byte(`{"number":2,"title":"Old","url":"https://github.com/owner/beacon/pull/2","headRefName":"old","headRefOid":"abc","baseRefName":"main","isDraft":false,"updatedAt":"2026-06-01T12:00:00Z","reviewDecision":"","statusCheckRollup":[],"mergeStateStatus":"CLEAN","mergeable":"MERGEABLE","comments":[],"reviews":[],"closingIssuesReferences":[]}`),
+		"gh api graphql":   []byte(`{"data":{"repository":{"pullRequest":{"reviewThreads":{"totalCount":0,"nodes":[]}}}}}`),
+	}
+	runner := &fixtureRunner{responses: responses}
+	client := Client{Runner: runner, Now: func() time.Time { return now }}
+	repositories := []config.Repository{{Name: "beacon", GitHub: "owner/beacon"}}
+	collection := client.Collect(context.Background(), repositories, "mine", "@me", 2)
+	if len(collection.Repositories["owner/beacon"].PullRequests) != 0 || runner.count("gh pr view") != 0 {
+		t.Fatalf("inactive PR was enriched: %#v / %v", collection, runner.calls)
+	}
+
+	runner.calls = nil
+	collection = client.Collect(WithInactivePullRequests(context.Background()), repositories, "mine", "@me", 2)
+	if len(collection.Repositories["owner/beacon"].PullRequests) != 1 || runner.count("gh pr view") != 1 {
+		t.Fatalf("explicit refresh omitted inactive PR: %#v / %v", collection, runner.calls)
 	}
 }
 

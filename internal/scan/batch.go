@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/jamesonstone/beacon/internal/config"
+	"github.com/jamesonstone/beacon/internal/githubscan"
 	"github.com/jamesonstone/beacon/internal/model"
 )
 
@@ -29,8 +30,12 @@ func (s Scanner) ScanMany(
 		return nil, errors.New("batch scanner clock is required")
 	}
 
+	remoteContext := ctx
+	if refresh && len(repositories) == 1 {
+		remoteContext = githubscan.WithInactivePullRequests(ctx)
+	}
 	remote := s.GitHub.Collect(
-		ctx,
+		remoteContext,
 		repositories,
 		string(cfg.Settings.GitHubScope),
 		cfg.Settings.GitHubAuthor,

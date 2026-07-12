@@ -74,7 +74,7 @@ final class ApplicationLifecycleTests: XCTestCase {
 private actor LifecycleSnapshotClient: CLIClientProtocol {
     func scan() async throws -> BeaconSnapshot {
         BeaconSnapshot(
-            schemaVersion: 2,
+            schemaVersion: 3,
             generatedAt: "2026-07-12T12:00:00Z",
             configPath: "/Users/test/.config/beacon/config.yaml",
             tracking: nil,

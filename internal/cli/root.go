@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jamesonstone/beacon/internal/agent"
 	"github.com/jamesonstone/beacon/internal/command"
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/discovery"
@@ -76,7 +77,7 @@ func (a App) Root() *cobra.Command {
 	var noWatch bool
 	root := &cobra.Command{
 		Use:           "beacon",
-		Short:         "Review readiness for agent-driven Git work",
+		Short:         "Working-set memory for agent-driven Git work",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		Args:          noArgs,
@@ -93,6 +94,13 @@ func (a App) Root() *cobra.Command {
 		a.initCommand(&configPath),
 		a.scanCommand(&configPath),
 		a.projectsCommand(&configPath),
+		a.lanesCommand(&configPath),
+		a.laneAttentionCommand(&configPath, "pin", agent.RequestSetLanePinned),
+		a.laneAttentionCommand(&configPath, "park", agent.RequestSetLaneAttention),
+		a.laneAttentionCommand(&configPath, "resume", agent.RequestSetLaneAttention),
+		a.laneNoteCommand(&configPath),
+		a.laneAddCommand(&configPath),
+		a.laneSeenCommand(&configPath),
 		a.selectCommand(&configPath),
 		a.rootTrackingCommand(&configPath, true),
 		a.rootTrackingCommand(&configPath, false),
@@ -307,9 +315,13 @@ func nextActiveLane(snapshot model.Snapshot) (model.Lane, bool) {
 	for _, lane := range snapshot.Lanes {
 		byID[lane.ID] = lane
 	}
-	for _, group := range [][]string{snapshot.Groups.Ready, snapshot.Groups.Action, snapshot.Groups.Waiting} {
+	groups := [][]string{snapshot.WorkingSet.Active, snapshot.WorkingSet.Waiting, snapshot.WorkingSet.Recent}
+	if len(snapshot.WorkingSet.Active)+len(snapshot.WorkingSet.Waiting)+len(snapshot.WorkingSet.Recent) == 0 {
+		groups = [][]string{snapshot.Groups.Ready, snapshot.Groups.Action, snapshot.Groups.Waiting}
+	}
+	for _, group := range groups {
 		for _, id := range group {
-			if lane, ok := byID[id]; ok {
+			if lane, ok := byID[id]; ok && laneHasOpenTarget(lane) {
 				return lane, true
 			}
 		}
@@ -317,12 +329,21 @@ func nextActiveLane(snapshot model.Snapshot) (model.Lane, bool) {
 	return model.Lane{}, false
 }
 
+func laneHasOpenTarget(lane model.Lane) bool {
+	return lane.PullRequest != nil || lane.Issue != nil || lane.Worktree != nil
+}
+
 func (a App) loadSnapshot(ctx context.Context, path string) (model.Snapshot, error) {
 	cfg, err := config.Load(path)
 	if err != nil {
 		return model.Snapshot{}, err
 	}
-	return a.scanSnapshot(ctx, cfg, "", true)
+	if _, paths, agentErr := a.agentConfig(path); agentErr == nil {
+		if event, requestErr := (agent.Client{Socket: paths.Socket}).Request(ctx, agent.Request{Type: agent.RequestGetSnapshot}); requestErr == nil && event.Snapshot != nil {
+			return *event.Snapshot, nil
+		}
+	}
+	return a.scanSnapshot(ctx, cfg, "", false)
 }
 
 func (a App) openLane(ctx context.Context, lane model.Lane) error {

@@ -110,7 +110,7 @@ func (e *Engine) runCollectedBatch(
 	sort.Slice(scanRepositories, func(i, j int) bool {
 		return scanRepositories[i].GitHub < scanRepositories[j].GitHub
 	})
-	snapshots, err := e.ScanBatch(ctx, scanRepositories, true, func(projectID, stage string) {
+	snapshots, err := e.ScanBatch(ctx, scanRepositories, force, func(projectID, stage string) {
 		state := states[projectID]
 		if state == nil {
 			return

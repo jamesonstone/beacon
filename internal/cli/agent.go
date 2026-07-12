@@ -16,6 +16,7 @@ import (
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/output"
 	"github.com/jamesonstone/beacon/internal/tracking"
+	"github.com/jamesonstone/beacon/internal/workset"
 	"github.com/spf13/cobra"
 )
 
@@ -134,6 +135,18 @@ func (a App) refreshCommand(configPath *string) *cobra.Command {
 			request := agent.Request{Type: agent.RequestRefreshAll}
 			if len(args) == 1 {
 				request.Type, request.ProjectID = agent.RequestRefreshProject, args[0]
+				if snapshotEvent, snapshotErr := (agent.Client{Socket: paths.Socket}).Request(cmd.Context(), agent.Request{Type: agent.RequestGetSnapshot}); snapshotErr == nil && snapshotEvent.Snapshot != nil {
+					for _, lane := range snapshotEvent.Snapshot.Lanes {
+						if lane.ID != args[0] {
+							continue
+						}
+						if lane.GitHub == "" {
+							return fmt.Errorf("manual lane cannot be refreshed: %s", lane.ID)
+						}
+						request.ProjectID = lane.GitHub
+						break
+					}
+				}
 			}
 			event, err := (agent.Client{Socket: paths.Socket}).Request(cmd.Context(), request)
 			if err != nil {
@@ -196,14 +209,11 @@ func (a App) runAgentDashboard(ctx context.Context, configPath, colorMode string
 	if event.Snapshot == nil {
 		return errors.New("agent returned no cached snapshot")
 	}
-	if err := output.TerminalWithOptions(a.Out, *event.Snapshot, output.TerminalOptions{Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle}); err != nil {
+	if err := output.TerminalWithOptions(a.Out, *event.Snapshot, output.TerminalOptions{Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle, WorkingSet: true}); err != nil {
 		return err
 	}
-	if noWatch {
-		return nil
-	}
-	_, err = client.Request(ctx, agent.Request{Type: agent.RequestRefreshAll})
-	return err
+	_ = noWatch
+	return nil
 }
 
 func (a App) agentConfig(path string) (config.Config, agent.Paths, error) {
@@ -248,6 +258,8 @@ func (a App) newAgentEngine(ctx context.Context, path string) (*agent.Engine, ag
 	cache := agent.Cache{Directory: paths.Projects, Now: time.Now}
 	prober := agent.Prober{Runner: githubRunner, Remote: scanner.GitHub}
 	engine := agent.NewEngine(cfg, paths, cache, repositories, projectScanner, prober, tracker)
+	workingSet := workset.Manager{Store: workset.FileStore{}, Now: time.Now}
+	engine.WorkingSet = &workingSet
 	engine.ScanBatch = func(
 		scanContext context.Context,
 		repositories []config.Repository,

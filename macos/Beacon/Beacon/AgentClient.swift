@@ -69,6 +69,19 @@ protocol AgentClientProtocol {
     func refresh(project: String?) async throws -> String
     func setProjectTracked(_ github: String, tracked: Bool) async throws -> AgentEvent
     func status() async throws -> AgentStatusDetails
+    func setLaneAttention(_ id: String, state: String) async throws -> AgentEvent
+    func setLanePinned(_ id: String, pinned: Bool) async throws -> AgentEvent
+    func setLaneNote(_ id: String, note: String) async throws -> AgentEvent
+    func markLaneSeen(_ id: String) async throws -> AgentEvent
+    func addManualLane(_ title: String) async throws -> AgentEvent
+}
+
+extension AgentClientProtocol {
+    func setLaneAttention(_ id: String, state: String) async throws -> AgentEvent { throw AgentClientError.command("lane attention is unavailable") }
+    func setLanePinned(_ id: String, pinned: Bool) async throws -> AgentEvent { throw AgentClientError.command("lane pinning is unavailable") }
+    func setLaneNote(_ id: String, note: String) async throws -> AgentEvent { throw AgentClientError.command("lane notes are unavailable") }
+    func markLaneSeen(_ id: String) async throws -> AgentEvent { throw AgentClientError.command("lane acknowledgement is unavailable") }
+    func addManualLane(_ title: String) async throws -> AgentEvent { throw AgentClientError.command("manual lanes are unavailable") }
 }
 
 enum AgentClientError: LocalizedError {
@@ -119,6 +132,26 @@ actor AgentClient: AgentClientProtocol {
         return event
     }
 
+    func setLaneAttention(_ id: String, state: String) async throws -> AgentEvent {
+        try await request(type: "set_lane_attention", laneID: id, attentionState: state)
+    }
+
+    func setLanePinned(_ id: String, pinned: Bool) async throws -> AgentEvent {
+        try await request(type: "set_lane_pinned", laneID: id, pinned: pinned)
+    }
+
+    func setLaneNote(_ id: String, note: String) async throws -> AgentEvent {
+        try await request(type: "set_lane_note", laneID: id, note: note)
+    }
+
+    func markLaneSeen(_ id: String) async throws -> AgentEvent {
+        try await request(type: "mark_lane_seen", laneID: id)
+    }
+
+    func addManualLane(_ title: String) async throws -> AgentEvent {
+        try await request(type: "add_manual_lane", title: title)
+    }
+
     func status() async throws -> AgentStatusDetails {
         let event = try await request(type: "get_agent_status")
         guard let status = event.status else {
@@ -152,9 +185,9 @@ actor AgentClient: AgentClientProtocol {
         }
     }
 
-    private func request(type: String, projectID: String? = nil, trackingState: String? = nil) async throws -> AgentEvent {
+    private func request(type: String, projectID: String? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, title: String? = nil) async throws -> AgentEvent {
         let path = socketPath
-        let payload = try Self.requestData(type: type, projectID: projectID, trackingState: trackingState)
+        let payload = try Self.requestData(type: type, projectID: projectID, trackingState: trackingState, laneID: laneID, attentionState: attentionState, pinned: pinned, note: note, title: title)
         return try await Task.detached(priority: .userInitiated) {
             let socket = try UnixSocket(path: path)
             defer { socket.close() }
@@ -167,7 +200,7 @@ actor AgentClient: AgentClientProtocol {
         }.value
     }
 
-    private static func requestData(type: String, projectID: String? = nil, trackingState: String? = nil) throws -> Data {
+    private static func requestData(type: String, projectID: String? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, title: String? = nil) throws -> Data {
         var object: [String: Any] = [
             "protocol_version": 1,
             "request_id": UUID().uuidString.lowercased(),
@@ -175,6 +208,11 @@ actor AgentClient: AgentClientProtocol {
         ]
         object["project_id"] = projectID
         object["tracking_state"] = trackingState
+        object["lane_id"] = laneID
+        object["attention_state"] = attentionState
+        object["pinned"] = pinned
+        object["note"] = note
+        object["title"] = title
         var data = try JSONSerialization.data(withJSONObject: object)
         data.append(0x0A)
         return data

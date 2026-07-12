@@ -2,10 +2,10 @@ import XCTest
 @testable import Beacon
 
 final class ModelsTests: XCTestCase {
-    func testDecodesCompleteSchemaVersionTwo() throws {
+    func testDecodesCompleteSchemaVersionThree() throws {
         let data = Data(Self.snapshotJSON.utf8)
         let snapshot = try JSONDecoder().decode(BeaconSnapshot.self, from: data)
-        XCTAssertEqual(snapshot.schemaVersion, 2)
+        XCTAssertEqual(snapshot.schemaVersion, 3)
         XCTAssertEqual(snapshot.projects.first?.progress?.phase, "deliver")
         XCTAssertEqual(snapshot.summary.reviewReady, 1)
         XCTAssertEqual(snapshot.summary.trackedProjects, 1)
@@ -19,6 +19,8 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(snapshot.lanes.first?.issue?.number, 41)
         XCTAssertEqual(snapshot.lanes.first?.signals.issue, "open")
         XCTAssertEqual(snapshot.groups.ready, ["gh:owner/repo#42"])
+        XCTAssertEqual(snapshot.workingSet?.active, ["gh:owner/repo#42"])
+        XCTAssertEqual(snapshot.lanes.first?.attention?.delta, "CI changed from pending to success")
     }
 
     func testDecodesPartialRepositoryErrorWithoutDiscardingLanes() throws {
@@ -125,13 +127,14 @@ final class ModelsTests: XCTestCase {
 
     private static let snapshotJSON = #"""
     {
-      "schema_version": 2,
+      "schema_version": 3,
       "generated_at": "2026-07-09T16:00:00Z",
       "config_path": "/Users/test/.config/beacon/config.yaml",
       "tracking": {"path": "/Users/test/.config/beacon/tracking.yaml", "auto_reactivated": []},
       "refresh": [],
-      "summary": {"projects": 1, "tracked_projects": 1, "untracked_projects": 0, "total": 1, "review_ready": 1, "needs_action": 0, "waiting": 0, "idle": 0, "errors": 0, "open_issues": 1, "unresolved_feedback": 1},
+      "summary": {"projects": 1, "tracked_projects": 1, "untracked_projects": 0, "total": 1, "review_ready": 1, "needs_action": 0, "waiting": 0, "idle": 0, "errors": 0, "open_issues": 1, "unresolved_feedback": 1, "active_lanes": 1, "recent_lanes": 0, "parked_lanes": 0},
       "groups": {"ready": ["gh:owner/repo#42"], "action": [], "waiting": [], "idle": [], "untracked": []},
+      "working_set": {"path": "/Users/test/.local/state/beacon/lanes.json", "active": ["gh:owner/repo#42"], "waiting": [], "recent": [], "parked": []},
       "projects": [{
         "name": "repo", "path": "/Users/test/repo", "github": "owner/repo", "base": "main", "remote": "origin",
         "tracking_state": "tracked",
@@ -149,7 +152,8 @@ final class ModelsTests: XCTestCase {
         "issue": {"number": 41, "title": "Feature issue", "url": "https://example.test/issues/41", "labels": ["enhancement"], "assignees": ["me"], "updated_at": "2026-07-09T15:00:00Z"},
         "progress": {"source": "kit", "feature_id": "0002", "feature": "Dashboard", "phase": "deliver", "summary": "Ready", "path": "docs/specs/0002/SPEC.md"},
         "signals": {"worktree": "not_local", "publication": "published", "pull_request": "open", "ci": "success", "review": "feedback_pending", "merge": "clean", "freshness": "current", "issue": "open"},
-        "review_ready": true, "next_action": "address_review", "reasons": [], "warnings": [], "blockers": [], "updated_at": "2026-07-09T16:00:00Z"
+        "review_ready": true, "next_action": "address_review", "reasons": [], "warnings": [], "blockers": [], "updated_at": "2026-07-09T16:00:00Z",
+        "attention": {"state": "active", "pinned": true, "manual": false, "note": "test manually", "note_stale": true, "delta": "CI changed from pending to success", "previous": {}, "current": {}}
       }],
       "errors": []
     }

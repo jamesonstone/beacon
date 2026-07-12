@@ -24,6 +24,11 @@ const (
 	RequestListProjects     = "list_projects"
 	RequestGetAgentStatus   = "get_agent_status"
 	RequestShutdown         = "shutdown"
+	RequestSetLaneAttention = "set_lane_attention"
+	RequestSetLanePinned    = "set_lane_pinned"
+	RequestSetLaneNote      = "set_lane_note"
+	RequestMarkLaneSeen     = "mark_lane_seen"
+	RequestAddManualLane    = "add_manual_lane"
 )
 
 const (
@@ -38,6 +43,7 @@ const (
 	EventScanCompleted      = "scan_completed"
 	EventHeartbeat          = "heartbeat"
 	EventAgentStatus        = "agent_status"
+	EventWorkingSetChanged  = "working_set_changed"
 )
 
 type Request struct {
@@ -47,6 +53,11 @@ type Request struct {
 	ProjectID       string   `json:"project_id,omitempty"`
 	ProjectIDs      []string `json:"project_ids,omitempty"`
 	TrackingState   string   `json:"tracking_state,omitempty"`
+	LaneID          string   `json:"lane_id,omitempty"`
+	AttentionState  string   `json:"attention_state,omitempty"`
+	Pinned          bool     `json:"pinned,omitempty"`
+	Note            string   `json:"note,omitempty"`
+	Title           string   `json:"title,omitempty"`
 }
 
 type ProjectStatus struct {
