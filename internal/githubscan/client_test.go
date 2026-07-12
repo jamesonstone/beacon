@@ -36,7 +36,7 @@ func TestNormalizeCI(t *testing.T) {
 
 func TestCollectMineFiltersRepositoriesAndEnrichesEvidence(t *testing.T) {
 	runner := &fixtureRunner{responses: map[string][]byte{
-		"gh search prs":    []byte(`[{"number":2,"updatedAt":"2099-07-10T12:00:00Z","repository":{"nameWithOwner":"owner/beacon"}},{"number":9,"updatedAt":"2099-07-10T12:00:00Z","repository":{"nameWithOwner":"other/repo"}}]`),
+		"gh search prs":    []byte(`[{"number":2,"updatedAt":"2099-07-11T22:00:00Z","repository":{"nameWithOwner":"owner/beacon"}},{"number":9,"updatedAt":"2099-07-11T22:00:00Z","repository":{"nameWithOwner":"other/repo"}}]`),
 		"gh pr view":       []byte(`[REPLACED]`),
 		"gh api graphql":   []byte(`{"data":{"repository":{"pullRequest":{"reviewThreads":{"totalCount":2,"nodes":[{"isResolved":false},{"isResolved":true}]}}}}}`),
 		"gh search issues": []byte(`[{"number":1,"title":"Build Beacon","url":"https://github.com/owner/beacon/issues/1","updatedAt":"2026-07-10T12:00:00Z","labels":[{"name":"feature"}],"assignees":[{"login":"me"}],"repository":{"nameWithOwner":"owner/beacon"}}]`),

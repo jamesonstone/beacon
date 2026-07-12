@@ -255,5 +255,5 @@ func (m Manager) recentWindow() time.Duration {
 	if m.RecentWindow > 0 {
 		return m.RecentWindow
 	}
-	return 48 * time.Hour
+	return 6 * time.Hour
 }

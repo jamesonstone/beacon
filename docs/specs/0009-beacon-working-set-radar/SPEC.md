@@ -139,9 +139,10 @@ presentation path must become lane-centered and local-first.
 
 - Strict JSON remains sufficient because Beacon stores only current and
   last-seen observations, not an event history.
-- Forty-eight hours is the default recent-activity window. A live 80-project
-  rollout established that seven days admitted dozens of old lanes and failed
-  the small-working-set objective.
+- Six hours is the default automatic recent-activity window. A live 80-project
+  rollout established that seven days admitted 49 lanes and 48 hours still
+  admitted 12, while a work-session-sized window meets the three-to-eight lane
+  objective. Pins and explicit resume preserve longer-lived attention.
 - An additive protocol command set is preferable to a second local control
   channel.
 - Stacking this branch on `GH-3` is required until PR #4 lands because this
@@ -224,9 +225,9 @@ presentation path must become lane-centered and local-first.
 - The simplest conservative remote policy is constant-cost discovery: the
   default scope always uses two global searches, filters locally, and enriches
   only recent matches. Explicit diagnostics opt into inactive PR enrichment.
-- Live rollout evidence reduced the automatic recent window from seven days to
-  48 hours, excludes clean base branches, and parks stale dirty work. This keeps
-  old unsaved evidence recoverable without presenting it as current focus.
+- Live rollout evidence reduced the automatic recent window to six hours,
+  excludes clean base branches, and parks stale dirty work. This keeps old
+  unsaved evidence recoverable without presenting it as current focus.
 
 ## Documentation Updates
 
