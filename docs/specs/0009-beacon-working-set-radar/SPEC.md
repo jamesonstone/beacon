@@ -222,6 +222,9 @@ presentation path must become lane-centered and local-first.
 - Schema upgrades must migrate last-good per-project caches in memory. Rejecting
   schema-v2 cache files as corrupt forced an unnecessary fleet-wide startup
   rebuild and erased the cache-first experience this feature depends on.
+- Explicit one-lane refresh must bypass otherwise-valid response-cache entries
+  while retaining rate-reserve protection; otherwise a just-opened PR remains
+  invisible until the scheduled 45-minute cache age expires.
 - The simplest conservative remote policy is constant-cost discovery: the
   default scope always uses two global searches, filters locally, and enriches
   only recent matches. Explicit diagnostics opt into inactive PR enrichment.

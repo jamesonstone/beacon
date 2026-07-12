@@ -12,6 +12,7 @@ import (
 
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/discovery"
+	"github.com/jamesonstone/beacon/internal/githubapi"
 	"github.com/jamesonstone/beacon/internal/githubscan"
 	"github.com/jamesonstone/beacon/internal/gitscan"
 	"github.com/jamesonstone/beacon/internal/model"
@@ -73,7 +74,8 @@ func (s Scanner) Scan(ctx context.Context, cfg config.Config, repositoryName str
 		return model.Snapshot{}, errors.New("configuration did not resolve to any accessible GitHub repositories")
 	}
 
-	remote := s.GitHub.Collect(githubscan.WithInactivePullRequests(ctx), repositories, string(cfg.Settings.GitHubScope), cfg.Settings.GitHubAuthor, cfg.Settings.MaxParallel)
+	remoteContext := githubapi.WithFreshEvidence(githubscan.WithInactivePullRequests(ctx))
+	remote := s.GitHub.Collect(remoteContext, repositories, string(cfg.Settings.GitHubScope), cfg.Settings.GitHubAuthor, cfg.Settings.MaxParallel)
 	results := make(chan repositoryResult, len(repositories))
 	semaphore := make(chan struct{}, cfg.Settings.MaxParallel)
 	var waitGroup sync.WaitGroup
