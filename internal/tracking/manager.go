@@ -23,12 +23,37 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 	return m.reconcile(snapshot)
 }
 
+func (m Manager) ReconcileAt(snapshot model.Snapshot, path string) (model.Snapshot, error) {
+	managerMutex.Lock()
+	defer managerMutex.Unlock()
+	return m.reconcileAt(snapshot, path)
+}
+
+func (m Manager) ApplyAt(snapshot model.Snapshot, path string) (model.Snapshot, error) {
+	managerMutex.Lock()
+	defer managerMutex.Unlock()
+	state, err := m.loadState(snapshot.ConfigPath, path)
+	if err != nil {
+		return model.Snapshot{}, err
+	}
+	untracked := make(map[string]struct{}, len(state.Untracked))
+	for _, entry := range state.Untracked {
+		untracked[entry.GitHub] = struct{}{}
+	}
+	apply(&snapshot, path, untracked, nil)
+	return snapshot, nil
+}
+
 func (m Manager) reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
-	store := m.store()
 	path, err := ResolvePath(snapshot.ConfigPath)
 	if err != nil {
 		return model.Snapshot{}, err
 	}
+	return m.reconcileAt(snapshot, path)
+}
+
+func (m Manager) reconcileAt(snapshot model.Snapshot, path string) (model.Snapshot, error) {
+	store := m.store()
 	state, err := m.loadState(snapshot.ConfigPath, path)
 	if err != nil {
 		return model.Snapshot{}, err
@@ -53,6 +78,13 @@ func (m Manager) reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 		fingerprint, err := Fingerprint(project, snapshot.Lanes)
 		if err != nil {
 			return model.Snapshot{}, fmt.Errorf("fingerprint %s: %w", entry.GitHub, err)
+		}
+		if entry.Baseline == "" {
+			entry.Baseline = fingerprint
+			remaining = append(remaining, entry)
+			untracked[entry.GitHub] = struct{}{}
+			changed = true
+			continue
 		}
 		if fingerprint != entry.Baseline {
 			changed = true
@@ -126,12 +158,12 @@ func (m Manager) SetTracked(snapshot model.Snapshot, targets []string, tracked b
 			}
 			continue
 		}
-		if !hasCompleteEvidence(snapshot, project) {
-			return model.Snapshot{}, fmt.Errorf("cannot untrack %s while its evidence scan has errors", project.GitHub)
-		}
-		baseline, err := Fingerprint(project, snapshot.Lanes)
-		if err != nil {
-			return model.Snapshot{}, fmt.Errorf("fingerprint %s: %w", project.GitHub, err)
+		baseline := ""
+		if hasCompleteEvidence(snapshot, project) {
+			baseline, err = Fingerprint(project, snapshot.Lanes)
+			if err != nil {
+				return model.Snapshot{}, fmt.Errorf("fingerprint %s: %w", project.GitHub, err)
+			}
 		}
 		entries[project.GitHub] = Entry{
 			GitHub: project.GitHub, Name: project.Name, Path: project.Path,
@@ -174,12 +206,12 @@ func (m Manager) SetSelection(snapshot model.Snapshot, trackedGitHub []string) (
 			delete(entries, project.GitHub)
 			changed = true
 		case !shouldTrack:
-			if !hasCompleteEvidence(snapshot, project) {
-				return model.Snapshot{}, fmt.Errorf("cannot untrack %s while its evidence scan has errors", project.GitHub)
-			}
-			baseline, err := Fingerprint(project, snapshot.Lanes)
-			if err != nil {
-				return model.Snapshot{}, fmt.Errorf("fingerprint %s: %w", project.GitHub, err)
+			baseline := ""
+			if hasCompleteEvidence(snapshot, project) {
+				baseline, err = Fingerprint(project, snapshot.Lanes)
+				if err != nil {
+					return model.Snapshot{}, fmt.Errorf("fingerprint %s: %w", project.GitHub, err)
+				}
 			}
 			entries[project.GitHub] = Entry{
 				GitHub: project.GitHub, Name: project.Name, Path: project.Path,

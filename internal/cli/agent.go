@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -222,7 +223,9 @@ func (a App) newAgentEngine(ctx context.Context, path string) (*agent.Engine, ag
 	if err := paths.EnsureRuntime(); err != nil {
 		return nil, agent.Paths{}, err
 	}
-	githubRunner := githubapi.NewRunner(a.Runner, cfg.Settings.RemoteRefreshInterval)
+	githubRunner := githubapi.NewRunnerWithOptions(a.Runner, githubapi.Options{
+		CacheTTL: cfg.Settings.RemoteRefreshInterval, CacheDirectory: filepath.Join(paths.CacheRoot, "github"),
+	})
 	scanner := a.scannerComponentsWithRunner(githubRunner)
 	tracker := tracking.Manager{Store: tracking.FileStore{}, Now: time.Now}
 	repositories := func(repositoryContext context.Context) ([]config.Repository, error) {

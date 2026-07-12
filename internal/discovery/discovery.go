@@ -2,7 +2,6 @@ package discovery
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/url"
@@ -17,8 +16,7 @@ import (
 )
 
 const (
-	gitTimeout    = 5 * time.Second
-	githubTimeout = 20 * time.Second
+	gitTimeout = 5 * time.Second
 )
 
 type Warning struct {
@@ -146,29 +144,39 @@ func (d Discoverer) inspect(ctx context.Context, path string) (candidate, error)
 	if err != nil {
 		return candidate{}, err
 	}
-	metadata, err := d.githubMetadata(ctx, github)
-	if err != nil {
-		return candidate{}, err
-	}
+	base := d.localBaseBranch(ctx, path, remote)
 	canonicalPath, err := filepath.Abs(path)
 	if err != nil {
 		return candidate{}, fmt.Errorf("canonicalize repository path: %w", err)
 	}
-	name := strings.TrimPrefix(metadata.NameWithOwner, strings.Split(metadata.NameWithOwner, "/")[0]+"/")
-	if name == "" || name == metadata.NameWithOwner {
+	_, name, found := strings.Cut(github, "/")
+	if !found || name == "" {
 		name = filepath.Base(canonicalPath)
-	}
-	base := metadata.DefaultBranchRef.Name
-	if base == "" {
-		base = "main"
 	}
 	return candidate{
 		path: canonicalPath, commonDir: commonDir,
 		repo: config.Repository{
-			Name: name, Path: filepath.Clean(canonicalPath), GitHub: metadata.NameWithOwner,
+			Name: name, Path: filepath.Clean(canonicalPath), GitHub: github,
 			Base: base, Remote: remote, CommonDir: commonDir,
 		},
 	}, nil
+}
+
+func (d Discoverer) localBaseBranch(ctx context.Context, path, remote string) string {
+	output, err := d.run(ctx, gitTimeout, path, "git", "symbolic-ref", "--quiet", "--short", "refs/remotes/"+remote+"/HEAD")
+	if err == nil {
+		reference := strings.TrimSpace(string(output))
+		prefix := remote + "/"
+		if strings.HasPrefix(reference, prefix) && strings.TrimPrefix(reference, prefix) != "" {
+			return strings.TrimPrefix(reference, prefix)
+		}
+	}
+	for _, candidate := range []string{"main", "master", "trunk"} {
+		if _, err := d.run(ctx, gitTimeout, path, "git", "show-ref", "--verify", "--quiet", "refs/heads/"+candidate); err == nil {
+			return candidate
+		}
+	}
+	return "main"
 }
 
 func (d Discoverer) CommonDirectory(ctx context.Context, path string) (string, error) {
@@ -211,28 +219,6 @@ func (d Discoverer) githubRemote(ctx context.Context, path string) (string, stri
 		}
 	}
 	return "", "", fmt.Errorf("no GitHub remote found")
-}
-
-type repositoryMetadata struct {
-	NameWithOwner    string `json:"nameWithOwner"`
-	DefaultBranchRef struct {
-		Name string `json:"name"`
-	} `json:"defaultBranchRef"`
-}
-
-func (d Discoverer) githubMetadata(ctx context.Context, github string) (repositoryMetadata, error) {
-	output, err := d.run(ctx, githubTimeout, "", "gh", "repo", "view", github, "--json", "nameWithOwner,defaultBranchRef")
-	if err != nil {
-		return repositoryMetadata{}, fmt.Errorf("access GitHub repository %s: %w", github, err)
-	}
-	var metadata repositoryMetadata
-	if err := json.Unmarshal(output, &metadata); err != nil {
-		return repositoryMetadata{}, fmt.Errorf("decode GitHub repository %s: %w", github, err)
-	}
-	if metadata.NameWithOwner == "" {
-		return repositoryMetadata{}, fmt.Errorf("GitHub repository %s returned no nameWithOwner", github)
-	}
-	return metadata, nil
 }
 
 func (d Discoverer) run(ctx context.Context, timeout time.Duration, dir, name string, args ...string) ([]byte, error) {

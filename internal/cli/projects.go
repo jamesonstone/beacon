@@ -35,6 +35,9 @@ func (a App) projectsCommand(configPath *string) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if !showUntracked && !showTracked {
+				return a.runProjectSelector(cmd.Context(), *configPath, cmd.CommandPath())
+			}
 			snapshot, err := a.projectSnapshot(cmd.Context(), *configPath)
 			if err != nil {
 				return err
@@ -45,30 +48,7 @@ func (a App) projectsCommand(configPath *string) *cobra.Command {
 			if showTracked {
 				return output.Projects(a.Out, snapshot, model.TrackingTracked, output.TerminalOptions{Color: color, Width: a.terminalWidth()})
 			}
-			if !a.inputIsTTY() {
-				return usageError{errors.New("beacon projects requires a TTY; use beacon projects --untracked, track OWNER/REPO, or untrack OWNER/REPO")}
-			}
-			selected, err := a.projectPrompter().SelectTrackedProjects(cmd.Context(), snapshot.Projects)
-			if err != nil {
-				return fmt.Errorf("select tracked projects: %w", err)
-			}
-			trackedChanges, untrackedChanges := selectionChanges(snapshot.Projects, selected)
-			if trackedChanges == 0 && untrackedChanges == 0 {
-				_, err := fmt.Fprintln(a.Out, "project tracking unchanged")
-				return err
-			}
-			confirmed, err := a.projectPrompter().Confirm(cmd.Context(), fmt.Sprintf("Track %d and untrack %d project(s)?", trackedChanges, untrackedChanges))
-			if err != nil {
-				return fmt.Errorf("confirm project tracking: %w", err)
-			}
-			if !confirmed {
-				return errors.New("project tracking update cancelled")
-			}
-			if err := a.setProjectSelection(cmd.Context(), *configPath, snapshot, selected); err != nil {
-				return err
-			}
-			_, err = fmt.Fprintf(a.Out, "updated project tracking: %d tracked, %d untracked\n", len(selected), len(snapshot.Projects)-len(selected))
-			return err
+			return nil
 		},
 	}
 	command.Flags().BoolVar(&showUntracked, "untracked", false, "list untracked projects")
@@ -78,6 +58,50 @@ func (a App) projectsCommand(configPath *string) *cobra.Command {
 		a.setProjectTrackingCommand(configPath, false),
 	)
 	return command
+}
+
+func (a App) selectCommand(configPath *string) *cobra.Command {
+	return &cobra.Command{
+		Use: "select", Short: "Interactively select projects Beacon should track", Args: noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			colorMode, _ := cmd.Flags().GetString("color")
+			if _, err := a.resolveColor(colorMode); err != nil {
+				return err
+			}
+			return a.runProjectSelector(cmd.Context(), *configPath, cmd.CommandPath())
+		},
+	}
+}
+
+func (a App) runProjectSelector(ctx context.Context, configPath, commandPath string) error {
+	if !a.inputIsTTY() {
+		return usageError{fmt.Errorf("%s requires a TTY; use beacon projects --tracked, beacon projects --untracked, track OWNER/REPO, or untrack OWNER/REPO", commandPath)}
+	}
+	snapshot, err := a.projectSnapshot(ctx, configPath)
+	if err != nil {
+		return err
+	}
+	selected, err := a.projectPrompter().SelectTrackedProjects(ctx, snapshot.Projects)
+	if err != nil {
+		return fmt.Errorf("select tracked projects: %w", err)
+	}
+	trackedChanges, untrackedChanges := selectionChanges(snapshot.Projects, selected)
+	if trackedChanges == 0 && untrackedChanges == 0 {
+		_, err := fmt.Fprintln(a.Out, "project tracking unchanged")
+		return err
+	}
+	confirmed, err := a.projectPrompter().Confirm(ctx, fmt.Sprintf("Track %d and untrack %d project(s)?", trackedChanges, untrackedChanges))
+	if err != nil {
+		return fmt.Errorf("confirm project tracking: %w", err)
+	}
+	if !confirmed {
+		return errors.New("project tracking update cancelled")
+	}
+	if err := a.setProjectSelection(ctx, configPath, snapshot, selected); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(a.Out, "updated project tracking: %d tracked, %d untracked\n", len(selected), len(snapshot.Projects)-len(selected))
+	return err
 }
 
 func (a App) setProjectTrackingCommand(configPath *string, tracked bool) *cobra.Command {

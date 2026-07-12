@@ -13,9 +13,9 @@ import (
 
 const (
 	defaultCacheTTL      = 5 * time.Minute
-	repositoryCacheTTL   = 24 * time.Hour
+	repositoryCacheTTL   = 7 * 24 * time.Hour
 	rateRefreshInterval  = 30 * time.Second
-	rateRefreshCallCount = 20
+	rateRefreshCallCount = 5
 )
 
 type bucket string
@@ -27,9 +27,15 @@ const (
 )
 
 var reserves = map[bucket]int{
-	bucketCore:    500,
-	bucketGraphQL: 1000,
-	bucketSearch:  5,
+	bucketCore:    1500,
+	bucketGraphQL: 2500,
+	bucketSearch:  15,
+}
+
+var estimatedCosts = map[bucket]int{
+	bucketCore:    1,
+	bucketGraphQL: 25,
+	bucketSearch:  1,
 }
 
 type cacheEntry struct {
@@ -72,9 +78,10 @@ func (e *BudgetError) Error() string {
 // rate bucket. A Runner is safe for concurrent use and should be shared by all
 // GitHub collection paths in one Beacon process.
 type Runner struct {
-	delegate command.Runner
-	cacheTTL time.Duration
-	now      func() time.Time
+	delegate       command.Runner
+	cacheTTL       time.Duration
+	cacheDirectory string
+	now            func() time.Time
 
 	cacheMutex sync.Mutex
 	cache      map[string]cacheEntry
@@ -84,19 +91,34 @@ type Runner struct {
 	checkedAt     time.Time
 	callsSinceRun int
 	blockedUntil  map[bucket]time.Time
+	bucketMutexes map[bucket]*sync.Mutex
 }
 
 func NewRunner(delegate command.Runner, cacheTTL time.Duration) *Runner {
+	return NewRunnerWithOptions(delegate, Options{CacheTTL: cacheTTL})
+}
+
+type Options struct {
+	CacheTTL       time.Duration
+	CacheDirectory string
+}
+
+func NewRunnerWithOptions(delegate command.Runner, options Options) *Runner {
+	cacheTTL := options.CacheTTL
 	if cacheTTL <= 0 {
 		cacheTTL = defaultCacheTTL
 	}
+	cacheDirectory := options.CacheDirectory
+	if cacheDirectory == "" {
+		cacheDirectory = DefaultCacheDirectory()
+	}
 	return &Runner{
-		delegate:     delegate,
-		cacheTTL:     cacheTTL,
-		now:          time.Now,
-		cache:        make(map[string]cacheEntry),
-		rates:        make(map[bucket]rateState),
+		delegate: delegate, cacheTTL: cacheTTL, cacheDirectory: cacheDirectory,
+		now: time.Now, cache: make(map[string]cacheEntry), rates: make(map[bucket]rateState),
 		blockedUntil: make(map[bucket]time.Time),
+		bucketMutexes: map[bucket]*sync.Mutex{
+			bucketCore: {}, bucketGraphQL: {}, bucketSearch: {},
+		},
 	}
 }
 
@@ -106,7 +128,14 @@ func (r *Runner) Run(ctx context.Context, dir, name string, args ...string) ([]b
 		return r.delegate.Run(ctx, dir, name, args...)
 	}
 	key := cacheKey(dir, name, args)
-	entry, found := r.cached(key)
+	entry, found := r.cached(key, args)
+	if found && r.now().Sub(entry.updatedAt) < r.ttl(args) {
+		return clone(entry.output), nil
+	}
+	bucketMutex := r.bucketMutexes[apiBucket]
+	bucketMutex.Lock()
+	defer bucketMutex.Unlock()
+	entry, found = r.cached(key, args)
 	if found && r.now().Sub(entry.updatedAt) < r.ttl(args) {
 		return clone(entry.output), nil
 	}
@@ -147,10 +176,11 @@ func (r *Runner) reserve(ctx context.Context, apiBucket bucket) error {
 	if !found {
 		return fmt.Errorf("GitHub rate response omitted %s capacity", apiBucket)
 	}
-	if state.Remaining <= reserves[apiBucket] {
+	estimatedCost := estimatedCosts[apiBucket]
+	if state.Remaining-estimatedCost < reserves[apiBucket] {
 		return budgetError(apiBucket, state, time.Unix(state.Reset, 0))
 	}
-	state.Remaining--
+	state.Remaining -= estimatedCost
 	r.rates[apiBucket] = state
 	r.callsSinceRun++
 	return nil
@@ -188,19 +218,6 @@ func (r *Runner) noteRateLimit(ctx context.Context, apiBucket bucket) {
 		return
 	}
 	r.blockedUntil[apiBucket] = r.now().Add(time.Minute)
-}
-
-func (r *Runner) cached(key string) (cacheEntry, bool) {
-	r.cacheMutex.Lock()
-	defer r.cacheMutex.Unlock()
-	entry, found := r.cache[key]
-	return entry, found
-}
-
-func (r *Runner) store(key string, output []byte) {
-	r.cacheMutex.Lock()
-	r.cache[key] = cacheEntry{output: clone(output), updatedAt: r.now()}
-	r.cacheMutex.Unlock()
 }
 
 func (r *Runner) ttl(args []string) time.Duration {

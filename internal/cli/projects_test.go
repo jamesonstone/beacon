@@ -62,6 +62,24 @@ func TestProjectsInteractiveSelectionConfirmsAndPersists(t *testing.T) {
 	}
 }
 
+func TestSelectCommandUsesSharedInteractiveSelection(t *testing.T) {
+	prompter := &fakeProjectPrompter{selected: []string{}, confirmed: true}
+	output, tracker, err := executeProjectsCommand(t, true, prompter, "select")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tracker.selection) != 0 || !strings.Contains(output, "0 tracked, 2 untracked") {
+		t.Fatalf("selection=%#v output=%q", tracker.selection, output)
+	}
+}
+
+func TestSelectCommandRequiresTTY(t *testing.T) {
+	_, _, err := executeProjectsCommand(t, false, nil, "select")
+	if err == nil || ExitCode(err) != 2 || !strings.Contains(err.Error(), "beacon select requires a TTY") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestProjectMutationUsesLocalCacheWhenAgentIsUnavailable(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(root, "cache"))

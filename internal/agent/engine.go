@@ -49,6 +49,29 @@ type Engine struct {
 
 func NewEngine(cfg config.Config, paths Paths, cache Cache, repositories RepositoryProvider, scanner ProjectScanner, prober ProjectProber, tracker tracking.Manager) *Engine {
 	records, failures := cache.LoadAll()
+	if cfg.Path != "" && paths.State != "" {
+		assembled := Assemble(records, cfg.Path, paths.State, time.Now().UTC())
+		reconciled, err := tracker.ApplyAt(assembled, paths.State)
+		if err != nil {
+			failures = append(failures, fmt.Errorf("apply cached tracking state: %w", err))
+		} else {
+			trackingByProject := make(map[string]model.TrackingState, len(reconciled.Projects))
+			for _, project := range reconciled.Projects {
+				trackingByProject[project.GitHub] = project.TrackingState
+			}
+			for index := range records {
+				if len(records[index].Snapshot.Projects) == 0 {
+					continue
+				}
+				if state, found := trackingByProject[records[index].ProjectID]; found {
+					records[index].Snapshot.Projects[0].TrackingState = state
+					if state == model.TrackingUntracked {
+						records[index].LastProbeAt = time.Now().UTC()
+					}
+				}
+			}
+		}
+	}
 	byID := make(map[string]ProjectRecord, len(records))
 	revisions := make(map[string]uint64, len(records))
 	stages := make(map[string]string, len(records))
@@ -362,6 +385,10 @@ func (e *Engine) refreshProject(ctx context.Context, scanID string, repository c
 		e.failProject(scanID, repository.GitHub, revision, err)
 		return
 	}
+	if e.revision(repository.GitHub) >= revision {
+		e.publish(EventProjectUpdated, scanID, repository.GitHub, e.revision(repository.GitHub), "ready", "superseded scan result ignored", pointer(e.Snapshot()))
+		return
+	}
 	if collectionErr := snapshotCollectionError(snapshot); collectionErr != nil {
 		if !cached && len(snapshot.Projects) == 1 && snapshot.Projects[0].GitHub == repository.GitHub {
 			record = ProjectRecord{
@@ -466,6 +493,7 @@ func (e *Engine) applyTrackingSnapshot(updated model.Snapshot) error {
 		record.Revision++
 		record.UpdatedAt = e.now()
 		e.records[id] = record
+		e.revisions[id] = record.Revision
 		if err := e.Cache.Write(record); err != nil {
 			e.mutex.Unlock()
 			return err

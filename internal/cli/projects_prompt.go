@@ -24,6 +24,7 @@ func (p huhPrompter) SelectTrackedProjects(ctx context.Context, projects []model
 			Options(options...).
 			Value(&selected),
 	))
+	form = form.WithTheme(huh.ThemeCatppuccin())
 	if err := p.run(ctx, form); err != nil {
 		return nil, err
 	}

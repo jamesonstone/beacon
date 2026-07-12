@@ -2,7 +2,7 @@ package discovery
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -80,14 +80,15 @@ func TestRepositoryRootsRejectsSymlinkSource(t *testing.T) {
 	}
 }
 
-func TestDiscoverRepositoryRootPrefersOriginAndUsesGitHubMetadata(t *testing.T) {
+func TestDiscoverRepositoryRootPrefersOriginAndLocalRemoteHEAD(t *testing.T) {
 	root := t.TempDir()
 	repository := filepath.Join(root, "unusual repository")
 	initRepository(t, repository)
 	runGit(t, repository, "remote", "add", "upstream", "https://github.com/other/fallback.git")
 	runGit(t, repository, "remote", "add", "origin", "git@github.com:Owner/Canonical.git")
+	runGit(t, repository, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/trunk")
 
-	discoverer := Discoverer{Runner: githubRunner{delegate: command.ExecRunner{}, bases: map[string]string{"Owner/Canonical": "trunk"}}}
+	discoverer := Discoverer{Runner: command.ExecRunner{}}
 	result := discoverer.Discover(context.Background(), []config.Source{{Path: repository}})
 	if len(result.Warnings) != 0 {
 		t.Fatalf("warnings = %#v", result.Warnings)
@@ -104,6 +105,23 @@ func TestDiscoverRepositoryRootPrefersOriginAndUsesGitHubMetadata(t *testing.T) 
 	}
 }
 
+func TestDiscoverUsesLocalRemoteHEADWithoutGitHubCall(t *testing.T) {
+	repository := t.TempDir()
+	initRepository(t, repository)
+	runGit(t, repository, "remote", "add", "origin", "https://github.com/owner/local-first.git")
+	runGit(t, repository, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/trunk")
+
+	discoverer := Discoverer{Runner: rejectGitHubRunner{delegate: command.ExecRunner{}}}
+	result := discoverer.Discover(context.Background(), []config.Source{{Path: repository}})
+	if len(result.Warnings) != 0 || len(result.Repositories) != 1 {
+		t.Fatalf("result = %#v", result)
+	}
+	actual := result.Repositories[0]
+	if actual.GitHub != "owner/local-first" || actual.Base != "trunk" || actual.Name != "local-first" {
+		t.Fatalf("repository = %#v", actual)
+	}
+}
+
 func TestDiscoverParentDeduplicatesWorktreesAndWarnsForNonGitHub(t *testing.T) {
 	root := t.TempDir()
 	repository := filepath.Join(root, "repo")
@@ -116,7 +134,7 @@ func TestDiscoverParentDeduplicatesWorktreesAndWarnsForNonGitHub(t *testing.T) {
 	initRepository(t, localOnly)
 	runGit(t, localOnly, "remote", "add", "origin", "https://gitlab.com/owner/local.git")
 
-	discoverer := Discoverer{Runner: githubRunner{delegate: command.ExecRunner{}, bases: map[string]string{"owner/repo": "main"}}}
+	discoverer := Discoverer{Runner: command.ExecRunner{}}
 	result := discoverer.Discover(context.Background(), []config.Source{{Path: root}})
 	if len(result.Repositories) != 1 || result.Repositories[0].GitHub != "owner/repo" {
 		t.Fatalf("repositories = %#v", result.Repositories)
@@ -142,33 +160,19 @@ func TestDiscoverCancellationBecomesScopedWarning(t *testing.T) {
 	}
 }
 
-type githubRunner struct {
-	delegate command.Runner
-	bases    map[string]string
-}
-
 type canceledRunner struct{}
+
+type rejectGitHubRunner struct{ delegate command.Runner }
 
 func (canceledRunner) Run(ctx context.Context, _ string, _ string, _ ...string) ([]byte, error) {
 	return nil, ctx.Err()
 }
 
-func (r githubRunner) Run(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
-	if name != "gh" {
-		return r.delegate.Run(ctx, dir, name, args...)
+func (r rejectGitHubRunner) Run(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+	if name == "gh" {
+		return nil, errors.New("unexpected GitHub command")
 	}
-	if len(args) < 4 || args[0] != "repo" || args[1] != "view" {
-		return nil, fmt.Errorf("unexpected gh arguments: %v", args)
-	}
-	repository := args[2]
-	base, exists := r.bases[repository]
-	if !exists {
-		return nil, fmt.Errorf("repository inaccessible: %s", repository)
-	}
-	return json.Marshal(map[string]any{
-		"nameWithOwner":    repository,
-		"defaultBranchRef": map[string]string{"name": base},
-	})
+	return r.delegate.Run(ctx, dir, name, args...)
 }
 
 func initRepository(t *testing.T, path string) {

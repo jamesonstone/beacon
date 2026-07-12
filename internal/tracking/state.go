@@ -231,7 +231,7 @@ func validate(state *State) error {
 		if entry.UntrackedAt.IsZero() {
 			return fmt.Errorf("untracked entry %d is missing untracked_at", index+1)
 		}
-		if !fingerprintPattern.MatchString(entry.Baseline) {
+		if entry.Baseline != "" && !fingerprintPattern.MatchString(entry.Baseline) {
 			return fmt.Errorf("untracked entry %d has invalid baseline", index+1)
 		}
 		if entry.ProbeBaseline != "" && !fingerprintPattern.MatchString(entry.ProbeBaseline) {

@@ -70,15 +70,32 @@ func TestManagerDoesNotReactivateWhenGlobalCollectionFailed(t *testing.T) {
 	assertUntracked(t, result)
 }
 
-func TestManagerRefusesNewBaselineWhenCollectionFailed(t *testing.T) {
+func TestManagerDefersBaselineUntilCollectionRecovers(t *testing.T) {
 	manager := Manager{Store: FileStore{}, Now: func() time.Time { return time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC) }}
 	snapshot := managerSnapshot(t)
 	snapshot.Errors = []model.ScanError{{Stage: "github-search-prs", Message: "authentication failed"}}
-	if _, err := manager.SetTracked(snapshot, []string{"owner/repo"}, false); err == nil {
-		t.Fatal("expected incomplete evidence to prevent a new untracked baseline")
+	untracked, err := manager.SetTracked(snapshot, []string{"owner/repo"}, false)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := manager.SetSelection(snapshot, []string{}); err == nil {
-		t.Fatal("expected incomplete evidence to prevent selection-based untracking")
+	assertUntracked(t, untracked)
+	state, err := (FileStore{}).Load(untracked.Tracking.Path)
+	if err != nil || len(state.Untracked) != 1 || state.Untracked[0].Baseline != "" {
+		t.Fatalf("pending state=%#v err=%v", state, err)
+	}
+
+	snapshot.Errors = []model.ScanError{}
+	initialized, err := manager.Reconcile(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertUntracked(t, initialized)
+	state, err = (FileStore{}).Load(initialized.Tracking.Path)
+	if err != nil || len(state.Untracked) != 1 || !fingerprintPattern.MatchString(state.Untracked[0].Baseline) {
+		t.Fatalf("initialized state=%#v err=%v", state, err)
+	}
+	if len(initialized.Tracking.AutoReactivated) != 0 {
+		t.Fatalf("baseline initialization reactivated project: %#v", initialized.Tracking)
 	}
 }
 

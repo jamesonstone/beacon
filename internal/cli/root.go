@@ -93,6 +93,7 @@ func (a App) Root() *cobra.Command {
 		a.initCommand(&configPath),
 		a.scanCommand(&configPath),
 		a.projectsCommand(&configPath),
+		a.selectCommand(&configPath),
 		a.rootTrackingCommand(&configPath, true),
 		a.rootTrackingCommand(&configPath, false),
 		a.refreshCommand(&configPath),

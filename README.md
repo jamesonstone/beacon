@@ -163,7 +163,7 @@ version: 2
 
 settings:
   scan_interval: 1m
-  remote_refresh_interval: 5m
+  remote_refresh_interval: 15m
   stale_after: 24h
   max_parallel: 4
   github_author: '@me'
@@ -217,14 +217,23 @@ controls inexpensive local/GitHub summary probes for muted projects. If you
 manage a large deliberately quiet inventory, increase it to `1h` to reduce
 background GitHub traffic while retaining automatic reactivation.
 
-Beacon shares one in-memory cache across repository discovery, pull requests,
-issues, review feedback, and muted probes. Most GitHub evidence is reused for
-`remote_refresh_interval`; stable repository metadata is reused for 24 hours.
-Before a cache miss Beacon reads `gh api rate_limit` and preserves 1,000
-GraphQL points, five Search requests, and 500 REST Core requests for your own
-interactive `gh` use. When a bucket reaches its reserve, Beacon serves its last
-successful process-local result when available and pauses new calls until the
-reported reset. Beacon never changes your `gh` credentials or stores a token.
+Beacon shares a persistent user-only cache across pull requests, issues, review
+feedback, and muted probes. Most GitHub evidence is
+reused for `remote_refresh_interval`; stable repository metadata is reused for
+seven days. Cached activity can provide bounded stale fallback for 24 hours,
+and repository metadata for 30 days, when GitHub capacity is protected. Set
+`remote_refresh_interval: 15m` for a conservative daily-driver profile.
+
+Before a cache miss Beacon reads `gh api rate_limit` and preserves 2,500
+GraphQL points, 15 Search requests, and 1,500 REST Core requests for your own
+interactive `gh` use. GitHub cache misses are serialized per rate bucket,
+GraphQL work is conservatively budgeted at 25 points per command, and the
+authoritative allowance is refreshed after at most five calls. When a bucket
+reaches its reserve, Beacon serves its last successful cached result when
+available and pauses new calls until the reported reset. Source discovery uses
+only local Git remote and branch metadata and never calls GitHub. Beacon
+never changes your `gh` credentials or stores a token. Cached evidence is
+stored with user-only permissions under `$HOME/.cache/beacon/github/`.
 
 ## Everyday Use
 
@@ -240,6 +249,7 @@ beacon scan --json
 beacon scan --color=never
 beacon scan --repo beacon
 beacon projects
+beacon select
 beacon projects --tracked
 beacon projects --untracked
 beacon untrack owner/old-project
@@ -277,8 +287,11 @@ shows the selected project even when it is idle. An idle base lane is omitted
 when its project already has active work. JSON remains complete regardless of
 these presentation filters.
 
-Use `beacon projects` in a terminal for a searchable multi-select of every
-discovered project. Deselecting a project moves all of its lanes out of the
+Use `beacon select` (or the compatible bare `beacon projects`) in a terminal
+for a colorful searchable multi-select of every discovered project. Existing
+tracked projects start highlighted; use the arrow keys to scroll, Space to
+toggle a project, `/` to filter, and Enter to confirm. Deselecting a project
+moves all of its lanes out of the
 active, quiet, and top-item views; `beacon projects --untracked` shows that
 secondary inventory. Repository-scoped warnings and errors from untracked
 projects remain in JSON but no longer consume the human dashboard; global
@@ -290,9 +303,11 @@ scan.
 Untracking records the project's current Git and GitHub evidence as a baseline.
 Existing work therefore stays quiet, but any later commit, worktree-state,
 issue, pull-request, check, review, feedback, or merge-state change permanently
-restores the project to tracked views. Beacon will not establish or compare a
-baseline while the project's evidence scan has errors, preventing missing
-GitHub or Git data from causing a false reactivation.
+restores the project to tracked views. If the latest evidence scan has errors,
+an explicit deselection is still authoritative: Beacon records a pending
+baseline, keeps the project untracked, and initializes the baseline from the
+first later complete scan without reactivation. Incomplete evidence is never
+compared as if it were a material change.
 
 The macOS application exposes the same controls under **Projects**, with
 separate **Tracked** and **Untracked** tabs, search, and Track/Untrack buttons.
@@ -302,7 +317,8 @@ activity restores a project.
 
 Track and Untrack actions are optimistic and nonblocking. Each selection moves
 the project immediately and joins a visible background queue. The Go agent
-acknowledges from complete cached evidence without a network probe; the next
+acknowledges from cached evidence without a network probe; incomplete evidence
+creates a pending baseline that a later complete scan initializes. The next
 scheduled muted probe establishes the compact comparison baseline. Beacon
 processes the queue in selection order, keeps navigation and scanning
 available, and rolls back only the affected project if a request fails.
@@ -344,7 +360,7 @@ Common workflows:
 
 - Run `beacon` for the colorful project dashboard.
 - Run `beacon --include-idle` when auditing quiet projects.
-- Run `beacon projects` to curate the tracked project set.
+- Run `beacon select` to curate the tracked project set interactively.
 - Run `beacon projects --untracked` to inspect deliberately quieted projects.
 - Run `beacon refresh [project]` to request background work without blocking.
 - Run `beacon agent status` to inspect the process, socket, cache count, and active refresh.

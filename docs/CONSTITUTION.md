@@ -258,13 +258,19 @@ credentials.
   defaults to four and must remain bounded.
 - The background scheduler runs at most one job per project, coalesces duplicate
   refresh requests, and uses separate tracked-refresh and muted-probe cadences.
-- All background `gh` collection shares one process-local response cache and
-  rate-budget guard. Beacon reserves 1,000 GraphQL points, five Search requests,
-  and 500 REST Core requests for the user's other GitHub work; cached successful
-  evidence may be served stale while a bucket is protected.
+- All background `gh` collection shares one persistent user-only response cache
+  and rate-budget guard. Beacon reserves 2,500 GraphQL points, 15 Search
+  requests, and 1,500 REST Core requests for the user's other GitHub work;
+  cached successful evidence may be served stale while a bucket is protected.
+- Cache misses are serialized per GitHub rate bucket, GraphQL work is
+  conservatively debited at 25 points per command, and authoritative allowance
+  state is refreshed after no more than five misses. Repository discovery uses
+  only local Git remote and branch metadata and spends no GitHub capacity.
 - Tracking mutations use cached complete evidence and never require a
   synchronous GitHub probe. The next scheduled muted probe establishes its
-  compact comparison baseline.
+  compact comparison baseline. Explicit selection may persist a pending
+  baseline while evidence is incomplete; the first later complete collection
+  initializes it without reactivating the project.
 - Cancellation and command errors must retain enough command and repository
   context to diagnose the failed evidence stage.
 
@@ -277,6 +283,7 @@ beacon [--color auto|always|never] [--no-watch]
 beacon init [--source PATH ...] [--github-scope mine|all] [--yes]
 beacon scan [--repo NAME] [--json] [--no-refresh]
 beacon projects [--tracked|--untracked]
+beacon select
 beacon projects track <project>...
 beacon projects untrack <project>...
 beacon track <project>...

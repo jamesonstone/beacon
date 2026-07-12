@@ -98,7 +98,7 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Keep Beacon background collection from exhausting the GitHub API capacity needed for the user's daily interactive work.
-- **APPROACH**: Share cached `gh` results and rate-bucket reserves across agent discovery, collection, and probes; make bulk tracking mutations atomic and network-free; and use a slower probe cadence for the user's quiet inventory.
+- **APPROACH**: Persist user-only cached `gh` results across agent restarts, prefer local Git discovery, serialize and conservatively budget cache misses behind 50% rate-bucket reserves, keep bulk tracking mutations network-free, and use a slower probe cadence for the user's quiet inventory.
 - **OPEN ITEMS**: Implementation, local state migration, and validation are complete on issue #3, branch `GH-3`, and ready PR #4; final review and merge remain human decisions.
 - **POINTERS**: `docs/specs/0008-github-api-budget/SPEC.md`
 
