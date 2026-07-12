@@ -128,8 +128,16 @@ func (c Cache) load(path string) (ProjectRecord, error) {
 	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
 		return ProjectRecord{}, fmt.Errorf("decode project cache %s: trailing JSON", path)
 	}
-	if record.Version != CacheVersion || record.ProjectID == "" || record.Snapshot.SchemaVersion != model.SchemaVersion {
+	if record.Version != CacheVersion || record.ProjectID == "" {
 		return ProjectRecord{}, fmt.Errorf("validate project cache %s: unsupported or incomplete record", path)
+	}
+	switch record.Snapshot.SchemaVersion {
+	case model.SchemaVersion:
+	case 2:
+		record.Snapshot.SchemaVersion = model.SchemaVersion
+		scan.Finalize(&record.Snapshot)
+	default:
+		return ProjectRecord{}, fmt.Errorf("validate project cache %s: unsupported snapshot schema %d", path, record.Snapshot.SchemaVersion)
 	}
 	return record, nil
 }

@@ -217,6 +217,9 @@ presentation path must become lane-centered and local-first.
 - Pinned inactive remote PRs remain represented from local lane state even when
   default recent-only GitHub enrichment omits them. Explicit lane refresh can
   restore current remote detail.
+- Schema upgrades must migrate last-good per-project caches in memory. Rejecting
+  schema-v2 cache files as corrupt forced an unnecessary fleet-wide startup
+  rebuild and erased the cache-first experience this feature depends on.
 - The simplest conservative remote policy is constant-cost discovery: the
   default scope always uses two global searches, filters locally, and enriches
   only recent matches. Explicit diagnostics opt into inactive PR enrichment.
@@ -252,3 +255,6 @@ until prerequisite PR #4 lands.
 - Commit `28ca6c8` was pushed on `GH-5`, and ready PR
   [#6](https://github.com/jamesonstone/beacon/pull/6) targets prerequisite
   branch `GH-3` with issue #5 assigned to Jameson Stone.
+- A live schema-v3 rollout exposed and verified the v2 cache migration path;
+  `TestCacheLoadUpgradesSchemaTwoSnapshotWithoutQuarantine` prevents future
+  startup rebuild regressions.

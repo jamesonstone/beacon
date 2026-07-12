@@ -65,6 +65,28 @@ func TestCacheRoundTripAssemblyAndCorruptionQuarantine(t *testing.T) {
 	}
 }
 
+func TestCacheLoadUpgradesSchemaTwoSnapshotWithoutQuarantine(t *testing.T) {
+	directory := t.TempDir()
+	cache := Cache{Directory: directory}
+	record := cachedRecord("owner/legacy", 7, model.TrackingTracked)
+	record.Snapshot.SchemaVersion = 2
+	if err := cache.Write(record); err != nil {
+		t.Fatal(err)
+	}
+
+	records, failures := cache.LoadAll()
+	if len(failures) != 0 || len(records) != 1 {
+		t.Fatalf("records=%#v failures=%v", records, failures)
+	}
+	if records[0].Snapshot.SchemaVersion != model.SchemaVersion || records[0].Snapshot.WorkingSet.Active == nil || records[0].Snapshot.WorkingSet.Parked == nil {
+		t.Fatalf("upgraded snapshot = %#v", records[0].Snapshot)
+	}
+	matches, err := filepath.Glob(filepath.Join(directory, "*.corrupt-*"))
+	if err != nil || len(matches) != 0 {
+		t.Fatalf("legacy cache was quarantined: %v err=%v", matches, err)
+	}
+}
+
 func TestSchedulerBoundsConcurrencyAndCoalescesDuplicates(t *testing.T) {
 	var active atomic.Int32
 	var maximum atomic.Int32
