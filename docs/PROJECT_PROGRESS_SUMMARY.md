@@ -14,6 +14,7 @@
 | 0008 | github-api-budget | `docs/specs/0008-github-api-budget` | deliver | no | 2026-07-12 | Preserve the user's GitHub API allowance with shared caching, rate-budget circuit breaking, and network-free batch tracking changes. |
 | 0009 | beacon-working-set-radar | `docs/specs/0009-beacon-working-set-radar` | deliver | no | 2026-07-12 | Refocus Beacon on a small lane-level working set with durable attention, factual deltas, conservative enrichment, and direct activity tabs. |
 | 0010 | project-following | `docs/specs/0010-project-following` | deliver | no | 2026-07-13 | Make repository Following explicit, surface outside activity as Recently Updated, retain a complete Quiet inventory, and animate the accessible neon wordmark. |
+| 0011 | working-notes-refresh | `docs/specs/0011-working-notes-refresh` | deliver | no | 2026-07-13 | Add one local Markdown signal log plus unmistakable manual refresh controls across the CLI, menu extra, and detachable dashboard. |
 
 ## PROJECT INTENT
 
@@ -122,6 +123,15 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **APPROACH**: Persist explicit Following membership, preserve non-followed evidence baselines, categorize outside projects as Recently Updated or Quiet without automatic reactivation, and render the shared categories in CLI and macOS alongside a Reduce Motion-aware neon wordmark.
 - **OPEN ITEMS**: Implementation, validation, and independent verification are complete on issue #9, branch `GH-9`, and ready PR #10; final human review and merge remain.
 - **POINTERS**: `docs/specs/0010-project-following/SPEC.md`
+
+### working-notes-refresh
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Keep transient cross-lane thoughts close to the working set and make post-merge evidence refresh an obvious explicit action.
+- **APPROACH**: Store one atomic user-only Markdown signal log behind Go CLI/agent authority, expose a shared collapsible macOS editor, and make bare CLI plus the top-right app control perform a coalesced forced refresh with batched GitHub evidence.
+- **OPEN ITEMS**: Implementation, full validation, and independent verification are complete on issue #9, branch `GH-9`, and ready PR #10; final human review and merge remain.
+- **POINTERS**: `docs/specs/0011-working-notes-refresh/SPEC.md`
 
 ## LAST UPDATED
 

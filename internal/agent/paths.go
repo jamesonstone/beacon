@@ -5,12 +5,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jamesonstone/beacon/internal/notes"
 	"github.com/jamesonstone/beacon/internal/tracking"
 )
 
 type Paths struct {
 	Config      string
 	State       string
+	Notes       string
 	CacheRoot   string
 	Projects    string
 	Socket      string
@@ -26,6 +28,10 @@ func ResolvePaths(configPath string) (Paths, error) {
 	if err != nil {
 		return Paths{}, err
 	}
+	notesPath, err := notes.ResolvePath()
+	if err != nil {
+		return Paths{}, err
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return Paths{}, fmt.Errorf("resolve home directory: %w", err)
@@ -37,7 +43,7 @@ func ResolvePaths(configPath string) (Paths, error) {
 	cacheRoot := filepath.Join(cacheHome, "beacon")
 	logs := filepath.Join(home, "Library", "Logs", "Beacon")
 	return Paths{
-		Config: configPath, State: statePath, CacheRoot: cacheRoot,
+		Config: configPath, State: statePath, Notes: notesPath, CacheRoot: cacheRoot,
 		Projects:    filepath.Join(cacheRoot, "projects"),
 		Socket:      filepath.Join(cacheRoot, "agent.sock"),
 		PID:         filepath.Join(cacheRoot, "agent.pid"),
@@ -47,7 +53,7 @@ func ResolvePaths(configPath string) (Paths, error) {
 }
 
 func (p Paths) EnsureRuntime() error {
-	for _, directory := range []string{filepath.Dir(p.State), p.CacheRoot, p.Projects, p.Logs} {
+	for _, directory := range []string{filepath.Dir(p.State), filepath.Dir(p.Notes), p.CacheRoot, p.Projects, p.Logs} {
 		if err := os.MkdirAll(directory, 0o700); err != nil {
 			return fmt.Errorf("create Beacon runtime directory %s: %w", directory, err)
 		}

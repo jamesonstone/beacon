@@ -256,7 +256,6 @@ work.
 
 ```bash
 beacon
-beacon --no-watch
 beacon --include-idle
 beacon --color=always
 beacon doctor
@@ -266,6 +265,11 @@ beacon pin 'gh:jamesonstone/beacon#5'
 beacon park 'git:jamesonstone/beacon@GH-5'
 beacon resume 'git:jamesonstone/beacon@GH-5'
 beacon note 'git:jamesonstone/beacon@GH-5' 'finish the macOS smoke test'
+beacon notes
+beacon notes append 'Retest the merged release before lunch.'
+printf '# Signal Log\n\n- verify PR #10\n' | beacon notes set
+beacon notes edit
+beacon notes path
 beacon tag 'git:jamesonstone/beacon@GH-5' 'manual test'
 beacon untag 'git:jamesonstone/beacon@GH-5' 'manual test'
 beacon seen 'git:jamesonstone/beacon@GH-5'
@@ -296,15 +300,14 @@ beacon config open
 beacon version
 ```
 
-Bare `beacon` connects to the user background agent, renders the cached working
-set,
-and observes scheduled updates without requesting a refresh. Opening or
-reconnecting either client is cache-only. Use `beacon refresh`, the macOS
-`Scan Now` action, or `beacon scan` when you explicitly want current evidence.
-`--no-watch` renders the cache and exits. If no agent is available, bare execution
-returns an installation hint instead of silently paying direct-scan latency;
-use `beacon agent install` to restore cache-first operation or `beacon scan` for
-an explicit blocking scan.
+Bare `beacon` is a manual refresh every time: it asks the background agent to
+check current Git and GitHub evidence, waits for the coalesced scan to finish,
+and renders the updated working set. If the agent is unavailable, Beacon runs
+the same blocking foreground scan instead. Opening or reconnecting the macOS
+app remains cache-only; scheduled background collection retains its
+conservative cadence. Use `beacon refresh [project]` when you want to queue
+background work without waiting, or `beacon scan` for the complete diagnostic
+inventory.
 
 `beacon scan` remains the explicit, blocking diagnostic path and returns the
 complete repository inventory. `scan --json` remains deterministic, ANSI-free, and
@@ -327,6 +330,15 @@ success`. Tags are short, deduplicated labels that can be added or removed from
 the CLI and macOS lane cards; they never affect Beacon's attention or action
 policy. Manual lanes support planning or research without requiring Git,
 GitHub, Kit, or a Codex task API.
+
+`beacon notes` is a separate global Markdown scratchpad for real-time thoughts
+that span lanes. `show`, `set`, `append`, `edit`, and `path` subcommands all use
+`$XDG_DATA_HOME/beacon/notes.md`, defaulting to
+`$HOME/.local/share/beacon/notes.md`. The document is size-bounded, atomically
+saved with user-only permissions, and never interpreted as Git/GitHub evidence.
+On macOS, `beacon notes edit` waits for the editor to close and then publishes
+the saved document to running Beacon clients; other platforms can use `set`,
+`append`, or edit the path directly while Beacon is stopped.
 
 Idle work inside Following is treated as inventory instead of queue content.
 Human output hides idle followed projects by default and replaces them with a
@@ -378,6 +390,11 @@ menu so lane evidence receives the full height. The adjacent view button
 switches between the default stacked list, horizontal state tiles, and an
 experimental kanban board; the selection persists across launches.
 
+A dedicated neon refresh button in the top-right of both surfaces performs
+**Scan Now**. Use it after merging one or several pull requests to bypass the
+normal evidence cache, run one coalesced batched refresh, and update both views.
+Repeated clicks cannot start overlapping scans.
+
 A compact tab row keeps repository attention one click away. **Following** is
 selected whenever a dashboard surface opens and contains the existing Active,
 Waiting, Recently Active, and Parking Lot lane layouts. **Recently Updated** is
@@ -397,6 +414,11 @@ Evidence badges such as **Dirty**, **CI None**, and **Review None** also reveal
 a trailing close control on hover. Hiding a badge is local presentation state:
 it does not change the underlying evidence or next action, and a changed signal
 appears again. Use **Restore Hidden Badges** in Settings to clear all dismissals.
+
+The whimsical **Signal Notes** panel sits at the bottom of both surfaces and is
+collapsed by default. Expand it to edit the same local Markdown document used
+by `beacon notes`; saving travels through the Go agent authority so the menu and
+detached window stay synchronized.
 
 Use **Open Beacon at Login** in either view to enable quiet startup. Beacon
 registers its embedded login helper through macOS Service Management. A login
@@ -473,6 +495,7 @@ Operational files are user-only:
 
 ```text
 ~/.local/state/beacon/tracking.json
+~/.local/share/beacon/notes.md
 ~/.cache/beacon/projects/*.json
 ~/.cache/beacon/agent.sock
 ~/.cache/beacon/agent.pid
@@ -492,8 +515,8 @@ Scanning may run a timeout-bounded `git fetch --prune --no-tags` to refresh
 remote-tracking metadata. Beacon never edits working files, changes branches,
 pushes commits, creates pull requests, changes reviews, or merges work. Beacon
 writes only its own configuration during confirmed `beacon init` operations and
-its own user-scoped following state, cache, PID/socket, LaunchAgent, and rotated
-logs. New evidence may update a non-followed project's activity timestamp but
+its own user-scoped following state, Markdown signal notes, cache, PID/socket,
+LaunchAgent, and rotated logs. New evidence may update a non-followed project's activity timestamp but
 never changes whether the user follows it.
 
 ## Architecture

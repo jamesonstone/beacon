@@ -3,6 +3,13 @@ import Foundation
 protocol CLIClientProtocol {
     func scan() async throws -> BeaconSnapshot
     func setProjectTracked(_ github: String, tracked: Bool) async throws
+    func notes() async throws -> AgentNotes
+    func setNotes(_ content: String) async throws -> AgentNotes
+}
+
+extension CLIClientProtocol {
+    func notes() async throws -> AgentNotes { throw AgentClientError.command("signal notes are unavailable") }
+    func setNotes(_ content: String) async throws -> AgentNotes { throw AgentClientError.command("signal notes are unavailable") }
 }
 
 protocol AgentInstallerProtocol {
@@ -47,11 +54,30 @@ struct CLIClient: CLIClientProtocol, AgentInstallerProtocol {
         _ = try await execute(arguments: ["projects", command, github])
     }
 
+    func notes() async throws -> AgentNotes {
+        try decodeNotes(try await execute(arguments: ["notes", "--json"]))
+    }
+
+    func setNotes(_ content: String) async throws -> AgentNotes {
+        try decodeNotes(try await execute(
+            arguments: ["notes", "set", "--json"],
+            standardInput: Data(content.utf8)
+        ))
+    }
+
     func installAgent() async throws {
         _ = try await execute(arguments: ["agent", "install"])
     }
 
-    private func execute(arguments: [String]) async throws -> Data {
+    private func decodeNotes(_ data: Data) throws -> AgentNotes {
+        do {
+            return try JSONDecoder().decode(AgentNotes.self, from: data)
+        } catch {
+            throw CLIClientError.invalidOutput(error.localizedDescription)
+        }
+    }
+
+    private func execute(arguments: [String], standardInput: Data? = nil) async throws -> Data {
         let executableURL = executableURL
         return try await Task.detached(priority: .userInitiated) {
             guard FileManager.default.isExecutableFile(atPath: executableURL.path) else {
@@ -64,11 +90,17 @@ struct CLIClient: CLIClientProtocol, AgentInstallerProtocol {
             process.arguments = arguments
             process.standardOutput = standardOutput
             process.standardError = standardError
+            let inputPipe = standardInput == nil ? nil : Pipe()
+            process.standardInput = inputPipe
             var environment = ProcessInfo.processInfo.environment
             environment["PATH"] = CLIClient.commandPath(existing: environment["PATH"])
             process.environment = environment
 
             try process.run()
+            if let standardInput, let inputPipe {
+                try inputPipe.fileHandleForWriting.write(contentsOf: standardInput)
+                try inputPipe.fileHandleForWriting.close()
+            }
             let outputData = standardOutput.fileHandleForReading.readDataToEndOfFile()
             let errorData = standardError.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()

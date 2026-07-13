@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jamesonstone/beacon/internal/model"
+	"github.com/jamesonstone/beacon/internal/notes"
 )
 
 const ProtocolVersion = 1
@@ -31,6 +32,9 @@ const (
 	RequestRemoveLaneTag    = "remove_lane_tag"
 	RequestMarkLaneSeen     = "mark_lane_seen"
 	RequestAddManualLane    = "add_manual_lane"
+	RequestGetNotes         = "get_notes"
+	RequestSetNotes         = "set_notes"
+	RequestAppendNotes      = "append_notes"
 )
 
 const (
@@ -46,6 +50,8 @@ const (
 	EventHeartbeat          = "heartbeat"
 	EventAgentStatus        = "agent_status"
 	EventWorkingSetChanged  = "working_set_changed"
+	EventNotes              = "notes"
+	EventNotesUpdated       = "notes_updated"
 )
 
 type Request struct {
@@ -61,6 +67,7 @@ type Request struct {
 	Note            string   `json:"note,omitempty"`
 	Tag             string   `json:"tag,omitempty"`
 	Title           string   `json:"title,omitempty"`
+	Content         string   `json:"content,omitempty"`
 }
 
 type ProjectStatus struct {
@@ -98,6 +105,7 @@ type Event struct {
 	Snapshot        *model.Snapshot `json:"snapshot,omitempty"`
 	Projects        []ProjectStatus `json:"projects,omitempty"`
 	Status          *Status         `json:"status,omitempty"`
+	Notes           *notes.Document `json:"notes,omitempty"`
 }
 
 func Encode(writer io.Writer, value any) error {

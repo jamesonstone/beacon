@@ -35,6 +35,10 @@ Lanes may also carry short, deduplicated user tags. Tags and notes are optional
 context only and must not alter evidence, attention, readiness, or next-action
 policy.
 
+Beacon also owns one global Markdown signal log for transient working notes
+that span lanes. It is optional local context, never durable evidence or a
+source of inferred progress.
+
 ### One Domain Model, Multiple Surfaces
 
 Go is the source of truth for collection, correlation, policy, ordering,
@@ -167,6 +171,8 @@ must not feed new policy back into the scanner.
   reactivation.
 - `internal/workset` owns strict lane attention, pins, notes, tags, last-seen
   observations, factual deltas, manual lanes, and project-tracking migration.
+- `internal/notes` owns the atomic, size-bounded, user-only global Markdown
+  signal log.
 - `internal/agent` owns operational paths, per-project caches, protocol-v1
   transport, scheduling, subscriptions, lifecycle locking, and LaunchAgent
   installation.
@@ -267,6 +273,12 @@ incomplete collection evidence must never establish or compare a baseline.
 Operational files and directories are user-only and never contain GitHub
 credentials.
 
+The optional global Markdown signal log lives at
+`$XDG_DATA_HOME/beacon/notes.md`, defaulting to
+`$HOME/.local/share/beacon/notes.md`. It is atomically replaced with user-only
+permissions and is intentionally separate from repository files, configuration,
+lane evidence, and lane-specific notes.
+
 Lane attention is stored separately in strict versioned JSON at
 `$HOME/.local/state/beacon/lanes.json` (or the equivalent `XDG_STATE_HOME`
 path). It retains only the previous/last-seen and current durable observations
@@ -300,9 +312,10 @@ state.
   only local Git remote and branch metadata and spends no GitHub capacity.
 - Under the default `mine` scope, one due-project batch performs one global
   authored-PR search and one global assigned-issue search, then enriches only
-  matching authored PRs with recent activity. Explicit diagnostics or a
-  one-lane forced refresh may enrich inactive work. Muted projects share the
-  batch evidence. The `all` scope
+  matching authored PRs with recent activity. Explicit diagnostics may enrich
+  all inactive work; forced dashboard refreshes limit inactive-PR enrichment
+  to followed repositories while retaining one batched collection. Quiet
+  projects still share recent batch evidence. The `all` scope
   remains an explicitly more expensive repository-scoped mode.
 - Following mutations use cached complete evidence and never require a
   synchronous GitHub probe. The next scheduled non-followed probe establishes
@@ -317,7 +330,7 @@ state.
 The supported command surface is:
 
 ```text
-beacon [--color auto|always|never] [--no-watch]
+beacon [--color auto|always|never]
 beacon init [--source PATH ...] [--github-scope mine|all] [--yes]
 beacon scan [--repo NAME] [--json] [--no-refresh]
 beacon projects [--followed|--recent|--quiet]
@@ -335,6 +348,8 @@ beacon pin <lane-id> [--off]
 beacon park <lane-id>
 beacon resume <lane-id>
 beacon note <lane-id> [text]
+beacon notes [--json]
+beacon notes show|set|append|edit|path
 beacon tag <lane-id> <tag>
 beacon untag <lane-id> <tag>
 beacon add --manual <title>
@@ -353,18 +368,19 @@ configuration or startup failures and failed required doctor checks exit `1`.
 Usage errors exit `2`. JSON mode writes JSON only to stdout and sends
 diagnostics to stderr.
 
-Bare `beacon` connects to the user agent, renders cached state, and observes
-scheduled updates without requesting a refresh. Opening or reconnecting a
-client is cache-only. `--no-watch` and non-TTY execution return cache-only
-output immediately and never emit cursor-control sequences. The lighthouse
-trivia loader remains the cold-cache fallback while no cached snapshot exists.
-Explicit `beacon refresh`, macOS `Scan Now`, `beacon scan`, and JSON scan modes
-remain the intentional paths for current evidence; direct scans do not require
-the agent.
+Bare `beacon` is an explicit manual action: it asks the user agent for a forced
+all-project refresh, waits for completion, and renders that current working-set
+snapshot. When the agent is unavailable it performs the same blocking
+foreground scan rather than silently returning stale evidence. TTY execution
+may show the lighthouse trivia loader; non-TTY output never emits cursor-control
+sequences. Opening or reconnecting the macOS client remains cache-only.
+`beacon refresh`, macOS `Scan Now`, `beacon scan`, and JSON scan modes are the
+other intentional paths for current evidence.
 
 Agent protocol version 1 is newline-delimited JSON over a user-only Unix-domain
 socket. It carries scan IDs, per-project revisions, stages, single and batch
-tracking and lane-attention changes, heartbeats, and snapshot-schema-v3 payloads. Protocol evolution is independent
+tracking and lane-attention changes, global Markdown notes, heartbeats, and
+snapshot-schema-v3 payloads. Protocol evolution is independent
 from the evidence snapshot schema. Clients discard events from a different
 active scan and older project revisions, then preserve last-good state on
 malformed events or disconnects.
@@ -400,7 +416,8 @@ groups, evidence, and actions.
 The application connects to the background agent through a Swift actor,
 renders cached state immediately, applies monotonic incremental project events,
 and reconnects after disconnects without initiating collection. `Scan Now` is
-the only macOS action that forces a full refresh. Agent status is authoritative
+the only macOS action that forces a full refresh and remains visible as a
+top-right header control in both surfaces. Agent status is authoritative
 for loading state, including scans that complete before their request
 acknowledgement. Only `@MainActor` publishes UI state. A
 failed refresh keeps the last successful snapshot visible with its timestamp
@@ -422,6 +439,9 @@ state only. Lane tags render as removable
 chips and mutate through the Go background-agent authority. JetBrains Mono Nerd
 Font is preferred when locally available, with a system monospaced fallback so
 typography cannot become an application-startup dependency.
+Both surfaces expose one collapsed-by-default Signal Notes panel at the bottom
+of the shared dashboard. It edits the Go-owned local Markdown document through
+the agent protocol; Swift contains no independent persistence rule.
 The Beacon wordmark may animate a modest horizontally traveling gradient across
 the existing neon/pastel palette. It must remain readable, use no evidence or
 status policy, and render a static gradient when Reduce Motion is enabled.

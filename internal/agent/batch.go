@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jamesonstone/beacon/internal/config"
+	"github.com/jamesonstone/beacon/internal/githubscan"
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/tracking"
 )
@@ -110,7 +111,18 @@ func (e *Engine) runCollectedBatch(
 	sort.Slice(scanRepositories, func(i, j int) bool {
 		return scanRepositories[i].GitHub < scanRepositories[j].GitHub
 	})
-	snapshots, err := e.ScanBatch(ctx, scanRepositories, force, func(projectID, stage string) {
+	scanContext := ctx
+	if force {
+		followed := make([]string, 0, len(scanRepositories))
+		for _, repository := range scanRepositories {
+			state := states[repository.GitHub]
+			if state != nil && (!state.muted || len(scanRepositories) == 1) {
+				followed = append(followed, repository.GitHub)
+			}
+		}
+		scanContext = githubscan.WithInactivePullRequestRepositories(scanContext, followed)
+	}
+	snapshots, err := e.ScanBatch(scanContext, scanRepositories, force, func(projectID, stage string) {
 		state := states[projectID]
 		if state == nil {
 			return

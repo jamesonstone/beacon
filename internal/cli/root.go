@@ -42,6 +42,7 @@ type App struct {
 	trackerSource         projectTracker
 	prompter              initPrompter
 	projectPrompterSource projectPrompter
+	agentClientSource     func(string) agentRequestClient
 }
 
 type snapshotScanner interface {
@@ -75,7 +76,6 @@ func (a App) Root() *cobra.Command {
 	var configPath string
 	var colorMode string
 	var includeIdle bool
-	var noWatch bool
 	root := &cobra.Command{
 		Use:           "beacon",
 		Short:         "Working-set memory for agent-driven Git work",
@@ -83,13 +83,12 @@ func (a App) Root() *cobra.Command {
 		SilenceUsage:  true,
 		Args:          noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return a.runAgentDashboard(cmd.Context(), configPath, colorMode, includeIdle, noWatch)
+			return a.runAgentDashboard(cmd.Context(), configPath, colorMode, includeIdle)
 		},
 	}
 	root.PersistentFlags().StringVar(&configPath, "config", "", "configuration file path")
 	root.PersistentFlags().StringVar(&colorMode, "color", "auto", "color output: auto, always, or never")
 	root.Flags().BoolVar(&includeIdle, "include-idle", false, "show projects with only idle work")
-	root.Flags().BoolVar(&noWatch, "no-watch", false, "render cached agent state without requesting a refresh")
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err} })
 	root.AddCommand(
 		a.initCommand(&configPath),
@@ -100,6 +99,7 @@ func (a App) Root() *cobra.Command {
 		a.laneAttentionCommand(&configPath, "park", agent.RequestSetLaneAttention),
 		a.laneAttentionCommand(&configPath, "resume", agent.RequestSetLaneAttention),
 		a.laneNoteCommand(&configPath),
+		a.notesCommand(&configPath),
 		a.laneTagCommand(&configPath, "tag", agent.RequestAddLaneTag),
 		a.laneTagCommand(&configPath, "untag", agent.RequestRemoveLaneTag),
 		a.laneAddCommand(&configPath),
@@ -192,7 +192,7 @@ func (a App) scanCommand(configPath *string) *cobra.Command {
 				}
 				return output.JSON(a.Out, snapshot)
 			}
-			return a.runHumanScan(cmd.Context(), *configPath, repository, !noRefresh, colorMode, includeIdle || repository != "", false, false)
+			return a.runHumanScan(cmd.Context(), *configPath, repository, !noRefresh, colorMode, includeIdle || repository != "", false, false, false)
 		},
 	}
 	command.Flags().StringVar(&repository, "repo", "", "scan one configured repository")
@@ -202,7 +202,7 @@ func (a App) scanCommand(configPath *string) *cobra.Command {
 	return command
 }
 
-func (a App) runHumanScan(ctx context.Context, path, repository string, refresh bool, colorMode string, includeIdle, offerInit, showLoader bool) error {
+func (a App) runHumanScan(ctx context.Context, path, repository string, refresh bool, colorMode string, includeIdle, offerInit, showLoader, workingSet bool) error {
 	color, err := a.resolveColor(colorMode)
 	if err != nil {
 		return err
@@ -234,7 +234,9 @@ func (a App) runHumanScan(ctx context.Context, path, repository string, refresh 
 	if err != nil {
 		return err
 	}
-	return output.TerminalWithOptions(a.Out, snapshot, output.TerminalOptions{Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle})
+	return output.TerminalWithOptions(a.Out, snapshot, output.TerminalOptions{
+		Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle, WorkingSet: workingSet,
+	})
 }
 
 func (a App) resolveColor(mode string) (bool, error) {

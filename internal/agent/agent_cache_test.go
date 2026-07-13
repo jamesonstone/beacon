@@ -14,12 +14,16 @@ func TestResolvePathsHonorsXDGAndUsesUserScopedLayout(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_STATE_HOME", filepath.Join(home, "state"))
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, "cache"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
 	paths, err := ResolvePaths(filepath.Join(home, ".config", "beacon", "config.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if paths.State != filepath.Join(home, "state", "beacon", "tracking.json") || paths.Socket != filepath.Join(home, "cache", "beacon", "agent.sock") {
 		t.Fatalf("paths = %#v", paths)
+	}
+	if paths.Notes != filepath.Join(home, "data", "beacon", "notes.md") {
+		t.Fatalf("notes path = %s", paths.Notes)
 	}
 	if paths.LaunchAgent != filepath.Join(home, "Library", "LaunchAgents", "com.jamesonstone.beacon.agent.plist") {
 		t.Fatalf("LaunchAgent path = %s", paths.LaunchAgent)

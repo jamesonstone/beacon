@@ -7,11 +7,23 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/jamesonstone/beacon/internal/agent"
 	"github.com/jamesonstone/beacon/internal/output"
 	"github.com/spf13/cobra"
 )
+
+type agentRequestClient interface {
+	Request(context.Context, agent.Request) (agent.Event, error)
+}
+
+func (a App) agentClient(socket string) agentRequestClient {
+	if a.agentClientSource != nil {
+		return a.agentClientSource(socket)
+	}
+	return agent.Client{Socket: socket}
+}
 
 func (a App) agentCommand(configPath *string) *cobra.Command {
 	command := &cobra.Command{Use: "agent", Short: "Manage the Beacon background agent", Args: noArgs}
@@ -201,7 +213,7 @@ func (a App) rootProjectMutationCommand(configPath *string, verb, label string, 
 	}
 }
 
-func (a App) runAgentDashboard(ctx context.Context, configPath, colorMode string, includeIdle, noWatch bool) error {
+func (a App) runAgentDashboard(ctx context.Context, configPath, colorMode string, includeIdle bool) error {
 	color, err := a.resolveColor(colorMode)
 	if err != nil {
 		return err
@@ -209,27 +221,70 @@ func (a App) runAgentDashboard(ctx context.Context, configPath, colorMode string
 	_, paths, err := a.agentConfig(configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return a.runHumanScan(ctx, configPath, "", true, colorMode, includeIdle, true, true)
+			return a.runHumanScan(ctx, configPath, "", true, colorMode, includeIdle, true, true, !includeIdle)
 		}
 		return err
 	}
-	// Injected scanners are used by command tests and do not have an agent
-	// process. Production commands must not hide an unavailable agent behind a
-	// slow foreground scan.
-	if a.scannerSource != nil {
-		return a.runHumanScan(ctx, configPath, "", true, colorMode, includeIdle, true, true)
+	// Scanner injection is a test boundary. Tests that exercise the agent path
+	// provide both an injected scanner and an injected agent client.
+	if a.scannerSource != nil && a.agentClientSource == nil {
+		return a.runHumanScan(ctx, configPath, "", true, colorMode, includeIdle, true, true, !includeIdle)
 	}
-	client := agent.Client{Socket: paths.Socket}
-	event, err := client.Request(ctx, agent.Request{Type: agent.RequestGetSnapshot})
+	client := a.agentClient(paths.Socket)
+	loader := startScanLoader(a.Out, a.outputIsTTY(), color, a.terminalWidth())
+	event, err := client.Request(ctx, agent.Request{Type: agent.RequestRefreshAll})
 	if err != nil {
-		return fmt.Errorf("Beacon background agent is unavailable: %w; run beacon agent install, or use beacon scan for a blocking scan", err)
+		loader.Stop(false)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return a.runHumanScan(ctx, configPath, "", true, colorMode, includeIdle, true, true, !includeIdle)
+	}
+	if event.ScanID == "" {
+		loader.Stop(false)
+		return errors.New("agent returned no scan id for manual refresh")
+	}
+	if err := waitForAgentRefresh(ctx, client); err != nil {
+		loader.Stop(false)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return a.runHumanScan(ctx, configPath, "", true, colorMode, includeIdle, true, true, !includeIdle)
+	}
+	event, err = client.Request(ctx, agent.Request{Type: agent.RequestGetSnapshot})
+	loader.Stop(err == nil && event.Snapshot != nil)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return a.runHumanScan(ctx, configPath, "", true, colorMode, includeIdle, true, true, !includeIdle)
 	}
 	if event.Snapshot == nil {
-		return errors.New("agent returned no cached snapshot")
+		return a.runHumanScan(ctx, configPath, "", true, colorMode, includeIdle, true, true, !includeIdle)
 	}
-	if err := output.TerminalWithOptions(a.Out, *event.Snapshot, output.TerminalOptions{Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle, WorkingSet: true}); err != nil {
-		return err
+	return output.TerminalWithOptions(a.Out, *event.Snapshot, output.TerminalOptions{
+		Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle, WorkingSet: !includeIdle,
+	})
+}
+
+func waitForAgentRefresh(ctx context.Context, client agentRequestClient) error {
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		event, err := client.Request(ctx, agent.Request{Type: agent.RequestGetAgentStatus})
+		if err != nil {
+			return err
+		}
+		if event.Status == nil {
+			return errors.New("agent returned no status during manual refresh")
+		}
+		if !event.Status.Refreshing {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
 	}
-	_ = noWatch
-	return nil
 }

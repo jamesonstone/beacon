@@ -84,7 +84,8 @@ enum TestSnapshots {
             message: nil,
             snapshot: snapshot,
             projects: nil,
-            status: nil
+            status: nil,
+            notes: nil
         )
     }
 
@@ -101,7 +102,8 @@ enum TestSnapshots {
             message: nil,
             snapshot: snapshot,
             projects: nil,
-            status: nil
+            status: nil,
+            notes: nil
         )
     }
 

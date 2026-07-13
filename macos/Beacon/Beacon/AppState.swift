@@ -13,6 +13,11 @@ final class AppState: ObservableObject {
     @Published private(set) var mutatingProjects: Set<String> = []
     @Published private(set) var agentAvailable = false
     @Published private(set) var projectStatuses: [String: AgentProjectStatus] = [:]
+    @Published private(set) var notesContent = ""
+    @Published private(set) var notesPath = ""
+    @Published private(set) var notesUpdatedAt: String?
+    @Published private(set) var isSavingNotes = false
+    @Published private(set) var notesError: String?
 
     private let agent: AgentClientProtocol
     private let installer: AgentInstallerProtocol?
@@ -116,6 +121,27 @@ final class AppState: ObservableObject {
         await applyLaneMutation { try await agent.addManualLane(title) }
     }
 
+    func loadNotes() async {
+        do {
+            apply(try await agent.notes())
+            notesError = nil
+        } catch {
+            notesError = error.localizedDescription
+        }
+    }
+
+    func saveNotes(_ content: String) async {
+        guard !isSavingNotes else { return }
+        isSavingNotes = true
+        defer { isSavingNotes = false }
+        do {
+            apply(try await agent.setNotes(content))
+            notesError = nil
+        } catch {
+            notesError = error.localizedDescription
+        }
+    }
+
     private func applyLaneMutation(_ operation: () async throws -> AgentEvent) async {
         do {
             apply(try await operation())
@@ -193,6 +219,7 @@ final class AppState: ObservableObject {
                 let stream = try await agent.subscribe()
                 agentAvailable = true
                 lastError = nil
+                await loadNotes()
                 for try await event in stream {
                     guard !Task.isCancelled else { return }
                     apply(event)
@@ -255,6 +282,12 @@ final class AppState: ObservableObject {
                 lastError = nil
             }
         }
+        if let notes = event.notes {
+            notesContent = notes.content
+            notesPath = notes.path
+            notesUpdatedAt = notes.updatedAt
+            notesError = nil
+        }
         if event.type == "project_failed" {
             lastError = event.message ?? "Project refresh failed — showing previous result"
         }
@@ -268,46 +301,5 @@ final class AppState: ObservableObject {
         agentAvailable = status.running
         isScanning = status.refreshing
         activeScanID = status.refreshing ? status.scanID : nil
-    }
-}
-
-private actor DirectAgentAdapter: AgentClientProtocol {
-    let client: CLIClientProtocol
-    var latest: BeaconSnapshot?
-
-    init(client: CLIClientProtocol) {
-        self.client = client
-    }
-
-    func snapshot() async throws -> AgentEvent {
-        if latest == nil { latest = try await client.scan() }
-        return event(type: "snapshot", snapshot: latest)
-    }
-
-    func subscribe() async throws -> AsyncThrowingStream<AgentEvent, Error> {
-        let initial = try await snapshot()
-        return AsyncThrowingStream { continuation in
-            continuation.yield(initial)
-            continuation.finish()
-        }
-    }
-
-    func refresh(project: String?) async throws -> String {
-        latest = try await client.scan()
-        return "direct"
-    }
-
-    func setProjectTracked(_ github: String, tracked: Bool) async throws -> AgentEvent {
-        try await client.setProjectTracked(github, tracked: tracked)
-        latest = try await client.scan()
-        return event(type: "tracking_changed", snapshot: latest)
-    }
-
-    func status() async throws -> AgentStatusDetails {
-        AgentStatusDetails(running: true, pid: 0, startedAt: nil, refreshing: false, scanID: nil, projectCount: latest?.projects.count ?? 0, socket: "direct")
-    }
-
-    private func event(type: String, snapshot: BeaconSnapshot?) -> AgentEvent {
-        AgentEvent(protocolVersion: 1, requestID: nil, type: type, scanID: nil, projectID: nil, revision: nil, stage: "ready", generatedAt: snapshot?.generatedAt ?? "", message: nil, snapshot: snapshot, projects: nil, status: nil)
     }
 }

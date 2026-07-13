@@ -27,6 +27,30 @@ extension AppStateTests {
         XCTAssertFalse(state.isScanning)
     }
 
+    func testSignalNotesLoadAndSaveThroughSharedAgentAuthority() async {
+        let agent = ScriptedAgent(
+            events: [TestSnapshots.snapshotEvent(TestSnapshots.empty)],
+            signalNotes: AgentNotes(
+                content: "# Signal Log\n\nInitial spark",
+                path: "/tmp/beacon/notes.md",
+                updatedAt: "2026-07-13T13:00:00Z"
+            )
+        )
+        let state = AppState(agent: agent, installer: nil)
+
+        await state.loadNotes()
+        XCTAssertEqual(state.notesContent, "# Signal Log\n\nInitial spark")
+        XCTAssertEqual(state.notesPath, "/tmp/beacon/notes.md")
+
+        await state.saveNotes("# Signal Log\n\nNew orbit")
+        let setCalls = await agent.setNotesCalls
+        XCTAssertEqual(setCalls, 1)
+        XCTAssertEqual(state.notesContent, "# Signal Log\n\nNew orbit")
+        XCTAssertEqual(state.notesUpdatedAt, "2026-07-13T14:00:00Z")
+        XCTAssertNil(state.notesError)
+        XCTAssertFalse(state.isSavingNotes)
+    }
+
     func testAgentEventsRejectOlderProjectRevision() async {
         let agent = ScriptedAgent(events: [
             TestSnapshots.agentEvent(snapshot: TestSnapshots.withLane, projectID: "owner/repo", revision: 2),
@@ -101,7 +125,8 @@ extension AppStateTests {
             message: nil,
             snapshot: nil,
             projects: [placeholder],
-            status: nil
+            status: nil,
+            notes: nil
         )
         let agent = ScriptedAgent(events: [
             TestSnapshots.agentEvent(snapshot: TestSnapshots.empty, projectID: "", revision: 0),

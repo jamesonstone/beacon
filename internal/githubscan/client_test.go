@@ -127,6 +127,32 @@ func TestCollectMineSkipsInactivePullRequestEnrichmentUnlessExplicit(t *testing.
 	}
 }
 
+func TestCollectMineOnlyEnrichesInactivePullRequestsForFollowedRepositories(t *testing.T) {
+	now := time.Date(2026, 7, 12, 0, 0, 0, 0, time.UTC)
+	runner := &fixtureRunner{responses: map[string][]byte{
+		"gh search prs": []byte(`[
+			{"number":2,"updatedAt":"2026-06-01T12:00:00Z","repository":{"nameWithOwner":"owner/followed"}},
+			{"number":3,"updatedAt":"2026-06-01T12:00:00Z","repository":{"nameWithOwner":"owner/quiet"}}
+		]`),
+		"gh search issues": []byte(`[]`),
+		"gh pr view":       []byte(`{"number":2,"title":"Old","url":"https://github.com/owner/followed/pull/2","headRefName":"old","headRefOid":"abc","baseRefName":"main","isDraft":false,"updatedAt":"2026-06-01T12:00:00Z","reviewDecision":"","statusCheckRollup":[],"mergeStateStatus":"CLEAN","mergeable":"MERGEABLE","comments":[],"reviews":[],"closingIssuesReferences":[]}`),
+		"gh api graphql":   []byte(`{"data":{"repository":{"pullRequest":{"reviewThreads":{"totalCount":0,"nodes":[]}}}}}`),
+	}}
+	client := Client{Runner: runner, Now: func() time.Time { return now }}
+	repositories := []config.Repository{
+		{Name: "followed", GitHub: "owner/followed"},
+		{Name: "quiet", GitHub: "owner/quiet"},
+	}
+	ctx := WithInactivePullRequestRepositories(context.Background(), []string{"owner/followed"})
+	collection := client.Collect(ctx, repositories, "mine", "@me", 2)
+	if len(collection.Repositories["owner/followed"].PullRequests) != 1 || len(collection.Repositories["owner/quiet"].PullRequests) != 0 {
+		t.Fatalf("collection = %#v", collection.Repositories)
+	}
+	if runner.count("gh pr view") != 1 || runner.count("gh api graphql") != 1 {
+		t.Fatalf("inactive enrichment calls = %v", runner.calls)
+	}
+}
+
 func TestCollectAllKeepsIssueEvidenceWhenPullRequestsFail(t *testing.T) {
 	runner := &fixtureRunner{
 		responses: map[string][]byte{

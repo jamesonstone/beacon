@@ -95,7 +95,7 @@ func cachedRecord(id string, revision uint64, state model.TrackingState) Project
 }
 
 func testPaths(root string) Paths {
-	return Paths{Config: filepath.Join(root, "config.yaml"), State: filepath.Join(root, "state", "beacon", "tracking.json"), CacheRoot: filepath.Join(root, "cache"), Projects: filepath.Join(root, "cache", "projects"), Socket: filepath.Join(root, "cache", "agent.sock"), PID: filepath.Join(root, "cache", "agent.pid"), LaunchAgent: filepath.Join(root, "LaunchAgents", "agent.plist"), Logs: filepath.Join(root, "logs"), StandardLog: filepath.Join(root, "logs", "agent.log"), ErrorLog: filepath.Join(root, "logs", "agent-error.log")}
+	return Paths{Config: filepath.Join(root, "config.yaml"), State: filepath.Join(root, "state", "beacon", "tracking.json"), Notes: filepath.Join(root, "data", "beacon", "notes.md"), CacheRoot: filepath.Join(root, "cache"), Projects: filepath.Join(root, "cache", "projects"), Socket: filepath.Join(root, "cache", "agent.sock"), PID: filepath.Join(root, "cache", "agent.pid"), LaunchAgent: filepath.Join(root, "LaunchAgents", "agent.plist"), Logs: filepath.Join(root, "logs"), StandardLog: filepath.Join(root, "logs", "agent.log"), ErrorLog: filepath.Join(root, "logs", "agent-error.log")}
 }
 
 func waitForFile(t *testing.T, path string) {

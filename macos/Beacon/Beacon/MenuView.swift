@@ -19,8 +19,11 @@ struct MenuView: View {
     @State var showingTagEditor = false
     @State var manualTitle = ""
     @State var showingManualEditor = false
+    @State var notesDraft = ""
+    @FocusState var notesEditorFocused: Bool
     @AppStorage("beacon.dashboard.view-mode") private var viewModeValue = DashboardViewMode.stacked.rawValue
     @AppStorage("beacon.dismissed-evidence-badges") private var dismissedEvidenceBadgesValue = "[]"
+    @AppStorage("beacon.signal-notes-expanded") var signalNotesExpanded = false
 
     var viewMode: DashboardViewMode {
         get { DashboardViewMode(rawValue: viewModeValue) ?? .stacked }
@@ -52,7 +55,15 @@ struct MenuView: View {
                     )
             }
         }
-        .onAppear { loginItem.refresh() }
+        .onAppear {
+            loginItem.refresh()
+            notesDraft = state.notesContent
+        }
+        .onChange(of: state.notesContent) { previous, latest in
+            if !notesEditorFocused || notesDraft == previous {
+                notesDraft = latest
+            }
+        }
         .alert("Add lane tag", isPresented: $showingTagEditor) {
             TextField("Short tag", text: $tagText)
             Button("Add") { if let lane = tagLane { Task { await state.addLaneTag(lane, tag: tagText) } } }
@@ -99,6 +110,7 @@ struct MenuView: View {
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(BeaconPalette.cyan, BeaconPalette.lavender)
             }
+            signalNotesPanel
         }
         .padding(12)
         .font(BeaconTypography.regular(12))
@@ -126,14 +138,38 @@ struct MenuView: View {
                 }
             }
             Spacer()
-            if state.isScanning {
-                ProgressView()
-                    .controlSize(.small)
-                    .tint(BeaconPalette.cyan)
-            }
+            refreshButton
             viewModeMenu
             settingsMenu
         }
+    }
+
+    private var refreshButton: some View {
+        Button {
+            Task { await state.scan() }
+        } label: {
+            Group {
+                if state.isScanning {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(BeaconPalette.mint)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(BeaconPalette.mint)
+                }
+            }
+            .frame(width: 28, height: 28)
+            .background(BeaconPalette.softGradient(BeaconPalette.mint), in: RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(BeaconPalette.mint.opacity(0.42), lineWidth: 0.7)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(state.isScanning)
+        .help(state.isScanning ? "Scanning Git and GitHub evidence" : "Scan Now — refresh Git and GitHub evidence")
+        .accessibilityLabel(state.isScanning ? "Scan in progress" : "Scan Now")
     }
 
     private var viewModeMenu: some View {
@@ -165,8 +201,6 @@ struct MenuView: View {
             if surface == .menu {
                 Button(action: openDashboard) { Label("Open Dashboard", systemImage: "macwindow") }
             }
-            Button { Task { await state.scan() } } label: { Label("Scan Now", systemImage: "arrow.clockwise") }
-                .disabled(state.isScanning)
             Button { state.openTopItem() } label: { Label("Open Top Item", systemImage: "arrow.up.forward.app") }
                 .disabled(state.inProgressCount == 0)
             Button { manualTitle = ""; showingManualEditor = true } label: { Label("Add Manual Lane", systemImage: "plus.circle") }

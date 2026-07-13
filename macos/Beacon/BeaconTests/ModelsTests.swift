@@ -2,6 +2,13 @@ import XCTest
 @testable import Beacon
 
 final class ModelsTests: XCTestCase {
+    func testSignalNotesSavedLabelIncludesFormattedAge() {
+        XCTAssertEqual(
+            SignalNotesPresentation.savedLabel(age: "2 minutes ago"),
+            "Saved 2 minutes ago"
+        )
+    }
+
     func testDecodesCompleteSchemaVersionThree() throws {
         let data = Data(Self.snapshotJSON.utf8)
         let snapshot = try JSONDecoder().decode(BeaconSnapshot.self, from: data)
