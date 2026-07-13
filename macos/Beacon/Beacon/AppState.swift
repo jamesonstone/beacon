@@ -13,7 +13,6 @@ final class AppState: ObservableObject {
     @Published private(set) var mutatingProjects: Set<String> = []
     @Published private(set) var agentAvailable = false
     @Published private(set) var projectStatuses: [String: AgentProjectStatus] = [:]
-    @Published private(set) var reactivationMessage: String?
 
     private let agent: AgentClientProtocol
     private let installer: AgentInstallerProtocol?
@@ -32,18 +31,6 @@ final class AppState: ObservableObject {
 
     convenience init(client: CLIClientProtocol) {
         self.init(agent: DirectAgentAdapter(client: client), installer: nil)
-    }
-
-    var trackedProjects: [BeaconProject] {
-        (snapshot?.projects ?? []).filter {
-            pendingTrackingStates[$0.github] ?? $0.isTracked
-        }
-    }
-
-    var untrackedProjects: [BeaconProject] {
-        (snapshot?.projects ?? []).filter {
-            !(pendingTrackingStates[$0.github] ?? $0.isTracked)
-        }
     }
 
     var loadingProjects: [AgentProjectStatus] {
@@ -88,13 +75,17 @@ final class AppState: ObservableObject {
         }
     }
 
-    func setProjectTracked(_ project: BeaconProject, tracked: Bool) {
+    func setProjectFollowed(_ project: BeaconProject, followed: Bool) {
         guard !mutatingProjects.contains(project.github) else { return }
-        pendingTrackingStates[project.github] = tracked
+        pendingTrackingStates[project.github] = followed
         mutatingProjects.insert(project.github)
         trackingFailures.removeValue(forKey: project.github)
-        trackingQueue.append(TrackingMutation(projectID: project.github, tracked: tracked))
+        trackingQueue.append(TrackingMutation(projectID: project.github, tracked: followed))
         startTrackingQueue()
+    }
+
+    func setProjectTracked(_ project: BeaconProject, tracked: Bool) {
+        setProjectFollowed(project, followed: tracked)
     }
 
     func setLaneAttention(_ lane: WorkLane, state: String) async {
@@ -171,6 +162,13 @@ final class AppState: ObservableObject {
 
     func isMutating(_ project: BeaconProject) -> Bool {
         mutatingProjects.contains(project.github)
+    }
+
+    func presentedFollowState(for project: BeaconProject) -> String {
+        guard let followed = pendingTrackingStates[project.github] else {
+            return project.effectiveFollowState
+        }
+        return followed ? "following" : "quiet"
     }
 
     func enableAgent() async {
@@ -256,9 +254,6 @@ final class AppState: ObservableObject {
             if event.type != "project_failed" {
                 lastError = nil
             }
-        }
-        if event.type == "project_reactivated" {
-            reactivationMessage = "Reactivated: \(event.message ?? "new project activity")"
         }
         if event.type == "project_failed" {
             lastError = event.message ?? "Project refresh failed — showing previous result"

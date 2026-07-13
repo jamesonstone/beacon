@@ -60,15 +60,6 @@ extension MenuView {
             }
     }
 
-    func reactivationBanner(_ projects: [String]) -> some View {
-        Label("Automatically tracking \(projects.joined(separator: ", "))", systemImage: "bolt.fill")
-            .font(.caption)
-            .foregroundStyle(BeaconPalette.mint)
-            .padding(8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(BeaconPalette.softGradient(BeaconPalette.mint), in: RoundedRectangle(cornerRadius: 8))
-    }
-
     func signalColor(_ signal: String) -> Color {
         switch signal.lowercased() {
         case "clean", "success", "approved", "current", "published", "open":

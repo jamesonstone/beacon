@@ -155,6 +155,10 @@ func (c Cache) quarantine(path string) error {
 }
 
 func Assemble(records []ProjectRecord, configPath, trackingPath string, now time.Time) model.Snapshot {
+	return AssembleWithRecentWindow(records, configPath, trackingPath, now, 24*time.Hour)
+}
+
+func AssembleWithRecentWindow(records []ProjectRecord, configPath, trackingPath string, now time.Time, recentWindow time.Duration) model.Snapshot {
 	snapshot := model.Snapshot{
 		SchemaVersion: model.SchemaVersion, ConfigPath: configPath,
 		Refresh: []model.Refresh{}, Projects: []model.Project{}, Lanes: []model.Lane{},
@@ -181,6 +185,6 @@ func Assemble(records []ProjectRecord, configPath, trackingPath string, now time
 		return snapshot.Projects[i].GitHub < snapshot.Projects[j].GitHub
 	})
 	scan.Finalize(&snapshot)
-	tracking.ApplyCached(&snapshot, trackingPath)
+	tracking.ApplyCached(&snapshot, trackingPath, now, recentWindow)
 	return snapshot
 }

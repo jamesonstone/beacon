@@ -117,7 +117,7 @@ func (e *Engine) probeAuthor() string {
 	return e.Config.Settings.GitHubAuthor
 }
 
-func reactivationReason(entry tracking.Entry, probe ProbeResult) string {
+func projectActivityReason(entry tracking.Entry, probe ProbeResult) string {
 	switch {
 	case entry.ProbeLocal != "" && entry.ProbeLocal != probe.Local:
 		return "new local changes"

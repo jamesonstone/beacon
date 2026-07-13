@@ -12,6 +12,16 @@ extension AppStateTests {
         XCTAssertEqual(state.inProgressCount, 0)
     }
 
+    func testRecentInventoryRetainsFactualActivityEvidence() async {
+        let state = AppState(client: StubClient(result: .success(TestSnapshots.withRecentInventory)))
+        await state.scan()
+
+        XCTAssertEqual(state.followedProjectCount, 1)
+        XCTAssertEqual(state.recentProjects.map(\.github), ["owner/untracked"])
+        XCTAssertEqual(state.recentProjects.first?.activityReason, "new GitHub activity")
+        XCTAssertEqual(state.quietProjectCount, 0)
+    }
+
     func testProjectTrackingMutationRunsCLIAndRefreshesSnapshot() async {
         let client = RecordingClient(results: [
             .success(TestSnapshots.withTrackingInventory),

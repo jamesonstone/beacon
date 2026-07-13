@@ -15,12 +15,13 @@ import (
 	"github.com/jamesonstone/beacon/internal/workset"
 )
 
-func TestResumedLaneUsesFrequentCadenceInsideUntrackedProject(t *testing.T) {
+func TestFrequentLaneCadenceRequiresProjectFollowing(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
 	now := time.Date(2026, 7, 11, 12, 2, 0, 0, time.UTC)
 	repository := config.Repository{Name: "repo", GitHub: "owner/repo"}
-	record := cachedRecord(repository.GitHub, 1, model.TrackingUntracked)
+	record := cachedRecord(repository.GitHub, 1, model.TrackingTracked)
+	record.Snapshot.Projects[0].FollowState = model.FollowFollowing
 	record.UpdatedAt = now.Add(-2 * time.Minute)
 	record.LastProbeAt = now
 	manager := workset.Manager{Store: workset.FileStore{}, Now: func() time.Time { return now }}
@@ -32,7 +33,7 @@ func TestResumedLaneUsesFrequentCadenceInsideUntrackedProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	engine := NewEngine(
-		config.Config{Settings: config.Settings{TrackedRefreshInterval: time.Minute, UntrackedProbeInterval: time.Hour}},
+		config.Config{Path: filepath.Join(root, "config.yaml"), Settings: config.Settings{TrackedRefreshInterval: time.Minute, UntrackedProbeInterval: time.Hour}},
 		testPaths(root), Cache{Directory: filepath.Join(root, "cache")}, nil, nil, nil, tracking.Manager{},
 	)
 	engine.Now = func() time.Time { return now }
@@ -40,7 +41,28 @@ func TestResumedLaneUsesFrequentCadenceInsideUntrackedProject(t *testing.T) {
 	engine.storeRecord(record)
 
 	if !engine.due(repository, engine.frequentRepositories()) {
-		t.Fatal("resumed lane did not use frequent local cadence")
+		t.Fatal("followed project lane did not use frequent local cadence")
+	}
+	if err := engine.SetSelection([]string{}); err != nil {
+		t.Fatal(err)
+	}
+	outside, found := engine.record(repository.GitHub)
+	if !found || outside.Snapshot.Projects[0].FollowState != model.FollowQuiet {
+		t.Fatalf("unfollowed record = %#v, found = %t", outside.Snapshot.Projects, found)
+	}
+	if engine.due(repository, engine.frequentRepositories()) {
+		t.Fatal("outside project lane retained frequent cadence")
+	}
+	if err := engine.SetSelection([]string{repository.GitHub}); err != nil {
+		t.Fatal(err)
+	}
+	followed, found := engine.record(repository.GitHub)
+	if !found || followed.Snapshot.Projects[0].FollowState != model.FollowFollowing {
+		t.Fatalf("followed record = %#v, found = %t", followed.Snapshot.Projects, found)
+	}
+	engine.Now = func() time.Time { return now.Add(2 * time.Minute) }
+	if !engine.due(repository, engine.frequentRepositories()) {
+		t.Fatal("refollowed project lane did not restore frequent cadence")
 	}
 	if _, err := manager.SetAttention(working, record.Snapshot.Lanes[0].ID, model.AttentionParked); err != nil {
 		t.Fatal(err)

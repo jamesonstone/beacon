@@ -6,17 +6,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
-	"time"
 
 	"github.com/jamesonstone/beacon/internal/agent"
-	"github.com/jamesonstone/beacon/internal/config"
-	"github.com/jamesonstone/beacon/internal/githubapi"
-	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/output"
-	"github.com/jamesonstone/beacon/internal/tracking"
-	"github.com/jamesonstone/beacon/internal/workset"
 	"github.com/spf13/cobra"
 )
 
@@ -165,8 +158,26 @@ func (a App) rootTrackingCommand(configPath *string, tracked bool) *cobra.Comman
 		verb = "track"
 		label = "Tracked"
 	}
+	return a.rootProjectMutationCommand(configPath, verb, label, tracked, true)
+}
+
+func (a App) rootFollowingCommand(configPath *string, followed bool) *cobra.Command {
+	verb := "unfollow"
+	label := "outside Following"
+	if followed {
+		verb = "follow"
+		label = "Following"
+	}
+	return a.rootProjectMutationCommand(configPath, verb, label, followed, false)
+}
+
+func (a App) rootProjectMutationCommand(configPath *string, verb, label string, followed, compatibility bool) *cobra.Command {
+	short := "Move projects to " + label
+	if compatibility {
+		short += " (compatibility alias)"
+	}
 	return &cobra.Command{
-		Use: verb + " <project>...", Short: "Move projects to " + label,
+		Use: verb + " <project>...", Short: short,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return usageError{fmt.Errorf("%s requires at least one project", cmd.CommandPath())}
@@ -174,10 +185,17 @@ func (a App) rootTrackingCommand(configPath *string, tracked bool) *cobra.Comman
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := a.setProjects(cmd.Context(), *configPath, args, tracked); err != nil {
+			if err := a.setProjects(cmd.Context(), *configPath, args, followed); err != nil {
 				return err
 			}
-			_, err := fmt.Fprintf(a.Out, "%s %d project%s\n", verbPastTense(tracked), len(args), pluralSuffix(len(args)))
+			past := "stopped following"
+			if followed {
+				past = "followed"
+			}
+			if compatibility {
+				past = verbPastTense(followed)
+			}
+			_, err := fmt.Fprintf(a.Out, "%s %d project%s\n", past, len(args), pluralSuffix(len(args)))
 			return err
 		},
 	}
@@ -214,72 +232,4 @@ func (a App) runAgentDashboard(ctx context.Context, configPath, colorMode string
 	}
 	_ = noWatch
 	return nil
-}
-
-func (a App) agentConfig(path string) (config.Config, agent.Paths, error) {
-	cfg, err := config.Load(path)
-	if err != nil {
-		return config.Config{}, agent.Paths{}, err
-	}
-	paths, err := agent.ResolvePaths(cfg.Path)
-	return cfg, paths, err
-}
-
-func (a App) newAgentEngine(ctx context.Context, path string) (*agent.Engine, agent.Paths, error) {
-	cfg, paths, err := a.agentConfig(path)
-	if err != nil {
-		return nil, agent.Paths{}, err
-	}
-	if err := paths.EnsureRuntime(); err != nil {
-		return nil, agent.Paths{}, err
-	}
-	githubRunner := githubapi.NewRunnerWithOptions(a.Runner, githubapi.Options{
-		CacheTTL: cfg.Settings.RemoteRefreshInterval, CacheDirectory: filepath.Join(paths.CacheRoot, "github"),
-	})
-	scanner := a.scannerComponentsWithRunner(githubRunner)
-	tracker := tracking.Manager{Store: tracking.FileStore{}, Now: time.Now}
-	repositories := func(repositoryContext context.Context) ([]config.Repository, error) {
-		values, scanErrors, _ := scanner.Repositories(repositoryContext, cfg)
-		if len(values) == 0 {
-			if len(scanErrors) > 0 {
-				return nil, fmt.Errorf("discover repositories: %s", scanErrors[0].Message)
-			}
-			return nil, errors.New("configuration resolved no repositories")
-		}
-		return values, nil
-	}
-	projectScanner := func(scanContext context.Context, repository config.Repository, refresh bool, stage func(string)) (model.Snapshot, error) {
-		snapshot, scanErr := scanner.ScanOne(scanContext, cfg, repository, refresh, stage)
-		if scanErr != nil {
-			return model.Snapshot{}, scanErr
-		}
-		return tracker.Reconcile(snapshot)
-	}
-	cache := agent.Cache{Directory: paths.Projects, Now: time.Now}
-	prober := agent.Prober{Runner: githubRunner, Remote: scanner.GitHub}
-	engine := agent.NewEngine(cfg, paths, cache, repositories, projectScanner, prober, tracker)
-	workingSet := workset.Manager{Store: workset.FileStore{}, Now: time.Now}
-	engine.WorkingSet = &workingSet
-	engine.ScanBatch = func(
-		scanContext context.Context,
-		repositories []config.Repository,
-		refresh bool,
-		stage func(string, string),
-	) (map[string]model.Snapshot, error) {
-		snapshots, scanErr := scanner.ScanMany(scanContext, cfg, repositories, refresh, stage)
-		if scanErr != nil {
-			return nil, scanErr
-		}
-		for projectID, snapshot := range snapshots {
-			reconciled, reconcileErr := tracker.Reconcile(snapshot)
-			if reconcileErr != nil {
-				return nil, reconcileErr
-			}
-			snapshots[projectID] = reconciled
-		}
-		return snapshots, nil
-	}
-	engine.ProbeBatch = prober.ProbeMany
-	_ = ctx
-	return engine, paths, nil
 }

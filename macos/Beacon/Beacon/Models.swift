@@ -26,6 +26,9 @@ struct SnapshotSummary: Codable, Equatable {
     let projects: Int
     let trackedProjects: Int?
     let untrackedProjects: Int?
+    var followingProjects: Int? = nil
+    var recentProjects: Int? = nil
+    var quietProjects: Int? = nil
     let total: Int
     let reviewReady: Int
     let needsAction: Int
@@ -42,6 +45,9 @@ struct SnapshotSummary: Codable, Equatable {
         case projects, total, waiting, idle, errors
         case trackedProjects = "tracked_projects"
         case untrackedProjects = "untracked_projects"
+        case followingProjects = "following_projects"
+        case recentProjects = "recent_projects"
+        case quietProjects = "quiet_projects"
         case reviewReady = "review_ready"
         case needsAction = "needs_action"
         case openIssues = "open_issues"
@@ -101,6 +107,9 @@ struct BeaconProject: Codable, Equatable, Identifiable {
     let base: String
     let remote: String
     let trackingState: String?
+    var followState: String? = nil
+    var lastActivityAt: String? = nil
+    var activityReason: String? = nil
     let progress: ProgressDetails?
     let laneIDs: [String]
     let errors: [ScanError]
@@ -108,10 +117,19 @@ struct BeaconProject: Codable, Equatable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case name, path, github, base, remote, progress, errors
         case trackingState = "tracking_state"
+        case followState = "follow_state"
+        case lastActivityAt = "last_activity_at"
+        case activityReason = "activity_reason"
         case laneIDs = "lane_ids"
     }
 
-    var isTracked: Bool { trackingState != "untracked" }
+    var effectiveFollowState: String {
+        if let followState, !followState.isEmpty { return followState }
+        return trackingState == "untracked" ? "quiet" : "following"
+    }
+
+    var isFollowed: Bool { effectiveFollowState == "following" }
+    var isTracked: Bool { isFollowed }
 }
 
 struct WorkLane: Codable, Equatable, Identifiable {

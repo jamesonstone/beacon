@@ -7,9 +7,9 @@ import (
 	"github.com/jamesonstone/beacon/internal/model"
 )
 
-func (p huhPrompter) SelectTrackedProjects(ctx context.Context, projects []model.Project) ([]string, error) {
+func (p huhPrompter) SelectFollowedProjects(ctx context.Context, projects []model.Project) ([]string, error) {
 	options := make([]huh.Option[string], 0, len(projects))
-	selected := trackedProjectIDs(projects)
+	selected := followedProjectIDs(projects)
 	for _, project := range projects {
 		option := huh.NewOption(project.Name+"  "+project.GitHub, project.GitHub)
 		if project.TrackingState != model.TrackingUntracked {
@@ -19,7 +19,7 @@ func (p huhPrompter) SelectTrackedProjects(ctx context.Context, projects []model
 	}
 	form := huh.NewForm(huh.NewGroup(
 		huh.NewMultiSelect[string]().
-			Title("Projects Beacon should track").
+			Title("Projects Beacon should follow").
 			Description("Space toggles a project; type / to filter.").
 			Options(options...).
 			Value(&selected),

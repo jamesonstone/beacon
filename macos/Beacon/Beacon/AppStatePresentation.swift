@@ -11,6 +11,21 @@ struct ProjectLaneGroup: Identifiable, Equatable {
 extension AppState {
     var readyCount: Int { snapshot?.summary.reviewReady ?? 0 }
 
+    var followedProjects: [BeaconProject] {
+        (snapshot?.projects ?? []).filter { presentedFollowState(for: $0) == "following" }
+    }
+
+    var recentProjects: [BeaconProject] {
+        (snapshot?.projects ?? []).filter { presentedFollowState(for: $0) == "recent" }
+    }
+
+    var quietProjects: [BeaconProject] {
+        (snapshot?.projects ?? []).filter { presentedFollowState(for: $0) == "quiet" }
+    }
+
+    var trackedProjects: [BeaconProject] { followedProjects }
+    var untrackedProjects: [BeaconProject] { recentProjects + quietProjects }
+
     var inProgressCount: Int {
         if let working = snapshot?.workingSet {
             return working.active.count + working.waiting.count + working.recent.count
@@ -19,11 +34,31 @@ extension AppState {
         return groups.ready.count + groups.action.count + groups.waiting.count
     }
 
-    var quietProjectCount: Int { quietProjectGroups().count }
+    var followedProjectCount: Int { followedProjects.count }
+
+    var recentProjectCount: Int { recentProjects.count }
+
+    var quietProjectCount: Int { quietProjects.count }
 
     var queuedTrackingCount: Int { mutatingProjects.count }
 
     var untrackedProjectCount: Int { untrackedProjects.count }
+
+    func projects(in followState: String, matching query: String = "") -> [BeaconProject] {
+        let projects: [BeaconProject]
+        switch followState {
+        case "following": projects = followedProjects
+        case "recent": projects = recentProjects
+        default: projects = quietProjects
+        }
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalizedQuery.isEmpty else { return projects }
+        return projects.filter {
+            $0.name.lowercased().contains(normalizedQuery)
+                || $0.github.lowercased().contains(normalizedQuery)
+                || $0.path.lowercased().contains(normalizedQuery)
+        }
+    }
 
     func stage(for projectID: String) -> String {
         projectStatuses[projectID]?.stage ?? "cached"
@@ -65,29 +100,6 @@ extension AppState {
             ))
         }
         return groups
-    }
-
-    func quietProjectGroups(matching query: String = "") -> [ProjectLaneGroup] {
-        guard let snapshot else { return [] }
-        var attentionIDs = snapshot.groups.ready + snapshot.groups.action + snapshot.groups.waiting
-        if let workingSet = snapshot.workingSet {
-            attentionIDs += workingSet.active + workingSet.waiting + workingSet.recent + workingSet.parked
-        }
-        let attentionProjects = Set(lanes(for: attentionIDs).map(\.github))
-        let quietLanes = lanes(for: snapshot.groups.idle).filter { !attentionProjects.contains($0.github) }
-        let groups = projectGroups(for: quietLanes)
-        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !normalizedQuery.isEmpty else { return groups }
-        return groups.filter { group in
-            group.name.lowercased().contains(normalizedQuery)
-                || group.id.lowercased().contains(normalizedQuery)
-                || group.lanes.contains { lane in
-                    lane.repository.lowercased().contains(normalizedQuery)
-                        || lane.branch.lowercased().contains(normalizedQuery)
-                        || lane.pullRequest?.title.lowercased().contains(normalizedQuery) == true
-                        || lane.issue?.title.lowercased().contains(normalizedQuery) == true
-                }
-        }
     }
 
     func open(_ lane: WorkLane) {

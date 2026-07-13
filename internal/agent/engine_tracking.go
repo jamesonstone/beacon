@@ -53,8 +53,12 @@ func (e *Engine) applyTrackingSnapshot(updated model.Snapshot) error {
 		if !found || len(record.Snapshot.Projects) == 0 {
 			continue
 		}
-		previous := record.Snapshot.Projects[0].TrackingState
-		record.Snapshot.Projects[0].TrackingState = project.TrackingState
+		cachedProject := &record.Snapshot.Projects[0]
+		previous := cachedProject.TrackingState
+		cachedProject.TrackingState = project.TrackingState
+		cachedProject.FollowState = project.FollowState
+		cachedProject.LastActivityAt = project.LastActivityAt
+		cachedProject.ActivityReason = project.ActivityReason
 		if previous != model.TrackingUntracked && project.TrackingState == model.TrackingUntracked {
 			record.LastProbeAt = e.now()
 		}

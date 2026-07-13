@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/model"
 )
 
@@ -134,7 +135,7 @@ repositories:
 	}
 }
 
-func TestHumanScanCanRevealQuietProjectsExplicitlyOrByRepository(t *testing.T) {
+func TestHumanScanCanRevealIdleFollowingProjectsExplicitlyOrByRepository(t *testing.T) {
 	repository := t.TempDir()
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	writeTestConfig(t, configPath, `version: 2
@@ -170,10 +171,31 @@ repositories:
 			if err := command.ExecuteContext(context.Background()); err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(output.String(), "Quiet Projects") || !strings.Contains(output.String(), "quiet-main") {
+			if !strings.Contains(output.String(), "Idle Following Projects") || !strings.Contains(output.String(), "quiet-main") {
 				t.Fatalf("terminal output = %q", output.String())
 			}
 		})
+	}
+}
+
+func TestScanSnapshotUsesPartialReconciliationForRepositoryFilter(t *testing.T) {
+	tracker := &recordingProjectTracker{}
+	app := App{
+		scannerSource: fixedSnapshotScanner{snapshot: model.Snapshot{Projects: []model.Project{}}},
+		trackerSource: tracker,
+	}
+	cfg := config.Config{Path: filepath.Join(t.TempDir(), "config.yaml")}
+	if _, err := app.scanSnapshot(context.Background(), cfg, "repo", false); err != nil {
+		t.Fatal(err)
+	}
+	if tracker.partialCalls != 1 || tracker.fullCalls != 0 {
+		t.Fatalf("filtered reconciliation: full=%d partial=%d", tracker.fullCalls, tracker.partialCalls)
+	}
+	if _, err := app.scanSnapshot(context.Background(), cfg, "", false); err != nil {
+		t.Fatal(err)
+	}
+	if tracker.partialCalls != 1 || tracker.fullCalls != 1 {
+		t.Fatalf("complete reconciliation: full=%d partial=%d", tracker.fullCalls, tracker.partialCalls)
 	}
 }
 

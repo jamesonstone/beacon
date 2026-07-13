@@ -50,6 +50,7 @@ type snapshotScanner interface {
 
 type projectTracker interface {
 	Reconcile(model.Snapshot) (model.Snapshot, error)
+	ReconcilePartial(model.Snapshot) (model.Snapshot, error)
 	SetTracked(model.Snapshot, []string, bool) (model.Snapshot, error)
 	SetSelection(model.Snapshot, []string) (model.Snapshot, error)
 }
@@ -104,6 +105,8 @@ func (a App) Root() *cobra.Command {
 		a.laneAddCommand(&configPath),
 		a.laneSeenCommand(&configPath),
 		a.selectCommand(&configPath),
+		a.rootFollowingCommand(&configPath, true),
+		a.rootFollowingCommand(&configPath, false),
 		a.rootTrackingCommand(&configPath, true),
 		a.rootTrackingCommand(&configPath, false),
 		a.refreshCommand(&configPath),
@@ -136,10 +139,17 @@ func (a App) scannerComponentsWithRunner(runner command.Runner) scan.Scanner {
 }
 
 func (a App) tracker() projectTracker {
+	return a.trackerFor(0)
+}
+
+func (a App) trackerFor(recentWindow time.Duration) projectTracker {
 	if a.trackerSource != nil {
 		return a.trackerSource
 	}
-	return tracking.Manager{Store: tracking.FileStore{}, Now: time.Now}
+	return tracking.Manager{
+		Store: tracking.FileStore{}, Now: time.Now,
+		RecentWindow: recentWindow,
+	}
 }
 
 func (a App) scanSnapshot(ctx context.Context, cfg config.Config, repository string, refresh bool) (model.Snapshot, error) {
@@ -150,7 +160,11 @@ func (a App) scanSnapshot(ctx context.Context, cfg config.Config, repository str
 	if snapshot.ConfigPath == "" {
 		snapshot.ConfigPath = cfg.Path
 	}
-	return a.tracker().Reconcile(snapshot)
+	tracker := a.trackerFor(cfg.Settings.StaleAfter)
+	if repository != "" {
+		return tracker.ReconcilePartial(snapshot)
+	}
+	return tracker.Reconcile(snapshot)
 }
 
 func (a App) scanCommand(configPath *string) *cobra.Command {

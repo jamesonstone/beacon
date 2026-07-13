@@ -24,12 +24,19 @@ func (m Manager) SetTracked(snapshot model.Snapshot, targets []string, tracked b
 	if err != nil {
 		return model.Snapshot{}, err
 	}
+	changed, err := m.reconcileState(snapshot, &state, false)
+	if err != nil {
+		return model.Snapshot{}, err
+	}
+	if !state.Initialized {
+		state.Initialized = true
+		changed = true
+	}
 	projects, err := resolveProjects(snapshot.Projects, targets)
 	if err != nil {
 		return model.Snapshot{}, err
 	}
 	entries := entryMap(state.Untracked)
-	changed := false
 	for _, project := range projects {
 		if tracked {
 			if _, exists := entries[project.GitHub]; exists {
@@ -57,7 +64,7 @@ func (m Manager) SetTracked(snapshot model.Snapshot, targets []string, tracked b
 			return model.Snapshot{}, err
 		}
 	}
-	return m.reconcile(snapshot)
+	return m.reconcile(snapshot, false)
 }
 
 func (m Manager) SetSelection(snapshot model.Snapshot, trackedGitHub []string) (model.Snapshot, error) {
@@ -76,8 +83,15 @@ func (m Manager) SetSelection(snapshot model.Snapshot, trackedGitHub []string) (
 	if err != nil {
 		return model.Snapshot{}, err
 	}
+	changed, err := m.reconcileState(snapshot, &state, false)
+	if err != nil {
+		return model.Snapshot{}, err
+	}
+	if !state.Initialized {
+		state.Initialized = true
+		changed = true
+	}
 	entries := entryMap(state.Untracked)
-	changed := false
 	for _, project := range snapshot.Projects {
 		_, shouldTrack := desired[project.GitHub]
 		_, isUntracked := entries[project.GitHub]
@@ -85,7 +99,7 @@ func (m Manager) SetSelection(snapshot model.Snapshot, trackedGitHub []string) (
 		case shouldTrack && isUntracked:
 			delete(entries, project.GitHub)
 			changed = true
-		case !shouldTrack:
+		case !shouldTrack && !isUntracked:
 			baseline := ""
 			if hasCompleteEvidence(snapshot, project) {
 				baseline, err = Fingerprint(project, snapshot.Lanes)
@@ -106,7 +120,7 @@ func (m Manager) SetSelection(snapshot model.Snapshot, trackedGitHub []string) (
 			return model.Snapshot{}, err
 		}
 	}
-	return m.reconcile(snapshot)
+	return m.reconcile(snapshot, false)
 }
 
 func (m Manager) Entry(configPath, github string) (Entry, bool, error) {

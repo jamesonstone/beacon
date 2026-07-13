@@ -75,3 +75,16 @@ func TestCacheLoadUpgradesSchemaTwoSnapshotWithoutQuarantine(t *testing.T) {
 		t.Fatalf("legacy cache was quarantined: %v err=%v", matches, err)
 	}
 }
+
+func TestAssembleUsesConfiguredRecentWindow(t *testing.T) {
+	now := time.Date(2026, 7, 11, 14, 0, 0, 0, time.UTC)
+	record := cachedRecord("owner/repo", 1, model.TrackingUntracked)
+	record.Snapshot.Projects[0].FollowState = model.FollowRecent
+	record.Snapshot.Projects[0].LastActivityAt = now.Add(-2 * time.Hour)
+	record.Snapshot.Projects[0].ActivityReason = "new local changes"
+
+	snapshot := AssembleWithRecentWindow([]ProjectRecord{record}, "/config.yaml", "/tracking.json", now, time.Hour)
+	if snapshot.Projects[0].FollowState != model.FollowQuiet || snapshot.Summary.RecentProjects != 0 || snapshot.Summary.QuietProjects != 1 {
+		t.Fatalf("configured recent window ignored: project=%#v summary=%#v", snapshot.Projects[0], snapshot.Summary)
+	}
+}

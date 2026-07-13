@@ -41,7 +41,7 @@ Go is the source of truth for collection, correlation, policy, ordering,
 tracking, caching, and actions. The background agent, direct CLI scans,
 terminal output, JSON output, and the macOS application must present the
 same snapshot. A client must not reimplement Git, GitHub, correlation,
-reactivation, or readiness rules.
+project-activity classification, or readiness rules.
 
 ### Read-Only by Default
 
@@ -49,9 +49,10 @@ Observation must not change the work being observed. Beacon may perform a
 bounded `git fetch --prune --no-tags` to refresh remote-tracking metadata.
 Scanning and background refresh must never edit files, switch branches, create commits, push, create
 or update pull requests, submit reviews, or merge. Beacon may atomically update
-its own managed tracking state and cache when explicit user choices change,
-fresh evidence reactivates a previously untracked project, or a scan produces
-a new last-good result.
+its own managed following state and cache when explicit user choices change,
+fresh evidence updates a non-followed project's factual activity record, or a
+scan produces a new last-good result. Evidence must never change Following
+membership.
 
 ### Independent Signals Before Conclusions
 
@@ -161,8 +162,9 @@ must not feed new policy back into the scanner.
   explanations, and the next action as pure domain logic.
 - `internal/scan` coordinates bounded repository concurrency, preserves partial
   results, orders lanes, and creates groups and summary counts.
-- `internal/tracking` owns the strict attention-state store, evidence
-  fingerprints, tracked/untracked reconciliation, and automatic reactivation.
+- `internal/tracking` owns the strict repository-following store, evidence
+  fingerprints, migration, and recent/quiet classification without automatic
+  reactivation.
 - `internal/workset` owns strict lane attention, pins, notes, tags, last-seen
   observations, factual deltas, manual lanes, and project-tracking migration.
 - `internal/agent` owns operational paths, per-project caches, protocol-v1
@@ -251,14 +253,16 @@ only after confirmation. Existing entries are never removed. GitHub
 credentials never belong in Beacon configuration; authentication is delegated
 to `gh`.
 
-User attention state is separate from declarative discovery. It is stored in
-strict JSON at `$HOME/.local/state/beacon/tracking.json`; legacy sibling
-`tracking.yaml` state is migrated atomically. Per-project last-good snapshots
-live under `$HOME/.cache/beacon/projects/`, and the agent socket lives at
-`$HOME/.cache/beacon/agent.sock`. An untracked entry records the stable GitHub
-identity and deterministic Git/GitHub evidence and probe baselines.
-Time-derived freshness and recommended actions are excluded. Changed durable
-evidence removes the entry atomically before a tracked result is published;
+User repository-following state is separate from declarative discovery. It is
+stored in strict JSON at `$HOME/.local/state/beacon/tracking.json`; legacy
+sibling `tracking.yaml` and version-1 inverse-selection state are migrated
+atomically. Per-project last-good snapshots live under
+`$HOME/.cache/beacon/projects/`, and the agent socket lives at
+`$HOME/.cache/beacon/agent.sock`. Version-2 state records every known project,
+its explicit followed membership, deterministic Git/GitHub evidence and probe
+baselines, and the time and factual reason for the latest material activity
+outside Following. New discoveries begin non-followed. Changed durable evidence
+may move a non-followed project into Recently Updated but must never follow it;
 incomplete collection evidence must never establish or compare a baseline.
 Operational files and directories are user-only and never contain GitHub
 credentials.
@@ -300,11 +304,11 @@ state.
   one-lane forced refresh may enrich inactive work. Muted projects share the
   batch evidence. The `all` scope
   remains an explicitly more expensive repository-scoped mode.
-- Tracking mutations use cached complete evidence and never require a
-  synchronous GitHub probe. The next scheduled muted probe establishes its
-  compact comparison baseline. Explicit selection may persist a pending
+- Following mutations use cached complete evidence and never require a
+  synchronous GitHub probe. The next scheduled non-followed probe establishes
+  its compact comparison baseline. Explicit selection may persist a pending
   baseline while evidence is incomplete; the first later complete collection
-  initializes it without reactivating the project.
+  initializes it without inventing recent activity.
 - Cancellation and command errors must retain enough command and repository
   context to diagnose the failed evidence stage.
 
@@ -316,10 +320,14 @@ The supported command surface is:
 beacon [--color auto|always|never] [--no-watch]
 beacon init [--source PATH ...] [--github-scope mine|all] [--yes]
 beacon scan [--repo NAME] [--json] [--no-refresh]
-beacon projects [--tracked|--untracked]
+beacon projects [--followed|--recent|--quiet]
 beacon select
+beacon projects follow <project>...
+beacon projects unfollow <project>...
 beacon projects track <project>...
 beacon projects untrack <project>...
+beacon follow <project>...
+beacon unfollow <project>...
 beacon track <project>...
 beacon untrack <project>...
 beacon lanes [--parked]
@@ -364,9 +372,10 @@ malformed events or disconnects.
 The schema-v3 snapshot is a public internal contract between the CLI and
 clients. It contains generation/config/refresh/tracking and working-set
 metadata, projects,
-tracked and untracked summary counts, ordered enriched lanes, grouped lane IDs,
+following/recent/quiet counts plus compatibility tracked/untracked counts,
+ordered enriched lanes, grouped lane IDs,
 lane attention, optional notes and tags, previous/current observations, factual deltas,
-project tracking state, automatic-reactivation evidence, and repository-scoped
+project following and activity evidence, and repository-scoped
 or global warnings and errors. Expected partial conditions—including inaccessible
 source discoveries, prunable worktrees, result truncation, and untrusted
 optional Kit progress documents—are warnings, not errors. Human output keeps
@@ -405,12 +414,17 @@ evidence collection itself.
 Secondary commands and preferences live in a top-right Settings menu. A
 separate compact view control offers a persisted stacked list, horizontal tile
 strips, and an experimental state-column kanban board over the same ordered
-lanes. A compact peer tab row presents Active by default plus Parking Lot,
-Quiet, and Untracked inventories without bottom navigation cards or drill-in
-back buttons. Tab and view selection are presentation state only. Lane tags render as removable
+lanes. A compact peer tab row presents Following by default plus Recently
+Updated and Quiet repository inventories. Following renders the shared lane
+working set; Recently Updated and Quiet render shared Go project categories
+without reimplementing evidence policy. Tab and view selection are presentation
+state only. Lane tags render as removable
 chips and mutate through the Go background-agent authority. JetBrains Mono Nerd
 Font is preferred when locally available, with a system monospaced fallback so
 typography cannot become an application-startup dependency.
+The Beacon wordmark may animate a modest horizontally traveling gradient across
+the existing neon/pastel palette. It must remain readable, use no evidence or
+status policy, and render a static gradient when Reduce Motion is enabled.
 The menu-bar label shows the number of lanes across the CLI-provided active,
 waiting, and recently-active groups. Active counts use a high-contrast dark badge
 with a luminous neon-gradient border so the value remains visible over changing
@@ -423,28 +437,28 @@ state. Dismissal is scoped to lane, evidence dimension, and exact value so a
 changed signal reappears; it must never mutate or suppress canonical evidence
 in the Go snapshot.
 
-Human-facing default views are lane-centered. The CLI groups Active, Waiting,
-Recently Active, and Parked lanes. The macOS dashboard opens on an Active tab
-containing the focused working set and provides peer Parking Lot, Quiet, and
-Untracked tabs with current counts. Rich repository inventory remains available
-through explicit diagnostic and management views. Top-item actions skip parked
-and idle lanes plus manual lanes without an openable target. These are
-presentation rules only: schema-v3 JSON retains the complete diagnostic
-inventory and working-set grouping.
+Human-facing lane detail remains lane-centered. The CLI groups Active, Waiting,
+Recently Active, and Parked lanes. The macOS dashboard opens on Following,
+which contains the focused working set for explicitly followed repositories.
+Recently Updated is an inbox for material activity outside Following within the
+configured stale window; Quiet is every remaining discovered non-followed
+project. Top-item actions skip parked and quiet work plus manual lanes without
+an openable target. These are presentation rules only: schema-v3 JSON retains
+the complete diagnostic inventory and working-set grouping.
 
-Untracked projects are a backward-compatible secondary inventory control, not
-the primary attention model.
-They are excluded from active and quiet groups, summary/top-item selection, and
-the menu-bar count while remaining fully represented in schema-v3 JSON. The CLI
-provides an interactive multi-select plus explicit track/untrack commands; the
-macOS application keeps searchable tracked-project management in Settings and
-presents searchable untracked inventory as a dashboard tab. Both clients
-delegate persistence and automatic reactivation to the Go tracking service.
+Following membership changes only through explicit user action. New discoveries
+begin Quiet, and outside activity moves a project to Recently Updated without
+changing membership. The CLI provides an interactive multi-select plus
+follow/unfollow commands, with track/untrack retained as compatibility aliases.
+The macOS application keeps searchable Following management in Settings and
+offers Follow directly from Recently Updated and Quiet. Both clients delegate
+persistence, recent classification, and mutation ordering to the Go following
+service.
 
 The application may use `NSWorkspace` to open pull requests, worktree paths,
 and `$HOME/.config/beacon/config.yaml`. It may invoke the bundled helper's
-project track/untrack commands but must not execute Git or `gh` directly or
-contain correlation, readiness, fingerprint, cache, scheduling, or reactivation policy. The
+project follow/unfollow commands but must not execute Git or `gh` directly or
+contain correlation, readiness, fingerprint, cache, scheduling, or recent-activity policy. The
 bundled helper is named `beacon-cli` to avoid a case-insensitive filename
 collision with the `Beacon` application executable. The helper build must
 support the target Mac architectures; the standalone CLI remains named

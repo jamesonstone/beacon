@@ -142,6 +142,7 @@ extension TestSnapshots {
                     base: "main",
                     remote: "origin",
                     trackingState: "tracked",
+                    followState: "following",
                     progress: nil,
                     laneIDs: [activeWork.id, activeBase.id],
                     errors: []
@@ -152,7 +153,8 @@ extension TestSnapshots {
                     github: "owner/quiet",
                     base: "main",
                     remote: "origin",
-                    trackingState: "tracked",
+                    trackingState: "untracked",
+                    followState: "quiet",
                     progress: nil,
                     laneIDs: [quietBase.id, quietWorktree.id],
                     errors: []

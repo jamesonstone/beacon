@@ -262,7 +262,8 @@ func TestMutedProbeSkipsFullScanUntilMaterialDelta(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitForRefresh(t, engine)
-	if scanCalls.Load() != 1 || engine.Snapshot().Projects[0].TrackingState != model.TrackingTracked {
-		t.Fatalf("material probe did not reactivate project")
+	updated := engine.Snapshot().Projects[0]
+	if scanCalls.Load() != 1 || updated.TrackingState != model.TrackingUntracked || updated.FollowState != model.FollowRecent || updated.ActivityReason != "new local changes" {
+		t.Fatalf("material probe did not preserve and flag outside activity: %#v", updated)
 	}
 }

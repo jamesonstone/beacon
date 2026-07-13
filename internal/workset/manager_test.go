@@ -123,8 +123,8 @@ func TestReconcileMigratesUntrackedProjectLanesToParked(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.WorkingSet.Parked) != 1 || updated.WorkingSet.Parked[0] != lane.ID {
-		t.Fatalf("parked migration = %#v", updated.WorkingSet)
+	if len(updated.WorkingSet.Parked) != 0 || updated.Lanes[0].Attention != nil {
+		t.Fatalf("outside project leaked into working set = %#v", updated.WorkingSet)
 	}
 	state, err := (FileStore{}).Load(updated.WorkingSet.Path)
 	if err != nil {
@@ -161,7 +161,6 @@ func TestExplicitResumeKeepsInactiveLaneInWorkingSet(t *testing.T) {
 	manager, now := testManager(t)
 	lane := testLane("old", "owner/repo", "old", model.WorktreeClean, model.PublicationPublished, now.Add(-30*24*time.Hour))
 	snapshot := testSnapshot(now, lane)
-	snapshot.Projects[0].TrackingState = model.TrackingUntracked
 	updated, err := manager.Reconcile(snapshot)
 	if err != nil {
 		t.Fatal(err)
@@ -179,6 +178,44 @@ func TestExplicitResumeKeepsInactiveLaneInWorkingSet(t *testing.T) {
 	}
 	if _, found := frequent[lane.GitHub]; !found {
 		t.Fatalf("resumed repository not scheduled frequently: %#v", frequent)
+	}
+}
+
+func TestOutsideProjectLanesStayOutOfFollowingWithoutLosingDurableState(t *testing.T) {
+	manager, now := testManager(t)
+	lane := testLane("lane", "owner/repo", "feature", model.WorktreeDirty, model.PublicationPublished, now)
+	snapshot := testSnapshot(now, lane)
+
+	followed, err := manager.Reconcile(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(followed.WorkingSet.Active) != 1 {
+		t.Fatalf("followed working set = %#v", followed.WorkingSet)
+	}
+
+	snapshot.Projects[0].TrackingState = model.TrackingUntracked
+	snapshot.Projects[0].FollowState = model.FollowQuiet
+	outside, err := manager.Reconcile(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(outside.WorkingSet.Active) != 0 || outside.Lanes[0].Attention != nil {
+		t.Fatalf("outside lane remained in Following = %#v", outside.WorkingSet)
+	}
+	state, err := (FileStore{}).Load(outside.WorkingSet.Path)
+	if err != nil || len(state.Entries) != 1 || state.Entries[0].ID != lane.ID {
+		t.Fatalf("durable lane state = %#v, err = %v", state, err)
+	}
+
+	snapshot.Projects[0].TrackingState = model.TrackingTracked
+	snapshot.Projects[0].FollowState = model.FollowFollowing
+	restored, err := manager.Reconcile(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(restored.WorkingSet.Active) != 1 || restored.WorkingSet.Active[0] != lane.ID {
+		t.Fatalf("restored working set = %#v", restored.WorkingSet)
 	}
 }
 

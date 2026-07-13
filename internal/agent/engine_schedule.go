@@ -93,9 +93,26 @@ func (e *Engine) frequentRepositories() map[string]struct{} {
 	if e.WorkingSet == nil {
 		return map[string]struct{}{}
 	}
-	repositories, err := e.WorkingSet.FrequentRepositories()
+	candidates, err := e.WorkingSet.FrequentRepositories()
 	if err != nil {
 		return map[string]struct{}{}
+	}
+	repositories := make(map[string]struct{}, len(candidates))
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+	for github := range candidates {
+		record, found := e.records[github]
+		if !found || len(record.Snapshot.Projects) == 0 {
+			continue
+		}
+		project := record.Snapshot.Projects[0]
+		following := project.FollowState == model.FollowFollowing
+		if project.FollowState == "" {
+			following = project.TrackingState != model.TrackingUntracked
+		}
+		if following {
+			repositories[github] = struct{}{}
+		}
 	}
 	return repositories
 }

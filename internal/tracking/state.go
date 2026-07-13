@@ -15,7 +15,10 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-const Version = 1
+const (
+	Version       = 2
+	legacyVersion = 1
+)
 
 type StateKind string
 
@@ -41,13 +44,17 @@ type Entry struct {
 	ProbeLocal         string    `json:"probe_local,omitempty" yaml:"-"`
 	ProbeRemote        string    `json:"probe_remote,omitempty" yaml:"-"`
 	LastProbeAt        time.Time `json:"last_probe_at,omitempty" yaml:"-"`
+	LastActivityAt     time.Time `json:"last_activity_at,omitempty" yaml:"-"`
+	ActivityReason     string    `json:"activity_reason,omitempty" yaml:"-"`
 	ReactivationReason string    `json:"reactivation_reason,omitempty" yaml:"-"`
 }
 
 type State struct {
 	Version       int            `json:"version" yaml:"version"`
+	Initialized   bool           `json:"initialized" yaml:"-"`
+	Known         []string       `json:"known_projects" yaml:"-"`
 	Untracked     []Entry        `json:"projects" yaml:"untracked"`
-	Reactivations []Reactivation `json:"reactivations" yaml:"-"`
+	Reactivations []Reactivation `json:"reactivations,omitempty" yaml:"-"`
 }
 
 type Reactivation struct {
@@ -116,6 +123,10 @@ func (FileStore) Load(path string) (State, error) {
 		}
 		return State{}, fmt.Errorf("decode tracking state %s: %w", path, err)
 	}
+	if state.Version == legacyVersion {
+		state.Version = Version
+		state.Initialized = false
+	}
 	if err := validate(&state); err != nil {
 		return State{}, fmt.Errorf("validate tracking state %s: %w", path, err)
 	}
@@ -127,6 +138,7 @@ func (FileStore) Write(path string, state State) error {
 		return fmt.Errorf("validate tracking state: %w", err)
 	}
 	sortEntries(state.Untracked)
+	sort.Strings(state.Known)
 	contents, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode tracking state: %w", err)
@@ -189,6 +201,8 @@ func MigrateLegacy(configPath, statePath string) (bool, error) {
 	for index := range state.Untracked {
 		state.Untracked[index].State = StateMuted
 	}
+	state.Version = Version
+	state.Initialized = false
 	if err := (FileStore{}).Write(statePath, state); err != nil {
 		return false, fmt.Errorf("migrate legacy tracking state: %w", err)
 	}
@@ -200,7 +214,10 @@ func MigrateLegacy(configPath, statePath string) (bool, error) {
 }
 
 func emptyState() State {
-	return State{Version: Version, Untracked: []Entry{}, Reactivations: []Reactivation{}}
+	return State{
+		Version: Version, Initialized: true, Known: []string{},
+		Untracked: []Entry{}, Reactivations: []Reactivation{},
+	}
 }
 
 func validate(state *State) error {
@@ -210,8 +227,21 @@ func validate(state *State) error {
 	if state.Untracked == nil {
 		state.Untracked = []Entry{}
 	}
+	if state.Known == nil {
+		state.Known = []string{}
+	}
 	if state.Reactivations == nil {
 		state.Reactivations = []Reactivation{}
+	}
+	known := make(map[string]struct{}, len(state.Known)+len(state.Untracked))
+	for index, github := range state.Known {
+		if !githubPattern.MatchString(github) {
+			return fmt.Errorf("known project %d has invalid github identity %q", index+1, github)
+		}
+		if _, exists := known[github]; exists {
+			return fmt.Errorf("known project %q is duplicated", github)
+		}
+		known[github] = struct{}{}
 	}
 	seen := make(map[string]struct{}, len(state.Untracked))
 	for index, entry := range state.Untracked {
@@ -229,6 +259,10 @@ func validate(state *State) error {
 			return fmt.Errorf("github identity %q is duplicated", entry.GitHub)
 		}
 		seen[entry.GitHub] = struct{}{}
+		if _, exists := known[entry.GitHub]; !exists {
+			state.Known = append(state.Known, entry.GitHub)
+			known[entry.GitHub] = struct{}{}
+		}
 		if entry.UntrackedAt.IsZero() {
 			return fmt.Errorf("untracked entry %d is missing untracked_at", index+1)
 		}
@@ -244,6 +278,9 @@ func validate(state *State) error {
 		if entry.ProbeRemote != "" && !fingerprintPattern.MatchString(entry.ProbeRemote) {
 			return fmt.Errorf("untracked entry %d has invalid remote probe", index+1)
 		}
+		if entry.LastActivityAt.IsZero() != (strings.TrimSpace(entry.ActivityReason) == "") {
+			return fmt.Errorf("untracked entry %d activity time and reason must be set together", index+1)
+		}
 	}
 	for index, reactivation := range state.Reactivations {
 		if !githubPattern.MatchString(reactivation.GitHub) || reactivation.At.IsZero() || strings.TrimSpace(reactivation.Reason) == "" {
@@ -254,6 +291,7 @@ func validate(state *State) error {
 		state.Reactivations = append([]Reactivation{}, state.Reactivations[len(state.Reactivations)-50:]...)
 	}
 	sortEntries(state.Untracked)
+	sort.Strings(state.Known)
 	return nil
 }
 

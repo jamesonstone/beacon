@@ -77,7 +77,7 @@ func TerminalWithOptions(writer io.Writer, snapshot model.Snapshot, options Term
 	for _, lane := range snapshot.Lanes {
 		byID[lane.ID] = lane
 	}
-	quietIDs, quietProjects := quietInventory(snapshot)
+	idleIDs, idleProjects := idleFollowingInventory(snapshot)
 	sections := []struct {
 		title string
 		ids   []string
@@ -86,11 +86,11 @@ func TerminalWithOptions(writer io.Writer, snapshot model.Snapshot, options Term
 		{"Needs Action", snapshot.Groups.Action},
 		{"Waiting", snapshot.Groups.Waiting},
 	}
-	if options.IncludeIdle && len(quietIDs) > 0 {
+	if options.IncludeIdle && len(idleIDs) > 0 {
 		sections = append(sections, struct {
 			title string
 			ids   []string
-		}{"Quiet Projects", quietIDs})
+		}{"Idle Following Projects", idleIDs})
 	}
 	for _, section := range sections {
 		if len(section.ids) == 0 {
@@ -121,8 +121,8 @@ func TerminalWithOptions(writer io.Writer, snapshot model.Snapshot, options Term
 			return err
 		}
 	}
-	if !options.IncludeIdle && quietProjects > 0 {
-		message := style.dim.Render(fmt.Sprintf("%d quiet project%s hidden · use --include-idle to show", quietProjects, pluralSuffix(quietProjects)))
+	if !options.IncludeIdle && idleProjects > 0 {
+		message := style.dim.Render(fmt.Sprintf("%d idle following project%s hidden · use --include-idle to show", idleProjects, pluralSuffix(idleProjects)))
 		if options.Width < narrowWidth {
 			if err := writeWrapped(writer, "", style.wrap.Width(options.Width).Render(message)); err != nil {
 				return err
@@ -134,8 +134,21 @@ func TerminalWithOptions(writer io.Writer, snapshot model.Snapshot, options Term
 			return err
 		}
 	}
-	if snapshot.Summary.UntrackedProjects > 0 {
-		message := style.dim.Render(fmt.Sprintf("%d untracked project%s · run beacon projects --untracked to view", snapshot.Summary.UntrackedProjects, pluralSuffix(snapshot.Summary.UntrackedProjects)))
+	if snapshot.Summary.RecentProjects > 0 {
+		message := style.dim.Render(fmt.Sprintf("%d recently updated project%s outside Following · run beacon projects --recent to view", snapshot.Summary.RecentProjects, pluralSuffix(snapshot.Summary.RecentProjects)))
+		if options.Width < narrowWidth {
+			if err := writeWrapped(writer, "", style.wrap.Width(options.Width).Render(message)); err != nil {
+				return err
+			}
+		} else if _, err := fmt.Fprintln(writer, message); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(writer); err != nil {
+			return err
+		}
+	}
+	if snapshot.Summary.QuietProjects > 0 {
+		message := style.dim.Render(fmt.Sprintf("%d quiet project%s outside Following · run beacon projects --quiet to view", snapshot.Summary.QuietProjects, pluralSuffix(snapshot.Summary.QuietProjects)))
 		if options.Width < narrowWidth {
 			if err := writeWrapped(writer, "", style.wrap.Width(options.Width).Render(message)); err != nil {
 				return err

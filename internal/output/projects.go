@@ -11,20 +11,39 @@ import (
 )
 
 func Projects(writer io.Writer, snapshot model.Snapshot, state model.TrackingState, options TerminalOptions) error {
-	if options.Width <= 0 {
-		options.Width = 120
-	}
-	style := terminalStyles(writer, options.Color)
-	title := "Tracked Projects"
-	if state == model.TrackingUntracked {
-		title = "Untracked Projects"
-	}
+	title := "Following Projects"
 	projects := make([]model.Project, 0)
 	for _, project := range snapshot.Projects {
 		if project.TrackingState == state {
 			projects = append(projects, project)
 		}
 	}
+	if state == model.TrackingUntracked {
+		title = "Projects Not Followed"
+	}
+	return renderProjects(writer, projects, title, false, options)
+}
+
+func FollowingProjects(writer io.Writer, snapshot model.Snapshot, state model.FollowState, options TerminalOptions) error {
+	title := map[model.FollowState]string{
+		model.FollowFollowing: "Following Projects",
+		model.FollowRecent:    "Recently Updated Projects",
+		model.FollowQuiet:     "Quiet Projects",
+	}[state]
+	projects := make([]model.Project, 0)
+	for _, project := range snapshot.Projects {
+		if normalizedFollowState(project) == state {
+			projects = append(projects, project)
+		}
+	}
+	return renderProjects(writer, projects, title, state == model.FollowRecent, options)
+}
+
+func renderProjects(writer io.Writer, projects []model.Project, title string, showActivity bool, options TerminalOptions) error {
+	if options.Width <= 0 {
+		options.Width = 120
+	}
+	style := terminalStyles(writer, options.Color)
 	countLabel := fmt.Sprintf("%d project%s", len(projects), pluralSuffix(len(projects)))
 	if _, err := fmt.Fprintf(writer, "%s  %s\n\n", style.heading.Render(title), style.dim.Render(countLabel)); err != nil {
 		return err
@@ -41,17 +60,31 @@ func Projects(writer io.Writer, snapshot model.Snapshot, state model.TrackingSta
 			if err := writeWrapped(writer, "    ", style.wrap.Width(max(1, options.Width-4)).Render(style.dim.Render(project.Path))); err != nil {
 				return err
 			}
+			if showActivity {
+				activity := project.ActivityReason + " · " + activityTime(project)
+				if err := writeWrapped(writer, "    ", style.wrap.Width(max(1, options.Width-4)).Render(style.dim.Render(activity))); err != nil {
+					return err
+				}
+			}
 		}
 		return nil
 	}
 
 	var buffer bytes.Buffer
 	table := tabwriter.NewWriter(&buffer, 2, 4, 2, ' ', 0)
-	if _, err := fmt.Fprintln(table, "PROJECT\tGITHUB\tPATH"); err != nil {
+	header := "PROJECT\tGITHUB\tPATH"
+	if showActivity {
+		header += "\tACTIVITY\tUPDATED"
+	}
+	if _, err := fmt.Fprintln(table, header); err != nil {
 		return err
 	}
 	for _, project := range projects {
-		if _, err := fmt.Fprintf(table, "%s\t%s\t%s\n", project.Name, project.GitHub, project.Path); err != nil {
+		row := fmt.Sprintf("%s\t%s\t%s", project.Name, project.GitHub, project.Path)
+		if showActivity {
+			row += fmt.Sprintf("\t%s\t%s", project.ActivityReason, activityTime(project))
+		}
+		if _, err := fmt.Fprintln(table, row); err != nil {
 			return err
 		}
 	}
@@ -68,4 +101,21 @@ func Projects(writer io.Writer, snapshot model.Snapshot, state model.TrackingSta
 	}
 	_, err := io.WriteString(writer, strings.Join(lines, ""))
 	return err
+}
+
+func activityTime(project model.Project) string {
+	if project.LastActivityAt.IsZero() {
+		return "unknown"
+	}
+	return project.LastActivityAt.Format("2006-01-02 15:04Z07:00")
+}
+
+func normalizedFollowState(project model.Project) model.FollowState {
+	if project.FollowState != "" {
+		return project.FollowState
+	}
+	if project.TrackingState == model.TrackingUntracked {
+		return model.FollowQuiet
+	}
+	return model.FollowFollowing
 }

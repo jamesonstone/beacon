@@ -12,6 +12,7 @@ enum TestSnapshots {
                 base: "main",
                 remote: "origin",
                 trackingState: "tracked",
+                followState: "following",
                 progress: nil,
                 laneIDs: [],
                 errors: []
@@ -159,9 +160,10 @@ enum TestSnapshots {
     )
 
     static let withTrackingInventory: BeaconSnapshot = trackingInventory(untracked: true)
+    static let withRecentInventory: BeaconSnapshot = trackingInventory(untracked: true, outsideState: "recent")
     static let withTrackedInventory: BeaconSnapshot = trackingInventory(untracked: false)
 
-    private static func trackingInventory(untracked: Bool) -> BeaconSnapshot {
+    private static func trackingInventory(untracked: Bool, outsideState: String = "quiet") -> BeaconSnapshot {
         let trackedLane = lane(
             id: "tracked-base",
             repository: "tracked",
@@ -213,6 +215,7 @@ enum TestSnapshots {
                     base: "main",
                     remote: "origin",
                     trackingState: "tracked",
+                    followState: "following",
                     progress: nil,
                     laneIDs: [trackedLane.id],
                     errors: []
@@ -224,6 +227,9 @@ enum TestSnapshots {
                     base: "main",
                     remote: "origin",
                     trackingState: untracked ? "untracked" : "tracked",
+                    followState: untracked ? outsideState : "following",
+                    lastActivityAt: outsideState == "recent" ? "2026-07-12T12:30:00Z" : nil,
+                    activityReason: outsideState == "recent" ? "new GitHub activity" : nil,
                     progress: nil,
                     laneIDs: [untrackedLane.id],
                     errors: []
