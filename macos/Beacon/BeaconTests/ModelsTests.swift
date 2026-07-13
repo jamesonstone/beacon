@@ -31,6 +31,13 @@ final class ModelsTests: XCTestCase {
         XCTAssertTrue(DashboardViewMode.kanban.title.contains("Experimental"))
     }
 
+    func testDashboardTabsKeepActiveAsTheStableDefault() {
+        XCTAssertEqual(DashboardTab.defaultTab, .active)
+        XCTAssertEqual(DashboardTab.allCases.map(\.rawValue), ["active", "parking_lot", "quiet", "untracked"])
+        XCTAssertEqual(DashboardTab.parkingLot.title, "Parking Lot")
+        XCTAssertEqual(DashboardTab.untracked.symbol, "eye.slash.fill")
+    }
+
     func testEvidenceBadgeDismissalsAreExactValueScopedAndDeterministic() {
         let none = EvidenceBadgeDismissals.key(laneID: "lane-1", dimension: "CI", value: "none")
         let success = EvidenceBadgeDismissals.key(laneID: "lane-1", dimension: "ci", value: "success")

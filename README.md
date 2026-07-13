@@ -356,11 +356,11 @@ baseline, keeps the project untracked, and initializes the baseline from the
 first later complete scan without reactivation. Incomplete evidence is never
 compared as if it were a material change.
 
-The macOS application exposes the same controls under **Projects**, with
-separate **Tracked** and **Untracked** tabs, search, and Track/Untrack buttons.
-It sends changes through the shared agent protocol, consumes the same cached
-snapshot as the CLI, and shows an automatic-reactivation banner when new
-activity restores a project.
+The macOS application keeps tracked-project configuration in the top-right
+Settings menu and exposes untracked inventory as a searchable dashboard tab.
+Both surfaces provide Track/Untrack buttons, send changes through the shared
+agent protocol, consume the same cached snapshot as the CLI, and show an
+automatic-reactivation banner when new activity restores a project.
 
 Track and Untrack actions are optimistic and nonblocking. Each selection moves
 the project immediately and joins a visible background queue. The Go agent
@@ -385,6 +385,12 @@ start duplicate repository scans. Secondary actions live in the top-right gear
 menu so lane evidence receives the full height. The adjacent view button
 switches between the default stacked list, horizontal state tiles, and an
 experimental kanban board; the selection persists across launches.
+
+A compact tab row keeps the major inventories one click away without stacking
+large navigation cards beneath the active work. **Active** is selected whenever
+a dashboard surface opens; **Parking Lot**, **Quiet**, and **Untracked** show
+their current counts and reuse the same lane and project actions. Tracked-project
+configuration remains in Settings because it is management, not attention.
 
 Beacon uses JetBrains Mono Nerd Font when it is installed and falls back to the
 system monospaced font when it is unavailable. Lane notation appears as compact

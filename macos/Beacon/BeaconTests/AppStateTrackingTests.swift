@@ -24,6 +24,7 @@ extension AppStateTests {
         state.setProjectTracked(project, tracked: true)
 
         XCTAssertTrue(state.untrackedProjects.isEmpty)
+        XCTAssertEqual(state.untrackedProjectCount, 0)
         XCTAssertEqual(state.queuedTrackingCount, 1)
         for _ in 0..<50 where state.queuedTrackingCount > 0 {
             try? await Task.sleep(for: .milliseconds(10))
@@ -54,6 +55,7 @@ extension AppStateTests {
         state.setProjectTracked(tracked, tracked: false)
 
         XCTAssertEqual(state.queuedTrackingCount, 2)
+        XCTAssertEqual(state.untrackedProjectCount, 1)
         XCTAssertEqual(state.trackedProjects.map(\.github), ["owner/untracked"])
         XCTAssertEqual(state.untrackedProjects.map(\.github), ["owner/tracked"])
 

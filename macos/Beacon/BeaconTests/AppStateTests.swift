@@ -104,6 +104,23 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(state.lanes(for: snapshot.workingSet?.parked ?? []).map(\.id), ["quiet-worktree"])
     }
 
+    func testQuietProjectsExcludeActiveAndParkedWorkingSetProjects() async {
+        var snapshot = TestSnapshots.withIdleInventory
+        snapshot.workingSet = WorkingSetGroups(
+            path: "/Users/test/.local/state/beacon/lanes.json",
+            active: ["quiet-base"],
+            waiting: [],
+            recent: [],
+            parked: ["quiet-worktree"]
+        )
+        let state = AppState(client: StubClient(result: .success(snapshot)))
+
+        await state.scan()
+
+        XCTAssertTrue(state.quietProjectGroups().isEmpty)
+        XCTAssertEqual(state.quietProjectCount, 0)
+    }
+
 
     func testOpenTargetPrefersPullRequestThenIssueThenWorktree() throws {
         let lane = TestSnapshots.lane(

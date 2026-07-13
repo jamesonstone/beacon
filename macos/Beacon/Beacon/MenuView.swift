@@ -11,8 +11,7 @@ struct MenuView: View {
     @ObservedObject var loginItem: LoginItemController
     let surface: DashboardSurface
     let openDashboard: () -> Void
-    @State var showingQuietProjects = false
-    @State var showingParkedLanes = false
+    @State var selectedDashboardTab = DashboardTab.defaultTab
     @State var showingProjectTracking = false
     @State var projectTrackingTab = ProjectTrackingTab.tracked
     @State var quietSearch = ""
@@ -91,15 +90,15 @@ struct MenuView: View {
             }
             if let snapshot = state.snapshot {
                 if showingProjectTracking {
-                    ProjectTrackingView(state: state, selectedTab: $projectTrackingTab, onClose: {
-                        showingProjectTracking = false
-                    })
-                } else if showingParkedLanes {
-                    parkedLanes(snapshot)
-                } else if showingQuietProjects {
-                    quietProjects
+                    ProjectTrackingView(
+                        state: state,
+                        selectedTab: $projectTrackingTab,
+                        onClose: { showingProjectTracking = false },
+                        showsTabPicker: false
+                    )
                 } else {
-                    activeDashboard(snapshot)
+                    dashboardTabs(snapshot)
+                    dashboardContent(snapshot)
                 }
             } else if state.isScanning {
                 ProgressView("Scanning repositories…")
@@ -184,11 +183,11 @@ struct MenuView: View {
             Button { manualTitle = ""; showingManualEditor = true } label: { Label("Add Manual Lane", systemImage: "plus.circle") }
             Divider()
             Button { showProjects(.tracked) } label: { Label("Tracked Projects", systemImage: "checkmark.circle") }
-            Button { showProjects(.untracked) } label: { Label("Untracked Projects", systemImage: "eye.slash") }
-            Button { showingParkedLanes = true; showingProjectTracking = false; showingQuietProjects = false } label: {
-                Label("Parked Lanes", systemImage: "pause.circle")
+            Button { showDashboardTab(.untracked) } label: { Label("Untracked Projects", systemImage: "eye.slash") }
+            Button { showDashboardTab(.parkingLot) } label: {
+                Label("Parking Lot", systemImage: "pause.circle")
             }
-            Button { quietSearch = ""; showingQuietProjects = true; showingProjectTracking = false; showingParkedLanes = false } label: {
+            Button { quietSearch = ""; showDashboardTab(.quiet) } label: {
                 Label("Quiet Projects", systemImage: "moon.stars")
             }
             Button { state.openConfig() } label: { Label("Open Config", systemImage: "slider.horizontal.3") }
@@ -237,9 +236,12 @@ struct MenuView: View {
 
     private func showProjects(_ tab: ProjectTrackingTab) {
         projectTrackingTab = tab
-        showingQuietProjects = false
-        showingParkedLanes = false
         showingProjectTracking = true
+    }
+
+    private func showDashboardTab(_ tab: DashboardTab) {
+        showingProjectTracking = false
+        selectedDashboardTab = tab
     }
 
     private var enableAgentBanner: some View {

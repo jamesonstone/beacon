@@ -23,9 +23,7 @@ extension AppState {
 
     var queuedTrackingCount: Int { mutatingProjects.count }
 
-    var untrackedProjectCount: Int {
-        snapshot?.summary.untrackedProjects ?? untrackedProjects.count
-    }
+    var untrackedProjectCount: Int { untrackedProjects.count }
 
     func stage(for projectID: String) -> String {
         projectStatuses[projectID]?.stage ?? "cached"
@@ -71,8 +69,12 @@ extension AppState {
 
     func quietProjectGroups(matching query: String = "") -> [ProjectLaneGroup] {
         guard let snapshot else { return [] }
-        let activeProjects = Set(lanes(for: snapshot.groups.ready + snapshot.groups.action + snapshot.groups.waiting).map(\.github))
-        let quietLanes = lanes(for: snapshot.groups.idle).filter { !activeProjects.contains($0.github) }
+        var attentionIDs = snapshot.groups.ready + snapshot.groups.action + snapshot.groups.waiting
+        if let workingSet = snapshot.workingSet {
+            attentionIDs += workingSet.active + workingSet.waiting + workingSet.recent + workingSet.parked
+        }
+        let attentionProjects = Set(lanes(for: attentionIDs).map(\.github))
+        let quietLanes = lanes(for: snapshot.groups.idle).filter { !attentionProjects.contains($0.github) }
         let groups = projectGroups(for: quietLanes)
         let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalizedQuery.isEmpty else { return groups }

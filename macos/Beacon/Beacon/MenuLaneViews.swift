@@ -3,20 +3,6 @@ import SwiftUI
 extension MenuView {
     var quietProjects: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Button {
-                    showingQuietProjects = false
-                    quietSearch = ""
-                } label: {
-                    Label("Dashboard", systemImage: "chevron.left")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(BeaconPalette.cyan)
-                Spacer()
-                Text("\(state.quietProjectCount) quiet")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(BeaconPalette.lavender)
-            }
             TextField("Search quiet projects", text: $quietSearch)
                 .textFieldStyle(.roundedBorder)
             ScrollView {
@@ -40,19 +26,6 @@ extension MenuView {
 
     func parkedLanes(_ snapshot: BeaconSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Button {
-                    showingParkedLanes = false
-                } label: {
-                    Label("Dashboard", systemImage: "chevron.left")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(BeaconPalette.cyan)
-                Spacer()
-                Text("\(snapshot.workingSet?.parked.count ?? 0) parked")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(BeaconPalette.lavender)
-            }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
                     let parked = state.lanes(for: snapshot.workingSet?.parked ?? [])

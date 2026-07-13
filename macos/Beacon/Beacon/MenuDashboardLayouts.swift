@@ -1,6 +1,115 @@
 import SwiftUI
 
+enum DashboardTab: String, CaseIterable, Identifiable {
+    case active
+    case parkingLot = "parking_lot"
+    case quiet
+    case untracked
+
+    static let defaultTab = DashboardTab.active
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .active: "Active"
+        case .parkingLot: "Parking Lot"
+        case .quiet: "Quiet"
+        case .untracked: "Untracked"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .active: "bolt.fill"
+        case .parkingLot: "pause.circle.fill"
+        case .quiet: "moon.stars.fill"
+        case .untracked: "eye.slash.fill"
+        }
+    }
+}
+
 extension MenuView {
+    func dashboardTabs(_ snapshot: BeaconSnapshot) -> some View {
+        HStack(spacing: 5) {
+            ForEach(DashboardTab.allCases, id: \.self) { tab in
+                let accent = dashboardTabAccent(tab)
+                let selected = selectedDashboardTab == tab
+                Button {
+                    if tab == .quiet, selectedDashboardTab != .quiet {
+                        quietSearch = ""
+                    }
+                    selectedDashboardTab = tab
+                } label: {
+                    VStack(spacing: 2) {
+                        Label(tab.title, systemImage: tab.symbol)
+                            .font(BeaconTypography.semibold(9))
+                            .lineLimit(1)
+                        Text("\(dashboardTabCount(tab, snapshot: snapshot))")
+                            .font(BeaconTypography.medium(8))
+                            .foregroundStyle(selected ? accent : BeaconPalette.lavender.opacity(0.72))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 5)
+                    .foregroundStyle(selected ? accent : BeaconPalette.lavender)
+                    .background(
+                        BeaconPalette.softGradient(selected ? accent : BeaconPalette.lavender)
+                            .opacity(selected ? 1 : 0.35),
+                        in: RoundedRectangle(cornerRadius: 8)
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(selected ? accent : BeaconPalette.lavender.opacity(0.18), lineWidth: selected ? 0.9 : 0.6)
+                    }
+                }
+                .buttonStyle(.plain)
+                .help("Show \(tab.title)")
+            }
+        }
+    }
+
+    @ViewBuilder
+    func dashboardContent(_ snapshot: BeaconSnapshot) -> some View {
+        switch selectedDashboardTab {
+        case .active:
+            activeDashboard(snapshot)
+        case .parkingLot:
+            parkedLanes(snapshot)
+        case .quiet:
+            quietProjects
+        case .untracked:
+            ProjectTrackingView(
+                state: state,
+                selectedTab: .constant(.untracked),
+                onClose: {},
+                showsNavigation: false,
+                showsTabPicker: false
+            )
+        }
+    }
+
+    func dashboardTabCount(_ tab: DashboardTab, snapshot: BeaconSnapshot) -> Int {
+        switch tab {
+        case .active:
+            state.inProgressCount
+        case .parkingLot:
+            snapshot.workingSet?.parked.count ?? 0
+        case .quiet:
+            state.quietProjectCount
+        case .untracked:
+            state.untrackedProjectCount
+        }
+    }
+
+    func dashboardTabAccent(_ tab: DashboardTab) -> Color {
+        switch tab {
+        case .active: BeaconPalette.mint
+        case .parkingLot: BeaconPalette.lavender
+        case .quiet: BeaconPalette.cyan
+        case .untracked: BeaconPalette.pink
+        }
+    }
+
     @ViewBuilder
     func activeDashboard(_ snapshot: BeaconSnapshot) -> some View {
         switch viewMode {
@@ -47,80 +156,10 @@ extension MenuView {
                     laneSection("Active", symbol: "bolt.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: working.active))
                     laneSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: working.waiting))
                     laneSection("Recently Active", symbol: "sparkles", accent: BeaconPalette.cyan, lanes: state.lanes(for: working.recent))
-                    if !working.parked.isEmpty {
-                        Button {
-                            showingParkedLanes = true
-                        } label: {
-                            HStack(spacing: 9) {
-                                Image(systemName: "pause.circle.fill")
-                                    .foregroundStyle(BeaconPalette.lavender)
-                                Text("\(working.parked.count) Parked Lane\(working.parked.count == 1 ? "" : "s")")
-                                    .font(.subheadline.weight(.semibold))
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .foregroundStyle(BeaconPalette.cyan)
-                            }
-                            .padding(10)
-                            .background(BeaconPalette.softGradient(BeaconPalette.lavender), in: RoundedRectangle(cornerRadius: 9))
-                        }
-                        .buttonStyle(.plain)
-                    }
                 } else {
                     laneSection("Ready for Review", symbol: "checkmark.circle.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: snapshot.groups.ready))
                     laneSection("Needs Action", symbol: "exclamationmark.triangle.fill", accent: BeaconPalette.coral, lanes: state.lanes(for: snapshot.groups.action))
                     laneSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: snapshot.groups.waiting))
-                }
-                if state.quietProjectCount > 0 {
-                    Button {
-                        quietSearch = ""
-                        showingQuietProjects = true
-                    } label: {
-                        HStack(spacing: 9) {
-                            Image(systemName: "moon.stars.fill")
-                                .foregroundStyle(BeaconPalette.lavender)
-                                .shadow(color: BeaconPalette.lavender.opacity(0.45), radius: 2)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Quiet Projects")
-                                    .font(.subheadline.weight(.semibold))
-                                Text("\(state.quietProjectCount) idle project\(state.quietProjectCount == 1 ? "" : "s")")
-                                    .font(.caption2)
-                                    .foregroundStyle(BeaconPalette.lavender.opacity(0.85))
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(BeaconPalette.cyan)
-                        }
-                        .padding(10)
-                        .background(BeaconPalette.softGradient(BeaconPalette.lavender), in: RoundedRectangle(cornerRadius: 9))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 9)
-                                .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.lavender), lineWidth: 0.8)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-                if state.untrackedProjectCount > 0 {
-                    Button {
-                        projectTrackingTab = .untracked
-                        showingProjectTracking = true
-                    } label: {
-                        HStack(spacing: 9) {
-                            Image(systemName: "eye.slash.fill")
-                                .foregroundStyle(BeaconPalette.pink)
-                            Text("\(state.untrackedProjectCount) Untracked Project\(state.untrackedProjectCount == 1 ? "" : "s")")
-                                .font(.subheadline.weight(.semibold))
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(BeaconPalette.cyan)
-                        }
-                        .padding(10)
-                        .background(BeaconPalette.softGradient(BeaconPalette.pink), in: RoundedRectangle(cornerRadius: 9))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 9)
-                                .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.pink), lineWidth: 0.8)
-                        }
-                    }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -134,7 +173,6 @@ extension MenuView {
                     tileSection("Active", symbol: "bolt.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: working.active))
                     tileSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: working.waiting))
                     tileSection("Recently Active", symbol: "sparkles", accent: BeaconPalette.cyan, lanes: state.lanes(for: working.recent))
-                    tileSection("Parked", symbol: "pause.circle.fill", accent: BeaconPalette.lavender, lanes: state.lanes(for: working.parked))
                 } else {
                     tileSection("Ready for Review", symbol: "checkmark.circle.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: snapshot.groups.ready))
                     tileSection("Needs Action", symbol: "exclamationmark.triangle.fill", accent: BeaconPalette.coral, lanes: state.lanes(for: snapshot.groups.action))
@@ -152,7 +190,6 @@ extension MenuView {
                         kanbanColumn("Active", symbol: "bolt.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: working.active), height: geometry.size.height)
                         kanbanColumn("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: working.waiting), height: geometry.size.height)
                         kanbanColumn("Recent", symbol: "sparkles", accent: BeaconPalette.cyan, lanes: state.lanes(for: working.recent), height: geometry.size.height)
-                        kanbanColumn("Parked", symbol: "pause.circle.fill", accent: BeaconPalette.lavender, lanes: state.lanes(for: working.parked), height: geometry.size.height)
                     } else {
                         kanbanColumn("Ready", symbol: "checkmark.circle.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: snapshot.groups.ready), height: geometry.size.height)
                         kanbanColumn("Action", symbol: "exclamationmark.triangle.fill", accent: BeaconPalette.coral, lanes: state.lanes(for: snapshot.groups.action), height: geometry.size.height)

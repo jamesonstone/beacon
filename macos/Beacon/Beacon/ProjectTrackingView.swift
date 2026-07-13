@@ -11,17 +11,20 @@ struct ProjectTrackingView: View {
     @ObservedObject var state: AppState
     @Binding var selectedTab: ProjectTrackingTab
     let onClose: () -> Void
+    var showsNavigation = true
     var showsTabPicker = true
     @State private var search = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Button(action: onClose) {
-                    Label("Dashboard", systemImage: "chevron.left")
+                if showsNavigation {
+                    Button(action: onClose) {
+                        Label("Dashboard", systemImage: "chevron.left")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(BeaconPalette.cyan)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(BeaconPalette.cyan)
                 Spacer()
                 Text("\(projects.count) \(selectedTab.rawValue.lowercased())")
                     .font(.caption.weight(.medium))
