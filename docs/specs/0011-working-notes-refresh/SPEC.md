@@ -75,8 +75,15 @@ path.
   document through `beacon notes` subcommands.
 - The macOS panel edits the same document through the Go agent protocol; Swift
   never writes the file directly.
-- The notes panel is collapsed by default and appears at the bottom of the
-  shared dashboard surface used by both the menu extra and detachable window.
+- The notes panel is expanded by default and appears at the bottom of the
+  shared dashboard surface used by both the menu extra and detachable window;
+  a user's manual collapse choice remains persistent.
+- Note edits save automatically three seconds after the most recent edit.
+  Superseded saves are cancelled, while the explicit Save and Revert controls
+  remain available.
+- The detachable dashboard first opens 580 points wide and fills the usable
+  screen height. User resizing remains authoritative after the first open, and
+  the native 430-by-540 menu-extra size is unchanged.
 - The top-right refresh button is always visible, reports in-progress state,
   and coalesces repeated clicks through the existing agent queue.
 - A manual refresh bypasses normal remote-evidence age checks while retaining
@@ -102,8 +109,9 @@ path.
 5. Keep all note persistence in Go. The Swift client and direct fallback use
    the same CLI/agent authority.
 6. Add a whimsical collapsible Signal Notes panel at the bottom of the shared
-   dashboard, with a Markdown editor, save state, saved timestamp, and clear
-   error feedback.
+   dashboard, expanded by default, with a larger Markdown editor, debounced
+   three-second autosave, explicit Save/Revert controls, save state, saved
+   timestamp, and clear error feedback.
 7. Add a dedicated top-right Scan Now button beside the view and Settings
    controls. Disable it while a scan is active and show progress in place.
 8. Remove the duplicate Scan Now item from Settings after the dedicated button
@@ -118,6 +126,9 @@ path.
     honors the configured rate-limit reserve.
 12. Preserve scheduled cadence, subscription behavior, cached launch state,
     partial failures, and the read-only observation boundary.
+13. Size the detachable dashboard to a 580-point preferred width and the full
+    usable screen height on first open without changing the menu-extra frame or
+    overriding later user resizing.
 
 ## Assumptions
 
@@ -148,6 +159,9 @@ path.
 - [x] AC8: App launch/subscription and scheduled observation remain cache-first
   and do not force GitHub calls.
 - [x] AC9: Go, race, Kit, Swift, Xcode, release, and diff-hygiene gates pass.
+- [x] AC10: The detachable dashboard first opens at the preferred width and
+  full usable screen height, Signal Notes starts expanded, and edits autosave
+  once after three idle seconds while remaining manually collapsible.
 
 ## Implementation Plan
 
@@ -180,6 +194,8 @@ path.
 - [x] T5: Reconcile README, constitution, and progress summary.
 - [x] T6: Run complete validation and read-only verification.
 - [ ] T7: Commit focused changes, push `GH-9`, and update PR #10.
+- [x] T8: Refine the detachable window default frame and Signal Notes default,
+  editor size, and autosave behavior.
 
 ## Validation Map
 
@@ -189,6 +205,7 @@ path.
 | AC4-AC5 | Swift AppState/client/presentation tests plus Xcode build and shared-surface inspection |
 | AC6-AC8 | bare dashboard agent/fallback tests, refresh coalescing tests, explicit inactive-PR fixture, and subscription no-refresh regression |
 | AC9 | `make fmt-check vet test test-race build release-test macos-test macos-build`, `kit check --all`, and `git diff --check` |
+| AC10 | Swift frame calculation, default-presentation, and debounced-autosave tests plus Xcode build and shared-surface inspection |
 
 ## Reflection Notes
 
@@ -222,7 +239,7 @@ so the completed project-following contract is not rewritten.
 - Live recon confirmed a clean `GH-9` working tree matching `origin/GH-9` and
   ready PR #10 before this specification was created.
 - `make fmt-check vet test test-race build release-test macos-test macos-build`
-  passed, including 41 Swift tests and a successful Xcode Debug build.
+  passed, including 43 Swift tests and a successful Xcode Debug build.
 - `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build` passed for the standalone
   CLI's supported release target.
 - `kit check --all` passed all 11 feature specifications.
@@ -231,3 +248,7 @@ so the completed project-following contract is not rewritten.
   concurrent in-process and cross-process appends, foreground fallback at each
   agent failure phase, and followed-only inactive pull-request enrichment in a
   mixed project batch.
+- The frame regression proves the detachable dashboard uses a 580-point width
+  and full visible-screen height. The autosave regression proves the default
+  three-second delay and latest-edit-only debounce contract; a live launch
+  measured the resulting window at 580 by 1409 points on the active display.

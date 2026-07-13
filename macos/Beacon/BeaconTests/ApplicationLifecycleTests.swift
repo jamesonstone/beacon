@@ -23,6 +23,17 @@ final class ApplicationLifecycleTests: XCTestCase {
         model.dashboardWindow?.close()
     }
 
+    func testDashboardInitialFrameUsesPreferredWidthAndFullVisibleHeight() {
+        let visibleFrame = NSRect(x: 10, y: 40, width: 1_400, height: 860)
+
+        let frame = DashboardWindowController.initialFrame(in: visibleFrame)
+
+        XCTAssertEqual(frame.width, 580)
+        XCTAssertEqual(frame.height, visibleFrame.height)
+        XCTAssertEqual(frame.midX, visibleFrame.midX)
+        XCTAssertEqual(frame.minY, visibleFrame.minY)
+    }
+
     func testNormalLaunchOpensDashboardAndLoginLaunchStaysQuiet() {
         let normal = testApplicationModel()
         normal.handleLaunch(isLoginLaunch: false)

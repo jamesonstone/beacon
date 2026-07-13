@@ -51,6 +51,19 @@ extension AppStateTests {
         XCTAssertFalse(state.isSavingNotes)
     }
 
+    func testSignalNotesAutosaveDefaultsExpandedAndDebouncesToLatestEdit() async {
+        XCTAssertTrue(SignalNotesPresentation.expandedByDefault)
+        XCTAssertEqual(SignalNotesPresentation.autosaveDelay, .seconds(3))
+        let autosave = SignalNotesAutosave(delay: .milliseconds(20))
+        var saved: [String] = []
+
+        autosave.schedule(content: "first") { saved.append($0) }
+        autosave.schedule(content: "second") { saved.append($0) }
+        try? await Task.sleep(for: .milliseconds(60))
+
+        XCTAssertEqual(saved, ["second"])
+    }
+
     func testAgentEventsRejectOlderProjectRevision() async {
         let agent = ScriptedAgent(events: [
             TestSnapshots.agentEvent(snapshot: TestSnapshots.withLane, projectID: "owner/repo", revision: 2),

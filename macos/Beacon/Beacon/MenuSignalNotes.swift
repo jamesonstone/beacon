@@ -1,8 +1,50 @@
 import SwiftUI
 
 enum SignalNotesPresentation {
+    static let expandedByDefault = true
+    static let autosaveDelay: Duration = .seconds(3)
+
     static func savedLabel(age: String) -> String {
         "Saved \(age)"
+    }
+}
+
+@MainActor
+final class SignalNotesAutosave: ObservableObject {
+    private let delay: Duration
+    private var pendingTask: Task<Void, Never>?
+    private var generation = 0
+
+    init(delay: Duration = SignalNotesPresentation.autosaveDelay) {
+        self.delay = delay
+    }
+
+    func schedule(
+        content: String,
+        save: @escaping @MainActor (String) async -> Void
+    ) {
+        generation += 1
+        let scheduledGeneration = generation
+        pendingTask?.cancel()
+        let delay = delay
+        pendingTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: delay)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled, self?.generation == scheduledGeneration else { return }
+            await save(content)
+            if self?.generation == scheduledGeneration {
+                self?.pendingTask = nil
+            }
+        }
+    }
+
+    func cancel() {
+        generation += 1
+        pendingTask?.cancel()
+        pendingTask = nil
     }
 }
 
@@ -50,7 +92,7 @@ extension MenuView {
                     .foregroundStyle(BeaconPalette.mint)
                     .scrollContentBackground(.hidden)
                     .padding(6)
-                    .frame(minHeight: 72, maxHeight: surface == .menu ? 92 : 130)
+                    .frame(height: surface == .menu ? 120 : 180)
                     .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 8))
                     .overlay {
                         RoundedRectangle(cornerRadius: 8)
@@ -64,6 +106,13 @@ extension MenuView {
                             .font(BeaconTypography.regular(8))
                             .foregroundStyle(BeaconPalette.coral)
                             .lineLimit(1)
+                    } else if notesDraft != state.notesContent {
+                        Label(
+                            state.isSavingNotes ? "Saving…" : "Autosaves after 3 seconds",
+                            systemImage: state.isSavingNotes ? "arrow.triangle.2.circlepath" : "clock.badge.checkmark"
+                        )
+                            .font(BeaconTypography.regular(8))
+                            .foregroundStyle(BeaconPalette.cyan.opacity(0.82))
                     } else if let updatedAt = state.notesUpdatedAt {
                         Label(
                             SignalNotesPresentation.savedLabel(age: timeSinceActivity(updatedAt)),
@@ -78,6 +127,7 @@ extension MenuView {
                     }
                     Spacer()
                     Button("Revert") {
+                        notesAutosave.cancel()
                         notesDraft = state.notesContent
                     }
                     .buttonStyle(.plain)
@@ -86,6 +136,7 @@ extension MenuView {
                     .disabled(notesDraft == state.notesContent || state.isSavingNotes)
 
                     Button {
+                        notesAutosave.cancel()
                         notesEditorFocused = false
                         Task { await state.saveNotes(notesDraft) }
                     } label: {
@@ -115,5 +166,23 @@ extension MenuView {
             .map(String.init)
             .first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
         return preview ?? "A tiny orbit for ideas in flight."
+    }
+
+    func scheduleSignalNotesAutosave(_ content: String) {
+        guard content != state.notesContent else {
+            notesAutosave.cancel()
+            return
+        }
+        notesAutosave.schedule(content: content) { candidate in
+            while state.isSavingNotes {
+                do {
+                    try await Task.sleep(for: .milliseconds(100))
+                } catch {
+                    return
+                }
+            }
+            guard candidate != state.notesContent else { return }
+            await state.saveNotes(candidate)
+        }
     }
 }

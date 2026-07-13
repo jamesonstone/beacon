@@ -54,6 +54,7 @@ final class BeaconApplicationModel {
 
 @MainActor
 final class DashboardWindowController: NSWindowController {
+    static let preferredWidth: CGFloat = 580
     private var hasPositionedWindow = false
 
     init(state: AppState, loginItem: LoginItemController) {
@@ -66,7 +67,7 @@ final class DashboardWindowController: NSWindowController {
         let hostingController = NSHostingController(rootView: dashboard)
         let window = NSWindow(contentViewController: hostingController)
         window.title = "Beacon"
-        window.setContentSize(NSSize(width: 480, height: 620))
+        window.setContentSize(NSSize(width: Self.preferredWidth, height: 620))
         window.minSize = NSSize(width: 430, height: 540)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.titlebarAppearsTransparent = true
@@ -83,7 +84,11 @@ final class DashboardWindowController: NSWindowController {
     func show(activate: Bool) {
         guard let window else { return }
         if !hasPositionedWindow {
-            window.center()
+            if let visibleFrame = (window.screen ?? NSScreen.main)?.visibleFrame {
+                window.setFrame(Self.initialFrame(in: visibleFrame), display: false)
+            } else {
+                window.center()
+            }
             hasPositionedWindow = true
         }
         showWindow(nil)
@@ -91,6 +96,16 @@ final class DashboardWindowController: NSWindowController {
         if activate {
             NSApplication.shared.activate(ignoringOtherApps: true)
         }
+    }
+
+    static func initialFrame(in visibleFrame: NSRect) -> NSRect {
+        let width = min(preferredWidth, visibleFrame.width)
+        return NSRect(
+            x: visibleFrame.midX - (width / 2),
+            y: visibleFrame.minY,
+            width: width,
+            height: visibleFrame.height
+        )
     }
 }
 

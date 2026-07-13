@@ -20,10 +20,11 @@ struct MenuView: View {
     @State var manualTitle = ""
     @State var showingManualEditor = false
     @State var notesDraft = ""
+    @StateObject var notesAutosave = SignalNotesAutosave()
     @FocusState var notesEditorFocused: Bool
     @AppStorage("beacon.dashboard.view-mode") private var viewModeValue = DashboardViewMode.stacked.rawValue
     @AppStorage("beacon.dismissed-evidence-badges") private var dismissedEvidenceBadgesValue = "[]"
-    @AppStorage("beacon.signal-notes-expanded") var signalNotesExpanded = false
+    @AppStorage("beacon.signal-notes-expanded") var signalNotesExpanded = SignalNotesPresentation.expandedByDefault
 
     var viewMode: DashboardViewMode {
         get { DashboardViewMode(rawValue: viewModeValue) ?? .stacked }
@@ -63,6 +64,9 @@ struct MenuView: View {
             if !notesEditorFocused || notesDraft == previous {
                 notesDraft = latest
             }
+        }
+        .onChange(of: notesDraft) { _, latest in
+            scheduleSignalNotesAutosave(latest)
         }
         .alert("Add lane tag", isPresented: $showingTagEditor) {
             TextField("Short tag", text: $tagText)

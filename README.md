@@ -378,7 +378,8 @@ available, and rolls back only the affected project if a request fails.
 Beacon remains in the menu bar and also runs as a regular macOS application,
 so its neon-space icon is available in the Dock and Command-Tab when a camera
 notch or a crowded menu bar hides the menu item. Ordinary launches open one
-compact dashboard window. Close the window to keep Beacon running quietly;
+dashboard window at a focused 580-point width and the full usable screen
+height. Close the window to keep Beacon running quietly;
 choose **Open Dashboard** in the top-right Settings menu or activate Beacon from the Dock or
 Command-Tab to reopen the same window.
 
@@ -416,9 +417,10 @@ it does not change the underlying evidence or next action, and a changed signal
 appears again. Use **Restore Hidden Badges** in Settings to clear all dismissals.
 
 The whimsical **Signal Notes** panel sits at the bottom of both surfaces and is
-collapsed by default. Expand it to edit the same local Markdown document used
-by `beacon notes`; saving travels through the Go agent authority so the menu and
-detached window stay synchronized.
+expanded by default, while a manual collapse choice persists. Its larger editor
+autosaves three seconds after the latest edit; Save and Revert remain available
+for immediate control. All writes travel through the Go agent authority so the
+menu, detached window, and `beacon notes` stay synchronized.
 
 Use **Open Beacon at Login** in either view to enable quiet startup. Beacon
 registers its embedded login helper through macOS Service Management. A login
