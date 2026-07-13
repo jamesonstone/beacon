@@ -54,22 +54,25 @@ type Engine struct {
 func NewEngine(cfg config.Config, paths Paths, cache Cache, repositories RepositoryProvider, scanner ProjectScanner, prober ProjectProber, tracker tracking.Manager) *Engine {
 	records, failures := cache.LoadAll()
 	if cfg.Path != "" && paths.State != "" {
-		assembled := Assemble(records, cfg.Path, paths.State, time.Now().UTC())
+		assembled := AssembleWithRecentWindow(records, cfg.Path, paths.State, time.Now().UTC(), cfg.Settings.StaleAfter)
 		reconciled, err := tracker.ApplyAt(assembled, paths.State)
 		if err != nil {
 			failures = append(failures, fmt.Errorf("apply cached tracking state: %w", err))
 		} else {
-			trackingByProject := make(map[string]model.TrackingState, len(reconciled.Projects))
+			followingByProject := make(map[string]model.Project, len(reconciled.Projects))
 			for _, project := range reconciled.Projects {
-				trackingByProject[project.GitHub] = project.TrackingState
+				followingByProject[project.GitHub] = project
 			}
 			for index := range records {
 				if len(records[index].Snapshot.Projects) == 0 {
 					continue
 				}
-				if state, found := trackingByProject[records[index].ProjectID]; found {
-					records[index].Snapshot.Projects[0].TrackingState = state
-					if state == model.TrackingUntracked {
+				if project, found := followingByProject[records[index].ProjectID]; found {
+					records[index].Snapshot.Projects[0].TrackingState = project.TrackingState
+					records[index].Snapshot.Projects[0].FollowState = project.FollowState
+					records[index].Snapshot.Projects[0].LastActivityAt = project.LastActivityAt
+					records[index].Snapshot.Projects[0].ActivityReason = project.ActivityReason
+					if project.TrackingState == model.TrackingUntracked {
 						records[index].LastProbeAt = time.Now().UTC()
 					}
 				}
@@ -101,7 +104,7 @@ func (e *Engine) Snapshot() model.Snapshot {
 	cacheErrors := append([]error{}, e.cacheErrors...)
 	e.mutex.RUnlock()
 	sort.Slice(records, func(i, j int) bool { return records[i].ProjectID < records[j].ProjectID })
-	snapshot := Assemble(records, e.Config.Path, e.Paths.State, e.now())
+	snapshot := AssembleWithRecentWindow(records, e.Config.Path, e.Paths.State, e.now(), e.Config.Settings.StaleAfter)
 	for _, cacheError := range cacheErrors {
 		snapshot.Warnings = append(snapshot.Warnings, model.ScanError{Stage: "cache", Message: cacheError.Error()})
 	}

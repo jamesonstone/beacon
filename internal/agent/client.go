@@ -4,10 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"time"
 )
+
+var ErrUnavailable = errors.New("Beacon agent unavailable")
 
 type Client struct {
 	Socket  string
@@ -78,7 +81,7 @@ func (c Client) dial(ctx context.Context) (net.Conn, error) {
 	dialer := net.Dialer{Timeout: timeout}
 	connection, err := dialer.DialContext(ctx, "unix", c.Socket)
 	if err != nil {
-		return nil, fmt.Errorf("connect to Beacon agent at %s: %w", c.Socket, err)
+		return nil, fmt.Errorf("%w: connect at %s: %v", ErrUnavailable, c.Socket, err)
 	}
 	return connection, nil
 }

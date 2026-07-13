@@ -12,16 +12,19 @@ struct MenuView: View {
     let surface: DashboardSurface
     let openDashboard: () -> Void
     @State var selectedDashboardTab = DashboardTab.defaultTab
-    @State var showingProjectTracking = false
-    @State var projectTrackingTab = ProjectTrackingTab.tracked
-    @State var quietSearch = ""
+    @State var showingProjectInventory = false
+    @State var projectInventoryTab = ProjectInventoryTab.following
     @State var tagLane: WorkLane?
     @State var tagText = ""
     @State var showingTagEditor = false
     @State var manualTitle = ""
     @State var showingManualEditor = false
+    @State var notesDraft = ""
+    @StateObject var notesAutosave = SignalNotesAutosave()
+    @FocusState var notesEditorFocused: Bool
     @AppStorage("beacon.dashboard.view-mode") private var viewModeValue = DashboardViewMode.stacked.rawValue
     @AppStorage("beacon.dismissed-evidence-badges") private var dismissedEvidenceBadgesValue = "[]"
+    @AppStorage("beacon.signal-notes-expanded") var signalNotesExpanded = SignalNotesPresentation.expandedByDefault
 
     var viewMode: DashboardViewMode {
         get { DashboardViewMode(rawValue: viewModeValue) ?? .stacked }
@@ -53,7 +56,18 @@ struct MenuView: View {
                     )
             }
         }
-        .onAppear { loginItem.refresh() }
+        .onAppear {
+            loginItem.refresh()
+            notesDraft = state.notesContent
+        }
+        .onChange(of: state.notesContent) { previous, latest in
+            if !notesEditorFocused || notesDraft == previous {
+                notesDraft = latest
+            }
+        }
+        .onChange(of: notesDraft) { _, latest in
+            scheduleSignalNotesAutosave(latest)
+        }
         .alert("Add lane tag", isPresented: $showingTagEditor) {
             TextField("Short tag", text: $tagText)
             Button("Add") { if let lane = tagLane { Task { await state.addLaneTag(lane, tag: tagText) } } }
@@ -80,24 +94,15 @@ struct MenuView: View {
             if !state.agentAvailable {
                 enableAgentBanner
             }
-            if let message = state.reactivationMessage {
-                Label(message, systemImage: "bolt.fill")
-                    .font(.caption)
-                    .foregroundStyle(BeaconPalette.mint)
-            }
-            if let reactivated = state.snapshot?.tracking?.autoReactivated, !reactivated.isEmpty {
-                reactivationBanner(reactivated)
-            }
             if let snapshot = state.snapshot {
-                if showingProjectTracking {
-                    ProjectTrackingView(
+                if showingProjectInventory {
+                    ProjectFollowingView(
                         state: state,
-                        selectedTab: $projectTrackingTab,
-                        onClose: { showingProjectTracking = false },
-                        showsTabPicker: false
+                        selectedTab: $projectInventoryTab,
+                        onClose: { showingProjectInventory = false }
                     )
                 } else {
-                    dashboardTabs(snapshot)
+                    dashboardTabs()
                     dashboardContent(snapshot)
                 }
             } else if state.isScanning {
@@ -109,6 +114,7 @@ struct MenuView: View {
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(BeaconPalette.cyan, BeaconPalette.lavender)
             }
+            signalNotesPanel
         }
         .padding(12)
         .font(BeaconTypography.regular(12))
@@ -123,9 +129,8 @@ struct MenuView: View {
                     .foregroundStyle(BeaconPalette.neonGradient)
                     .shadow(color: BeaconPalette.cyan.opacity(0.55), radius: 2)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Beacon")
+                    NeonWaveWordmark("Beacon")
                         .font(BeaconTypography.bold(17))
-                        .foregroundStyle(BeaconPalette.neonGradient)
                     Text("\(state.inProgressCount) lanes in focus")
                         .font(BeaconTypography.medium(11))
                         .foregroundStyle(BeaconPalette.mint)
@@ -137,14 +142,38 @@ struct MenuView: View {
                 }
             }
             Spacer()
-            if state.isScanning {
-                ProgressView()
-                    .controlSize(.small)
-                    .tint(BeaconPalette.cyan)
-            }
+            refreshButton
             viewModeMenu
             settingsMenu
         }
+    }
+
+    private var refreshButton: some View {
+        Button {
+            Task { await state.scan() }
+        } label: {
+            Group {
+                if state.isScanning {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(BeaconPalette.mint)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(BeaconPalette.mint)
+                }
+            }
+            .frame(width: 28, height: 28)
+            .background(BeaconPalette.softGradient(BeaconPalette.mint), in: RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(BeaconPalette.mint.opacity(0.42), lineWidth: 0.7)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(state.isScanning)
+        .help(state.isScanning ? "Scanning Git and GitHub evidence" : "Scan Now — refresh Git and GitHub evidence")
+        .accessibilityLabel(state.isScanning ? "Scan in progress" : "Scan Now")
     }
 
     private var viewModeMenu: some View {
@@ -176,18 +205,13 @@ struct MenuView: View {
             if surface == .menu {
                 Button(action: openDashboard) { Label("Open Dashboard", systemImage: "macwindow") }
             }
-            Button { Task { await state.scan() } } label: { Label("Scan Now", systemImage: "arrow.clockwise") }
-                .disabled(state.isScanning)
             Button { state.openTopItem() } label: { Label("Open Top Item", systemImage: "arrow.up.forward.app") }
                 .disabled(state.inProgressCount == 0)
             Button { manualTitle = ""; showingManualEditor = true } label: { Label("Add Manual Lane", systemImage: "plus.circle") }
             Divider()
-            Button { showProjects(.tracked) } label: { Label("Tracked Projects", systemImage: "checkmark.circle") }
-            Button { showDashboardTab(.untracked) } label: { Label("Untracked Projects", systemImage: "eye.slash") }
-            Button { showDashboardTab(.parkingLot) } label: {
-                Label("Parking Lot", systemImage: "pause.circle")
-            }
-            Button { quietSearch = ""; showDashboardTab(.quiet) } label: {
+            Button { showProjects(.following) } label: { Label("Manage Following", systemImage: "star") }
+            Button { showDashboardTab(.recent) } label: { Label("Recently Updated", systemImage: "sparkles") }
+            Button { showDashboardTab(.quiet) } label: {
                 Label("Quiet Projects", systemImage: "moon.stars")
             }
             Button { state.openConfig() } label: { Label("Open Config", systemImage: "slider.horizontal.3") }
@@ -234,13 +258,13 @@ struct MenuView: View {
         .help("Settings")
     }
 
-    private func showProjects(_ tab: ProjectTrackingTab) {
-        projectTrackingTab = tab
-        showingProjectTracking = true
+    private func showProjects(_ tab: ProjectInventoryTab) {
+        projectInventoryTab = tab
+        showingProjectInventory = true
     }
 
     private func showDashboardTab(_ tab: DashboardTab) {
-        showingProjectTracking = false
+        showingProjectInventory = false
         selectedDashboardTab = tab
     }
 

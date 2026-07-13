@@ -109,6 +109,69 @@ func TestServerClientSnapshotStatusAndShutdown(t *testing.T) {
 	}
 }
 
+func TestServerClientReadsWritesAndPublishesSignalNotes(t *testing.T) {
+	root, err := os.MkdirTemp("/tmp", "beacon-notes-agent-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	paths := testPaths(root)
+	cfg := config.Config{Path: paths.Config, Settings: config.Settings{MaxParallel: 1, TrackedRefreshInterval: time.Hour, UntrackedProbeInterval: time.Hour}}
+	engine := NewEngine(cfg, paths, Cache{Directory: paths.Projects}, func(context.Context) ([]config.Repository, error) {
+		return []config.Repository{}, nil
+	}, nil, nil, tracking.Manager{})
+	server := &Server{Paths: paths, Engine: engine}
+	done := make(chan error, 1)
+	go func() { done <- server.Serve(context.Background()) }()
+	waitForFile(t, paths.Socket)
+	client := Client{Socket: paths.Socket}
+	events, eventErrors, err := client.Subscribe(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-events // initial snapshot
+
+	written, err := client.Request(context.Background(), Request{Type: RequestSetNotes, Content: "# Signal Log\n\nShip it."})
+	if err != nil || written.Notes == nil || written.Notes.Content != "# Signal Log\n\nShip it." {
+		t.Fatalf("written event=%#v err=%v", written, err)
+	}
+	select {
+	case event := <-events:
+		if event.Type != EventNotesUpdated || event.Notes == nil || event.Notes.Content != written.Notes.Content {
+			t.Fatalf("published event=%#v", event)
+		}
+	case err := <-eventErrors:
+		t.Fatalf("subscription error: %v", err)
+	case <-time.After(time.Second):
+		t.Fatal("notes update was not published")
+	}
+	appended, err := client.Request(context.Background(), Request{Type: RequestAppendNotes, Content: "- verify orbit"})
+	if err != nil || appended.Notes == nil || appended.Notes.Content != "# Signal Log\n\nShip it.\n- verify orbit\n" {
+		t.Fatalf("appended event=%#v err=%v", appended, err)
+	}
+	select {
+	case event := <-events:
+		if event.Type != EventNotesUpdated || event.Notes == nil || event.Notes.Content != appended.Notes.Content {
+			t.Fatalf("published append event=%#v", event)
+		}
+	case err := <-eventErrors:
+		t.Fatalf("subscription error: %v", err)
+	case <-time.After(time.Second):
+		t.Fatal("notes append was not published")
+	}
+	loaded, err := client.Request(context.Background(), Request{Type: RequestGetNotes})
+	if err != nil || loaded.Notes == nil || loaded.Notes.Path != paths.Notes || loaded.Notes.UpdatedAt.IsZero() {
+		t.Fatalf("loaded event=%#v err=%v", loaded, err)
+	}
+
+	if _, err := client.Request(context.Background(), Request{Type: RequestShutdown}); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestServerClientMutatesWorkingSetThroughSharedAuthority(t *testing.T) {
 	root, err := os.MkdirTemp("/tmp", "beacon-workset-agent-")
 	if err != nil {

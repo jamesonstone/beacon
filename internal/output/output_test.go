@@ -26,6 +26,22 @@ func TestJSONEmitsVersionedSnapshot(t *testing.T) {
 	}
 }
 
+func TestJSONEmitsFollowingStateWithoutZeroActivityTimestamp(t *testing.T) {
+	snapshot := model.Snapshot{
+		SchemaVersion: model.SchemaVersion,
+		Projects: []model.Project{{
+			Name: "repo", GitHub: "owner/repo", FollowState: model.FollowFollowing,
+		}},
+	}
+	var buffer bytes.Buffer
+	if err := JSON(&buffer, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buffer.String(), `"follow_state": "following"`) || strings.Contains(buffer.String(), "last_activity_at") {
+		t.Fatalf("JSON = %s", buffer.String())
+	}
+}
+
 func TestJSONEmitsEmptyCollectionsAsArrays(t *testing.T) {
 	snapshot := model.Snapshot{
 		SchemaVersion: model.SchemaVersion,
@@ -48,14 +64,14 @@ func TestJSONEmitsEmptyCollectionsAsArrays(t *testing.T) {
 	}
 }
 
-func TestTerminalReplacesUntrackedInventoryWithManagementHint(t *testing.T) {
+func TestTerminalReplacesOutsideInventoryWithFollowingHints(t *testing.T) {
 	snapshot := model.Snapshot{
 		GeneratedAt: time.Now(),
-		Summary:     model.Summary{UntrackedProjects: 2, Warnings: 1, Errors: 2},
+		Summary:     model.Summary{UntrackedProjects: 2, RecentProjects: 1, QuietProjects: 1, Warnings: 1, Errors: 2},
 		Groups:      model.Groups{Untracked: []string{"one", "two"}},
 		Projects: []model.Project{
-			{Name: "one", GitHub: "owner/one", TrackingState: model.TrackingUntracked},
-			{Name: "two", GitHub: "owner/two", TrackingState: model.TrackingUntracked},
+			{Name: "one", GitHub: "owner/one", TrackingState: model.TrackingUntracked, FollowState: model.FollowRecent},
+			{Name: "two", GitHub: "owner/two", TrackingState: model.TrackingUntracked, FollowState: model.FollowQuiet},
 		},
 		Lanes: []model.Lane{
 			{ID: "one", Repository: "one", NextAction: model.ActionFixCI},
@@ -71,7 +87,7 @@ func TestTerminalReplacesUntrackedInventoryWithManagementHint(t *testing.T) {
 	if err := TerminalWithOptions(&buffer, snapshot, TerminalOptions{Width: 120}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buffer.String(), "2 untracked projects · run beacon projects --untracked to view") {
+	if !strings.Contains(buffer.String(), "1 recently updated project outside Following · run beacon projects --recent to view") || !strings.Contains(buffer.String(), "1 quiet project outside Following · run beacon projects --quiet to view") {
 		t.Fatalf("terminal output = %q", buffer.String())
 	}
 	if strings.Contains(buffer.String(), "one\t") || strings.Contains(buffer.String(), "two\t") {
@@ -99,17 +115,17 @@ func TestTerminalGroupsLanes(t *testing.T) {
 	}
 }
 
-func TestTerminalHidesQuietProjectsUntilRequested(t *testing.T) {
+func TestTerminalHidesIdleFollowingProjectsUntilRequested(t *testing.T) {
 	snapshot := quietProjectSnapshot()
 
 	var defaultOutput bytes.Buffer
 	if err := TerminalWithOptions(&defaultOutput, snapshot, TerminalOptions{Width: 120}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(defaultOutput.String(), "1 quiet project hidden · use --include-idle to show") {
+	if !strings.Contains(defaultOutput.String(), "1 idle following project hidden · use --include-idle to show") {
 		t.Fatalf("default terminal output = %q", defaultOutput.String())
 	}
-	if strings.Contains(defaultOutput.String(), "quiet-main") || strings.Contains(defaultOutput.String(), "active-main") || strings.Contains(defaultOutput.String(), "Quiet Projects") {
+	if strings.Contains(defaultOutput.String(), "quiet-main") || strings.Contains(defaultOutput.String(), "active-main") || strings.Contains(defaultOutput.String(), "Idle Following Projects") {
 		t.Fatalf("default terminal exposed idle inventory: %q", defaultOutput.String())
 	}
 
@@ -117,7 +133,7 @@ func TestTerminalHidesQuietProjectsUntilRequested(t *testing.T) {
 	if err := TerminalWithOptions(&completeOutput, snapshot, TerminalOptions{Width: 120, IncludeIdle: true}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(completeOutput.String(), "Quiet Projects") || !strings.Contains(completeOutput.String(), "quiet-main") {
+	if !strings.Contains(completeOutput.String(), "Idle Following Projects") || !strings.Contains(completeOutput.String(), "quiet-main") {
 		t.Fatalf("included terminal output = %q", completeOutput.String())
 	}
 	if strings.Contains(completeOutput.String(), "active-main") {

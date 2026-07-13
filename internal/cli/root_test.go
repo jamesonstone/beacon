@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/model"
 )
 
@@ -91,7 +91,7 @@ func TestNextActiveLaneNeverFallsBackToIdle(t *testing.T) {
 func TestBareMissingConfigInNonTTYIncludesInitHint(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing.yaml")
 	app := App{Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Runner: &recordingRunner{}, InputIsTTY: func() bool { return false }}
-	err := app.runHumanScan(context.Background(), path, "", false, "never", false, true, false)
+	err := app.runHumanScan(context.Background(), path, "", false, "never", false, true, false, false)
 	if err == nil || !strings.Contains(err.Error(), "run beacon init") || !strings.Contains(err.Error(), path) {
 		t.Fatalf("error = %v", err)
 	}
@@ -104,37 +104,13 @@ func TestBareMissingConfigTTYCanDeclineInit(t *testing.T) {
 		Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Runner: &recordingRunner{},
 		InputIsTTY: func() bool { return true }, prompter: prompter,
 	}
-	err := app.runHumanScan(context.Background(), path, "", false, "never", false, true, false)
+	err := app.runHumanScan(context.Background(), path, "", false, "never", false, true, false, false)
 	if err == nil || !strings.Contains(err.Error(), "configuration is required") || prompter.confirmCalls != 1 {
 		t.Fatalf("error = %v, confirmations = %d", err, prompter.confirmCalls)
 	}
 }
 
-func TestBareDashboardDoesNotFallBackToBlockingScanWhenAgentIsUnavailable(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	configPath := filepath.Join(home, ".config", "beacon", "config.yaml")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	writeTestConfig(t, configPath, `version: 2
-repositories:
-  - name: beacon
-    path: `+t.TempDir()+`
-    github: owner/beacon
-`)
-	app := App{
-		Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Runner: &recordingRunner{},
-		OutputIsTTY: func() bool { return true }, TerminalWidth: func() int { return 120 },
-	}
-	err := app.runAgentDashboard(context.Background(), configPath, "never", false, false)
-	if err == nil || !strings.Contains(err.Error(), "background agent is unavailable") ||
-		!strings.Contains(err.Error(), "beacon agent install") || !strings.Contains(err.Error(), "beacon scan") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestHumanScanCanRevealQuietProjectsExplicitlyOrByRepository(t *testing.T) {
+func TestHumanScanCanRevealIdleFollowingProjectsExplicitlyOrByRepository(t *testing.T) {
 	repository := t.TempDir()
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	writeTestConfig(t, configPath, `version: 2
@@ -170,14 +146,47 @@ repositories:
 			if err := command.ExecuteContext(context.Background()); err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(output.String(), "Quiet Projects") || !strings.Contains(output.String(), "quiet-main") {
+			if !strings.Contains(output.String(), "Idle Following Projects") || !strings.Contains(output.String(), "quiet-main") {
 				t.Fatalf("terminal output = %q", output.String())
 			}
 		})
 	}
 }
 
+func TestScanSnapshotUsesPartialReconciliationForRepositoryFilter(t *testing.T) {
+	tracker := &recordingProjectTracker{}
+	app := App{
+		scannerSource: fixedSnapshotScanner{snapshot: model.Snapshot{Projects: []model.Project{}}},
+		trackerSource: tracker,
+	}
+	cfg := config.Config{Path: filepath.Join(t.TempDir(), "config.yaml")}
+	if _, err := app.scanSnapshot(context.Background(), cfg, "repo", false); err != nil {
+		t.Fatal(err)
+	}
+	if tracker.partialCalls != 1 || tracker.fullCalls != 0 {
+		t.Fatalf("filtered reconciliation: full=%d partial=%d", tracker.fullCalls, tracker.partialCalls)
+	}
+	if _, err := app.scanSnapshot(context.Background(), cfg, "", false); err != nil {
+		t.Fatal(err)
+	}
+	if tracker.partialCalls != 1 || tracker.fullCalls != 1 {
+		t.Fatalf("complete reconciliation: full=%d partial=%d", tracker.fullCalls, tracker.partialCalls)
+	}
+}
+
 type recordingRunner struct{ target string }
+
+type recordingSnapshotScanner struct {
+	snapshot model.Snapshot
+	calls    int
+	refresh  bool
+}
+
+func (s *recordingSnapshotScanner) Scan(_ context.Context, _ config.Config, _ string, refresh bool) (model.Snapshot, error) {
+	s.calls++
+	s.refresh = refresh
+	return s.snapshot, nil
+}
 
 func (r *recordingRunner) Run(_ context.Context, _ string, name string, args ...string) ([]byte, error) {
 	if name != "open" || len(args) != 1 {

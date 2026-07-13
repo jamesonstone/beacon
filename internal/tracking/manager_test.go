@@ -10,7 +10,7 @@ import (
 	"github.com/jamesonstone/beacon/internal/model"
 )
 
-func TestManagerUntracksAndAutomaticallyReactivatesChangedEvidence(t *testing.T) {
+func TestManagerKeepsChangedProjectOutsideFollowingAndMarksRecent(t *testing.T) {
 	now := time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC)
 	manager := Manager{Store: FileStore{}, Now: func() time.Time { return now }}
 	snapshot := managerSnapshot(t)
@@ -27,16 +27,46 @@ func TestManagerUntracksAndAutomaticallyReactivatesChangedEvidence(t *testing.T)
 	assertUntracked(t, unchanged)
 
 	snapshot.Lanes[0].Worktree.HeadOID = "new-head"
-	reactivated, err := manager.Reconcile(snapshot)
+	recent, err := manager.Reconcile(snapshot)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reactivated.Projects[0].TrackingState != model.TrackingTracked || len(reactivated.Tracking.AutoReactivated) != 1 {
-		t.Fatalf("reactivated snapshot = %#v", reactivated)
+	if recent.Projects[0].TrackingState != model.TrackingUntracked || recent.Projects[0].FollowState != model.FollowRecent || len(recent.Tracking.AutoReactivated) != 0 {
+		t.Fatalf("recent snapshot = %#v", recent)
 	}
-	state, err := (FileStore{}).Load(reactivated.Tracking.Path)
-	if err != nil || len(state.Untracked) != 0 {
+	state, err := (FileStore{}).Load(recent.Tracking.Path)
+	if err != nil || len(state.Untracked) != 1 || state.Untracked[0].LastActivityAt != now || state.Untracked[0].ActivityReason == "" {
 		t.Fatalf("persisted state = %#v, %v", state, err)
+	}
+}
+
+func TestManagerFreshStateStartsDiscoveredProjectQuiet(t *testing.T) {
+	manager := Manager{Store: FileStore{}, Now: func() time.Time { return time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC) }}
+	result, err := manager.Reconcile(managerSnapshot(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Projects[0].FollowState != model.FollowQuiet || result.Summary.QuietProjects != 1 || result.Summary.FollowingProjects != 0 {
+		t.Fatalf("fresh following state = %#v %#v", result.Projects, result.Summary)
+	}
+}
+
+func TestManagerRecentProjectReturnsToQuietAfterWindow(t *testing.T) {
+	now := time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC)
+	manager := Manager{Store: FileStore{}, Now: func() time.Time { return now }, RecentWindow: time.Hour}
+	snapshot := managerSnapshot(t)
+	if _, err := manager.SetTracked(snapshot, []string{"owner/repo"}, false); err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Lanes[0].Worktree.HeadOID = "recent-head"
+	recent, err := manager.Reconcile(snapshot)
+	if err != nil || recent.Projects[0].FollowState != model.FollowRecent {
+		t.Fatalf("recent=%#v err=%v", recent.Projects, err)
+	}
+	now = now.Add(2 * time.Hour)
+	quiet, err := manager.Reconcile(snapshot)
+	if err != nil || quiet.Projects[0].FollowState != model.FollowQuiet {
+		t.Fatalf("quiet=%#v err=%v", quiet.Projects, err)
 	}
 }
 
@@ -119,6 +149,31 @@ func TestManagerManualTrackingAndSelectionAreIdempotent(t *testing.T) {
 	}
 }
 
+func TestManagerSelectionPreservesExistingRecentActivity(t *testing.T) {
+	now := time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC)
+	manager := Manager{Store: FileStore{}, Now: func() time.Time { return now }}
+	snapshot := managerSnapshot(t)
+	if _, err := manager.SetTracked(snapshot, []string{"owner/repo"}, false); err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Lanes[0].Worktree.HeadOID = "recent-head"
+	recent, err := manager.Reconcile(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, found, err := manager.Entry(snapshot.ConfigPath, "owner/repo")
+	if err != nil || !found || before.LastActivityAt.IsZero() || before.ActivityReason == "" {
+		t.Fatalf("recent entry = %#v, found = %t, err = %v", before, found, err)
+	}
+	if _, err := manager.SetSelection(recent, []string{}); err != nil {
+		t.Fatal(err)
+	}
+	after, found, err := manager.Entry(snapshot.ConfigPath, "owner/repo")
+	if err != nil || !found || after.LastActivityAt != before.LastActivityAt || after.ActivityReason != before.ActivityReason {
+		t.Fatalf("selection erased activity: before=%#v after=%#v found=%t err=%v", before, after, found, err)
+	}
+}
+
 func TestManagerExplicitUntrackReplacesStaleBaseline(t *testing.T) {
 	manager := Manager{Store: FileStore{}, Now: func() time.Time { return time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC) }}
 	snapshot := managerSnapshot(t)
@@ -152,7 +207,7 @@ func TestManagerProjectAliasesMustExistAndBeUnique(t *testing.T) {
 	}
 }
 
-func TestManagerDoesNotPublishReactivationWhenStateWriteFails(t *testing.T) {
+func TestManagerDoesNotPublishRecentActivityWhenStateWriteFails(t *testing.T) {
 	snapshot := managerSnapshot(t)
 	project := snapshot.Projects[0]
 	baseline, err := Fingerprint(project, snapshot.Lanes)
@@ -168,7 +223,7 @@ func TestManagerDoesNotPublishReactivationWhenStateWriteFails(t *testing.T) {
 		writeErr: errors.New("disk full"),
 	}
 	_, err = (Manager{Store: store}).Reconcile(snapshot)
-	if err == nil || !strings.Contains(err.Error(), "persist automatic project reactivation") {
+	if err == nil || !strings.Contains(err.Error(), "persist project following state") {
 		t.Fatalf("error = %v", err)
 	}
 }

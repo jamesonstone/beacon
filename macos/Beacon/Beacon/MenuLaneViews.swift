@@ -1,50 +1,6 @@
 import SwiftUI
 
 extension MenuView {
-    var quietProjects: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            TextField("Search quiet projects", text: $quietSearch)
-                .textFieldStyle(.roundedBorder)
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 8) {
-                    let groups = state.quietProjectGroups(matching: quietSearch)
-                    if groups.isEmpty {
-                        ContentUnavailableView.search(text: quietSearch)
-                            .foregroundStyle(BeaconPalette.lavender)
-                    } else {
-                        ForEach(groups) { project in
-                            projectHeader(project, accent: BeaconPalette.lavender)
-                            ForEach(project.lanes) { lane in
-                                laneCard(lane, accent: BeaconPalette.lavender)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    func parkedLanes(_ snapshot: BeaconSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 8) {
-                    let parked = state.lanes(for: snapshot.workingSet?.parked ?? [])
-                    if parked.isEmpty {
-                        ContentUnavailableView("No parked lanes", systemImage: "pause.circle")
-                            .foregroundStyle(BeaconPalette.lavender)
-                    } else {
-                        ForEach(state.projectGroups(for: parked)) { project in
-                            projectHeader(project, accent: BeaconPalette.lavender)
-                            ForEach(project.lanes) { lane in
-                                laneCard(lane, accent: BeaconPalette.lavender)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     @ViewBuilder
     func laneSection(_ title: String, symbol: String, accent: Color, lanes: [WorkLane]) -> some View {
         if !lanes.isEmpty {

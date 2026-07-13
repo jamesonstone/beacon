@@ -1,15 +1,24 @@
 import SwiftUI
 
-enum ProjectTrackingTab: String, CaseIterable, Identifiable {
-    case tracked = "Tracked"
-    case untracked = "Untracked"
+enum ProjectInventoryTab: String, CaseIterable, Identifiable {
+    case following
+    case recent
+    case quiet
 
     var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .following: "Following"
+        case .recent: "Recently Updated"
+        case .quiet: "Quiet"
+        }
+    }
 }
 
-struct ProjectTrackingView: View {
+struct ProjectFollowingView: View {
     @ObservedObject var state: AppState
-    @Binding var selectedTab: ProjectTrackingTab
+    @Binding var selectedTab: ProjectInventoryTab
     let onClose: () -> Void
     var showsNavigation = true
     var showsTabPicker = true
@@ -26,7 +35,7 @@ struct ProjectTrackingView: View {
                     .foregroundStyle(BeaconPalette.cyan)
                 }
                 Spacer()
-                Text("\(projects.count) \(selectedTab.rawValue.lowercased())")
+                Text("\(projects.count) \(selectedTab.title.lowercased())")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(BeaconPalette.lavender)
                 if state.queuedTrackingCount > 0 {
@@ -36,16 +45,16 @@ struct ProjectTrackingView: View {
                 }
             }
             if showsTabPicker {
-                Picker("Project tracking", selection: $selectedTab) {
-                    ForEach(ProjectTrackingTab.allCases) { tab in
-                        Text(tab.rawValue).tag(tab)
+                Picker("Project following", selection: $selectedTab) {
+                    ForEach(ProjectInventoryTab.allCases) { tab in
+                        Text(tab.title).tag(tab)
                     }
                 }
                 .pickerStyle(.segmented)
                 .onChange(of: selectedTab) { _, _ in search = "" }
             }
 
-            TextField("Search \(selectedTab.rawValue.lowercased()) projects", text: $search)
+            TextField("Search \(selectedTab.title.lowercased()) projects", text: $search)
                 .textFieldStyle(.roundedBorder)
 
             ScrollView {
@@ -65,7 +74,7 @@ struct ProjectTrackingView: View {
     }
 
     private var projects: [BeaconProject] {
-        selectedTab == .tracked ? state.trackedProjects : state.untrackedProjects
+        state.projects(in: selectedTab.rawValue)
     }
 
     private var filteredProjects: [BeaconProject] {
@@ -79,8 +88,8 @@ struct ProjectTrackingView: View {
     }
 
     private func projectRow(_ project: BeaconProject) -> some View {
-        let tracking = selectedTab == .untracked
-        let accent = tracking ? BeaconPalette.mint : BeaconPalette.lavender
+        let willFollow = selectedTab != .following
+        let accent = inventoryAccent
         return HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(project.name)
@@ -96,11 +105,13 @@ struct ProjectTrackingView: View {
                 let status = state.projectStatuses[project.github]
                 HStack(spacing: 6) {
                     Text(stageLabel(state.stage(for: project.github)))
-                    if let mutedAt = status?.mutedAt, selectedTab == .untracked {
-                        Text("Muted \(mutedAt)")
+                    if let activityReason = project.activityReason, selectedTab == .recent {
+                        Text(activityReason)
                     }
-                    if let probe = status?.lastProbeAt, selectedTab == .untracked {
-                        Text("Probed \(probe)")
+                    if let activityAt = project.lastActivityAt, selectedTab == .recent {
+                        Text(relativeTime(activityAt))
+                    } else if let probe = status?.lastProbeAt, selectedTab != .following {
+                        Text("Checked \(relativeTime(probe))")
                     }
                 }
                 .font(.caption2)
@@ -113,9 +124,12 @@ struct ProjectTrackingView: View {
                     .tint(accent)
             } else {
                 Button {
-                    state.setProjectTracked(project, tracked: tracking)
+                    state.setProjectFollowed(project, followed: willFollow)
                 } label: {
-                    Label(tracking ? "Track" : "Untrack", systemImage: tracking ? "eye.fill" : "eye.slash.fill")
+                    Label(
+                        willFollow ? "Follow" : "Stop Following",
+                        systemImage: willFollow ? "star.fill" : "star.slash.fill"
+                    )
                 }
                 .buttonStyle(.bordered)
                 .tint(accent)
@@ -127,6 +141,22 @@ struct ProjectTrackingView: View {
             RoundedRectangle(cornerRadius: 9)
                 .strokeBorder(BeaconPalette.borderGradient(accent), lineWidth: 0.8)
         }
+    }
+
+    private var inventoryAccent: Color {
+        switch selectedTab {
+        case .following: BeaconPalette.lavender
+        case .recent: BeaconPalette.pink
+        case .quiet: BeaconPalette.cyan
+        }
+    }
+
+    private func relativeTime(_ value: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+        guard let date else { return value }
+        return RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date())
     }
 
     private func stageLabel(_ stage: String) -> String {

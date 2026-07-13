@@ -7,7 +7,6 @@ import (
 
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/githubapi"
-	"github.com/jamesonstone/beacon/internal/githubscan"
 	"github.com/jamesonstone/beacon/internal/model"
 )
 
@@ -32,8 +31,8 @@ func (s Scanner) ScanMany(
 	}
 
 	remoteContext := ctx
-	if refresh && len(repositories) == 1 {
-		remoteContext = githubapi.WithFreshEvidence(githubscan.WithInactivePullRequests(ctx))
+	if refresh {
+		remoteContext = githubapi.WithFreshEvidence(ctx)
 	}
 	remote := s.GitHub.Collect(
 		remoteContext,

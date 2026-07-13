@@ -74,15 +74,15 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(groups.first?.lanes.map(\.id), ["issue:owner/repo#41"])
     }
 
-    func testQuietProjectsExcludeProjectsWithActiveWorkAndSupportSearch() async {
+    func testProjectInventoryUsesExplicitFollowStateAndSupportsSearch() async {
         let state = AppState(client: StubClient(result: .success(TestSnapshots.withIdleInventory)))
         await state.scan()
 
+        XCTAssertEqual(state.followedProjects.map(\.github), ["owner/active"])
         XCTAssertEqual(state.quietProjectCount, 1)
-        XCTAssertEqual(state.quietProjectGroups().map(\.name), ["quiet"])
-        XCTAssertEqual(state.quietProjectGroups().first?.lanes.map(\.id), ["quiet-base", "quiet-worktree"])
-        XCTAssertEqual(state.quietProjectGroups(matching: "WORKTREE").first?.lanes.count, 2)
-        XCTAssertTrue(state.quietProjectGroups(matching: "missing").isEmpty)
+        XCTAssertEqual(state.projects(in: "quiet").map(\.name), ["quiet"])
+        XCTAssertEqual(state.projects(in: "quiet", matching: "OWNER/QUIET").map(\.name), ["quiet"])
+        XCTAssertTrue(state.projects(in: "quiet", matching: "missing").isEmpty)
         XCTAssertEqual(state.topLane()?.id, "active-work")
     }
 
@@ -104,7 +104,7 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(state.lanes(for: snapshot.workingSet?.parked ?? []).map(\.id), ["quiet-worktree"])
     }
 
-    func testQuietProjectsExcludeActiveAndParkedWorkingSetProjects() async {
+    func testProjectFollowingIsIndependentOfLaneAttentionState() async {
         var snapshot = TestSnapshots.withIdleInventory
         snapshot.workingSet = WorkingSetGroups(
             path: "/Users/test/.local/state/beacon/lanes.json",
@@ -117,8 +117,8 @@ final class AppStateTests: XCTestCase {
 
         await state.scan()
 
-        XCTAssertTrue(state.quietProjectGroups().isEmpty)
-        XCTAssertEqual(state.quietProjectCount, 0)
+        XCTAssertEqual(state.followedProjects.map(\.github), ["owner/active"])
+        XCTAssertEqual(state.quietProjects.map(\.github), ["owner/quiet"])
     }
 
 

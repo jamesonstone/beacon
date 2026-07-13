@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/jamesonstone/beacon/internal/model"
+	"github.com/jamesonstone/beacon/internal/notes"
 )
 
 type Server struct {
 	Paths  Paths
 	Engine *Engine
+	Notes  notes.Store
 
 	mutex  sync.Mutex
 	cancel context.CancelFunc
@@ -98,6 +100,32 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 	case RequestGetAgentStatus:
 		status := s.Engine.Status()
 		response(Event{Type: EventAgentStatus, Status: &status})
+	case RequestGetNotes:
+		document, notesErr := s.notesStore().Load(s.Paths.Notes)
+		if notesErr != nil {
+			response(Event{Type: EventProjectFailed, Stage: "notes", Message: notesErr.Error()})
+			return
+		}
+		response(Event{Type: EventNotes, Notes: &document})
+	case RequestSetNotes, RequestAppendNotes:
+		store := s.notesStore()
+		var document notes.Document
+		var notesErr error
+		if request.Type == RequestAppendNotes {
+			document, notesErr = store.Append(s.Paths.Notes, request.Content)
+		} else {
+			document, notesErr = store.Write(s.Paths.Notes, request.Content)
+		}
+		if notesErr != nil {
+			response(Event{Type: EventProjectFailed, Stage: "notes", Message: notesErr.Error()})
+			return
+		}
+		event := Event{
+			ProtocolVersion: ProtocolVersion, Type: EventNotesUpdated,
+			GeneratedAt: time.Now().UTC(), Notes: &document,
+		}
+		s.Engine.hub.Publish(event)
+		response(event)
 	case RequestRefreshAll, RequestRefreshProject:
 		project := request.ProjectID
 		if request.Type == RequestRefreshAll {
@@ -204,6 +232,13 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 	default:
 		response(Event{Type: EventProjectFailed, Stage: "failed", Message: "unknown agent request: " + request.Type})
 	}
+}
+
+func (s *Server) notesStore() notes.Store {
+	if s.Notes != nil {
+		return s.Notes
+	}
+	return notes.FileStore{}
 }
 
 func (s *Server) heartbeats(ctx context.Context) {

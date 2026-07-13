@@ -15,7 +15,7 @@ func TestFileStoreMissingStateIsEmptyWithoutCreatingFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if state.Version != Version || state.Untracked == nil || len(state.Untracked) != 0 {
+	if state.Version != Version || !state.Initialized || state.Known == nil || state.Untracked == nil || len(state.Untracked) != 0 {
 		t.Fatalf("state = %#v", state)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -25,7 +25,7 @@ func TestFileStoreMissingStateIsEmptyWithoutCreatingFile(t *testing.T) {
 
 func TestFileStoreRoundTripsSortedState(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "tracking.json")
-	state := State{Version: Version, Untracked: []Entry{
+	state := State{Version: Version, Initialized: true, Untracked: []Entry{
 		{GitHub: "owner/zeta", Name: "zeta", Path: "/zeta", UntrackedAt: time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC), Baseline: strings.Repeat("b", 64)},
 		{GitHub: "owner/alpha", Name: "alpha", Path: "/alpha", UntrackedAt: time.Date(2026, 7, 11, 11, 0, 0, 0, time.UTC), Baseline: strings.Repeat("a", 64)},
 	}}
@@ -43,6 +43,21 @@ func TestFileStoreRoundTripsSortedState(t *testing.T) {
 	info, err := os.Stat(path)
 	if err != nil || info.Mode().Perm() != 0o600 {
 		t.Fatalf("state mode = %v, %v", info, err)
+	}
+}
+
+func TestFileStoreLoadsVersionOneForDeferredMembershipMigration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "tracking.json")
+	contents := fmt.Sprintf(`{"version":1,"projects":[{"github":"owner/repo","name":"repo","path":"/repo","state":"muted","muted_at":"2026-07-11T12:00:00Z","baseline":"%s"}]}`, strings.Repeat("a", 64))
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	state, err := (FileStore{}).Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Version != Version || state.Initialized || len(state.Known) != 1 || len(state.Untracked) != 1 {
+		t.Fatalf("migrated state = %#v", state)
 	}
 }
 
@@ -81,7 +96,7 @@ func TestMigrateLegacyTrackingYAML(t *testing.T) {
 		t.Fatalf("migrated=%t err=%v", migrated, err)
 	}
 	state, err := (FileStore{}).Load(statePath)
-	if err != nil || len(state.Untracked) != 1 || state.Untracked[0].State != StateMuted {
+	if err != nil || state.Version != Version || state.Initialized || len(state.Untracked) != 1 || state.Untracked[0].State != StateMuted {
 		t.Fatalf("state=%#v err=%v", state, err)
 	}
 	if _, err := os.Stat(legacyPath + ".migrated"); err != nil {

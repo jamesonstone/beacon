@@ -2,7 +2,7 @@ package output
 
 import "github.com/jamesonstone/beacon/internal/model"
 
-func quietInventory(snapshot model.Snapshot) ([]string, int) {
+func idleFollowingInventory(snapshot model.Snapshot) ([]string, int) {
 	byID := make(map[string]model.Lane, len(snapshot.Lanes))
 	for _, lane := range snapshot.Lanes {
 		byID[lane.ID] = lane

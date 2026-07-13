@@ -11,6 +11,7 @@ import (
 
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/discovery"
+	"github.com/jamesonstone/beacon/internal/githubscan"
 	"github.com/jamesonstone/beacon/internal/gitscan"
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/progress"
@@ -64,6 +65,28 @@ func TestScanManyCollectsRemoteEvidenceOnceForEntireBatch(t *testing.T) {
 	}
 	if len(snapshots) != len(repositories) || remote.callCount() != 1 || remote.batchSize() != len(repositories) {
 		t.Fatalf("snapshots=%d calls=%d batch=%d", len(snapshots), remote.callCount(), remote.batchSize())
+	}
+}
+
+func TestScanManyManualRefreshLimitsInactivePullRequestsToFollowedRepositories(t *testing.T) {
+	now := time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC)
+	repositories := []config.Repository{
+		{Name: "one", GitHub: "owner/one", Base: "main", Remote: "origin"},
+		{Name: "two", GitHub: "owner/two", Base: "main", Remote: "origin"},
+	}
+	cfg := config.Config{Settings: config.Settings{
+		MaxParallel: 2, RemoteRefreshInterval: 45 * time.Minute,
+		StaleAfter: time.Hour, GitHubAuthor: "@me", GitHubScope: config.GitHubScopeMine,
+	}}
+	remote := &countingGitHubClient{}
+	scanner := Scanner{Git: fakeGitScanner{now: now}, GitHub: remote, Now: func() time.Time { return now }}
+
+	ctx := githubscan.WithInactivePullRequestRepositories(context.Background(), []string{"owner/one"})
+	if _, err := scanner.ScanMany(ctx, cfg, repositories, true, nil); err != nil {
+		t.Fatal(err)
+	}
+	if remote.callCount() != 1 || remote.batchSize() != 2 || !remote.includedInactive("owner/one") || remote.includedInactive("owner/two") {
+		t.Fatalf("calls=%d batch=%d inactive=%v", remote.callCount(), remote.batchSize(), remote.inactiveRepositories())
 	}
 }
 
@@ -201,17 +224,38 @@ func (fakeGitHubClient) Collect(_ context.Context, repositories []config.Reposit
 }
 
 type countingGitHubClient struct {
-	mutex sync.Mutex
-	calls int
-	size  int
+	mutex    sync.Mutex
+	calls    int
+	size     int
+	inactive map[string]bool
 }
 
-func (c *countingGitHubClient) Collect(_ context.Context, repositories []config.Repository, _, _ string, _ int) model.RemoteCollection {
+func (c *countingGitHubClient) Collect(ctx context.Context, repositories []config.Repository, _, _ string, _ int) model.RemoteCollection {
 	c.mutex.Lock()
 	c.calls++
 	c.size = len(repositories)
+	c.inactive = make(map[string]bool, len(repositories))
+	for _, repository := range repositories {
+		c.inactive[repository.GitHub] = githubscan.IncludeInactivePullRequestsFor(ctx, repository.GitHub)
+	}
 	c.mutex.Unlock()
 	return fakeGitHubClient{}.Collect(context.Background(), repositories, "mine", "@me", 1)
+}
+
+func (c *countingGitHubClient) includedInactive(repository string) bool {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.inactive[repository]
+}
+
+func (c *countingGitHubClient) inactiveRepositories() map[string]bool {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	values := make(map[string]bool, len(c.inactive))
+	for repository, included := range c.inactive {
+		values[repository] = included
+	}
+	return values
 }
 
 func (c *countingGitHubClient) callCount() int {

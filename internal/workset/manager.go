@@ -49,11 +49,15 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 	}
 
 	working := model.WorkingSet{Path: path, Active: []string{}, Waiting: []string{}, Recent: []string{}, Parked: []string{}}
+	following := followingProjects(snapshot.Projects)
 	seenLanes := make(map[string]struct{}, len(snapshot.Lanes))
 	for index := range snapshot.Lanes {
 		lane := &snapshot.Lanes[index]
 		lane.Attention = nil
 		seenLanes[lane.ID] = struct{}{}
+		if !following.includes(lane.GitHub) {
+			continue
+		}
 		entry, found := entries[lane.ID]
 		observation := observe(*lane, m.now())
 		candidateState, candidate := m.candidate(*lane)
@@ -104,6 +108,9 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 
 	for _, entry := range entries {
 		if _, found := seenLanes[entry.ID]; found {
+			continue
+		}
+		if !entry.Manual && !following.includes(entry.GitHub) {
 			continue
 		}
 		if !entry.Manual && !entry.Pinned && !entry.Explicit && entry.State != model.AttentionParked {

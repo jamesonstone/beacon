@@ -38,6 +38,17 @@ struct AgentStatusDetails: Codable, Equatable {
     }
 }
 
+struct AgentNotes: Codable, Equatable {
+    let content: String
+    let path: String
+    let updatedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case content, path
+        case updatedAt = "updated_at"
+    }
+}
+
 struct AgentEvent: Codable, Equatable {
     let protocolVersion: Int
     let requestID: String?
@@ -51,9 +62,10 @@ struct AgentEvent: Codable, Equatable {
     let snapshot: BeaconSnapshot?
     let projects: [AgentProjectStatus]?
     let status: AgentStatusDetails?
+    let notes: AgentNotes?
 
     enum CodingKeys: String, CodingKey {
-        case type, revision, stage, message, snapshot, projects, status
+        case type, revision, stage, message, snapshot, projects, status, notes
         case protocolVersion = "protocol_version"
         case requestID = "request_id"
         case scanID = "scan_id"
@@ -75,6 +87,8 @@ protocol AgentClientProtocol {
     func removeLaneTag(_ id: String, tag: String) async throws -> AgentEvent
     func markLaneSeen(_ id: String) async throws -> AgentEvent
     func addManualLane(_ title: String) async throws -> AgentEvent
+    func notes() async throws -> AgentEvent
+    func setNotes(_ content: String) async throws -> AgentEvent
 }
 
 extension AgentClientProtocol {
@@ -85,6 +99,8 @@ extension AgentClientProtocol {
     func removeLaneTag(_ id: String, tag: String) async throws -> AgentEvent { throw AgentClientError.command("lane tags are unavailable") }
     func markLaneSeen(_ id: String) async throws -> AgentEvent { throw AgentClientError.command("lane acknowledgement is unavailable") }
     func addManualLane(_ title: String) async throws -> AgentEvent { throw AgentClientError.command("manual lanes are unavailable") }
+    func notes() async throws -> AgentEvent { throw AgentClientError.command("signal notes are unavailable") }
+    func setNotes(_ content: String) async throws -> AgentEvent { throw AgentClientError.command("signal notes are unavailable") }
 }
 
 enum AgentClientError: LocalizedError {

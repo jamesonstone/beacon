@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jamesonstone/beacon/internal/config"
+	"github.com/jamesonstone/beacon/internal/githubscan"
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/tracking"
 )
@@ -110,7 +111,18 @@ func (e *Engine) runCollectedBatch(
 	sort.Slice(scanRepositories, func(i, j int) bool {
 		return scanRepositories[i].GitHub < scanRepositories[j].GitHub
 	})
-	snapshots, err := e.ScanBatch(ctx, scanRepositories, force, func(projectID, stage string) {
+	scanContext := ctx
+	if force {
+		followed := make([]string, 0, len(scanRepositories))
+		for _, repository := range scanRepositories {
+			state := states[repository.GitHub]
+			if state != nil && (!state.muted || len(scanRepositories) == 1) {
+				followed = append(followed, repository.GitHub)
+			}
+		}
+		scanContext = githubscan.WithInactivePullRequestRepositories(scanContext, followed)
+	}
+	snapshots, err := e.ScanBatch(scanContext, scanRepositories, force, func(projectID, stage string) {
 		state := states[projectID]
 		if state == nil {
 			return
@@ -190,18 +202,15 @@ func (e *Engine) finishScannedProject(
 		return
 	}
 
-	reactivated := muted && snapshot.Projects[0].TrackingState == model.TrackingTracked
 	reason := ""
 	lastProbeAt := record.LastProbeAt
-	if reactivated && changedProbe != nil {
-		reason = reactivationReason(entry, *changedProbe)
-		if err := e.Tracker.RecordReactivation(e.Config.Path, repository.GitHub, reason); err != nil {
+	if muted && changedProbe != nil {
+		now := e.now()
+		reason = projectActivityReason(entry, *changedProbe)
+		if err := e.Tracker.RecordActivity(e.Config.Path, repository.GitHub, reason, now); err != nil {
 			e.failProject(scanID, repository.GitHub, revision, err)
 			return
 		}
-		lastProbeAt = time.Time{}
-	} else if muted && changedProbe != nil {
-		now := e.now()
 		if err := e.Tracker.UpdateProbe(
 			e.Config.Path, repository.GitHub, changedProbe.Format,
 			changedProbe.Combined, changedProbe.Local, changedProbe.Remote, now,
@@ -209,6 +218,9 @@ func (e *Engine) finishScannedProject(
 			e.failProject(scanID, repository.GitHub, revision, err)
 			return
 		}
+		snapshot.Projects[0].FollowState = model.FollowRecent
+		snapshot.Projects[0].LastActivityAt = now
+		snapshot.Projects[0].ActivityReason = reason
 		lastProbeAt = now
 	}
 	updated := ProjectRecord{
@@ -220,11 +232,7 @@ func (e *Engine) finishScannedProject(
 		return
 	}
 	e.storeRecord(updated)
-	if reactivated {
-		e.publish(EventProjectReactivated, scanID, repository.GitHub, revision, "ready", reason, pointer(e.Snapshot()))
-		return
-	}
-	e.publish(EventProjectUpdated, scanID, repository.GitHub, revision, "ready", "", pointer(e.Snapshot()))
+	e.publish(EventProjectUpdated, scanID, repository.GitHub, revision, "ready", reason, pointer(e.Snapshot()))
 }
 
 func sortedRepositoryIDs(repositories map[string]config.Repository) []string {

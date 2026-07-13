@@ -196,6 +196,9 @@ type Summary struct {
 	Projects           int `json:"projects"`
 	TrackedProjects    int `json:"tracked_projects"`
 	UntrackedProjects  int `json:"untracked_projects"`
+	FollowingProjects  int `json:"following_projects"`
+	RecentProjects     int `json:"recent_projects"`
+	QuietProjects      int `json:"quiet_projects"`
 	Total              int `json:"total"`
 	ReviewReady        int `json:"review_ready"`
 	NeedsAction        int `json:"needs_action"`
@@ -211,16 +214,19 @@ type Summary struct {
 }
 
 type Project struct {
-	Name          string        `json:"name"`
-	Path          string        `json:"path"`
-	GitHub        string        `json:"github"`
-	Base          string        `json:"base"`
-	Remote        string        `json:"remote"`
-	TrackingState TrackingState `json:"tracking_state"`
-	Progress      *Progress     `json:"progress,omitempty"`
-	LaneIDs       []string      `json:"lane_ids"`
-	Errors        []ScanError   `json:"errors"`
-	Warnings      []ScanError   `json:"warnings"`
+	Name           string        `json:"name"`
+	Path           string        `json:"path"`
+	GitHub         string        `json:"github"`
+	Base           string        `json:"base"`
+	Remote         string        `json:"remote"`
+	TrackingState  TrackingState `json:"tracking_state"`
+	FollowState    FollowState   `json:"follow_state"`
+	LastActivityAt time.Time     `json:"last_activity_at,omitzero"`
+	ActivityReason string        `json:"activity_reason,omitempty"`
+	Progress       *Progress     `json:"progress,omitempty"`
+	LaneIDs        []string      `json:"lane_ids"`
+	Errors         []ScanError   `json:"errors"`
+	Warnings       []ScanError   `json:"warnings"`
 }
 
 type TrackingState string
@@ -228,6 +234,14 @@ type TrackingState string
 const (
 	TrackingTracked   TrackingState = "tracked"
 	TrackingUntracked TrackingState = "untracked"
+)
+
+type FollowState string
+
+const (
+	FollowFollowing FollowState = "following"
+	FollowRecent    FollowState = "recent"
+	FollowQuiet     FollowState = "quiet"
 )
 
 type Tracking struct {

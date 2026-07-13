@@ -2,6 +2,13 @@ import XCTest
 @testable import Beacon
 
 final class ModelsTests: XCTestCase {
+    func testSignalNotesSavedLabelIncludesFormattedAge() {
+        XCTAssertEqual(
+            SignalNotesPresentation.savedLabel(age: "2 minutes ago"),
+            "Saved 2 minutes ago"
+        )
+    }
+
     func testDecodesCompleteSchemaVersionThree() throws {
         let data = Data(Self.snapshotJSON.utf8)
         let snapshot = try JSONDecoder().decode(BeaconSnapshot.self, from: data)
@@ -10,9 +17,13 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(snapshot.summary.reviewReady, 1)
         XCTAssertEqual(snapshot.summary.trackedProjects, 1)
         XCTAssertEqual(snapshot.summary.untrackedProjects, 0)
+        XCTAssertEqual(snapshot.summary.followingProjects, 1)
+        XCTAssertEqual(snapshot.summary.recentProjects, 0)
+        XCTAssertEqual(snapshot.summary.quietProjects, 0)
         XCTAssertEqual(snapshot.summary.openIssues, 1)
         XCTAssertEqual(snapshot.tracking?.path, "/Users/test/.config/beacon/tracking.yaml")
         XCTAssertEqual(snapshot.projects.first?.trackingState, "tracked")
+        XCTAssertEqual(snapshot.projects.first?.followState, "following")
         XCTAssertEqual(snapshot.lanes.first?.pullRequest?.number, 42)
         XCTAssertEqual(snapshot.lanes.first?.pullRequest?.checks.success, 2)
         XCTAssertEqual(snapshot.lanes.first?.pullRequest?.feedback.unresolvedThreads, 1)
@@ -31,11 +42,22 @@ final class ModelsTests: XCTestCase {
         XCTAssertTrue(DashboardViewMode.kanban.title.contains("Experimental"))
     }
 
-    func testDashboardTabsKeepActiveAsTheStableDefault() {
-        XCTAssertEqual(DashboardTab.defaultTab, .active)
-        XCTAssertEqual(DashboardTab.allCases.map(\.rawValue), ["active", "parking_lot", "quiet", "untracked"])
-        XCTAssertEqual(DashboardTab.parkingLot.title, "Parking Lot")
-        XCTAssertEqual(DashboardTab.untracked.symbol, "eye.slash.fill")
+    func testDashboardTabsKeepFollowingAsTheStableDefault() {
+        XCTAssertEqual(DashboardTab.defaultTab, .following)
+        XCTAssertEqual(DashboardTab.allCases.map(\.rawValue), ["following", "recent", "quiet"])
+        XCTAssertEqual(DashboardTab.recent.title, "Recently Updated")
+        XCTAssertEqual(DashboardTab.quiet.symbol, "moon.stars.fill")
+    }
+
+    func testNeonWavePhaseIsPeriodicAndNormalized() {
+        let start = Date(timeIntervalSinceReferenceDate: 120)
+        let later = start.addingTimeInterval(NeonWave.cycle)
+
+        XCTAssertEqual(NeonWave.phase(at: start), NeonWave.phase(at: later), accuracy: 0.000_001)
+        XCTAssertGreaterThanOrEqual(NeonWave.phase(at: start), 0)
+        XCTAssertLessThan(NeonWave.phase(at: start), 1)
+        XCTAssertGreaterThanOrEqual(NeonWave.phase(at: .distantPast), 0)
+        XCTAssertLessThan(NeonWave.phase(at: .distantPast), 1)
     }
 
     func testEvidenceBadgeDismissalsAreExactValueScopedAndDeterministic() {
@@ -161,12 +183,12 @@ final class ModelsTests: XCTestCase {
       "config_path": "/Users/test/.config/beacon/config.yaml",
       "tracking": {"path": "/Users/test/.config/beacon/tracking.yaml", "auto_reactivated": []},
       "refresh": [],
-      "summary": {"projects": 1, "tracked_projects": 1, "untracked_projects": 0, "total": 1, "review_ready": 1, "needs_action": 0, "waiting": 0, "idle": 0, "errors": 0, "open_issues": 1, "unresolved_feedback": 1, "active_lanes": 1, "recent_lanes": 0, "parked_lanes": 0},
+      "summary": {"projects": 1, "tracked_projects": 1, "untracked_projects": 0, "following_projects": 1, "recent_projects": 0, "quiet_projects": 0, "total": 1, "review_ready": 1, "needs_action": 0, "waiting": 0, "idle": 0, "errors": 0, "open_issues": 1, "unresolved_feedback": 1, "active_lanes": 1, "recent_lanes": 0, "parked_lanes": 0},
       "groups": {"ready": ["gh:owner/repo#42"], "action": [], "waiting": [], "idle": [], "untracked": []},
       "working_set": {"path": "/Users/test/.local/state/beacon/lanes.json", "active": ["gh:owner/repo#42"], "waiting": [], "recent": [], "parked": []},
       "projects": [{
         "name": "repo", "path": "/Users/test/repo", "github": "owner/repo", "base": "main", "remote": "origin",
-        "tracking_state": "tracked",
+        "tracking_state": "tracked", "follow_state": "following",
         "progress": {"source": "kit", "feature_id": "0002", "feature": "Dashboard", "phase": "deliver", "summary": "Ready", "path": "docs/specs/0002/SPEC.md"},
         "lane_ids": ["gh:owner/repo#42"], "errors": []
       }],

@@ -14,12 +14,16 @@ func TestResolvePathsHonorsXDGAndUsesUserScopedLayout(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_STATE_HOME", filepath.Join(home, "state"))
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, "cache"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
 	paths, err := ResolvePaths(filepath.Join(home, ".config", "beacon", "config.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if paths.State != filepath.Join(home, "state", "beacon", "tracking.json") || paths.Socket != filepath.Join(home, "cache", "beacon", "agent.sock") {
 		t.Fatalf("paths = %#v", paths)
+	}
+	if paths.Notes != filepath.Join(home, "data", "beacon", "notes.md") {
+		t.Fatalf("notes path = %s", paths.Notes)
 	}
 	if paths.LaunchAgent != filepath.Join(home, "Library", "LaunchAgents", "com.jamesonstone.beacon.agent.plist") {
 		t.Fatalf("LaunchAgent path = %s", paths.LaunchAgent)
@@ -73,5 +77,18 @@ func TestCacheLoadUpgradesSchemaTwoSnapshotWithoutQuarantine(t *testing.T) {
 	matches, err := filepath.Glob(filepath.Join(directory, "*.corrupt-*"))
 	if err != nil || len(matches) != 0 {
 		t.Fatalf("legacy cache was quarantined: %v err=%v", matches, err)
+	}
+}
+
+func TestAssembleUsesConfiguredRecentWindow(t *testing.T) {
+	now := time.Date(2026, 7, 11, 14, 0, 0, 0, time.UTC)
+	record := cachedRecord("owner/repo", 1, model.TrackingUntracked)
+	record.Snapshot.Projects[0].FollowState = model.FollowRecent
+	record.Snapshot.Projects[0].LastActivityAt = now.Add(-2 * time.Hour)
+	record.Snapshot.Projects[0].ActivityReason = "new local changes"
+
+	snapshot := AssembleWithRecentWindow([]ProjectRecord{record}, "/config.yaml", "/tracking.json", now, time.Hour)
+	if snapshot.Projects[0].FollowState != model.FollowQuiet || snapshot.Summary.RecentProjects != 0 || snapshot.Summary.QuietProjects != 1 {
+		t.Fatalf("configured recent window ignored: project=%#v summary=%#v", snapshot.Projects[0], snapshot.Summary)
 	}
 }

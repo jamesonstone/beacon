@@ -50,6 +50,50 @@ enum BeaconTypography {
     }
 }
 
+enum NeonWave {
+    static let cycle: TimeInterval = 6
+    static let gradient = LinearGradient(
+        colors: [
+            BeaconPalette.cyan,
+            BeaconPalette.mint,
+            BeaconPalette.lavender,
+            BeaconPalette.pink,
+            BeaconPalette.gold,
+            BeaconPalette.cyan,
+        ],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+
+    static func phase(at date: Date) -> Double {
+        let elapsed = date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: cycle)
+        return (elapsed < 0 ? elapsed + cycle : elapsed) / cycle
+    }
+
+    static func rotation(at date: Date) -> Angle {
+        .degrees(phase(at: date) * 360)
+    }
+}
+
+struct NeonWaveWordmark: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let text: String
+
+    init(_ text: String) {
+        self.text = text
+    }
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: reduceMotion)) { context in
+            Text(text)
+                .foregroundStyle(NeonWave.gradient)
+                .hueRotation(reduceMotion ? .zero : NeonWave.rotation(at: context.date))
+                .shadow(color: BeaconPalette.pink.opacity(0.28), radius: 2)
+                .accessibilityLabel(text)
+        }
+    }
+}
+
 enum EvidenceBadgeDismissals {
     private static let separator = "\u{1F}"
 

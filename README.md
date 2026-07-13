@@ -208,19 +208,20 @@ durations or scope, missing paths, and malformed GitHub names are rejected.
 Existing version-1 files remain readable and are migrated only by a confirmed
 init operation.
 
-Legacy project attention choices are stored separately in
-`$HOME/.local/state/beacon/tracking.json`. Beacon creates this managed file only
-after you explicitly untrack a project; do not add exclusions to source roots
-or remove repositories from `config.yaml` just to quiet the dashboard. Existing
-sibling `tracking.yaml` state is migrated automatically and archived with a
-`.migrated` suffix.
+Project-following choices are stored separately in the strict, versioned
+`$HOME/.local/state/beacon/tracking.json`. Configuration defines what Beacon can
+discover; this managed state defines which discovered repositories you
+deliberately follow. New discoveries begin in Quiet. Existing version-1 JSON
+and sibling `tracking.yaml` choices migrate automatically without changing the
+current followed set; migrated YAML is archived with a `.migrated` suffix.
 
 `tracked_refresh_interval` defaults to one minute and controls complete
 local observations. These frequent observations do not fetch or contact
 GitHub. `untracked_probe_interval` defaults to ten minutes and
-controls inexpensive local/GitHub summary probes for muted projects. If you
-manage a large deliberately quiet inventory, increase it to `1h` to reduce
-background GitHub traffic while retaining automatic reactivation. The agent
+controls inexpensive local/GitHub summary probes for projects outside
+Following. If you manage a large quiet inventory, increase it to `1h` to reduce
+background GitHub traffic while retaining activity awareness. New evidence
+never changes Following membership. The agent
 checks cached due times before discovery, so a scheduler tick with no due
 project performs no source walk, `git fetch`, or `gh` command.
 
@@ -255,7 +256,6 @@ work.
 
 ```bash
 beacon
-beacon --no-watch
 beacon --include-idle
 beacon --color=always
 beacon doctor
@@ -265,6 +265,11 @@ beacon pin 'gh:jamesonstone/beacon#5'
 beacon park 'git:jamesonstone/beacon@GH-5'
 beacon resume 'git:jamesonstone/beacon@GH-5'
 beacon note 'git:jamesonstone/beacon@GH-5' 'finish the macOS smoke test'
+beacon notes
+beacon notes append 'Retest the merged release before lunch.'
+printf '# Signal Log\n\n- verify PR #10\n' | beacon notes set
+beacon notes edit
+beacon notes path
 beacon tag 'git:jamesonstone/beacon@GH-5' 'manual test'
 beacon untag 'git:jamesonstone/beacon@GH-5' 'manual test'
 beacon seen 'git:jamesonstone/beacon@GH-5'
@@ -276,13 +281,15 @@ beacon scan --color=never
 beacon scan --repo beacon
 beacon projects
 beacon select
-beacon projects --tracked
-beacon projects --untracked
+beacon projects --followed
+beacon projects --recent
+beacon projects --quiet
+beacon follow owner/important-project
+beacon unfollow owner/old-project
+beacon unfollow owner/one owner/two owner/three
+# Compatibility aliases for existing scripts:
+beacon track owner/important-project
 beacon untrack owner/old-project
-beacon untrack owner/one owner/two owner/three
-beacon track owner/old-project
-beacon projects untrack owner/old-project
-beacon projects track owner/old-project
 beacon refresh
 beacon refresh beacon
 beacon agent status
@@ -293,15 +300,14 @@ beacon config open
 beacon version
 ```
 
-Bare `beacon` connects to the user background agent, renders the cached working
-set,
-and observes scheduled updates without requesting a refresh. Opening or
-reconnecting either client is cache-only. Use `beacon refresh`, the macOS
-`Scan Now` action, or `beacon scan` when you explicitly want current evidence.
-`--no-watch` renders the cache and exits. If no agent is available, bare execution
-returns an installation hint instead of silently paying direct-scan latency;
-use `beacon agent install` to restore cache-first operation or `beacon scan` for
-an explicit blocking scan.
+Bare `beacon` is a manual refresh every time: it asks the background agent to
+check current Git and GitHub evidence, waits for the coalesced scan to finish,
+and renders the updated working set. If the agent is unavailable, Beacon runs
+the same blocking foreground scan instead. Opening or reconnecting the macOS
+app remains cache-only; scheduled background collection retains its
+conservative cadence. Use `beacon refresh [project]` when you want to queue
+background work without waiting, or `beacon scan` for the complete diagnostic
+inventory.
 
 `beacon scan` remains the explicit, blocking diagnostic path and returns the
 complete repository inventory. `scan --json` remains deterministic, ANSI-free, and
@@ -325,45 +331,42 @@ the CLI and macOS lane cards; they never affect Beacon's attention or action
 policy. Manual lanes support planning or research without requiring Git,
 GitHub, Kit, or a Codex task API.
 
-Idle work is treated as inventory instead of queue content. Human output hides
-all-idle projects by default and replaces them with a compact count; pass
-`--include-idle` to list those quiet projects. `beacon scan --repo NAME` always
-shows the selected project even when it is idle. An idle base lane is omitted
+`beacon notes` is a separate global Markdown scratchpad for real-time thoughts
+that span lanes. `show`, `set`, `append`, `edit`, and `path` subcommands all use
+`$XDG_DATA_HOME/beacon/notes.md`, defaulting to
+`$HOME/.local/share/beacon/notes.md`. The document is size-bounded, atomically
+saved with user-only permissions, and never interpreted as Git/GitHub evidence.
+On macOS, `beacon notes edit` waits for the editor to close and then publishes
+the saved document to running Beacon clients; other platforms can use `set`,
+`append`, or edit the path directly while Beacon is stopped.
+
+Idle work inside Following is treated as inventory instead of queue content.
+Human output hides idle followed projects by default and replaces them with a
+compact count; pass `--include-idle` to list that inventory. `beacon scan
+--repo NAME` always shows the selected project even when it is idle. An idle base lane is omitted
 when its project already has active work. JSON remains complete regardless of
 these presentation filters.
 
-Project Track/Untrack remains a compatibility inventory control rather than
-the primary attention model. Use `beacon select` (or the compatible bare
-`beacon projects`) in a terminal
-for a colorful searchable multi-select of every discovered project. Existing
-tracked projects start highlighted; use the arrow keys to scroll, Space to
-toggle a project, `/` to filter, and Enter to confirm. Deselecting a project
-moves all of its lanes out of the
-active, quiet, and top-item views; `beacon projects --untracked` shows that
-secondary inventory. Repository-scoped warnings and errors from untracked
-projects remain in JSON but no longer consume the human dashboard; global
-diagnostics remain visible. The explicit `track` and `untrack` subcommands
-accept a stable `owner/repository` identity or a unique discovered project name.
-Multiple arguments are applied as one atomic agent mutation without a GitHub
-scan.
+Following is an explicit repository-level choice, independent of lane attention.
+Use `beacon select` (or the compatible bare `beacon projects`) for a colorful,
+searchable multi-select of every discovered project. Followed projects start
+highlighted; use the arrow keys to scroll, Space to toggle a project, `/` to
+filter, and Enter to confirm. `beacon follow` and `beacon unfollow` accept a
+stable `owner/repository` identity or a unique discovered name. The established
+`track` and `untrack` commands remain compatibility aliases. Multiple arguments
+are applied as one atomic agent mutation without a GitHub scan.
 
-Untracking records the project's current Git and GitHub evidence as a baseline.
-Existing work therefore stays quiet, but any later commit, worktree-state,
-issue, pull-request, check, review, feedback, or merge-state change permanently
-restores the project to tracked views. If the latest evidence scan has errors,
-an explicit deselection is still authoritative: Beacon records a pending
-baseline, keeps the project untracked, and initializes the baseline from the
-first later complete scan without reactivation. Incomplete evidence is never
-compared as if it were a material change.
+Projects outside Following retain an evidence baseline. Later local or GitHub
+changes move them to **Recently Updated** for `settings.stale_after`—24 hours by
+default—without silently following them. You can inspect the factual reason and
+decide whether to Follow. When the window expires, they return to **Quiet**.
+Incomplete evidence is never compared as if it were a material change.
+Repository-scoped diagnostics remain in JSON without flooding the focused lane
+dashboard.
 
-The macOS application keeps tracked-project configuration in the top-right
-Settings menu and exposes untracked inventory as a searchable dashboard tab.
-Both surfaces provide Track/Untrack buttons, send changes through the shared
-agent protocol, consume the same cached snapshot as the CLI, and show an
-automatic-reactivation banner when new activity restores a project.
-
-Track and Untrack actions are optimistic and nonblocking. Each selection moves
-the project immediately and joins a visible background queue. The Go agent
+Follow and Stop Following actions are optimistic and nonblocking. Each
+selection moves the project immediately and joins a visible background queue.
+The Go agent
 acknowledges from cached evidence without a network probe; incomplete evidence
 creates a pending baseline that a later complete scan initializes. The next
 scheduled muted probe establishes the compact comparison baseline. Beacon
@@ -375,22 +378,35 @@ available, and rolls back only the affected project if a request fails.
 Beacon remains in the menu bar and also runs as a regular macOS application,
 so its neon-space icon is available in the Dock and Command-Tab when a camera
 notch or a crowded menu bar hides the menu item. Ordinary launches open one
-compact dashboard window. Close the window to keep Beacon running quietly;
+dashboard window at a focused 580-point width and the full usable screen
+height. Close the window to keep Beacon running quietly;
 choose **Open Dashboard** in the top-right Settings menu or activate Beacon from the Dock or
 Command-Tab to reopen the same window.
 
 The menu and detached window are two views over one shared background-agent
-connection. They show the same active, quiet, and untracked projects and never
+connection. They show the same Following, Recently Updated, and Quiet projects
+and never
 start duplicate repository scans. Secondary actions live in the top-right gear
 menu so lane evidence receives the full height. The adjacent view button
 switches between the default stacked list, horizontal state tiles, and an
 experimental kanban board; the selection persists across launches.
 
-A compact tab row keeps the major inventories one click away without stacking
-large navigation cards beneath the active work. **Active** is selected whenever
-a dashboard surface opens; **Parking Lot**, **Quiet**, and **Untracked** show
-their current counts and reuse the same lane and project actions. Tracked-project
-configuration remains in Settings because it is management, not attention.
+A dedicated neon refresh button in the top-right of both surfaces performs
+**Scan Now**. Use it after merging one or several pull requests to bypass the
+normal evidence cache, run one coalesced batched refresh, and update both views.
+Repeated clicks cannot start overlapping scans.
+
+A compact tab row keeps repository attention one click away. **Following** is
+selected whenever a dashboard surface opens and contains the existing Active,
+Waiting, Recently Active, and Parking Lot lane layouts. **Recently Updated** is
+the outside-activity inbox, and **Quiet** is the complete remaining discovered
+inventory. Both outside views are searchable and provide a nonblocking Follow
+action. Settings opens the same Following manager rather than maintaining a
+second selection model.
+
+The Beacon wordmark carries a modest neon/pastel color wave. It uses a shared,
+deterministic time phase in the menu and detached window and becomes a static
+neon gradient when Reduce Motion is enabled.
 
 Beacon uses JetBrains Mono Nerd Font when it is installed and falls back to the
 system monospaced font when it is unavailable. Lane notation appears as compact
@@ -399,6 +415,12 @@ Evidence badges such as **Dirty**, **CI None**, and **Review None** also reveal
 a trailing close control on hover. Hiding a badge is local presentation state:
 it does not change the underlying evidence or next action, and a changed signal
 appears again. Use **Restore Hidden Badges** in Settings to clear all dismissals.
+
+The whimsical **Signal Notes** panel sits at the bottom of both surfaces and is
+expanded by default, while a manual collapse choice persists. Its larger editor
+autosaves three seconds after the latest edit; Save and Revert remain available
+for immediate control. All writes travel through the Go agent authority so the
+menu, detached window, and `beacon notes` stay synchronized.
 
 Use **Open Beacon at Login** in either view to enable quiet startup. Beacon
 registers its embedded login helper through macOS Service Management. A login
@@ -424,9 +446,10 @@ and automation.
 Common workflows:
 
 - Run `beacon` for the colorful project dashboard.
-- Run `beacon --include-idle` when auditing quiet projects.
-- Run `beacon select` to curate the tracked project set interactively.
-- Run `beacon projects --untracked` to inspect deliberately quieted projects.
+- Run `beacon --include-idle` when auditing idle work inside Following.
+- Run `beacon select` to curate Following interactively.
+- Run `beacon projects --recent` to inspect outside activity.
+- Run `beacon projects --quiet` to inspect the remaining discovered inventory.
 - Run `beacon refresh [project]` to request background work without blocking.
 - Run `beacon agent status` to inspect the process, socket, cache count, and active refresh.
 - Run `beacon open-next` to open the highest-priority review or action item.
@@ -474,6 +497,7 @@ Operational files are user-only:
 
 ```text
 ~/.local/state/beacon/tracking.json
+~/.local/share/beacon/notes.md
 ~/.cache/beacon/projects/*.json
 ~/.cache/beacon/agent.sock
 ~/.cache/beacon/agent.pid
@@ -481,9 +505,10 @@ Operational files are user-only:
 ~/Library/Logs/Beacon/agent-error.log
 ```
 
-One bounded worker pool scans tracked projects independently. Untracked
-projects receive lightweight probes at the slower configured interval; Beacon
-runs a full scan only after a material delta is detected. Duplicate refreshes
+One bounded worker pool scans followed projects independently. Projects outside
+Following receive lightweight probes at the slower configured interval; Beacon
+records material deltas as recent activity without changing membership.
+Duplicate refreshes
 coalesce, and a project never has overlapping jobs.
 
 ## Read-only boundary
@@ -492,9 +517,9 @@ Scanning may run a timeout-bounded `git fetch --prune --no-tags` to refresh
 remote-tracking metadata. Beacon never edits working files, changes branches,
 pushes commits, creates pull requests, changes reviews, or merges work. Beacon
 writes only its own configuration during confirmed `beacon init` operations and
-its own user-scoped tracking state, cache, PID/socket, LaunchAgent, and rotated
-logs. New evidence may automatically update tracking state when a previously
-untracked project is reactivated.
+its own user-scoped following state, Markdown signal notes, cache, PID/socket,
+LaunchAgent, and rotated logs. New evidence may update a non-followed project's activity timestamp but
+never changes whether the user follows it.
 
 ## Architecture
 
@@ -514,10 +539,10 @@ cached or freshly scanned projects.
 
 If the agent is unavailable, inspect `beacon agent status` and the files under
 `~/Library/Logs/Beacon/`. Reinstalling the LaunchAgent does not remove caches or
-tracking choices. To reset only cached evidence, stop the agent, remove
+following choices. To reset only cached evidence, stop the agent, remove
 `~/.cache/beacon/projects/`, and start it again with `beacon agent install`;
-do not remove `tracking.json` unless you intentionally want to restore every
-project to Tracked.
+do not remove `tracking.json` unless you intentionally want every discovered
+project to restart in Quiet and rebuild Following manually.
 
 ## Maintainers
 

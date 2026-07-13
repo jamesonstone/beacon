@@ -69,6 +69,8 @@ actor ScriptedAgent: AgentClientProtocol {
     let terminalError: Error?
     let statusDetails: AgentStatusDetails
     private(set) var refreshCalls = 0
+    private(set) var setNotesCalls = 0
+    private var signalNotes: AgentNotes
 
     init(
         events: [AgentEvent],
@@ -76,11 +78,13 @@ actor ScriptedAgent: AgentClientProtocol {
         statusDetails: AgentStatusDetails = AgentStatusDetails(
             running: true, pid: 1, startedAt: nil, refreshing: false,
             scanID: nil, projectCount: 1, socket: "/socket"
-        )
+        ),
+        signalNotes: AgentNotes = AgentNotes(content: "", path: "/tmp/beacon/notes.md", updatedAt: nil)
     ) {
         self.events = events
         self.terminalError = terminalError
         self.statusDetails = statusDetails
+        self.signalNotes = signalNotes
     }
 
     func snapshot() async throws -> AgentEvent {
@@ -109,5 +113,24 @@ actor ScriptedAgent: AgentClientProtocol {
     }
     func status() async throws -> AgentStatusDetails {
         statusDetails
+    }
+
+    func notes() async throws -> AgentEvent {
+        notesEvent(type: "notes")
+    }
+
+    func setNotes(_ content: String) async throws -> AgentEvent {
+        setNotesCalls += 1
+        signalNotes = AgentNotes(content: content, path: signalNotes.path, updatedAt: "2026-07-13T14:00:00Z")
+        return notesEvent(type: "notes_updated")
+    }
+
+    private func notesEvent(type: String) -> AgentEvent {
+        AgentEvent(
+            protocolVersion: 1, requestID: nil, type: type, scanID: nil,
+            projectID: nil, revision: nil, stage: "ready",
+            generatedAt: "2026-07-13T14:00:00Z", message: nil,
+            snapshot: nil, projects: nil, status: nil, notes: signalNotes
+        )
     }
 }

@@ -96,11 +96,11 @@ func (c Client) enrichMinePullRequests(ctx context.Context, configured map[strin
 		number     int
 	}
 	var tasks []task
-	includeInactive := IncludeInactivePullRequests(ctx)
 	cutoff := c.now().Add(-6 * time.Hour)
 	for _, match := range matches {
-		if _, ok := configured[match.Repository.NameWithOwner]; ok && (includeInactive || match.UpdatedAt.After(cutoff)) {
-			tasks = append(tasks, task{repository: match.Repository.NameWithOwner, number: match.Number})
+		repository := match.Repository.NameWithOwner
+		if _, ok := configured[repository]; ok && (IncludeInactivePullRequestsFor(ctx, repository) || match.UpdatedAt.After(cutoff)) {
+			tasks = append(tasks, task{repository: repository, number: match.Number})
 		}
 	}
 	semaphore := make(chan struct{}, max(1, maxParallel))

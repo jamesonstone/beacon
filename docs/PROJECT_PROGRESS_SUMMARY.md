@@ -7,12 +7,14 @@
 | 0001 | beacon-v1 | `docs/specs/0001-beacon-v1` | deliver | no | 2026-07-09 | Build a read-only agent work-lane review radar as a Go CLI and native macOS menu application backed by the same versioned snapshot. |
 | 0002 | beacon-init-dashboard | `docs/specs/0002-beacon-init-dashboard` | deliver | no | 2026-07-10 | Add guided initialization, persistent repository-source discovery, GitHub issue and feedback evidence, Kit progress inference, an active-first colorful dashboard, and schema-v2 macOS parity. |
 | 0003 | beacon-github-releases | `docs/specs/0003-beacon-github-releases` | deliver | no | 2026-07-10 | Publish synchronized SemVer CLI and universal macOS artifacts with generated notes and checksums after accepted merges to main. |
-| 0004 | project-tracking | `docs/specs/0004-project-tracking` | deliver | no | 2026-07-11 | Let users curate tracked projects while automatically restoring untracked projects when new Git or GitHub evidence appears. |
-| 0005 | beacon-background-agent | `docs/specs/0005-beacon-background-agent` | deliver | no | 2026-07-11 | Render cached state immediately while a user-scoped background agent refreshes projects incrementally and probes muted projects for reactivation. |
+| 0004 | project-tracking | `docs/specs/0004-project-tracking` | deliver | no | 2026-07-11 | Introduce durable project curation and evidence baselines; feature 0010 supersedes its automatic-reactivation behavior with explicit Following. |
+| 0005 | beacon-background-agent | `docs/specs/0005-beacon-background-agent` | deliver | no | 2026-07-11 | Render cached state immediately while a user-scoped background agent refreshes followed projects and probes outside inventory for material activity. |
 | 0006 | beacon-detachable-dashboard | `docs/specs/0006-beacon-detachable-dashboard` | deliver | no | 2026-07-12 | Add a Dock- and Command-Tab-accessible singleton dashboard plus a quiet optional login item without duplicating Beacon evidence logic. |
 | 0007 | queued-project-tracking | `docs/specs/0007-queued-project-tracking` | deliver | no | 2026-07-12 | Make macOS Track and Untrack selections optimistic and nonblocking through an ordered background queue. |
 | 0008 | github-api-budget | `docs/specs/0008-github-api-budget` | deliver | no | 2026-07-12 | Preserve the user's GitHub API allowance with shared caching, rate-budget circuit breaking, and network-free batch tracking changes. |
 | 0009 | beacon-working-set-radar | `docs/specs/0009-beacon-working-set-radar` | deliver | no | 2026-07-12 | Refocus Beacon on a small lane-level working set with durable attention, factual deltas, conservative enrichment, and direct activity tabs. |
+| 0010 | project-following | `docs/specs/0010-project-following` | deliver | no | 2026-07-13 | Make repository Following explicit, surface outside activity as Recently Updated, retain a complete Quiet inventory, and animate the accessible neon wordmark. |
+| 0011 | working-notes-refresh | `docs/specs/0011-working-notes-refresh` | deliver | no | 2026-07-13 | Add one local Markdown signal log plus unmistakable manual refresh controls across the CLI, menu extra, and detachable dashboard. |
 
 ## PROJECT INTENT
 
@@ -64,7 +66,7 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Keep stale projects out of active organizational views without losing visibility when work resumes.
-- **APPROACH**: Persist user choices in a separate managed tracking state, baseline durable project evidence when deselected, reconcile changed evidence on every scan, and expose thin CLI and macOS management surfaces over the same Go authority.
+- **APPROACH**: Persist user choices in separate managed state, baseline durable evidence when deselected, and expose thin CLI and macOS management surfaces over one Go authority. Feature 0010 replaces automatic restoration with explicit Following plus Recently Updated and Quiet categories.
 - **OPEN ITEMS**: No implementation items remain. AC1-AC10 are complete on issue #3 and branch `GH-3`; final review and merge remain human decisions.
 - **POINTERS**: `docs/specs/0004-project-tracking/SPEC.md`
 
@@ -73,7 +75,7 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Remove synchronous scan latency from everyday CLI and menu use while preserving complete deterministic direct scans.
-- **APPROACH**: Run one user-scoped agent with a versioned Unix-socket protocol, bounded project scheduler, durable per-project cache, full tracked scans, lightweight muted probes, and thin CLI/Swift clients.
+- **APPROACH**: Run one user-scoped agent with a versioned Unix-socket protocol, bounded project scheduler, durable per-project cache, full followed scans, lightweight outside-inventory probes, and thin CLI/Swift clients.
 - **OPEN ITEMS**: No implementation items remain. AC1-AC13 are complete on issue #3 and branch `GH-3`; final PR #4 review and merge remain human decisions.
 - **POINTERS**: `docs/specs/0005-beacon-background-agent/SPEC.md`
 
@@ -109,9 +111,27 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Make Beacon a personal memory for the small set of Git, PR, and manual lanes currently competing for attention.
-- **APPROACH**: Persist lane-level attention, pins, notes, tags, last-seen observations, and factual deltas; observe local Git frequently without network work; discover GitHub activity globally and enrich only recent active work by default; present Active, Parking Lot, Quiet, and Untracked as direct macOS tabs alongside stacked, horizontal-tile, and experimental kanban lane layouts; retain the broad scanner as an explicit diagnostic.
+- **APPROACH**: Persist lane-level attention, pins, notes, tags, last-seen observations, and factual deltas; observe local Git frequently without network work; discover GitHub activity globally and enrich only recent active work by default; present lane attention inside the explicit Following repository set while Recently Updated and Quiet hold outside project inventory; retain stacked, horizontal-tile, experimental kanban, and broad diagnostic views.
 - **OPEN ITEMS**: The working-set implementation is complete on issue #5 / PR #6. The direct activity-tab refinement is validated for delivery on issue #7 / PR #8; final review and merge remain human decisions.
 - **POINTERS**: `docs/specs/0009-beacon-working-set-radar/SPEC.md`
+
+### project-following
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Keep a deliberately selected set of repositories in focus without losing awareness of meaningful activity elsewhere.
+- **APPROACH**: Persist explicit Following membership, preserve non-followed evidence baselines, categorize outside projects as Recently Updated or Quiet without automatic reactivation, and render the shared categories in CLI and macOS alongside a Reduce Motion-aware neon wordmark.
+- **OPEN ITEMS**: Implementation, validation, and independent verification are complete on issue #9, branch `GH-9`, and ready PR #10; final human review and merge remain.
+- **POINTERS**: `docs/specs/0010-project-following/SPEC.md`
+
+### working-notes-refresh
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Keep transient cross-lane thoughts close to the working set and make post-merge evidence refresh an obvious explicit action.
+- **APPROACH**: Store one atomic user-only Markdown signal log behind Go CLI/agent authority, expose a shared collapsible macOS editor, and make bare CLI plus the top-right app control perform a coalesced forced refresh with batched GitHub evidence.
+- **OPEN ITEMS**: Implementation, full validation, and independent verification are complete on issue #9, branch `GH-9`, and ready PR #10; final human review and merge remain.
+- **POINTERS**: `docs/specs/0011-working-notes-refresh/SPEC.md`
 
 ## LAST UPDATED
 

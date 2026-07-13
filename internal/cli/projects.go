@@ -15,27 +15,36 @@ import (
 )
 
 type projectPrompter interface {
-	SelectTrackedProjects(context.Context, []model.Project) ([]string, error)
+	SelectFollowedProjects(context.Context, []model.Project) ([]string, error)
 	Confirm(context.Context, string) (bool, error)
 }
 
 func (a App) projectsCommand(configPath *string) *cobra.Command {
 	var showUntracked bool
 	var showTracked bool
+	var showFollowed bool
+	var showRecent bool
+	var showQuiet bool
 	command := &cobra.Command{
 		Use:   "projects",
-		Short: "Manage tracked and untracked projects",
+		Short: "Manage projects Beacon follows",
 		Args:  noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if showTracked && showUntracked {
-				return usageError{errors.New("--tracked and --untracked cannot be used together")}
+			views := 0
+			for _, selected := range []bool{showTracked || showFollowed, showUntracked, showRecent, showQuiet} {
+				if selected {
+					views++
+				}
+			}
+			if views > 1 {
+				return usageError{errors.New("select only one project inventory view")}
 			}
 			colorMode, _ := cmd.Flags().GetString("color")
 			color, err := a.resolveColor(colorMode)
 			if err != nil {
 				return err
 			}
-			if !showUntracked && !showTracked {
+			if views == 0 {
 				return a.runProjectSelector(cmd.Context(), *configPath, cmd.CommandPath())
 			}
 			snapshot, err := a.projectSnapshot(cmd.Context(), *configPath)
@@ -45,15 +54,23 @@ func (a App) projectsCommand(configPath *string) *cobra.Command {
 			if showUntracked {
 				return output.Projects(a.Out, snapshot, model.TrackingUntracked, output.TerminalOptions{Color: color, Width: a.terminalWidth()})
 			}
-			if showTracked {
-				return output.Projects(a.Out, snapshot, model.TrackingTracked, output.TerminalOptions{Color: color, Width: a.terminalWidth()})
+			followState := model.FollowFollowing
+			if showRecent {
+				followState = model.FollowRecent
+			} else if showQuiet {
+				followState = model.FollowQuiet
 			}
-			return nil
+			return output.FollowingProjects(a.Out, snapshot, followState, output.TerminalOptions{Color: color, Width: a.terminalWidth()})
 		},
 	}
-	command.Flags().BoolVar(&showUntracked, "untracked", false, "list untracked projects")
-	command.Flags().BoolVar(&showTracked, "tracked", false, "list tracked projects")
+	command.Flags().BoolVar(&showFollowed, "followed", false, "list followed projects")
+	command.Flags().BoolVar(&showRecent, "recent", false, "list recently updated projects outside Following")
+	command.Flags().BoolVar(&showQuiet, "quiet", false, "list quiet projects outside Following")
+	command.Flags().BoolVar(&showUntracked, "untracked", false, "compatibility alias: list all projects outside Following")
+	command.Flags().BoolVar(&showTracked, "tracked", false, "compatibility alias: list followed projects")
 	command.AddCommand(
+		a.setProjectFollowingCommand(configPath, true),
+		a.setProjectFollowingCommand(configPath, false),
 		a.setProjectTrackingCommand(configPath, true),
 		a.setProjectTrackingCommand(configPath, false),
 	)
@@ -62,7 +79,7 @@ func (a App) projectsCommand(configPath *string) *cobra.Command {
 
 func (a App) selectCommand(configPath *string) *cobra.Command {
 	return &cobra.Command{
-		Use: "select", Short: "Interactively select projects Beacon should track", Args: noArgs,
+		Use: "select", Short: "Interactively select projects Beacon should follow", Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			colorMode, _ := cmd.Flags().GetString("color")
 			if _, err := a.resolveColor(colorMode); err != nil {
@@ -75,33 +92,41 @@ func (a App) selectCommand(configPath *string) *cobra.Command {
 
 func (a App) runProjectSelector(ctx context.Context, configPath, commandPath string) error {
 	if !a.inputIsTTY() {
-		return usageError{fmt.Errorf("%s requires a TTY; use beacon projects --tracked, beacon projects --untracked, track OWNER/REPO, or untrack OWNER/REPO", commandPath)}
+		return usageError{fmt.Errorf("%s requires a TTY; use beacon projects --followed, --recent, --quiet, follow OWNER/REPO, or unfollow OWNER/REPO", commandPath)}
 	}
 	snapshot, err := a.projectSnapshot(ctx, configPath)
 	if err != nil {
 		return err
 	}
-	selected, err := a.projectPrompter().SelectTrackedProjects(ctx, snapshot.Projects)
+	selected, err := a.projectPrompter().SelectFollowedProjects(ctx, snapshot.Projects)
 	if err != nil {
-		return fmt.Errorf("select tracked projects: %w", err)
+		return fmt.Errorf("select followed projects: %w", err)
 	}
-	trackedChanges, untrackedChanges := selectionChanges(snapshot.Projects, selected)
-	if trackedChanges == 0 && untrackedChanges == 0 {
-		_, err := fmt.Fprintln(a.Out, "project tracking unchanged")
+	followedChanges, outsideChanges := selectionChanges(snapshot.Projects, selected)
+	if followedChanges == 0 && outsideChanges == 0 {
+		_, err := fmt.Fprintln(a.Out, "project following unchanged")
 		return err
 	}
-	confirmed, err := a.projectPrompter().Confirm(ctx, fmt.Sprintf("Track %d and untrack %d project(s)?", trackedChanges, untrackedChanges))
+	confirmed, err := a.projectPrompter().Confirm(ctx, fmt.Sprintf("Follow %d and stop following %d project(s)?", followedChanges, outsideChanges))
 	if err != nil {
-		return fmt.Errorf("confirm project tracking: %w", err)
+		return fmt.Errorf("confirm project following: %w", err)
 	}
 	if !confirmed {
-		return errors.New("project tracking update cancelled")
+		return errors.New("project following update cancelled")
 	}
 	if err := a.setProjectSelection(ctx, configPath, snapshot, selected); err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(a.Out, "updated project tracking: %d tracked, %d untracked\n", len(selected), len(snapshot.Projects)-len(selected))
+	_, err = fmt.Fprintf(a.Out, "updated project following: %d followed, %d outside Following\n", len(selected), len(snapshot.Projects)-len(selected))
 	return err
+}
+
+func (a App) setProjectFollowingCommand(configPath *string, followed bool) *cobra.Command {
+	verb := "unfollow"
+	if followed {
+		verb = "follow"
+	}
+	return a.projectMutationCommand(configPath, verb, followed, false)
 }
 
 func (a App) setProjectTrackingCommand(configPath *string, tracked bool) *cobra.Command {
@@ -109,9 +134,17 @@ func (a App) setProjectTrackingCommand(configPath *string, tracked bool) *cobra.
 	if !tracked {
 		verb = "untrack"
 	}
+	return a.projectMutationCommand(configPath, verb, tracked, true)
+}
+
+func (a App) projectMutationCommand(configPath *string, verb string, followed, compatibility bool) *cobra.Command {
+	short := verb + " one or more projects"
+	if compatibility {
+		short += " (compatibility alias)"
+	}
 	return &cobra.Command{
 		Use:   verb + " <project>...",
-		Short: verb + " one or more projects",
+		Short: short,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return usageError{fmt.Errorf("%s requires at least one project name or owner/repo", cmd.CommandPath())}
@@ -119,10 +152,17 @@ func (a App) setProjectTrackingCommand(configPath *string, tracked bool) *cobra.
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := a.setProjects(cmd.Context(), *configPath, args, tracked); err != nil {
+			if err := a.setProjects(cmd.Context(), *configPath, args, followed); err != nil {
 				return err
 			}
-			_, err := fmt.Fprintf(a.Out, "%s %d project%s\n", verbPastTense(tracked), len(args), pluralSuffix(len(args)))
+			past := "stopped following"
+			if followed {
+				past = "followed"
+			}
+			if compatibility {
+				past = verbPastTense(followed)
+			}
+			_, err := fmt.Fprintf(a.Out, "%s %d project%s\n", past, len(args), pluralSuffix(len(args)))
 			return err
 		},
 	}
@@ -190,8 +230,8 @@ func (a App) projectSnapshot(ctx context.Context, configPath string) (model.Snap
 			}
 			records, _ := (agent.Cache{Directory: paths.Projects, Now: time.Now}).LoadAll()
 			if len(records) > 0 {
-				snapshot := agent.Assemble(records, cfg.Path, paths.State, time.Now().UTC())
-				return a.tracker().Reconcile(snapshot)
+				snapshot := agent.AssembleWithRecentWindow(records, cfg.Path, paths.State, time.Now().UTC(), cfg.Settings.StaleAfter)
+				return a.trackerFor(cfg.Settings.StaleAfter).ReconcilePartial(snapshot)
 			}
 		}
 	}
@@ -210,28 +250,28 @@ func selectionChanges(projects []model.Project, selected []string) (int, int) {
 	for _, github := range selected {
 		selectedSet[github] = struct{}{}
 	}
-	var track, untrack int
+	var follow, unfollow int
 	for _, project := range projects {
 		_, selected := selectedSet[project.GitHub]
 		if selected && project.TrackingState == model.TrackingUntracked {
-			track++
+			follow++
 		}
 		if !selected && project.TrackingState != model.TrackingUntracked {
-			untrack++
+			unfollow++
 		}
 	}
-	return track, untrack
+	return follow, unfollow
 }
 
-func trackedProjectIDs(projects []model.Project) []string {
-	tracked := make([]string, 0, len(projects))
+func followedProjectIDs(projects []model.Project) []string {
+	followed := make([]string, 0, len(projects))
 	for _, project := range projects {
 		if project.TrackingState != model.TrackingUntracked {
-			tracked = append(tracked, project.GitHub)
+			followed = append(followed, project.GitHub)
 		}
 	}
-	sort.Strings(tracked)
-	return tracked
+	sort.Strings(followed)
+	return followed
 }
 
 func verbPastTense(tracked bool) string {
