@@ -12,7 +12,7 @@
 | 0006 | beacon-detachable-dashboard | `docs/specs/0006-beacon-detachable-dashboard` | deliver | no | 2026-07-12 | Add a Dock- and Command-Tab-accessible singleton dashboard plus a quiet optional login item without duplicating Beacon evidence logic. |
 | 0007 | queued-project-tracking | `docs/specs/0007-queued-project-tracking` | deliver | no | 2026-07-12 | Make macOS Track and Untrack selections optimistic and nonblocking through an ordered background queue. |
 | 0008 | github-api-budget | `docs/specs/0008-github-api-budget` | deliver | no | 2026-07-12 | Preserve the user's GitHub API allowance with shared caching, rate-budget circuit breaking, and network-free batch tracking changes. |
-| 0009 | beacon-working-set-radar | `docs/specs/0009-beacon-working-set-radar` | deliver | no | 2026-07-12 | Refocus Beacon on a small lane-level working set with durable attention, notes, factual deltas, and conservative recent-PR enrichment. |
+| 0009 | beacon-working-set-radar | `docs/specs/0009-beacon-working-set-radar` | deliver | no | 2026-07-12 | Refocus Beacon on a small lane-level working set with durable attention, factual deltas, conservative enrichment, and direct activity tabs. |
 
 ## PROJECT INTENT
 
@@ -109,10 +109,10 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Make Beacon a personal memory for the small set of Git, PR, and manual lanes currently competing for attention.
-- **APPROACH**: Persist lane-level attention, pins, notes, tags, last-seen observations, and factual deltas; observe local Git frequently without network work; discover GitHub activity globally and enrich only recent active work by default; present the same lanes through stacked, horizontal-tile, and experimental kanban macOS views; retain the broad scanner as an explicit diagnostic.
-- **OPEN ITEMS**: Implementation and validation, including the Settings, tags, typography, spacing, and view-mode design pass, are complete on issue #5, branch `GH-5`, and ready stacked PR #6. Final review and merge remain human decisions after prerequisite PR #4 lands.
+- **APPROACH**: Persist lane-level attention, pins, notes, tags, last-seen observations, and factual deltas; observe local Git frequently without network work; discover GitHub activity globally and enrich only recent active work by default; present Active, Parking Lot, Quiet, and Untracked as direct macOS tabs alongside stacked, horizontal-tile, and experimental kanban lane layouts; retain the broad scanner as an explicit diagnostic.
+- **OPEN ITEMS**: The working-set implementation is complete on issue #5 / PR #6. The direct activity-tab refinement is validated for delivery on issue #7 / PR #8; final review and merge remain human decisions.
 - **POINTERS**: `docs/specs/0009-beacon-working-set-radar/SPEC.md`
 
 ## LAST UPDATED
 
-2026-07-12 EDT
+2026-07-13 EDT

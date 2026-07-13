@@ -42,6 +42,22 @@ references:
     read_policy: evidence
     used_for: ready stacked delivery and hosted validation
     status: active
+  - id: issue-7
+    name: Split oversized files and refine dashboard navigation
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/7
+    relation: implements
+    read_policy: must
+    used_for: direct activity-tab follow-up delivery
+    status: active
+  - id: pull-request-8
+    name: Refine Beacon source structure and dashboard navigation
+    type: github-pull-request
+    target: https://github.com/jamesonstone/beacon/pull/8
+    relation: verifies
+    read_policy: evidence
+    used_for: follow-up implementation and hosted validation
+    status: active
   - id: constitution
     name: Beacon constitution
     type: doc
@@ -153,6 +169,11 @@ presentation path must become lane-centered and local-first.
     Git/GitHub signal. Hover reveals a clickable trailing close control;
     dismissal is scoped to lane, evidence dimension, and exact value so a new
     signal value appears normally. Settings provides a single restore action.
+24. Replace stacked secondary-navigation cards with four peer dashboard tabs:
+    `Active`, `Parking Lot`, `Quiet`, and `Untracked`. `Active` is selected for
+    every new dashboard surface, the tabs expose their current counts, and each
+    tab reuses the existing lane/project data and actions without changing
+    working-set policy. Tracked-project configuration remains in Settings.
 
 ## Assumptions
 
@@ -204,6 +225,9 @@ presentation path must become lane-centered and local-first.
 - [x] AC17: Every evidence badge exposes a hover-only close control, exact-value
   dismissals persist across launches, changed evidence reappears, and Settings
   can restore all hidden badges without changing lane policy.
+- [x] AC18: Active is the default dashboard tab; Parking Lot, Quiet, and
+  Untracked are directly selectable peers with counts, and the former stacked
+  navigation cards and back-button drill-ins are absent.
 
 ## Implementation Plan
 
@@ -220,6 +244,8 @@ presentation path must become lane-centered and local-first.
    menu, improved spacing, Nerd Font typography, and three presentation modes.
 8. Add reversible macOS-only evidence-badge dismissals keyed by lane,
    dimension, and exact signal value.
+9. Replace secondary dashboard drill-ins with a compact four-tab activity
+   selector while preserving Settings-based tracked-project management.
 
 ## Task Checklist
 
@@ -232,6 +258,7 @@ presentation path must become lane-centered and local-first.
 - [x] T7: Commit, push, and create the ready stacked PR.
 - [x] T8: Add shared tags and the macOS settings/view-mode design pass.
 - [x] T9: Add hover-to-dismiss evidence badges and restore controls.
+- [x] T10: Add Active, Parking Lot, Quiet, and Untracked dashboard tabs.
 
 ## Validation Map
 
@@ -247,6 +274,7 @@ presentation path must become lane-centered and local-first.
 | AC14 | workset mutation, protocol, CLI, Swift decoding, and tag interaction tests |
 | AC15-AC16 | Swift view-model tests, XCTest, Xcode Debug build, and manual app smoke test |
 | AC17 | dismissal-key unit tests, XCTest, Xcode build, and hover/click manual smoke test |
+| AC18 | dashboard-tab unit tests, XCTest, Xcode build, and compact-menu manual smoke test |
 
 ## Reflection Notes
 
@@ -293,6 +321,10 @@ Create a distinct issue/branch/PR lane as requested. Issue #5 is assigned to
 Jameson Stone. Branch `GH-5` starts at `origin/GH-3`, and its PR targets `GH-3`
 until prerequisite PR #4 lands.
 
+The later direct activity-tab refinement continues on the explicitly approved
+issue #7 / branch `GH-7` / ready PR #8 lane alongside the source-structure
+cleanup, with a separate focused feature commit and updated delivery evidence.
+
 ## Evidence
 
 - Pre-implementation recon found no matching open issue, a clean pushed `GH-3`
@@ -316,6 +348,15 @@ until prerequisite PR #4 lands.
   deterministic evidence-badge dismissal keys and the hover-only close control.
 - Manual inspection verified the hover affordance and the disabled/enabled
   `Restore Hidden Badges` Settings action without changing canonical evidence.
+- `make fmt-check vet test test-race build release-test` passed after replacing
+  the secondary navigation cards with direct activity tabs.
+- `make macos-test macos-build` passed 37 Swift tests and produced the Debug
+  application successfully.
+- Manual inspection of the Debug application verified Active is the default,
+  all four counted tabs select their existing content, Track controls remain
+  available under Untracked, and the former navigation cards are absent.
+- `kit check --all` passed all nine feature specifications after reconciling
+  the README, constitution, progress summary, and this specification.
 - `bin/beacon config validate` passed for the user's five-source configuration,
   whose remote refresh interval is now 45 minutes.
 - `bin/beacon scan --repo beacon --no-refresh --json | jq ...` returned

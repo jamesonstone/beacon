@@ -405,7 +405,9 @@ evidence collection itself.
 Secondary commands and preferences live in a top-right Settings menu. A
 separate compact view control offers a persisted stacked list, horizontal tile
 strips, and an experimental state-column kanban board over the same ordered
-lanes. View selection is presentation state only. Lane tags render as removable
+lanes. A compact peer tab row presents Active by default plus Parking Lot,
+Quiet, and Untracked inventories without bottom navigation cards or drill-in
+back buttons. Tab and view selection are presentation state only. Lane tags render as removable
 chips and mutate through the Go background-agent authority. JetBrains Mono Nerd
 Font is preferred when locally available, with a system monospaced fallback so
 typography cannot become an application-startup dependency.
@@ -421,20 +423,22 @@ state. Dismissal is scoped to lane, evidence dimension, and exact value so a
 changed signal reappears; it must never mutate or suppress canonical evidence
 in the Go snapshot.
 
-Human-facing default views are lane-centered: Active, Waiting, Recently Active,
-and a collapsed Parked inventory. The CLI reveals parked lanes explicitly and
-the macOS app opens them in a secondary view where they can be resumed. Rich
-repository and idle inventory remains available through explicit diagnostic
-and management views. Top-item actions skip parked and idle lanes plus manual
-lanes without an openable target. These are presentation rules only: schema-v3
-JSON retains the complete diagnostic inventory and working-set grouping.
+Human-facing default views are lane-centered. The CLI groups Active, Waiting,
+Recently Active, and Parked lanes. The macOS dashboard opens on an Active tab
+containing the focused working set and provides peer Parking Lot, Quiet, and
+Untracked tabs with current counts. Rich repository inventory remains available
+through explicit diagnostic and management views. Top-item actions skip parked
+and idle lanes plus manual lanes without an openable target. These are
+presentation rules only: schema-v3 JSON retains the complete diagnostic
+inventory and working-set grouping.
 
 Untracked projects are a backward-compatible secondary inventory control, not
 the primary attention model.
 They are excluded from active and quiet groups, summary/top-item selection, and
 the menu-bar count while remaining fully represented in schema-v3 JSON. The CLI
 provides an interactive multi-select plus explicit track/untrack commands; the
-macOS application provides searchable Tracked and Untracked tabs. Both clients
+macOS application keeps searchable tracked-project management in Settings and
+presents searchable untracked inventory as a dashboard tab. Both clients
 delegate persistence and automatic reactivation to the Go tracking service.
 
 The application may use `NSWorkspace` to open pull requests, worktree paths,
