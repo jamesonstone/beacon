@@ -19,7 +19,21 @@ and private task state are not evidence of review readiness.
 A repository can contain several independent agent efforts. Beacon therefore
 tracks work lanes, not repositories. A work lane is a local Git worktree and
 branch optionally correlated with a GitHub pull request and issue, a
-remote-only scoped pull request, or an unlinked scoped issue waiting to start.
+remote-only scoped pull request, an unlinked scoped issue waiting to start, or
+a manually named planning/research lane. Repository identity is a discovery
+container, not the primary attention control.
+
+### Attention Is Durable, Context Is Optional
+
+Each working-set lane has an explicit attention state (`active`, `waiting`,
+`recent`, or `parked`), an independent pin, a last-seen observation, and an
+optional short local note. Notes are memory cues, never canonical progress.
+Beacon reports factual evidence deltas and marks notes stale when evidence
+changes after the note. Parking is lane-specific; unrelated repository
+activity must not reactivate it.
+Lanes may also carry short, deduplicated user tags. Tags and notes are optional
+context only and must not alter evidence, attention, readiness, or next-action
+policy.
 
 ### One Domain Model, Multiple Surfaces
 
@@ -142,13 +156,15 @@ must not feed new policy back into the scanner.
   threads, linked issues, and merge state.
 - `internal/progress` parses optional Kit project summaries and exact SPEC
   issue references as non-authoritative progress evidence.
-- `internal/model` owns schema v2 types and typed signal/action enums.
+- `internal/model` owns schema v3 types and typed signal/action enums.
 - `internal/policy` correlates local and remote evidence and derives readiness,
   explanations, and the next action as pure domain logic.
 - `internal/scan` coordinates bounded repository concurrency, preserves partial
   results, orders lanes, and creates groups and summary counts.
 - `internal/tracking` owns the strict attention-state store, evidence
   fingerprints, tracked/untracked reconciliation, and automatic reactivation.
+- `internal/workset` owns strict lane attention, pins, notes, tags, last-seen
+  observations, factual deltas, manual lanes, and project-tracking migration.
 - `internal/agent` owns operational paths, per-project caches, protocol-v1
   transport, scheduling, subscriptions, lifecycle locking, and LaunchAgent
   installation.
@@ -170,6 +186,8 @@ reclassify lanes.
   correlate in that order after pull-request/local matching.
 - Scoped pull requests remain visible without a local worktree, and unmatched
   scoped issues become issue-only lanes.
+- Manual lanes use stable `manual:<id>` identities and require neither Git nor
+  GitHub evidence.
 - Beacon scans active linked worktrees and scoped open GitHub work only; it
   does not enumerate every unattached local branch.
 
@@ -189,8 +207,8 @@ The public signal vocabulary is versioned with the JSON schema:
 - Issue: `none`, `open`.
 - Action: `review_pr`, `resolve_conflict`, `fix_ci`, `address_review`,
   `inspect_local`, `push_branch`, `create_pr`, `mark_ready`, `wait_for_ci`,
-  `manual_test_then_merge`, `merge_pr`, `refresh_state`, `resume_or_close`,
-  `start_issue`, `none`.
+	`manual_test_then_merge`, `merge_pr`, `refresh_state`, `resume_or_close`,
+	`continue_work`, `start_issue`, `none`.
 
 A lane is review-ready only when it has an open, non-draft pull request; any
 matching local lane is clean and has no unpublished, missing-upstream,
@@ -224,7 +242,7 @@ source roots and `github_scope: mine|all`; version 1 remains readable. Unknown
 fields, unsupported versions, duplicate names or sources, invalid durations or
 scope, missing paths, and malformed `owner/repo` values are errors. A leading
 `~` is expanded and paths are canonicalized. Defaults are `main`, `origin`, a
-one-minute scan interval, a five-minute remote refresh interval, a 24-hour
+one-minute scan interval, a 45-minute remote refresh interval, a 24-hour
 stale threshold, four workers, GitHub author `@me`, and scope `mine`.
 
 `beacon init` and its `beacon config init` alias may merge new sources or
@@ -245,6 +263,13 @@ incomplete collection evidence must never establish or compare a baseline.
 Operational files and directories are user-only and never contain GitHub
 credentials.
 
+Lane attention is stored separately in strict versioned JSON at
+`$HOME/.local/state/beacon/lanes.json` (or the equivalent `XDG_STATE_HOME`
+path). It retains only the previous/last-seen and current durable observations
+needed for deltas, not an event history. Existing muted project lanes migrate
+to parked lane entries without deleting configuration or legacy tracking
+state.
+
 ### Process Execution, Timeouts, and Concurrency
 
 - External commands use `exec.CommandContext` and explicit argument arrays.
@@ -252,8 +277,9 @@ credentials.
 - Local Git commands use five-second timeouts, fetch uses 30 seconds, and
   GitHub commands use 20 seconds unless a later specification changes the
   contract deliberately.
-- Refresh is deduplicated for worktrees that share a Git common directory and
-  is skipped until the configured refresh interval has elapsed.
+- Refresh is deduplicated for worktrees that share a Git common directory.
+  Frequent local observation never fetches; fetch is reserved for explicit
+  refresh or a deliberately slow remote cadence.
 - Repository scans may run concurrently up to `settings.max_parallel`, which
   defaults to four and must remain bounded.
 - The background scheduler runs at most one job per project, coalesces duplicate
@@ -270,7 +296,9 @@ credentials.
   only local Git remote and branch metadata and spends no GitHub capacity.
 - Under the default `mine` scope, one due-project batch performs one global
   authored-PR search and one global assigned-issue search, then enriches only
-  matching open PRs. Muted projects share the batch evidence. The `all` scope
+  matching authored PRs with recent activity. Explicit diagnostics or a
+  one-lane forced refresh may enrich inactive work. Muted projects share the
+  batch evidence. The `all` scope
   remains an explicitly more expensive repository-scoped mode.
 - Tracking mutations use cached complete evidence and never require a
   synchronous GitHub probe. The next scheduled muted probe establishes its
@@ -294,6 +322,15 @@ beacon projects track <project>...
 beacon projects untrack <project>...
 beacon track <project>...
 beacon untrack <project>...
+beacon lanes [--parked]
+beacon pin <lane-id> [--off]
+beacon park <lane-id>
+beacon resume <lane-id>
+beacon note <lane-id> [text]
+beacon tag <lane-id> <tag>
+beacon untag <lane-id> <tag>
+beacon add --manual <title>
+beacon seen <lane-id>
 beacon refresh [project]
 beacon agent install|serve|status|stop|uninstall
 beacon doctor [--json]
@@ -319,14 +356,16 @@ the agent.
 
 Agent protocol version 1 is newline-delimited JSON over a user-only Unix-domain
 socket. It carries scan IDs, per-project revisions, stages, single and batch
-tracking changes, heartbeats, and snapshot-schema-v2 payloads. Protocol evolution is independent
+tracking and lane-attention changes, heartbeats, and snapshot-schema-v3 payloads. Protocol evolution is independent
 from the evidence snapshot schema. Clients discard events from a different
 active scan and older project revisions, then preserve last-good state on
 malformed events or disconnects.
 
-The schema-v2 snapshot is a public internal contract between the CLI and
-clients. It contains generation/config/refresh/tracking metadata, projects,
+The schema-v3 snapshot is a public internal contract between the CLI and
+clients. It contains generation/config/refresh/tracking and working-set
+metadata, projects,
 tracked and untracked summary counts, ordered enriched lanes, grouped lane IDs,
+lane attention, optional notes and tags, previous/current observations, factual deltas,
 project tracking state, automatic-reactivation evidence, and repository-scoped
 or global warnings and errors. Expected partial conditions—including inaccessible
 source discoveries, prunable worktrees, result truncation, and untrusted
@@ -346,7 +385,7 @@ regular application with a Dock icon and Command-Tab presence so users retain
 an entry point when the menu-bar item is obscured. Closing the dashboard leaves
 the menu extra and background connection running; ordinary launches and later
 user activation reopen the singleton window. It executes the bundled
-`beacon-cli` helper, requires schema v2, and renders the CLI-provided projects,
+`beacon-cli` helper, requires schema v3, and renders the CLI-provided projects,
 groups, evidence, and actions.
 
 The application connects to the background agent through a Swift actor,
@@ -363,27 +402,37 @@ snapshot interpretation. An embedded, signed login-item helper may launch the
 main app quietly with `--login` when the user explicitly enables Open at Login.
 Service Management owns registration and approval, and the helper performs no
 evidence collection itself.
-The menu-bar label shows the number of non-idle lanes across the CLI-provided
-ready, action, and waiting groups. Active counts use a high-contrast dark badge
+Secondary commands and preferences live in a top-right Settings menu. A
+separate compact view control offers a persisted stacked list, horizontal tile
+strips, and an experimental state-column kanban board over the same ordered
+lanes. View selection is presentation state only. Lane tags render as removable
+chips and mutate through the Go background-agent authority. JetBrains Mono Nerd
+Font is preferred when locally available, with a system monospaced fallback so
+typography cannot become an application-startup dependency.
+The menu-bar label shows the number of lanes across the CLI-provided active,
+waiting, and recently-active groups. Active counts use a high-contrast dark badge
 with a luminous neon-gradient border so the value remains visible over changing
 menu-bar backgrounds. When that count is zero, it shows a compact color
 neon-space glyph instead of a numeric badge. The menu window may use coordinated
 pastel and neon accents to distinguish existing CLI-provided groups and signals,
 but color must not introduce readiness or action policy in the Swift client.
+Individual evidence badges may be hidden as reversible local presentation
+state. Dismissal is scoped to lane, evidence dimension, and exact value so a
+changed signal reappears; it must never mutate or suppress canonical evidence
+in the Go snapshot.
 
-Human-facing views treat idle work as inventory rather than primary queue
-content. The terminal hides all-idle projects by default, reports one compact
-project count, and reveals them with `--include-idle`; an explicit `--repo`
-filter always renders its matching idle project. The menu window replaces its
-expanded Idle section with one Quiet Projects row leading to a searchable
-secondary view. Both clients suppress an idle base lane when that project has
-any ready, action, or waiting lane, and top-item actions never fall back to idle
-inventory. These are presentation rules only:
-schema-v2 JSON continues to expose every project, lane, and group unchanged.
+Human-facing default views are lane-centered: Active, Waiting, Recently Active,
+and a collapsed Parked inventory. The CLI reveals parked lanes explicitly and
+the macOS app opens them in a secondary view where they can be resumed. Rich
+repository and idle inventory remains available through explicit diagnostic
+and management views. Top-item actions skip parked and idle lanes plus manual
+lanes without an openable target. These are presentation rules only: schema-v3
+JSON retains the complete diagnostic inventory and working-set grouping.
 
-Untracked projects are deliberate secondary inventory, not merely idle work.
+Untracked projects are a backward-compatible secondary inventory control, not
+the primary attention model.
 They are excluded from active and quiet groups, summary/top-item selection, and
-the menu-bar count while remaining fully represented in schema-v2 JSON. The CLI
+the menu-bar count while remaining fully represented in schema-v3 JSON. The CLI
 provides an interactive multi-select plus explicit track/untrack commands; the
 macOS application provides searchable Tracked and Untracked tabs. Both clients
 delegate persistence and automatic reactivation to the Go tracking service.
@@ -440,7 +489,7 @@ manager distribution remain out of scope.
 
 ### Swift
 
-- Mirror schema v2 with explicit `Codable` models and snake-case coding keys.
+- Mirror schema v3 with explicit `Codable` models and snake-case coding keys.
 - Keep mutable application state on `@MainActor`.
 - Put process execution behind an injectable client protocol.
 - Run the helper away from the main actor and surface typed, user-readable
@@ -604,8 +653,9 @@ active specification requires them.
 
 ## LONG-TERM VISION
 
-Beacon should become the dependable local signal layer for supervising many
-coding-agent work lanes without becoming a project-management suite. Future
+Beacon should become the dependable local working-set memory for approximately
+three to eight simultaneous coding-agent lanes without becoming a
+project-management suite. Future
 surfaces may add notifications, history, risk evidence, additional providers,
 or deeper review context, but they must consume a stable domain snapshot rather
 than duplicate collection and policy.

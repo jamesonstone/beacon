@@ -86,6 +86,24 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(state.topLane()?.id, "active-work")
     }
 
+    func testWorkingSetCountAndTopItemSkipLanesWithoutOpenTargets() async {
+        var snapshot = TestSnapshots.withIdleInventory
+        snapshot.workingSet = WorkingSetGroups(
+            path: "/Users/test/.local/state/beacon/lanes.json",
+            active: ["active-base", "active-work"],
+            waiting: [],
+            recent: [],
+            parked: ["quiet-worktree"]
+        )
+        let state = AppState(client: StubClient(result: .success(snapshot)))
+
+        await state.scan()
+
+        XCTAssertEqual(state.inProgressCount, 2)
+        XCTAssertEqual(state.topLane()?.id, "active-work")
+        XCTAssertEqual(state.lanes(for: snapshot.workingSet?.parked ?? []).map(\.id), ["quiet-worktree"])
+    }
+
     func testProjectTrackingInventorySeparatesTrackedAndUntrackedProjects() async {
         let state = AppState(client: StubClient(result: .success(TestSnapshots.withTrackingInventory)))
         await state.scan()
@@ -466,7 +484,7 @@ private enum TestSnapshots {
             )
         }
         return BeaconSnapshot(
-            schemaVersion: 2,
+            schemaVersion: 3,
             generatedAt: "2026-07-12T13:00:00Z",
             configPath: "/Users/test/.config/beacon/config.yaml",
             tracking: nil,
@@ -491,7 +509,7 @@ private enum TestSnapshots {
         )
     }
 
-    static func empty(schemaVersion: Int = 2) -> BeaconSnapshot {
+    static func empty(schemaVersion: Int = 3) -> BeaconSnapshot {
         BeaconSnapshot(
             schemaVersion: schemaVersion,
             generatedAt: "2026-07-09T16:00:00Z",
@@ -648,7 +666,7 @@ private enum TestSnapshots {
     static let withLane: BeaconSnapshot = {
         let issueLane = lane(issue: issue)
         return BeaconSnapshot(
-            schemaVersion: 2,
+            schemaVersion: 3,
             generatedAt: "2026-07-09T16:00:00Z",
             configPath: "/Users/test/.config/beacon/config.yaml",
             tracking: nil,
@@ -714,7 +732,7 @@ private enum TestSnapshots {
             nextAction: "none"
         )
         return BeaconSnapshot(
-            schemaVersion: 2,
+            schemaVersion: 3,
             generatedAt: "2026-07-09T16:00:00Z",
             configPath: "/Users/test/.config/beacon/config.yaml",
             tracking: nil,
@@ -787,7 +805,7 @@ private enum TestSnapshots {
             nextAction: "none"
         )
         return BeaconSnapshot(
-            schemaVersion: 2,
+            schemaVersion: 3,
             generatedAt: "2026-07-09T16:00:00Z",
             configPath: "/Users/test/.config/beacon/config.yaml",
             tracking: TrackingDetails(
@@ -847,7 +865,7 @@ private enum TestSnapshots {
     static let withProgressGroups: BeaconSnapshot = {
         let progressLane = lane(issue: issue)
         return BeaconSnapshot(
-            schemaVersion: 2,
+            schemaVersion: 3,
             generatedAt: "2026-07-09T16:00:00Z",
             configPath: "/Users/test/.config/beacon/config.yaml",
             tracking: nil,

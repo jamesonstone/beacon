@@ -2,7 +2,7 @@ package model
 
 import "time"
 
-const SchemaVersion = 2
+const SchemaVersion = 3
 
 type WorktreeState string
 type PublicationState string
@@ -71,6 +71,7 @@ const (
 	ActionStartIssue      Action = "start_issue"
 	ActionRefreshState    Action = "refresh_state"
 	ActionResumeOrClose   Action = "resume_or_close"
+	ActionContinueWork    Action = "continue_work"
 	ActionNone            Action = "none"
 )
 
@@ -158,22 +159,62 @@ type Signals struct {
 }
 
 type Lane struct {
-	ID          string       `json:"id"`
-	Repository  string       `json:"repository"`
-	GitHub      string       `json:"github"`
-	Base        string       `json:"base"`
-	Branch      string       `json:"branch"`
-	Worktree    *Worktree    `json:"worktree,omitempty"`
-	PullRequest *PullRequest `json:"pull_request,omitempty"`
-	Issue       *Issue       `json:"issue,omitempty"`
-	Progress    *Progress    `json:"progress,omitempty"`
-	Signals     Signals      `json:"signals"`
-	ReviewReady bool         `json:"review_ready"`
-	NextAction  Action       `json:"next_action"`
-	Reasons     []string     `json:"reasons"`
-	Warnings    []string     `json:"warnings"`
-	Blockers    []string     `json:"blockers"`
-	UpdatedAt   time.Time    `json:"updated_at"`
+	ID          string         `json:"id"`
+	Repository  string         `json:"repository"`
+	GitHub      string         `json:"github"`
+	Base        string         `json:"base"`
+	Branch      string         `json:"branch"`
+	Worktree    *Worktree      `json:"worktree,omitempty"`
+	PullRequest *PullRequest   `json:"pull_request,omitempty"`
+	Issue       *Issue         `json:"issue,omitempty"`
+	Progress    *Progress      `json:"progress,omitempty"`
+	Signals     Signals        `json:"signals"`
+	ReviewReady bool           `json:"review_ready"`
+	NextAction  Action         `json:"next_action"`
+	Reasons     []string       `json:"reasons"`
+	Warnings    []string       `json:"warnings"`
+	Blockers    []string       `json:"blockers"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	Attention   *LaneAttention `json:"attention,omitempty"`
+}
+
+type AttentionState string
+
+const (
+	AttentionActive  AttentionState = "active"
+	AttentionWaiting AttentionState = "waiting"
+	AttentionRecent  AttentionState = "recent"
+	AttentionParked  AttentionState = "parked"
+)
+
+type LaneObservation struct {
+	HeadOID         string           `json:"head_oid,omitempty"`
+	StatusHash      string           `json:"status_hash,omitempty"`
+	Worktree        WorktreeState    `json:"worktree"`
+	Publication     PublicationState `json:"publication"`
+	PullRequest     int              `json:"pull_request,omitempty"`
+	CI              CIState          `json:"ci"`
+	Review          ReviewState      `json:"review"`
+	Merge           MergeState       `json:"merge"`
+	Unresolved      int              `json:"unresolved_feedback"`
+	ObservedAt      time.Time        `json:"observed_at"`
+	RemoteUpdatedAt time.Time        `json:"remote_updated_at,omitempty"`
+}
+
+type LaneAttention struct {
+	State              AttentionState  `json:"state"`
+	Pinned             bool            `json:"pinned"`
+	Manual             bool            `json:"manual"`
+	Title              string          `json:"title,omitempty"`
+	Tags               []string        `json:"tags"`
+	Note               string          `json:"note,omitempty"`
+	NoteUpdatedAt      time.Time       `json:"note_updated_at,omitempty"`
+	NoteStale          bool            `json:"note_stale"`
+	LastSeenAt         time.Time       `json:"last_seen_at,omitempty"`
+	Delta              string          `json:"delta"`
+	ReactivationReason string          `json:"reactivation_reason,omitempty"`
+	Previous           LaneObservation `json:"previous"`
+	Current            LaneObservation `json:"current"`
 }
 
 type ScanError struct {
@@ -203,6 +244,9 @@ type Summary struct {
 	Warnings           int `json:"warnings"`
 	OpenIssues         int `json:"open_issues"`
 	UnresolvedFeedback int `json:"unresolved_feedback"`
+	ActiveLanes        int `json:"active_lanes"`
+	RecentLanes        int `json:"recent_lanes"`
+	ParkedLanes        int `json:"parked_lanes"`
 }
 
 type Project struct {
@@ -251,11 +295,20 @@ type Groups struct {
 	Untracked []string `json:"untracked"`
 }
 
+type WorkingSet struct {
+	Path    string   `json:"path"`
+	Active  []string `json:"active"`
+	Waiting []string `json:"waiting"`
+	Recent  []string `json:"recent"`
+	Parked  []string `json:"parked"`
+}
+
 type Snapshot struct {
 	SchemaVersion int         `json:"schema_version"`
 	GeneratedAt   time.Time   `json:"generated_at"`
 	ConfigPath    string      `json:"config_path"`
 	Tracking      Tracking    `json:"tracking"`
+	WorkingSet    WorkingSet  `json:"working_set"`
 	Refresh       []Refresh   `json:"refresh"`
 	Summary       Summary     `json:"summary"`
 	Groups        Groups      `json:"groups"`

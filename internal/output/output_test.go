@@ -247,6 +247,27 @@ func TestJSONNeverContainsANSI(t *testing.T) {
 	}
 }
 
+func TestRelativeAgeUsesStableHumanUnits(t *testing.T) {
+	now := time.Date(2026, 7, 12, 16, 0, 0, 0, time.UTC)
+	for _, test := range []struct {
+		name    string
+		updated time.Time
+		want    string
+	}{
+		{name: "unknown", want: "activity unknown"},
+		{name: "now", updated: now.Add(-20 * time.Second), want: "active now"},
+		{name: "minutes", updated: now.Add(-12 * time.Minute), want: "active 12m ago"},
+		{name: "hours", updated: now.Add(-5 * time.Hour), want: "active 5h ago"},
+		{name: "days", updated: now.Add(-72 * time.Hour), want: "active 3d ago"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := relativeAge(now, test.updated); got != test.want {
+				t.Fatalf("relativeAge() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func quietProjectSnapshot() model.Snapshot {
 	return model.Snapshot{
 		GeneratedAt: time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC),

@@ -5,6 +5,7 @@ struct BeaconSnapshot: Codable, Equatable {
     let generatedAt: String
     let configPath: String
     let tracking: TrackingDetails?
+    var workingSet: WorkingSetGroups? = nil
     let refresh: [RefreshResult]
     let summary: SnapshotSummary
     let groups: LaneGroups
@@ -17,6 +18,7 @@ struct BeaconSnapshot: Codable, Equatable {
         case generatedAt = "generated_at"
         case configPath = "config_path"
         case refresh, summary, groups, projects, lanes, errors, tracking
+        case workingSet = "working_set"
     }
 }
 
@@ -32,6 +34,9 @@ struct SnapshotSummary: Codable, Equatable {
     let errors: Int
     let openIssues: Int
     let unresolvedFeedback: Int
+    var activeLanes: Int? = nil
+    var recentLanes: Int? = nil
+    var parkedLanes: Int? = nil
 
     enum CodingKeys: String, CodingKey {
         case projects, total, waiting, idle, errors
@@ -41,7 +46,18 @@ struct SnapshotSummary: Codable, Equatable {
         case needsAction = "needs_action"
         case openIssues = "open_issues"
         case unresolvedFeedback = "unresolved_feedback"
+        case activeLanes = "active_lanes"
+        case recentLanes = "recent_lanes"
+        case parkedLanes = "parked_lanes"
     }
+}
+
+struct WorkingSetGroups: Codable, Equatable {
+    let path: String
+    let active: [String]
+    let waiting: [String]
+    let recent: [String]
+    let parked: [String]
 }
 
 struct LaneGroups: Codable, Equatable {
@@ -115,13 +131,36 @@ struct WorkLane: Codable, Equatable, Identifiable {
     let warnings: [String]
     let blockers: [String]
     let updatedAt: String
+    var attention: LaneAttentionDetails? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, repository, github, base, branch, worktree, issue, progress, signals, reasons, warnings, blockers
+        case id, repository, github, base, branch, worktree, issue, progress, signals, reasons, warnings, blockers, attention
         case pullRequest = "pull_request"
         case reviewReady = "review_ready"
         case nextAction = "next_action"
         case updatedAt = "updated_at"
+    }
+}
+
+struct LaneAttentionDetails: Codable, Equatable {
+    let state: String
+    let pinned: Bool
+    let manual: Bool
+    let title: String?
+    let tags: [String]?
+    let note: String?
+    let noteUpdatedAt: String?
+    let noteStale: Bool
+    let lastSeenAt: String?
+    let delta: String
+    let reactivationReason: String?
+
+    enum CodingKeys: String, CodingKey {
+        case state, pinned, manual, title, tags, note, delta
+        case noteUpdatedAt = "note_updated_at"
+        case noteStale = "note_stale"
+        case lastSeenAt = "last_seen_at"
+        case reactivationReason = "reactivation_reason"
     }
 }
 

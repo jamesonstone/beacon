@@ -31,6 +31,23 @@ func TestRunnerCachesIdenticalGitHubCommands(t *testing.T) {
 	}
 }
 
+func TestExplicitRefreshBypassesCacheButKeepsBudgetGuard(t *testing.T) {
+	delegate := &fakeRunner{rate: rateJSON(5000, 30, 5000), output: []byte(`[{"number":1}]`)}
+	runner := newTestRunner(t, delegate, time.Hour)
+	args := []string{"pr", "list", "--repo", "owner/repo"}
+	if _, err := runner.Run(context.Background(), "", "gh", args...); err != nil {
+		t.Fatal(err)
+	}
+	delegate.output = []byte(`[{"number":2}]`)
+	output, err := runner.Run(WithFreshEvidence(context.Background()), "", "gh", args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(output) != `[{"number":2}]` || delegate.commandCalls != 2 || delegate.rateCalls != 1 {
+		t.Fatalf("output=%q commandCalls=%d rateCalls=%d", output, delegate.commandCalls, delegate.rateCalls)
+	}
+}
+
 func TestRunnerProtectsGitHubBucketReserve(t *testing.T) {
 	delegate := &fakeRunner{rate: rateJSON(2520, 30, 5000), output: []byte("[]")}
 	runner := newTestRunner(t, delegate, time.Minute)

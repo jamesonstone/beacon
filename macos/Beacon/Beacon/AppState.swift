@@ -45,6 +45,9 @@ final class AppState: ObservableObject {
     var readyCount: Int { snapshot?.summary.reviewReady ?? 0 }
 
     var inProgressCount: Int {
+        if let working = snapshot?.workingSet {
+            return working.active.count + working.waiting.count + working.recent.count
+        }
         guard let groups = snapshot?.groups else { return 0 }
         return groups.ready.count + groups.action.count + groups.waiting.count
     }
@@ -118,6 +121,43 @@ final class AppState: ObservableObject {
         trackingFailures.removeValue(forKey: project.github)
         trackingQueue.append(TrackingMutation(projectID: project.github, tracked: tracked))
         startTrackingQueue()
+    }
+
+    func setLaneAttention(_ lane: WorkLane, state: String) async {
+        await applyLaneMutation { try await agent.setLaneAttention(lane.id, state: state) }
+    }
+
+    func setLanePinned(_ lane: WorkLane, pinned: Bool) async {
+        await applyLaneMutation { try await agent.setLanePinned(lane.id, pinned: pinned) }
+    }
+
+    func setLaneNote(_ lane: WorkLane, note: String) async {
+        await applyLaneMutation { try await agent.setLaneNote(lane.id, note: note) }
+    }
+
+    func addLaneTag(_ lane: WorkLane, tag: String) async {
+        await applyLaneMutation { try await agent.addLaneTag(lane.id, tag: tag) }
+    }
+
+    func removeLaneTag(_ lane: WorkLane, tag: String) async {
+        await applyLaneMutation { try await agent.removeLaneTag(lane.id, tag: tag) }
+    }
+
+    func markLaneSeen(_ lane: WorkLane) async {
+        await applyLaneMutation { try await agent.markLaneSeen(lane.id) }
+    }
+
+    func addManualLane(_ title: String) async {
+        await applyLaneMutation { try await agent.addManualLane(title) }
+    }
+
+    private func applyLaneMutation(_ operation: () async throws -> AgentEvent) async {
+        do {
+            apply(try await operation())
+            lastError = nil
+        } catch {
+            lastError = error.localizedDescription
+        }
     }
 
     private func startTrackingQueue() {
@@ -249,8 +289,13 @@ final class AppState: ObservableObject {
 
     func topLane() -> WorkLane? {
         guard let snapshot else { return nil }
-        let identifiers = snapshot.groups.ready + snapshot.groups.action + snapshot.groups.waiting
-        return lanes(for: identifiers).first
+        let identifiers: [String]
+        if let working = snapshot.workingSet {
+            identifiers = working.active + working.waiting + working.recent
+        } else {
+            identifiers = snapshot.groups.ready + snapshot.groups.action + snapshot.groups.waiting
+        }
+        return lanes(for: identifiers).first { Self.openTarget(for: $0) != nil }
     }
 
     static func openTarget(for lane: WorkLane) -> URL? {
@@ -342,7 +387,7 @@ final class AppState: ObservableObject {
             projectStatuses[status.projectID] = status
         }
         if let latest = event.snapshot {
-            guard latest.schemaVersion == 2 else {
+            guard latest.schemaVersion == 3 else {
                 lastError = "Beacon CLI returned invalid JSON: unsupported schema version \(latest.schemaVersion)"
                 return
             }

@@ -17,6 +17,7 @@ import (
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/tracking"
+	"github.com/jamesonstone/beacon/internal/workset"
 )
 
 func TestResolvePathsHonorsXDGAndUsesUserScopedLayout(t *testing.T) {
@@ -61,6 +62,28 @@ func TestCacheRoundTripAssemblyAndCorruptionQuarantine(t *testing.T) {
 	matches, err := filepath.Glob(filepath.Join(directory, "broken.json.corrupt-*"))
 	if err != nil || len(matches) != 1 {
 		t.Fatalf("quarantined files=%v err=%v", matches, err)
+	}
+}
+
+func TestCacheLoadUpgradesSchemaTwoSnapshotWithoutQuarantine(t *testing.T) {
+	directory := t.TempDir()
+	cache := Cache{Directory: directory}
+	record := cachedRecord("owner/legacy", 7, model.TrackingTracked)
+	record.Snapshot.SchemaVersion = 2
+	if err := cache.Write(record); err != nil {
+		t.Fatal(err)
+	}
+
+	records, failures := cache.LoadAll()
+	if len(failures) != 0 || len(records) != 1 {
+		t.Fatalf("records=%#v failures=%v", records, failures)
+	}
+	if records[0].Snapshot.SchemaVersion != model.SchemaVersion || records[0].Snapshot.WorkingSet.Active == nil || records[0].Snapshot.WorkingSet.Parked == nil {
+		t.Fatalf("upgraded snapshot = %#v", records[0].Snapshot)
+	}
+	matches, err := filepath.Glob(filepath.Join(directory, "*.corrupt-*"))
+	if err != nil || len(matches) != 0 {
+		t.Fatalf("legacy cache was quarantined: %v err=%v", matches, err)
 	}
 }
 
@@ -154,6 +177,90 @@ func TestServerClientSnapshotStatusAndShutdown(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("server did not stop")
+	}
+}
+
+func TestServerClientMutatesWorkingSetThroughSharedAuthority(t *testing.T) {
+	root, err := os.MkdirTemp("/tmp", "beacon-workset-agent-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
+	paths := testPaths(root)
+	cfg := config.Config{Path: filepath.Join(root, "config.yaml"), Settings: config.Settings{MaxParallel: 1, TrackedRefreshInterval: time.Hour, UntrackedProbeInterval: time.Hour}}
+	engine := NewEngine(cfg, paths, Cache{Directory: paths.Projects}, func(context.Context) ([]config.Repository, error) {
+		return []config.Repository{}, nil
+	}, nil, nil, tracking.Manager{})
+	engine.WorkingSet = &workset.Manager{Store: workset.FileStore{}}
+	server := &Server{Paths: paths, Engine: engine}
+	serverDone := make(chan error, 1)
+	go func() { serverDone <- server.Serve(context.Background()) }()
+	waitForFile(t, paths.Socket)
+	client := Client{Socket: paths.Socket}
+
+	added, err := client.Request(context.Background(), Request{Type: RequestAddManualLane, Title: "Plan migration"})
+	if err != nil || added.Snapshot == nil || len(added.Snapshot.WorkingSet.Active) != 1 {
+		t.Fatalf("add event=%#v err=%v", added, err)
+	}
+	laneID := added.Snapshot.WorkingSet.Active[0]
+	noted, err := client.Request(context.Background(), Request{Type: RequestSetLaneNote, LaneID: laneID, Note: "compare storage contracts"})
+	if err != nil || noted.Snapshot == nil || noted.Snapshot.Lanes[0].Attention.Note != "compare storage contracts" {
+		t.Fatalf("note event=%#v err=%v", noted, err)
+	}
+	tagged, err := client.Request(context.Background(), Request{Type: RequestAddLaneTag, LaneID: laneID, Tag: "manual test"})
+	if err != nil || tagged.Snapshot == nil || len(tagged.Snapshot.Lanes[0].Attention.Tags) != 1 {
+		t.Fatalf("tag event=%#v err=%v", tagged, err)
+	}
+	untagged, err := client.Request(context.Background(), Request{Type: RequestRemoveLaneTag, LaneID: laneID, Tag: "manual test"})
+	if err != nil || untagged.Snapshot == nil || len(untagged.Snapshot.Lanes[0].Attention.Tags) != 0 {
+		t.Fatalf("untag event=%#v err=%v", untagged, err)
+	}
+	parked, err := client.Request(context.Background(), Request{Type: RequestSetLaneAttention, LaneID: laneID, AttentionState: string(model.AttentionParked)})
+	if err != nil || parked.Snapshot == nil || len(parked.Snapshot.WorkingSet.Parked) != 1 {
+		t.Fatalf("park event=%#v err=%v", parked, err)
+	}
+
+	if _, err := client.Request(context.Background(), Request{Type: RequestShutdown}); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-serverDone; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestResumedLaneUsesFrequentCadenceInsideUntrackedProject(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
+	now := time.Date(2026, 7, 11, 12, 2, 0, 0, time.UTC)
+	repository := config.Repository{Name: "repo", GitHub: "owner/repo"}
+	record := cachedRecord(repository.GitHub, 1, model.TrackingUntracked)
+	record.UpdatedAt = now.Add(-2 * time.Minute)
+	record.LastProbeAt = now
+	manager := workset.Manager{Store: workset.FileStore{}, Now: func() time.Time { return now }}
+	working, err := manager.Reconcile(record.Snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.SetAttention(working, record.Snapshot.Lanes[0].ID, model.AttentionActive); err != nil {
+		t.Fatal(err)
+	}
+	engine := NewEngine(
+		config.Config{Settings: config.Settings{TrackedRefreshInterval: time.Minute, UntrackedProbeInterval: time.Hour}},
+		testPaths(root), Cache{Directory: filepath.Join(root, "cache")}, nil, nil, nil, tracking.Manager{},
+	)
+	engine.Now = func() time.Time { return now }
+	engine.WorkingSet = &manager
+	engine.storeRecord(record)
+
+	if !engine.due(repository, engine.frequentRepositories()) {
+		t.Fatal("resumed lane did not use frequent local cadence")
+	}
+	if _, err := manager.SetAttention(working, record.Snapshot.Lanes[0].ID, model.AttentionParked); err != nil {
+		t.Fatal(err)
+	}
+	if engine.due(repository, engine.frequentRepositories()) {
+		t.Fatal("parked lane did not return to slow probe cadence")
 	}
 }
 

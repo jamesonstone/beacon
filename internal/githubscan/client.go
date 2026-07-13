@@ -22,6 +22,7 @@ const (
 
 type Client struct {
 	Runner command.Runner
+	Now    func() time.Time
 }
 
 func (c Client) Collect(ctx context.Context, repositories []config.Repository, scope, author string, maxParallel int) model.RemoteCollection {
@@ -33,11 +34,6 @@ func (c Client) Collect(ctx context.Context, repositories []config.Repository, s
 	for _, repository := range repositories {
 		configured[repository.GitHub] = repository
 		collection.Repositories[repository.GitHub] = emptyEvidence()
-	}
-	if len(repositories) == 1 {
-		repository := repositories[0]
-		collection.Repositories[repository.GitHub] = c.collectRepository(ctx, repository, scope, author)
-		return collection
 	}
 	if scope == "all" {
 		c.collectAll(ctx, repositories, maxParallel, &collection)
@@ -56,7 +52,7 @@ func (c Client) ListOpen(ctx context.Context, repository, author string) ([]mode
 }
 
 func (c Client) collectMine(ctx context.Context, configured map[string]config.Repository, author string, maxParallel int, collection *model.RemoteCollection) {
-	prOutput, err := c.run(ctx, "gh", "search", "prs", "--author", author, "--state", "open", "--limit", strconv.Itoa(searchLimit), "--json", "number,repository")
+	prOutput, err := c.run(ctx, "gh", "search", "prs", "--author", author, "--state", "open", "--limit", strconv.Itoa(searchLimit), "--json", "number,updatedAt,repository")
 	if err != nil {
 		collection.Errors = append(collection.Errors, model.ScanError{Stage: "github-search-prs", Message: err.Error()})
 	} else {
@@ -100,8 +96,10 @@ func (c Client) enrichMinePullRequests(ctx context.Context, configured map[strin
 		number     int
 	}
 	var tasks []task
+	includeInactive := IncludeInactivePullRequests(ctx)
+	cutoff := c.now().Add(-6 * time.Hour)
 	for _, match := range matches {
-		if _, ok := configured[match.Repository.NameWithOwner]; ok {
+		if _, ok := configured[match.Repository.NameWithOwner]; ok && (includeInactive || match.UpdatedAt.After(cutoff)) {
 			tasks = append(tasks, task{repository: match.Repository.NameWithOwner, number: match.Number})
 		}
 	}
@@ -149,6 +147,13 @@ func (c Client) enrichMinePullRequests(ctx context.Context, configured map[strin
 		})
 		collection.Repositories[repository] = evidence
 	}
+}
+
+func (c Client) now() time.Time {
+	if c.Now != nil {
+		return c.Now().UTC()
+	}
+	return time.Now().UTC()
 }
 
 func (c Client) collectAll(ctx context.Context, repositories []config.Repository, maxParallel int, collection *model.RemoteCollection) {

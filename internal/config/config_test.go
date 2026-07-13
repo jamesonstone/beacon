@@ -64,7 +64,7 @@ repositories:
 	if cfg.Repositories[0].Base != "main" || cfg.Repositories[0].Remote != "origin" {
 		t.Fatalf("repository defaults = %#v", cfg.Repositories[0])
 	}
-	if cfg.Settings.ScanInterval != time.Minute || cfg.Settings.TrackedRefreshInterval != time.Minute || cfg.Settings.UntrackedProbeInterval != 10*time.Minute || cfg.Settings.RemoteRefreshInterval != 5*time.Minute || cfg.Settings.StaleAfter != 24*time.Hour {
+	if cfg.Settings.ScanInterval != time.Minute || cfg.Settings.TrackedRefreshInterval != time.Minute || cfg.Settings.UntrackedProbeInterval != 10*time.Minute || cfg.Settings.RemoteRefreshInterval != 45*time.Minute || cfg.Settings.StaleAfter != 24*time.Hour {
 		t.Fatalf("duration defaults = %#v", cfg.Settings)
 	}
 	if cfg.Settings.MaxParallel != 4 || cfg.Settings.GitHubAuthor != "@me" {

@@ -6,10 +6,14 @@
 ██████╔╝███████╗██║  ██║╚██████╗╚██████╔╝██║ ╚████║
 ╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝
 
-                            signal layer for coding agents
+                        working-set memory for coding agents
 ```
 
-Beacon discovers local GitHub projects and correlates linked worktrees, branches, pull requests, issues, checks, review feedback, and optional Kit feature evidence to answer one question: what needs attention next?
+Beacon keeps a small, durable memory of the three to eight work lanes that need
+your attention. It combines near-real-time local Git evidence, conservatively
+cached GitHub evidence, factual changes since you last looked, and optional
+short notes and tags to answer: what am I working on, what changed, and what
+should I do next?
 
 <!-- BEGIN KIT-MANAGED README BADGES -->
 [![Last commit](https://img.shields.io/github/last-commit/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/commits) [![Open issues](https://img.shields.io/github/issues/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/issues) [![Pull requests](https://img.shields.io/github/issues-pr/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/pulls) [![CI](https://github.com/jamesonstone/beacon/actions/workflows/ci.yml/badge.svg)](https://github.com/jamesonstone/beacon/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/jamesonstone/beacon)](https://github.com/jamesonstone/beacon/releases)
@@ -17,7 +21,7 @@ Beacon discovers local GitHub projects and correlates linked worktrees, branches
 
 The Go CLI and its user-scoped background agent are the source of truth. The
 native macOS application provides both a menu-bar extra and a detachable Dock
-window; both consume the same cached schema-v2 snapshots and incremental agent
+window; both consume the same cached schema-v3 snapshots and incremental agent
 events through a bundled copy of the executable.
 
 ## Requirements
@@ -163,7 +167,7 @@ version: 2
 
 settings:
   scan_interval: 1m
-  remote_refresh_interval: 15m
+  remote_refresh_interval: 45m
   stale_after: 24h
   max_parallel: 4
   github_author: '@me'
@@ -204,7 +208,7 @@ durations or scope, missing paths, and malformed GitHub names are rejected.
 Existing version-1 files remain readable and are migrated only by a confirmed
 init operation.
 
-Project attention choices are stored separately in
+Legacy project attention choices are stored separately in
 `$HOME/.local/state/beacon/tracking.json`. Beacon creates this managed file only
 after you explicitly untrack a project; do not add exclusions to source roots
 or remove repositories from `config.yaml` just to quiet the dashboard. Existing
@@ -212,7 +216,8 @@ sibling `tracking.yaml` state is migrated automatically and archived with a
 `.migrated` suffix.
 
 `tracked_refresh_interval` defaults to one minute and controls complete
-background refreshes. `untracked_probe_interval` defaults to ten minutes and
+local observations. These frequent observations do not fetch or contact
+GitHub. `untracked_probe_interval` defaults to ten minutes and
 controls inexpensive local/GitHub summary probes for muted projects. If you
 manage a large deliberately quiet inventory, increase it to `1h` to reduce
 background GitHub traffic while retaining automatic reactivation. The agent
@@ -224,7 +229,7 @@ feedback, and muted probes. Most GitHub evidence is
 reused for `remote_refresh_interval`; stable repository metadata is reused for
 seven days. Cached activity can provide bounded stale fallback for 24 hours,
 and repository metadata for 30 days, when GitHub capacity is protected. Set
-`remote_refresh_interval: 15m` for a conservative daily-driver profile.
+`remote_refresh_interval: 45m` for a conservative daily-driver profile.
 
 Before a cache miss Beacon reads `gh api rate_limit` and preserves 2,500
 GraphQL points, 15 Search requests, and 1,500 REST Core requests for your own
@@ -239,9 +244,10 @@ stored with user-only permissions under `$HOME/.cache/beacon/github/`.
 
 With the default `github_scope: mine`, every due-project batch uses one global
 authored-PR search and one global assigned-issue search, independent of the
-number of configured repositories. Beacon then runs one detail query and one
-review-thread query only for each matching open PR. Muted projects share that
-same batched evidence instead of polling each repository. `github_scope: all`
+number of configured repositories. Beacon enriches only matching PRs with
+activity in the last six hours during background collection; explicit scans
+and lane refreshes can inspect older work. Muted projects share that same
+batched evidence instead of polling each repository. `github_scope: all`
 is intentionally more expensive because it must enumerate repository-scoped
 work.
 
@@ -253,6 +259,16 @@ beacon --no-watch
 beacon --include-idle
 beacon --color=always
 beacon doctor
+beacon lanes
+beacon lanes --parked
+beacon pin 'gh:jamesonstone/beacon#5'
+beacon park 'git:jamesonstone/beacon@GH-5'
+beacon resume 'git:jamesonstone/beacon@GH-5'
+beacon note 'git:jamesonstone/beacon@GH-5' 'finish the macOS smoke test'
+beacon tag 'git:jamesonstone/beacon@GH-5' 'manual test'
+beacon untag 'git:jamesonstone/beacon@GH-5' 'manual test'
+beacon seen 'git:jamesonstone/beacon@GH-5'
+beacon add --manual 'Research a smaller cache format'
 beacon scan
 beacon scan --include-idle
 beacon scan --json
@@ -277,7 +293,8 @@ beacon config open
 beacon version
 ```
 
-Bare `beacon` connects to the user background agent, renders cached projects,
+Bare `beacon` connects to the user background agent, renders the cached working
+set,
 and observes scheduled updates without requesting a refresh. Opening or
 reconnecting either client is cache-only. Use `beacon refresh`, the macOS
 `Scan Now` action, or `beacon scan` when you explicitly want current evidence.
@@ -286,10 +303,27 @@ returns an installation hint instead of silently paying direct-scan latency;
 use `beacon agent install` to restore cache-first operation or `beacon scan` for
 an explicit blocking scan.
 
-`beacon scan` remains the blocking compatibility path and always returns one
-fresh, complete snapshot. `scan --json` remains deterministic, ANSI-free, and
+`beacon scan` remains the explicit, blocking diagnostic path and returns the
+complete repository inventory. `scan --json` remains deterministic, ANSI-free, and
 does not require the agent. `--color=auto|always|never` controls human styling;
 auto requires a TTY and honors `NO_COLOR`.
+
+The default working-set view groups lanes as **Active**, **Waiting**,
+**Recently Active**, and **Parked**. Dirty or unpublished work, recent local
+commits, recent authored PRs, pinned lanes, and manual lanes can enter the
+working set. Old authored PRs stay out unless pinned. `beacon lanes --parked`
+reveals parked lanes without allowing a large historical inventory to consume
+the primary view.
+
+Lane notes and tags are optional memory cues, never status truth. Beacon stores them
+with attention and last-seen observations in the user-only strict JSON file
+`$HOME/.local/state/beacon/lanes.json`. When Git or GitHub evidence changes
+after a note, both clients label that note as stale and show a factual delta
+such as `new commit observed`, `PR #5 opened`, or `CI changed from pending to
+success`. Tags are short, deduplicated labels that can be added or removed from
+the CLI and macOS lane cards; they never affect Beacon's attention or action
+policy. Manual lanes support planning or research without requiring Git,
+GitHub, Kit, or a Codex task API.
 
 Idle work is treated as inventory instead of queue content. Human output hides
 all-idle projects by default and replaces them with a compact count; pass
@@ -298,7 +332,9 @@ shows the selected project even when it is idle. An idle base lane is omitted
 when its project already has active work. JSON remains complete regardless of
 these presentation filters.
 
-Use `beacon select` (or the compatible bare `beacon projects`) in a terminal
+Project Track/Untrack remains a compatibility inventory control rather than
+the primary attention model. Use `beacon select` (or the compatible bare
+`beacon projects`) in a terminal
 for a colorful searchable multi-select of every discovered project. Existing
 tracked projects start highlighted; use the arrow keys to scroll, Space to
 toggle a project, `/` to filter, and Enter to confirm. Deselecting a project
@@ -340,12 +376,23 @@ Beacon remains in the menu bar and also runs as a regular macOS application,
 so its neon-space icon is available in the Dock and Command-Tab when a camera
 notch or a crowded menu bar hides the menu item. Ordinary launches open one
 compact dashboard window. Close the window to keep Beacon running quietly;
-choose **Window** in the menu extra or activate Beacon from the Dock or
+choose **Open Dashboard** in the top-right Settings menu or activate Beacon from the Dock or
 Command-Tab to reopen the same window.
 
 The menu and detached window are two views over one shared background-agent
 connection. They show the same active, quiet, and untracked projects and never
-start duplicate repository scans.
+start duplicate repository scans. Secondary actions live in the top-right gear
+menu so lane evidence receives the full height. The adjacent view button
+switches between the default stacked list, horizontal state tiles, and an
+experimental kanban board; the selection persists across launches.
+
+Beacon uses JetBrains Mono Nerd Font when it is installed and falls back to the
+system monospaced font when it is unavailable. Lane notation appears as compact
+tag chips: use **Tag** to add context and the chip's close control to remove it.
+Evidence badges such as **Dirty**, **CI None**, and **Review None** also reveal
+a trailing close control on hover. Hiding a badge is local presentation state:
+it does not change the underlying evidence or next action, and a changed signal
+appears again. Use **Restore Hidden Badges** in Settings to clear all dismissals.
 
 Use **Open Beacon at Login** in either view to enable quiet startup. Beacon
 registers its embedded login helper through macOS Service Management. A login
@@ -362,8 +409,9 @@ they do not appear as fatal errors. Full warning detail remains available in
 `beacon scan --json`. The red `Errors` section is reserved for failures that
 prevent Beacon from collecting expected evidence.
 
-`scan --json` emits schema version 2 with projects, ordered lanes, issues,
-checks, feedback, optional Kit progress, scoped warnings, and scoped errors. It
+`scan --json` emits schema version 3 with projects, ordered lanes, issues,
+checks, feedback, optional Kit progress, lane attention and tags, scoped
+warnings, and scoped errors. It
 never emits ANSI or additional stdout logging, making it safe for the macOS app
 and automation.
 

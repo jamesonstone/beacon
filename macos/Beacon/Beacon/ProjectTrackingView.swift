@@ -58,6 +58,7 @@ struct ProjectTrackingView: View {
                 }
             }
         }
+        .font(BeaconTypography.regular(11))
     }
 
     private var projects: [BeaconProject] {

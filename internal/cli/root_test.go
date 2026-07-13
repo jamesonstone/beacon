@@ -74,7 +74,7 @@ func TestNextActiveLaneNeverFallsBackToIdle(t *testing.T) {
 		Groups: model.Groups{Action: []string{"active"}, Idle: []string{"idle"}},
 		Lanes: []model.Lane{
 			{ID: "idle", Repository: "quiet"},
-			{ID: "active", Repository: "needs-action"},
+			{ID: "active", Repository: "needs-action", Worktree: &model.Worktree{Path: "/tmp/active"}},
 		},
 	}
 	lane, ok := nextActiveLane(snapshot)

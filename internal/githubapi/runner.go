@@ -129,14 +129,15 @@ func (r *Runner) Run(ctx context.Context, dir, name string, args ...string) ([]b
 	}
 	key := cacheKey(dir, name, args)
 	entry, found := r.cached(key, args)
-	if found && r.now().Sub(entry.updatedAt) < r.ttl(args) {
+	fresh := freshEvidenceRequested(ctx)
+	if !fresh && found && r.now().Sub(entry.updatedAt) < r.ttl(args) {
 		return clone(entry.output), nil
 	}
 	bucketMutex := r.bucketMutexes[apiBucket]
 	bucketMutex.Lock()
 	defer bucketMutex.Unlock()
 	entry, found = r.cached(key, args)
-	if found && r.now().Sub(entry.updatedAt) < r.ttl(args) {
+	if !fresh && found && r.now().Sub(entry.updatedAt) < r.ttl(args) {
 		return clone(entry.output), nil
 	}
 	if err := r.reserve(ctx, apiBucket); err != nil {

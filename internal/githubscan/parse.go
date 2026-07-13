@@ -60,6 +60,7 @@ type rawPullRequest struct {
 
 type rawSearchItem struct {
 	Number     int           `json:"number"`
+	UpdatedAt  time.Time     `json:"updatedAt"`
 	Repository rawRepository `json:"repository"`
 }
 

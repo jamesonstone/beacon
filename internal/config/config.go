@@ -205,7 +205,7 @@ func normalizeSettings(raw rawSettings) (Settings, error) {
 	if settings.UntrackedProbeInterval, err = durationOrDefault(raw.UntrackedProbeInterval, 10*time.Minute); err != nil {
 		return Settings{}, fmt.Errorf("settings.untracked_probe_interval: %w", err)
 	}
-	if settings.RemoteRefreshInterval, err = durationOrDefault(raw.RemoteRefreshInterval, 5*time.Minute); err != nil {
+	if settings.RemoteRefreshInterval, err = durationOrDefault(raw.RemoteRefreshInterval, 45*time.Minute); err != nil {
 		return Settings{}, fmt.Errorf("settings.remote_refresh_interval: %w", err)
 	}
 	if settings.StaleAfter, err = durationOrDefault(raw.StaleAfter, 24*time.Hour); err != nil {
@@ -320,7 +320,7 @@ func Example() string {
 
 settings:
   scan_interval: 1m
-  remote_refresh_interval: 5m
+  remote_refresh_interval: 45m
   stale_after: 24h
   max_parallel: 4
   github_author: "@me"
