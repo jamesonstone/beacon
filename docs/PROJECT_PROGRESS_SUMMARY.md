@@ -120,7 +120,7 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **PAUSED**: no
 - **INTENT**: Keep a deliberately selected set of repositories in focus without losing awareness of meaningful activity elsewhere.
 - **APPROACH**: Persist explicit Following membership, preserve non-followed evidence baselines, categorize outside projects as Recently Updated or Quiet without automatic reactivation, and render the shared categories in CLI and macOS alongside a Reduce Motion-aware neon wordmark.
-- **OPEN ITEMS**: Implementation, local validation, and independent verification are complete on issue #9 and branch `GH-9`; ready-PR delivery remains.
+- **OPEN ITEMS**: Implementation, validation, and independent verification are complete on issue #9, branch `GH-9`, and ready PR #10; final human review and merge remain.
 - **POINTERS**: `docs/specs/0010-project-following/SPEC.md`
 
 ## LAST UPDATED

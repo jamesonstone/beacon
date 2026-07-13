@@ -198,7 +198,7 @@ make repository membership explicit and show outside activity separately.
 - [x] T6: Add Go and Swift tests plus migration fixtures.
 - [x] T7: Reconcile README, constitution, and progress summary.
 - [x] T8: Run full validation and read-only verification.
-- [ ] T9: Commit, push, open the ready PR, and record hosted evidence.
+- [x] T9: Commit, push, open the ready PR, and record hosted evidence.
 
 ## Validation Map
 
@@ -234,7 +234,7 @@ make repository membership explicit and show outside activity separately.
 
 The user explicitly requested a new issue, branch, and pull request. Issue #9
 is assigned to Jameson Stone. Branch `GH-9` starts exactly at current
-`origin/main` and will produce a ready PR targeting `main`.
+`origin/main`; ready PR #10 targets `main`.
 
 ## Evidence
 
@@ -255,3 +255,5 @@ is assigned to Jameson Stone. Branch `GH-9` starts exactly at current
 - `git diff --check` passes.
 - An independent read-only verifier found no remaining actionable issues after
   three repair passes, including ten consecutive cadence-regression runs.
+- Ready PR [#10](https://github.com/jamesonstone/beacon/pull/10) is assigned to
+  Jameson Stone, closes issue #9, and records the hosted CI evidence.
