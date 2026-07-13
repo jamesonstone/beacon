@@ -1,15 +1,22 @@
+import AppKit
 import SwiftUI
 
 @main
 struct BeaconApp: App {
-    @StateObject private var state = AppState()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @StateObject private var state = BeaconApplicationModel.shared.state
+    @StateObject private var loginItem = BeaconApplicationModel.shared.loginItem
 
     var body: some Scene {
         MenuBarExtra {
-            MenuView(state: state)
+            MenuView(
+                state: state,
+                loginItem: loginItem,
+                surface: .menu,
+                openDashboard: { BeaconApplicationModel.shared.showDashboard() }
+            )
         } label: {
             BeaconMenuBarLabel(inProgressCount: state.inProgressCount)
-                .task { state.start() }
         }
         .menuBarExtraStyle(.window)
     }

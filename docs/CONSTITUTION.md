@@ -23,17 +23,21 @@ remote-only scoped pull request, or an unlinked scoped issue waiting to start.
 
 ### One Domain Model, Multiple Surfaces
 
-The Go CLI is the source of truth for collection, correlation, policy,
-ordering, and actions. Terminal output, JSON output, and the macOS menu
-application must present the same snapshot. A client must not reimplement Git,
-GitHub, correlation, or readiness rules.
+Go is the source of truth for collection, correlation, policy, ordering,
+tracking, caching, and actions. The background agent, direct CLI scans,
+terminal output, JSON output, and the macOS application must present the
+same snapshot. A client must not reimplement Git, GitHub, correlation,
+reactivation, or readiness rules.
 
 ### Read-Only by Default
 
 Observation must not change the work being observed. Beacon may perform a
 bounded `git fetch --prune --no-tags` to refresh remote-tracking metadata.
-Scanning must never edit files, switch branches, create commits, push, create
-or update pull requests, submit reviews, or merge.
+Scanning and background refresh must never edit files, switch branches, create commits, push, create
+or update pull requests, submit reviews, or merge. Beacon may atomically update
+its own managed tracking state and cache when explicit user choices change,
+fresh evidence reactivates a previously untracked project, or a scan produces
+a new last-good result.
 
 ### Independent Signals Before Conclusions
 
@@ -60,7 +64,7 @@ scan itself.
 
 Given the same inputs, Beacon must produce the same lane identities, ordering,
 groups, readiness decisions, actions, and JSON shape. Stable output allows
-humans, the menu application, scripts, and future integrations to trust the
+humans, the macOS application, scripts, and future integrations to trust the
 CLI as a contract.
 
 ### Explicit, Minimal Implementation
@@ -85,7 +89,7 @@ truthfully describe the highest completed state.
   remote-only work, and idle base work.
 - Recommend the next useful human or agent action without mutating work.
 - Preserve situational awareness across multiple repositories and worktrees.
-- Provide a useful standalone CLI and a native macOS menu application backed
+- Provide a useful standalone CLI and a native macOS application backed
   by the identical versioned snapshot.
 - Remain predictable under partial failures, unusual Git paths, stale remote
   state, and concurrent repository scans.
@@ -109,6 +113,10 @@ strict versioned YAML configuration
                    independent signals
                               |
               readiness and next-action policy
+                              |
+                 atomic per-project cache
+                              |
+                versioned Unix socket agent
                        /              \
               terminal / JSON     SwiftUI menu
 ```
@@ -139,6 +147,11 @@ must not feed new policy back into the scanner.
   explanations, and the next action as pure domain logic.
 - `internal/scan` coordinates bounded repository concurrency, preserves partial
   results, orders lanes, and creates groups and summary counts.
+- `internal/tracking` owns the strict attention-state store, evidence
+  fingerprints, tracked/untracked reconciliation, and automatic reactivation.
+- `internal/agent` owns operational paths, per-project caches, protocol-v1
+  transport, scheduling, subscriptions, lifecycle locking, and LaunchAgent
+  installation.
 - `internal/output` renders the same snapshot as compact terminal text or JSON.
 
 Package dependencies should follow this flow. In particular, scanners collect
@@ -220,6 +233,18 @@ only after confirmation. Existing entries are never removed. GitHub
 credentials never belong in Beacon configuration; authentication is delegated
 to `gh`.
 
+User attention state is separate from declarative discovery. It is stored in
+strict JSON at `$HOME/.local/state/beacon/tracking.json`; legacy sibling
+`tracking.yaml` state is migrated atomically. Per-project last-good snapshots
+live under `$HOME/.cache/beacon/projects/`, and the agent socket lives at
+`$HOME/.cache/beacon/agent.sock`. An untracked entry records the stable GitHub
+identity and deterministic Git/GitHub evidence and probe baselines.
+Time-derived freshness and recommended actions are excluded. Changed durable
+evidence removes the entry atomically before a tracked result is published;
+incomplete collection evidence must never establish or compare a baseline.
+Operational files and directories are user-only and never contain GitHub
+credentials.
+
 ### Process Execution, Timeouts, and Concurrency
 
 - External commands use `exec.CommandContext` and explicit argument arrays.
@@ -231,6 +256,27 @@ to `gh`.
   is skipped until the configured refresh interval has elapsed.
 - Repository scans may run concurrently up to `settings.max_parallel`, which
   defaults to four and must remain bounded.
+- The background scheduler runs at most one job per project, coalesces duplicate
+  refresh requests, and uses separate tracked-refresh and muted-probe cadences.
+  It consults cached due times before discovery; when no cached project is due,
+  a scheduler tick performs no source walk, fetch, or GitHub collection.
+- All background `gh` collection shares one persistent user-only response cache
+  and rate-budget guard. Beacon reserves 2,500 GraphQL points, 15 Search
+  requests, and 1,500 REST Core requests for the user's other GitHub work;
+  cached successful evidence may be served stale while a bucket is protected.
+- Cache misses are serialized per GitHub rate bucket, GraphQL work is
+  conservatively debited at 25 points per command, and authoritative allowance
+  state is refreshed after no more than five misses. Repository discovery uses
+  only local Git remote and branch metadata and spends no GitHub capacity.
+- Under the default `mine` scope, one due-project batch performs one global
+  authored-PR search and one global assigned-issue search, then enriches only
+  matching open PRs. Muted projects share the batch evidence. The `all` scope
+  remains an explicitly more expensive repository-scoped mode.
+- Tracking mutations use cached complete evidence and never require a
+  synchronous GitHub probe. The next scheduled muted probe establishes its
+  compact comparison baseline. Explicit selection may persist a pending
+  baseline while evidence is incomplete; the first later complete collection
+  initializes it without reactivating the project.
 - Cancellation and command errors must retain enough command and repository
   context to diagnose the failed evidence stage.
 
@@ -239,9 +285,17 @@ to `gh`.
 The supported command surface is:
 
 ```text
-beacon [--color auto|always|never]
+beacon [--color auto|always|never] [--no-watch]
 beacon init [--source PATH ...] [--github-scope mine|all] [--yes]
 beacon scan [--repo NAME] [--json] [--no-refresh]
+beacon projects [--tracked|--untracked]
+beacon select
+beacon projects track <project>...
+beacon projects untrack <project>...
+beacon track <project>...
+beacon untrack <project>...
+beacon refresh [project]
+beacon agent install|serve|status|stop|uninstall
 beacon doctor [--json]
 beacon open <lane-id>
 beacon open-next
@@ -254,22 +308,27 @@ configuration or startup failures and failed required doctor checks exit `1`.
 Usage errors exit `2`. JSON mode writes JSON only to stdout and sends
 diagnostics to stderr.
 
-Bare `beacon` shows a rotating lighthouse sweep and a shuffled 150-item deck of
-original odd trivia while an interactive terminal waits for the live scan. A
-fact changes after an independently randomized one-to-five-second interval,
-never repeats within one command run, and is truncated to terminal width. Once
-the deck is exhausted, the final fact remains instead of reshuffling. The
-loader starts only after configuration and any initialization prompt succeed,
-clears its line before dashboard output, and restores the cursor on success,
-error, cancellation, or panic unwinding.
-Redirected output, JSON, and explicit `beacon scan` commands never emit loader
-frames or cursor-control sequences. `--color=never` keeps the animation but
-removes its color; `NO_COLOR` has the same effect in automatic mode.
+Bare `beacon` connects to the user agent, renders cached state, and observes
+scheduled updates without requesting a refresh. Opening or reconnecting a
+client is cache-only. `--no-watch` and non-TTY execution return cache-only
+output immediately and never emit cursor-control sequences. The lighthouse
+trivia loader remains the cold-cache fallback while no cached snapshot exists.
+Explicit `beacon refresh`, macOS `Scan Now`, `beacon scan`, and JSON scan modes
+remain the intentional paths for current evidence; direct scans do not require
+the agent.
+
+Agent protocol version 1 is newline-delimited JSON over a user-only Unix-domain
+socket. It carries scan IDs, per-project revisions, stages, single and batch
+tracking changes, heartbeats, and snapshot-schema-v2 payloads. Protocol evolution is independent
+from the evidence snapshot schema. Clients discard events from a different
+active scan and older project revisions, then preserve last-good state on
+malformed events or disconnects.
 
 The schema-v2 snapshot is a public internal contract between the CLI and
-clients. It contains generation/config/refresh metadata, projects, summary
-counts, ordered enriched lanes, grouped lane IDs, and repository-scoped or
-global warnings and errors. Expected partial conditions—including inaccessible
+clients. It contains generation/config/refresh/tracking metadata, projects,
+tracked and untracked summary counts, ordered enriched lanes, grouped lane IDs,
+project tracking state, automatic-reactivation evidence, and repository-scoped
+or global warnings and errors. Expected partial conditions—including inaccessible
 source discoveries, prunable worktrees, result truncation, and untrusted
 optional Kit progress documents—are warnings, not errors. Human output keeps
 their full detail out of the primary dashboard while JSON retains every
@@ -281,14 +340,29 @@ require a schema-version increment and coordinated client support.
 
 ### macOS Application Boundary
 
-The macOS application targets macOS 14 or later, uses SwiftUI `MenuBarExtra`
-with window style, and runs as an `LSUIElement` application without a Dock
-icon. It executes the bundled `beacon-cli` helper, requires schema v2, and
-renders the CLI-provided projects, groups, evidence, and actions.
+The macOS application targets macOS 14 or later and combines SwiftUI
+`MenuBarExtra` with one compact detachable dashboard window. It runs as a
+regular application with a Dock icon and Command-Tab presence so users retain
+an entry point when the menu-bar item is obscured. Closing the dashboard leaves
+the menu extra and background connection running; ordinary launches and later
+user activation reopen the singleton window. It executes the bundled
+`beacon-cli` helper, requires schema v2, and renders the CLI-provided projects,
+groups, evidence, and actions.
 
-The application scans at launch, at most once every 60 seconds, and on explicit
-request. Overlapping scans are prohibited. A failed scan keeps the last
-successful snapshot visible with its timestamp and an error or stale banner.
+The application connects to the background agent through a Swift actor,
+renders cached state immediately, applies monotonic incremental project events,
+and reconnects after disconnects without initiating collection. `Scan Now` is
+the only macOS action that forces a full refresh. Agent status is authoritative
+for loading state, including scans that complete before their request
+acknowledgement. Only `@MainActor` publishes UI state. A
+failed refresh keeps the last successful snapshot visible with its timestamp
+and an error or stale banner.
+Both macOS surfaces render one reusable SwiftUI dashboard over the same
+`AppState`; they must not duplicate subscriptions, scans, Git/GitHub policy, or
+snapshot interpretation. An embedded, signed login-item helper may launch the
+main app quietly with `--login` when the user explicitly enables Open at Login.
+Service Management owns registration and approval, and the helper performs no
+evidence collection itself.
 The menu-bar label shows the number of non-idle lanes across the CLI-provided
 ready, action, and waiting groups. Active counts use a high-contrast dark badge
 with a luminous neon-gradient border so the value remains visible over changing
@@ -307,12 +381,21 @@ any ready, action, or waiting lane, and top-item actions never fall back to idle
 inventory. These are presentation rules only:
 schema-v2 JSON continues to expose every project, lane, and group unchanged.
 
+Untracked projects are deliberate secondary inventory, not merely idle work.
+They are excluded from active and quiet groups, summary/top-item selection, and
+the menu-bar count while remaining fully represented in schema-v2 JSON. The CLI
+provides an interactive multi-select plus explicit track/untrack commands; the
+macOS application provides searchable Tracked and Untracked tabs. Both clients
+delegate persistence and automatic reactivation to the Go tracking service.
+
 The application may use `NSWorkspace` to open pull requests, worktree paths,
-and `$HOME/.config/beacon/config.yaml`. It must not execute Git or `gh`
-directly or contain correlation/readiness policy. The bundled helper is named
-`beacon-cli` to avoid a case-insensitive filename collision with the `Beacon`
-application executable. The helper build must support the target Mac
-architectures; the standalone CLI remains named `beacon`.
+and `$HOME/.config/beacon/config.yaml`. It may invoke the bundled helper's
+project track/untrack commands but must not execute Git or `gh` directly or
+contain correlation, readiness, fingerprint, cache, scheduling, or reactivation policy. The
+bundled helper is named `beacon-cli` to avoid a case-insensitive filename
+collision with the `Beacon` application executable. The helper build must
+support the target Mac architectures; the standalone CLI remains named
+`beacon`.
 
 ### Release And Distribution
 
@@ -389,9 +472,11 @@ reduction in complexity or risk and must be recorded in the applicable spec.
 
 ## CONSTRAINTS
 
-- The Go CLI remains the only source of scanning and readiness truth.
-- Beacon remains read-only except for its documented, bounded metadata fetch
-  and explicit configuration-file creation.
+- Go remains the only source of scanning, caching, tracking, and readiness truth.
+- Beacon remains read-only with respect to observed repositories and GitHub,
+  except for its documented bounded metadata fetch. Its only application-state
+  writes are explicit configuration changes, managed project tracking,
+  user-only caches, lifecycle files, and logs.
 - Scanner code must never use shell-built command strings.
 - Every external command and concurrent operation must be bounded and
   cancellable.
@@ -401,7 +486,7 @@ reduction in complexity or risk and must be recorded in the applicable spec.
 - Beacon v1 supports GitHub through authenticated `gh`; another provider needs
   an explicit feature specification and an adapter that preserves the domain
   model.
-- The menu application remains developer-local and unsandboxed so it can read
+- The macOS application remains developer-local and unsandboxed so it can read
   configured repositories and invoke the bundled helper and system tools.
 - The macOS target is 14 or later. GitHub release packaging and ad-hoc signing
   follow `docs/specs/0003-beacon-github-releases/SPEC.md`; Developer ID signing,
@@ -422,7 +507,6 @@ reduction in complexity or risk and must be recorded in the applicable spec.
 - Do not apply the code-file size guideline to documentation files, all `docs/**`, all `.kit/**`, or `.kit.yaml`.
 - Do not split or rewrite docs, generated state, or Kit config artifacts solely because they exceed 300 lines.
 <!-- END KIT-MANAGED BASELINE RULES -->
-
 ### Project Progress Summary
 
 - `docs/PROJECT_PROGRESS_SUMMARY.md` is the canonical project-level progress
@@ -545,9 +629,9 @@ specification, threat and compatibility analysis, and user-visible controls.
 - Enumerating every unattached local branch in version 1.
 - Supporting non-GitHub forges, multiple users, or hosted collaboration in
   version 1.
-- A history database, background daemon, web dashboard, notifications,
-  launch-at-login, Homebrew distribution, Developer ID signing, notarization,
-  App Store distribution, automatic updates, or an in-app configuration editor.
+- A history database, web dashboard, notifications, Homebrew distribution,
+  Developer ID signing, notarization, App Store distribution, automatic
+  updates, or an in-app configuration editor.
 
 These items may become future features only through explicit requirements; they
 are not implied by Beacon's long-term vision.

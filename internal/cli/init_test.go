@@ -95,6 +95,34 @@ func TestInitInteractiveSelectWritesOnlySelectedRepositories(t *testing.T) {
 	}
 }
 
+func TestInitInteractiveOffersBackgroundAgentAfterWritingConfig(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	repository := config.Repository{Name: "repo", Path: root, GitHub: "owner/repo", Base: "main", Remote: "origin"}
+	writer := &recordingConfigWriter{}
+	prompter := &fakeInitPrompter{confirmations: []bool{true, true}}
+	service := newTestInitService(filepath.Join(t.TempDir(), "config.yaml"), writer)
+	service.isTTY = func() bool { return true }
+	service.prompter = prompter
+	service.options = initOptions{sources: []string{root}}
+	service.discoverer = fakeDiscoverer{results: map[string]discovery.Result{
+		canonicalTestSource(t, root): {Repositories: []config.Repository{repository}},
+	}}
+	installed := false
+	service.agentInstall = func(context.Context) error {
+		installed = true
+		return nil
+	}
+	if err := service.run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if writer.calls != 1 || prompter.confirmCalls != 2 || !installed {
+		t.Fatalf("writes=%d confirmations=%d installed=%t", writer.calls, prompter.confirmCalls, installed)
+	}
+}
+
 func TestInitNonInteractiveRequirementsDoNotWrite(t *testing.T) {
 	tests := []struct {
 		name    string

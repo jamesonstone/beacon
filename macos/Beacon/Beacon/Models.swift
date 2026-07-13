@@ -4,6 +4,7 @@ struct BeaconSnapshot: Codable, Equatable {
     let schemaVersion: Int
     let generatedAt: String
     let configPath: String
+    let tracking: TrackingDetails?
     let refresh: [RefreshResult]
     let summary: SnapshotSummary
     let groups: LaneGroups
@@ -15,12 +16,14 @@ struct BeaconSnapshot: Codable, Equatable {
         case schemaVersion = "schema_version"
         case generatedAt = "generated_at"
         case configPath = "config_path"
-        case refresh, summary, groups, projects, lanes, errors
+        case refresh, summary, groups, projects, lanes, errors, tracking
     }
 }
 
 struct SnapshotSummary: Codable, Equatable {
     let projects: Int
+    let trackedProjects: Int?
+    let untrackedProjects: Int?
     let total: Int
     let reviewReady: Int
     let needsAction: Int
@@ -32,6 +35,8 @@ struct SnapshotSummary: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case projects, total, waiting, idle, errors
+        case trackedProjects = "tracked_projects"
+        case untrackedProjects = "untracked_projects"
         case reviewReady = "review_ready"
         case needsAction = "needs_action"
         case openIssues = "open_issues"
@@ -44,6 +49,17 @@ struct LaneGroups: Codable, Equatable {
     let action: [String]
     let waiting: [String]
     let idle: [String]
+    let untracked: [String]?
+}
+
+struct TrackingDetails: Codable, Equatable {
+    let path: String
+    let autoReactivated: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case path
+        case autoReactivated = "auto_reactivated"
+    }
 }
 
 struct RefreshResult: Codable, Equatable {
@@ -68,14 +84,18 @@ struct BeaconProject: Codable, Equatable, Identifiable {
     let github: String
     let base: String
     let remote: String
+    let trackingState: String?
     let progress: ProgressDetails?
     let laneIDs: [String]
     let errors: [ScanError]
 
     enum CodingKeys: String, CodingKey {
         case name, path, github, base, remote, progress, errors
+        case trackingState = "tracking_state"
         case laneIDs = "lane_ids"
     }
+
+    var isTracked: Bool { trackingState != "untracked" }
 }
 
 struct WorkLane: Codable, Equatable, Identifiable {

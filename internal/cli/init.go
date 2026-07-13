@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"sort"
 
+	"github.com/jamesonstone/beacon/internal/agent"
 	"github.com/jamesonstone/beacon/internal/command"
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/discovery"
@@ -38,17 +39,18 @@ type repositoryDiscoverer interface {
 }
 
 type initService struct {
-	runner     command.Runner
-	discoverer repositoryDiscoverer
-	writer     config.Writer
-	prompter   initPrompter
-	authRunner inheritedRunner
-	lookup     func(string) (string, error)
-	isTTY      func() bool
-	out        io.Writer
-	errOut     io.Writer
-	configPath string
-	options    initOptions
+	runner       command.Runner
+	discoverer   repositoryDiscoverer
+	writer       config.Writer
+	prompter     initPrompter
+	authRunner   inheritedRunner
+	agentInstall func(context.Context) error
+	lookup       func(string) (string, error)
+	isTTY        func() bool
+	out          io.Writer
+	errOut       io.Writer
+	configPath   string
+	options      initOptions
 }
 
 func (a App) initCommand(configPath *string) *cobra.Command {
@@ -70,7 +72,7 @@ func (a App) initCommandWithUse(configPath *string, use string) *cobra.Command {
 }
 
 func (a App) newInitService(path string, options initOptions) initService {
-	return initService{
+	service := initService{
 		runner: a.Runner, discoverer: discovery.Discoverer{Runner: a.Runner},
 		writer: config.AtomicWriter{}, lookup: exec.LookPath,
 		prompter:   a.initPrompter(),
@@ -78,6 +80,14 @@ func (a App) newInitService(path string, options initOptions) initService {
 		isTTY:      a.inputIsTTY,
 		out:        a.Out, errOut: a.Err, configPath: path, options: options,
 	}
+	service.agentInstall = func(ctx context.Context) error {
+		_, paths, err := a.agentConfig(path)
+		if err != nil {
+			return err
+		}
+		return (agent.Lifecycle{Paths: paths, Runner: a.Runner}).Install(ctx)
+	}
+	return service
 }
 
 func (s initService) run(ctx context.Context) error {
@@ -132,8 +142,23 @@ func (s initService) run(ctx context.Context) error {
 	if err := s.writer.Write(s.configPath, merged); err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(s.out, "configured %s\n", s.configPath)
-	return err
+	if _, err = fmt.Fprintf(s.out, "configured %s\n", s.configPath); err != nil {
+		return err
+	}
+	if interactive && s.agentInstall != nil {
+		enable, promptErr := s.prompter.Confirm(ctx, "Enable the Beacon background agent?")
+		if promptErr != nil {
+			return fmt.Errorf("offer background agent: %w", promptErr)
+		}
+		if enable {
+			if err := s.agentInstall(ctx); err != nil {
+				return fmt.Errorf("install background agent: %w", err)
+			}
+			_, err = fmt.Fprintln(s.out, "enabled Beacon background agent")
+			return err
+		}
+	}
+	return nil
 }
 
 func effectiveRepositoryCount(explicit, discovered []config.Repository) int {

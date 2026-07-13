@@ -64,7 +64,7 @@ repositories:
 	if cfg.Repositories[0].Base != "main" || cfg.Repositories[0].Remote != "origin" {
 		t.Fatalf("repository defaults = %#v", cfg.Repositories[0])
 	}
-	if cfg.Settings.ScanInterval != time.Minute || cfg.Settings.RemoteRefreshInterval != 5*time.Minute || cfg.Settings.StaleAfter != 24*time.Hour {
+	if cfg.Settings.ScanInterval != time.Minute || cfg.Settings.TrackedRefreshInterval != time.Minute || cfg.Settings.UntrackedProbeInterval != 10*time.Minute || cfg.Settings.RemoteRefreshInterval != 5*time.Minute || cfg.Settings.StaleAfter != 24*time.Hour {
 		t.Fatalf("duration defaults = %#v", cfg.Settings)
 	}
 	if cfg.Settings.MaxParallel != 4 || cfg.Settings.GitHubAuthor != "@me" {
@@ -217,17 +217,21 @@ repositories:
 }
 
 func TestLoadRejectsInvalidDuration(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	writeConfig(t, path, `version: 1
+	for _, field := range []string{"scan_interval", "tracked_refresh_interval", "untracked_probe_interval"} {
+		t.Run(field, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.yaml")
+			writeConfig(t, path, `version: 1
 settings:
-  scan_interval: soon
+  `+field+`: soon
 repositories:
   - name: example
     path: `+t.TempDir()+`
     github: owner/example
 `)
-	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "scan_interval") {
-		t.Fatalf("error = %v", err)
+			if _, err := Load(path); err == nil || !strings.Contains(err.Error(), field) {
+				t.Fatalf("error = %v", err)
+			}
+		})
 	}
 }
 

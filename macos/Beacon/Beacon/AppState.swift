@@ -8,17 +8,38 @@ struct ProjectLaneGroup: Identifiable, Equatable {
     let lanes: [WorkLane]
 }
 
+private struct TrackingMutation {
+    let projectID: String
+    let tracked: Bool
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published private(set) var snapshot: BeaconSnapshot?
     @Published private(set) var isScanning = false
     @Published private(set) var lastError: String?
+    @Published private(set) var mutatingProjects: Set<String> = []
+    @Published private(set) var agentAvailable = false
+    @Published private(set) var projectStatuses: [String: AgentProjectStatus] = [:]
+    @Published private(set) var reactivationMessage: String?
 
-    private let client: CLIClientProtocol
-    private var pollingTask: Task<Void, Never>?
+    private let agent: AgentClientProtocol
+    private let installer: AgentInstallerProtocol?
+    private var subscriptionTask: Task<Void, Never>?
+    private var revisions: [String: UInt64] = [:]
+    private var activeScanID: String?
+    private var pendingTrackingStates: [String: Bool] = [:]
+    private var trackingQueue: [TrackingMutation] = []
+    private var trackingTask: Task<Void, Never>?
+    private var trackingFailures: [String: String] = [:]
 
-    init(client: CLIClientProtocol = CLIClient()) {
-        self.client = client
+    init(agent: AgentClientProtocol = AgentClient(), installer: AgentInstallerProtocol? = CLIClient()) {
+        self.agent = agent
+        self.installer = installer
+    }
+
+    convenience init(client: CLIClientProtocol) {
+        self.init(agent: DirectAgentAdapter(client: client), installer: nil)
     }
 
     var readyCount: Int { snapshot?.summary.reviewReady ?? 0 }
@@ -30,37 +51,132 @@ final class AppState: ObservableObject {
 
     var quietProjectCount: Int { quietProjectGroups().count }
 
-    func start() {
-        guard pollingTask == nil else { return }
-        pollingTask = Task { [weak self] in
-            await self?.scan()
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(60))
-                guard !Task.isCancelled else { return }
-                await self?.scan()
+    var queuedTrackingCount: Int { mutatingProjects.count }
+
+    var untrackedProjectCount: Int {
+        snapshot?.summary.untrackedProjects ?? untrackedProjects.count
+    }
+
+    var trackedProjects: [BeaconProject] {
+        (snapshot?.projects ?? []).filter {
+            pendingTrackingStates[$0.github] ?? $0.isTracked
+        }
+    }
+
+    var untrackedProjects: [BeaconProject] {
+        (snapshot?.projects ?? []).filter {
+            !(pendingTrackingStates[$0.github] ?? $0.isTracked)
+        }
+    }
+
+    var loadingProjects: [AgentProjectStatus] {
+        let loaded = Set((snapshot?.projects ?? []).map(\.github))
+        return projectStatuses.values
+            .filter { $0.trackingState == "tracked" && !loaded.contains($0.projectID) }
+            .sorted {
+                if $0.name != $1.name { return $0.name < $1.name }
+                return $0.projectID < $1.projectID
             }
+    }
+
+    func start() {
+        guard subscriptionTask == nil else { return }
+        subscriptionTask = Task { [weak self] in
+            await self?.listenForAgent()
         }
     }
 
     func stop() {
-        pollingTask?.cancel()
-        pollingTask = nil
+        subscriptionTask?.cancel()
+        subscriptionTask = nil
     }
 
     func scan() async {
         guard !isScanning else { return }
         isScanning = true
-        defer { isScanning = false }
         do {
-            let latest = try await client.scan()
-            guard latest.schemaVersion == 2 else {
-                throw CLIClientError.invalidOutput("unsupported schema version \(latest.schemaVersion)")
+            activeScanID = try await agent.refresh(project: nil)
+            let cached = try await agent.snapshot()
+            apply(cached)
+            if activeScanID == "direct" {
+                activeScanID = nil
+                isScanning = false
+            } else {
+                reconcile(try await agent.status())
             }
-            snapshot = latest
+        } catch {
+            isScanning = false
+            activeScanID = nil
+            lastError = error.localizedDescription
+        }
+    }
+
+    func setProjectTracked(_ project: BeaconProject, tracked: Bool) {
+        guard !mutatingProjects.contains(project.github) else { return }
+        pendingTrackingStates[project.github] = tracked
+        mutatingProjects.insert(project.github)
+        trackingFailures.removeValue(forKey: project.github)
+        trackingQueue.append(TrackingMutation(projectID: project.github, tracked: tracked))
+        startTrackingQueue()
+    }
+
+    private func startTrackingQueue() {
+        guard trackingTask == nil else { return }
+        trackingTask = Task { [weak self] in
+            await self?.drainTrackingQueue()
+        }
+    }
+
+    private func drainTrackingQueue() async {
+        while !Task.isCancelled, !trackingQueue.isEmpty {
+            let mutation = trackingQueue.removeFirst()
+            do {
+                let event = try await agent.setProjectTracked(
+                    mutation.projectID,
+                    tracked: mutation.tracked
+                )
+                apply(event)
+            } catch {
+                trackingFailures[mutation.projectID] = error.localizedDescription
+            }
+            pendingTrackingStates.removeValue(forKey: mutation.projectID)
+            mutatingProjects.remove(mutation.projectID)
+            if !trackingFailures.isEmpty {
+                lastError = trackingFailureSummary()
+            }
+        }
+        trackingTask = nil
+    }
+
+    private func trackingFailureSummary() -> String {
+        trackingFailures
+            .sorted { $0.key < $1.key }
+            .map { "\($0.key): \($0.value)" }
+            .joined(separator: "\n")
+    }
+
+    func isMutating(_ project: BeaconProject) -> Bool {
+        mutatingProjects.contains(project.github)
+    }
+
+    func enableAgent() async {
+        guard let installer else {
+            lastError = "The bundled Beacon helper cannot install the background agent."
+            return
+        }
+        do {
+            try await installer.installAgent()
             lastError = nil
+            agentAvailable = true
+            stop()
+            start()
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    func stage(for projectID: String) -> String {
+        projectStatuses[projectID]?.stage ?? "cached"
     }
 
     func lanes(for identifiers: [String]) -> [WorkLane] {
@@ -165,5 +281,132 @@ final class AppState: ObservableObject {
             return nil
         }
         return url
+    }
+
+    private func listenForAgent() async {
+        while !Task.isCancelled {
+            do {
+                let stream = try await agent.subscribe()
+                agentAvailable = true
+                lastError = nil
+                for try await event in stream {
+                    guard !Task.isCancelled else { return }
+                    apply(event)
+                    if event.type == "snapshot" || event.type == "heartbeat" {
+                        reconcile(try await agent.status())
+                    }
+                }
+            } catch {
+                agentAvailable = false
+                lastError = error.localizedDescription
+            }
+            try? await Task.sleep(for: .seconds(2))
+        }
+    }
+
+    private func apply(_ event: AgentEvent) {
+        guard event.protocolVersion == 1 else {
+            lastError = "Beacon agent returned invalid data: unsupported protocol \(event.protocolVersion)"
+            return
+        }
+        if activeScanID == nil, let eventScanID = event.scanID,
+           !eventScanID.isEmpty, event.type != "scan_completed" {
+            activeScanID = eventScanID
+            isScanning = true
+        }
+        if let activeScanID, let eventScanID = event.scanID,
+           !eventScanID.isEmpty, eventScanID != activeScanID,
+           event.type != "heartbeat" {
+            return
+        }
+        if let projectID = event.projectID, let revision = event.revision {
+            guard revision >= revisions[projectID, default: 0] else { return }
+            revisions[projectID] = revision
+            if let existing = projectStatuses[projectID] {
+                projectStatuses[projectID] = AgentProjectStatus(
+                    projectID: existing.projectID,
+                    name: existing.name,
+                    path: existing.path,
+                    trackingState: existing.trackingState,
+                    stage: event.stage ?? existing.stage,
+                    revision: revision,
+                    updatedAt: event.generatedAt,
+                    mutedAt: existing.mutedAt,
+                    lastProbeAt: existing.lastProbeAt
+                )
+            }
+        }
+        for status in event.projects ?? [] {
+            guard status.revision >= revisions[status.projectID, default: 0] else { continue }
+            revisions[status.projectID] = status.revision
+            projectStatuses[status.projectID] = status
+        }
+        if let latest = event.snapshot {
+            guard latest.schemaVersion == 2 else {
+                lastError = "Beacon CLI returned invalid JSON: unsupported schema version \(latest.schemaVersion)"
+                return
+            }
+            snapshot = latest
+            if event.type != "project_failed" {
+                lastError = nil
+            }
+        }
+        if event.type == "project_reactivated" {
+            reactivationMessage = "Reactivated: \(event.message ?? "new project activity")"
+        }
+        if event.type == "project_failed" {
+            lastError = event.message ?? "Project refresh failed — showing previous result"
+        }
+        if event.type == "scan_completed", activeScanID == nil || activeScanID == event.scanID {
+            isScanning = false
+            activeScanID = nil
+        }
+    }
+
+    private func reconcile(_ status: AgentStatusDetails) {
+        agentAvailable = status.running
+        isScanning = status.refreshing
+        activeScanID = status.refreshing ? status.scanID : nil
+    }
+}
+
+private actor DirectAgentAdapter: AgentClientProtocol {
+    let client: CLIClientProtocol
+    var latest: BeaconSnapshot?
+
+    init(client: CLIClientProtocol) {
+        self.client = client
+    }
+
+    func snapshot() async throws -> AgentEvent {
+        if latest == nil { latest = try await client.scan() }
+        return event(type: "snapshot", snapshot: latest)
+    }
+
+    func subscribe() async throws -> AsyncThrowingStream<AgentEvent, Error> {
+        let initial = try await snapshot()
+        return AsyncThrowingStream { continuation in
+            continuation.yield(initial)
+            continuation.finish()
+        }
+    }
+
+    func refresh(project: String?) async throws -> String {
+        latest = try await client.scan()
+        return "direct"
+    }
+
+    func setProjectTracked(_ github: String, tracked: Bool) async throws -> AgentEvent {
+        try await client.setProjectTracked(github, tracked: tracked)
+        latest = try await client.scan()
+        return event(type: "tracking_changed", snapshot: latest)
+    }
+
+    func status() async throws -> AgentStatusDetails {
+        AgentStatusDetails(running: true, pid: 0, startedAt: nil, refreshing: false, scanID: nil, projectCount: latest?.projects.count ?? 0, socket: "direct")
+    }
+
+    private func event(type: String, snapshot: BeaconSnapshot?) -> AgentEvent {
+        AgentEvent(protocolVersion: 1, requestID: nil, type: type, scanID: nil, projectID: nil, revision: nil, stage: "ready", generatedAt: snapshot?.generatedAt ?? "", message: nil, snapshot: snapshot, projects: nil, status: nil)
     }
 }

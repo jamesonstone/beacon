@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -106,6 +107,30 @@ func TestBareMissingConfigTTYCanDeclineInit(t *testing.T) {
 	err := app.runHumanScan(context.Background(), path, "", false, "never", false, true, false)
 	if err == nil || !strings.Contains(err.Error(), "configuration is required") || prompter.confirmCalls != 1 {
 		t.Fatalf("error = %v, confirmations = %d", err, prompter.confirmCalls)
+	}
+}
+
+func TestBareDashboardDoesNotFallBackToBlockingScanWhenAgentIsUnavailable(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	configPath := filepath.Join(home, ".config", "beacon", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeTestConfig(t, configPath, `version: 2
+repositories:
+  - name: beacon
+    path: `+t.TempDir()+`
+    github: owner/beacon
+`)
+	app := App{
+		Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Runner: &recordingRunner{},
+		OutputIsTTY: func() bool { return true }, TerminalWidth: func() int { return 120 },
+	}
+	err := app.runAgentDashboard(context.Background(), configPath, "never", false, false)
+	if err == nil || !strings.Contains(err.Error(), "background agent is unavailable") ||
+		!strings.Contains(err.Error(), "beacon agent install") || !strings.Contains(err.Error(), "beacon scan") {
+		t.Fatalf("error = %v", err)
 	}
 }
 

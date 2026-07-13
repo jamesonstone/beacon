@@ -7,6 +7,11 @@
 | 0001 | beacon-v1 | `docs/specs/0001-beacon-v1` | deliver | no | 2026-07-09 | Build a read-only agent work-lane review radar as a Go CLI and native macOS menu application backed by the same versioned snapshot. |
 | 0002 | beacon-init-dashboard | `docs/specs/0002-beacon-init-dashboard` | deliver | no | 2026-07-10 | Add guided initialization, persistent repository-source discovery, GitHub issue and feedback evidence, Kit progress inference, an active-first colorful dashboard, and schema-v2 macOS parity. |
 | 0003 | beacon-github-releases | `docs/specs/0003-beacon-github-releases` | deliver | no | 2026-07-10 | Publish synchronized SemVer CLI and universal macOS artifacts with generated notes and checksums after accepted merges to main. |
+| 0004 | project-tracking | `docs/specs/0004-project-tracking` | deliver | no | 2026-07-11 | Let users curate tracked projects while automatically restoring untracked projects when new Git or GitHub evidence appears. |
+| 0005 | beacon-background-agent | `docs/specs/0005-beacon-background-agent` | deliver | no | 2026-07-11 | Render cached state immediately while a user-scoped background agent refreshes projects incrementally and probes muted projects for reactivation. |
+| 0006 | beacon-detachable-dashboard | `docs/specs/0006-beacon-detachable-dashboard` | deliver | no | 2026-07-12 | Add a Dock- and Command-Tab-accessible singleton dashboard plus a quiet optional login item without duplicating Beacon evidence logic. |
+| 0007 | queued-project-tracking | `docs/specs/0007-queued-project-tracking` | deliver | no | 2026-07-12 | Make macOS Track and Untrack selections optimistic and nonblocking through an ordered background queue. |
+| 0008 | github-api-budget | `docs/specs/0008-github-api-budget` | deliver | no | 2026-07-12 | Preserve the user's GitHub API allowance with shared caching, rate-budget circuit breaking, and network-free batch tracking changes. |
 
 ## PROJECT INTENT
 
@@ -52,6 +57,51 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **OPEN ITEMS**: Local implementation and validation are complete on `GH-1` / PR #2. The first live release and same-commit rerun behavior remain post-merge evidence because release automation intentionally runs only after a human merges to `main`.
 - **POINTERS**: `docs/specs/0003-beacon-github-releases/SPEC.md`
 
+### project-tracking
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Keep stale projects out of active organizational views without losing visibility when work resumes.
+- **APPROACH**: Persist user choices in a separate managed tracking state, baseline durable project evidence when deselected, reconcile changed evidence on every scan, and expose thin CLI and macOS management surfaces over the same Go authority.
+- **OPEN ITEMS**: No implementation items remain. AC1-AC10 are complete on issue #3 and branch `GH-3`; final review and merge remain human decisions.
+- **POINTERS**: `docs/specs/0004-project-tracking/SPEC.md`
+
+### beacon-background-agent
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Remove synchronous scan latency from everyday CLI and menu use while preserving complete deterministic direct scans.
+- **APPROACH**: Run one user-scoped agent with a versioned Unix-socket protocol, bounded project scheduler, durable per-project cache, full tracked scans, lightweight muted probes, and thin CLI/Swift clients.
+- **OPEN ITEMS**: No implementation items remain. AC1-AC13 are complete on issue #3 and branch `GH-3`; final PR #4 review and merge remain human decisions.
+- **POINTERS**: `docs/specs/0005-beacon-background-agent/SPEC.md`
+
+### beacon-detachable-dashboard
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Keep Beacon reachable when a crowded or notched menu bar obscures its menu-bar item.
+- **APPROACH**: Present one shared SwiftUI dashboard in both the existing menu extra and a regular singleton macOS window, add a neon-space app icon, and use an embedded Service Management login helper for quiet optional startup.
+- **OPEN ITEMS**: Implementation and validation are complete on issue #3, branch `GH-3`, and ready PR #4; final review and merge remain human decisions.
+- **POINTERS**: `docs/specs/0006-beacon-detachable-dashboard/SPEC.md`
+
+### queued-project-tracking
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Let users curate tens of projects quickly without waiting for each durable baseline probe.
+- **APPROACH**: Project selections update optimistically, enter one serial background queue, consume the agent acknowledgement snapshot directly, and roll back individually on failure while later work continues.
+- **OPEN ITEMS**: Implementation and validation are complete on issue #3, branch `GH-3`, and ready PR #4; final review and merge remain human decisions.
+- **POINTERS**: `docs/specs/0007-queued-project-tracking/SPEC.md`
+
+### github-api-budget
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Keep Beacon background collection from exhausting the GitHub API capacity needed for the user's daily interactive work.
+- **APPROACH**: Persist user-only cached `gh` results across agent restarts, keep subscriptions cache-only, skip scheduler collection when no cached project is due, batch default-scope GitHub searches across every due project, enrich only matching PRs, serialize cache misses behind 50% rate-bucket reserves, and probe quiet inventory on a slower cadence.
+- **OPEN ITEMS**: Implementation, local state migration, and validation are complete on issue #3, branch `GH-3`, and ready PR #4; final review and merge remain human decisions.
+- **POINTERS**: `docs/specs/0008-github-api-budget/SPEC.md`
+
 ## LAST UPDATED
 
-2026-07-10 EDT
+2026-07-12 EDT

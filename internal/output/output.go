@@ -56,9 +56,10 @@ func TerminalWithOptions(writer io.Writer, snapshot model.Snapshot, options Term
 		return err
 	}
 	summary := fmt.Sprintf("%d projects · %d work items · %d ready · %d issues · %d unresolved feedback",
-		snapshot.Summary.Projects, snapshot.Summary.Total, snapshot.Summary.ReviewReady, snapshot.Summary.OpenIssues, snapshot.Summary.UnresolvedFeedback)
-	if snapshot.Summary.Warnings > 0 {
-		summary += fmt.Sprintf(" · %d warnings", snapshot.Summary.Warnings)
+		snapshot.Summary.TrackedProjects, snapshot.Summary.Total, snapshot.Summary.ReviewReady, snapshot.Summary.OpenIssues, snapshot.Summary.UnresolvedFeedback)
+	visibleWarnings := visibleDiagnostics(snapshot, snapshot.Warnings)
+	if len(visibleWarnings) > 0 {
+		summary += fmt.Sprintf(" · %d warnings", len(visibleWarnings))
 	}
 	if options.Width < narrowWidth {
 		if err := writeWrapped(writer, "", style.wrap.Width(options.Width).Render(summary)); err != nil {
@@ -132,7 +133,21 @@ func TerminalWithOptions(writer io.Writer, snapshot model.Snapshot, options Term
 			return err
 		}
 	}
-	if len(snapshot.Errors) > 0 {
+	if snapshot.Summary.UntrackedProjects > 0 {
+		message := style.dim.Render(fmt.Sprintf("%d untracked project%s · run beacon projects --untracked to view", snapshot.Summary.UntrackedProjects, pluralSuffix(snapshot.Summary.UntrackedProjects)))
+		if options.Width < narrowWidth {
+			if err := writeWrapped(writer, "", style.wrap.Width(options.Width).Render(message)); err != nil {
+				return err
+			}
+		} else if _, err := fmt.Fprintln(writer, message); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(writer); err != nil {
+			return err
+		}
+	}
+	visibleErrors := visibleDiagnostics(snapshot, snapshot.Errors)
+	if len(visibleErrors) > 0 {
 		errorTitle := style.red.Render("Errors")
 		if options.Width < narrowWidth {
 			if err := writeWrapped(writer, "", style.wrap.Width(options.Width).Render(errorTitle)); err != nil {
@@ -141,7 +156,7 @@ func TerminalWithOptions(writer io.Writer, snapshot model.Snapshot, options Term
 		} else if _, err := fmt.Fprintln(writer, errorTitle); err != nil {
 			return err
 		}
-		for _, scanError := range snapshot.Errors {
+		for _, scanError := range visibleErrors {
 			prefix := scanError.Repository
 			if prefix != "" {
 				prefix += ": "
@@ -158,6 +173,25 @@ func TerminalWithOptions(writer io.Writer, snapshot model.Snapshot, options Term
 		}
 	}
 	return nil
+}
+
+func visibleDiagnostics(snapshot model.Snapshot, diagnostics []model.ScanError) []model.ScanError {
+	untracked := make(map[string]struct{})
+	for _, project := range snapshot.Projects {
+		if project.TrackingState != model.TrackingUntracked {
+			continue
+		}
+		untracked[project.Name] = struct{}{}
+		untracked[project.GitHub] = struct{}{}
+	}
+	visible := make([]model.ScanError, 0, len(diagnostics))
+	for _, diagnostic := range diagnostics {
+		if _, hidden := untracked[diagnostic.Repository]; diagnostic.Repository != "" && hidden {
+			continue
+		}
+		visible = append(visible, diagnostic)
+	}
+	return visible
 }
 
 func renderTable(writer io.Writer, lanes []model.Lane, style styles) error {

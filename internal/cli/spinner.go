@@ -15,12 +15,14 @@ const (
 	hideCursor         = "\x1b[?25l"
 	showCursor         = "\x1b[?25h"
 	clearLine          = "\r\x1b[2K"
+	moveUpLine         = "\x1b[1A"
 	resetStyle         = "\x1b[0m"
 )
 
 var (
 	scanLoaderFrames = []string{"◜", "◠", "◝", "◞", "◡", "◟"}
 	scanLoaderColors = []string{"\x1b[96m", "\x1b[94m", "\x1b[95m", "\x1b[35m", "\x1b[93m", "\x1b[36m"}
+	scanBeamColors   = []string{"\x1b[38;5;51m", "\x1b[38;5;159m", "\x1b[38;5;183m", "\x1b[38;5;219m", "\x1b[38;5;228m"}
 	scanFactColors   = []string{"\x1b[38;5;183m", "\x1b[38;5;159m", "\x1b[38;5;219m", "\x1b[38;5;228m"}
 )
 
@@ -36,6 +38,7 @@ type scanLoader struct {
 	done          chan bool
 	stopped       chan struct{}
 	stopOnce      sync.Once
+	rendered      bool
 }
 
 type scanLoaderOptions struct {
@@ -113,10 +116,9 @@ func (l *scanLoader) run() {
 	for {
 		select {
 		case ready := <-l.done:
+			l.clearRendered()
 			if ready {
-				_, _ = fmt.Fprintf(l.writer, "%s%s\n", clearLine, l.readyText())
-			} else {
-				_, _ = fmt.Fprint(l.writer, clearLine)
+				_, _ = fmt.Fprintf(l.writer, "%s\n", l.readyText())
 			}
 			return
 		case <-ticker.C:
@@ -136,13 +138,23 @@ func (l *scanLoader) run() {
 }
 
 func (l *scanLoader) render(frame int) {
-	arc := scanLoaderFrames[frame%len(scanLoaderFrames)]
+	beam := scanBeamLine(frame, l.width)
 	fact := fitLoaderFact(l.deck.current(), l.width)
 	if l.color {
-		arc = scanLoaderColors[frame%len(scanLoaderColors)] + arc + resetStyle
+		beam = colorizeScanBeam(beam, frame)
 		fact = scanFactColors[l.deck.position%len(scanFactColors)] + fact + resetStyle
 	}
-	_, _ = fmt.Fprintf(l.writer, "%s%s %s", clearLine, arc, fact)
+	l.clearRendered()
+	_, _ = fmt.Fprintf(l.writer, "%s%s\r\n%s  %s", clearLine, beam, clearLine, fact)
+	l.rendered = true
+}
+
+func (l *scanLoader) clearRendered() {
+	if !l.rendered {
+		return
+	}
+	_, _ = fmt.Fprintf(l.writer, "%s%s%s", clearLine, moveUpLine, clearLine)
+	l.rendered = false
 }
 
 func (l *scanLoader) readyText() string {
@@ -170,6 +182,68 @@ func (l *scanLoader) factDelay() time.Duration {
 
 func randomFactDelay() time.Duration {
 	return time.Duration(rand.IntN(factIntervalCount)+1) * time.Second
+}
+
+func scanBeamLine(frame, width int) string {
+	if width <= 0 {
+		width = 80
+	}
+	arc := scanLoaderFrames[frame%len(scanLoaderFrames)]
+	if width == 1 {
+		return arc
+	}
+	trackWidth := width - 2
+	track := make([]rune, trackWidth)
+	for index := range track {
+		track[index] = '·'
+	}
+	if trackWidth == 0 {
+		return arc + " "
+	}
+	position, forward := scanBeamPosition(frame, trackWidth)
+	track[position] = '✦'
+	trailLength := min(8, trackWidth-1)
+	if forward {
+		for distance := 1; distance <= trailLength && position-distance >= 0; distance++ {
+			track[position-distance] = '━'
+		}
+		if edge := position - trailLength - 1; edge >= 0 {
+			track[edge] = '╺'
+		}
+	} else {
+		for distance := 1; distance <= trailLength && position+distance < trackWidth; distance++ {
+			track[position+distance] = '━'
+		}
+		if edge := position + trailLength + 1; edge < trackWidth {
+			track[edge] = '╸'
+		}
+	}
+	return arc + " " + string(track)
+}
+
+func scanBeamPosition(frame, width int) (int, bool) {
+	if width <= 1 {
+		return 0, true
+	}
+	cycle := 2 * (width - 1)
+	step := frame % cycle
+	if step <= width-1 {
+		return step, true
+	}
+	return cycle - step, false
+}
+
+func colorizeScanBeam(beam string, frame int) string {
+	runes := []rune(beam)
+	if len(runes) == 0 {
+		return beam
+	}
+	arc := scanLoaderColors[frame%len(scanLoaderColors)] + string(runes[0]) + resetStyle
+	if len(runes) == 1 {
+		return arc
+	}
+	track := scanBeamColors[frame%len(scanBeamColors)] + string(runes[1:]) + resetStyle
+	return arc + track
 }
 
 func newFactDeck(facts []string, order []int) factDeck {

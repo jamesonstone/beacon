@@ -8,7 +8,11 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(snapshot.schemaVersion, 2)
         XCTAssertEqual(snapshot.projects.first?.progress?.phase, "deliver")
         XCTAssertEqual(snapshot.summary.reviewReady, 1)
+        XCTAssertEqual(snapshot.summary.trackedProjects, 1)
+        XCTAssertEqual(snapshot.summary.untrackedProjects, 0)
         XCTAssertEqual(snapshot.summary.openIssues, 1)
+        XCTAssertEqual(snapshot.tracking?.path, "/Users/test/.config/beacon/tracking.yaml")
+        XCTAssertEqual(snapshot.projects.first?.trackingState, "tracked")
         XCTAssertEqual(snapshot.lanes.first?.pullRequest?.number, 42)
         XCTAssertEqual(snapshot.lanes.first?.pullRequest?.checks.success, 2)
         XCTAssertEqual(snapshot.lanes.first?.pullRequest?.feedback.unresolvedThreads, 1)
@@ -48,6 +52,29 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(snapshot.lanes.first?.nextAction, "inspect_with_agent")
     }
 
+    func testDecodesEarlierSchemaTwoSnapshotWithoutTrackingAdditions() throws {
+        var object = try Self.snapshotObject()
+        object.removeValue(forKey: "tracking")
+        var summary = try XCTUnwrap(object["summary"] as? [String: Any])
+        summary.removeValue(forKey: "tracked_projects")
+        summary.removeValue(forKey: "untracked_projects")
+        object["summary"] = summary
+        var groups = try XCTUnwrap(object["groups"] as? [String: Any])
+        groups.removeValue(forKey: "untracked")
+        object["groups"] = groups
+        var projects = try XCTUnwrap(object["projects"] as? [[String: Any]])
+        projects[0].removeValue(forKey: "tracking_state")
+        object["projects"] = projects
+
+        let data = try JSONSerialization.data(withJSONObject: object)
+        let snapshot = try JSONDecoder().decode(BeaconSnapshot.self, from: data)
+
+        XCTAssertNil(snapshot.tracking)
+        XCTAssertNil(snapshot.summary.trackedProjects)
+        XCTAssertNil(snapshot.groups.untracked)
+        XCTAssertTrue(try XCTUnwrap(snapshot.projects.first).isTracked)
+    }
+
     func testCommandPathIncludesCommonHomebrewLocationsOnce() {
         let path = CLIClient.commandPath(existing: "/usr/bin:/opt/homebrew/bin")
         XCTAssertTrue(path.hasPrefix("/opt/homebrew/bin:/usr/local/bin"))
@@ -56,6 +83,39 @@ final class ModelsTests: XCTestCase {
 
     func testBundledHelperUsesDistinctExecutableName() {
         XCTAssertEqual(CLIClient.defaultExecutableURL().lastPathComponent, "beacon-cli")
+    }
+
+    func testDecodesAgentProtocolEventAndProjectStage() throws {
+        let object: [String: Any] = [
+            "protocol_version": 1,
+            "type": "project_updated",
+            "scan_id": "scan-1",
+            "project_id": "owner/repo",
+            "revision": 7,
+            "stage": "github",
+            "generated_at": "2026-07-11T16:00:00Z",
+            "projects": [[
+                "project_id": "owner/repo",
+                "name": "repo",
+                "path": "/repo",
+                "tracking_state": "muted",
+                "stage": "github",
+                "revision": 7,
+                "updated_at": "2026-07-11T16:00:00Z",
+                "muted_at": "2026-07-11T15:00:00Z",
+                "last_probe_at": "2026-07-11T15:50:00Z",
+            ]],
+        ]
+        let data = try JSONSerialization.data(withJSONObject: object)
+        let event = try JSONDecoder().decode(AgentEvent.self, from: data)
+        XCTAssertEqual(event.protocolVersion, 1)
+        XCTAssertEqual(event.projects?.first?.stage, "github")
+        XCTAssertEqual(event.projects?.first?.trackingState, "muted")
+        XCTAssertEqual(event.projects?.first?.lastProbeAt, "2026-07-11T15:50:00Z")
+    }
+
+    func testDefaultAgentSocketUsesCacheDirectory() {
+        XCTAssertTrue(AgentClient.defaultSocketPath().hasSuffix("/.cache/beacon/agent.sock"))
     }
 
     private static func snapshotObject() throws -> [String: Any] {
@@ -68,11 +128,13 @@ final class ModelsTests: XCTestCase {
       "schema_version": 2,
       "generated_at": "2026-07-09T16:00:00Z",
       "config_path": "/Users/test/.config/beacon/config.yaml",
+      "tracking": {"path": "/Users/test/.config/beacon/tracking.yaml", "auto_reactivated": []},
       "refresh": [],
-      "summary": {"projects": 1, "total": 1, "review_ready": 1, "needs_action": 0, "waiting": 0, "idle": 0, "errors": 0, "open_issues": 1, "unresolved_feedback": 1},
-      "groups": {"ready": ["gh:owner/repo#42"], "action": [], "waiting": [], "idle": []},
+      "summary": {"projects": 1, "tracked_projects": 1, "untracked_projects": 0, "total": 1, "review_ready": 1, "needs_action": 0, "waiting": 0, "idle": 0, "errors": 0, "open_issues": 1, "unresolved_feedback": 1},
+      "groups": {"ready": ["gh:owner/repo#42"], "action": [], "waiting": [], "idle": [], "untracked": []},
       "projects": [{
         "name": "repo", "path": "/Users/test/repo", "github": "owner/repo", "base": "main", "remote": "origin",
+        "tracking_state": "tracked",
         "progress": {"source": "kit", "feature_id": "0002", "feature": "Dashboard", "phase": "deliver", "summary": "Ready", "path": "docs/specs/0002/SPEC.md"},
         "lane_ids": ["gh:owner/repo#42"], "errors": []
       }],

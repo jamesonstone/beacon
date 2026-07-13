@@ -2,6 +2,7 @@ package gitscan
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"net/url"
 	"os"
@@ -155,6 +156,7 @@ func (s Scanner) scanWorktree(ctx context.Context, repo config.Repository, recor
 	lane.Worktree.Conflicted = status.Conflicted
 	lane.Worktree.Ahead = status.Ahead
 	lane.Worktree.Behind = status.Behind
+	lane.Worktree.StatusHash = fmt.Sprintf("%x", sha256.Sum256(output))
 
 	var scanErrors []model.ScanError
 	baseOutput, err := s.run(ctx, localTimeout, record.Path, "git", "rev-list", "--left-right", "--count", repo.Remote+"/"+repo.Base+"...HEAD")

@@ -2,6 +2,11 @@ import Foundation
 
 protocol CLIClientProtocol {
     func scan() async throws -> BeaconSnapshot
+    func setProjectTracked(_ github: String, tracked: Bool) async throws
+}
+
+protocol AgentInstallerProtocol {
+    func installAgent() async throws
 }
 
 enum CLIClientError: LocalizedError {
@@ -21,7 +26,7 @@ enum CLIClientError: LocalizedError {
     }
 }
 
-struct CLIClient: CLIClientProtocol {
+struct CLIClient: CLIClientProtocol, AgentInstallerProtocol {
     private let executableURL: URL
 
     init(executableURL: URL = CLIClient.defaultExecutableURL()) {
@@ -29,6 +34,24 @@ struct CLIClient: CLIClientProtocol {
     }
 
     func scan() async throws -> BeaconSnapshot {
+        let outputData = try await execute(arguments: ["scan", "--json"])
+        do {
+            return try JSONDecoder().decode(BeaconSnapshot.self, from: outputData)
+        } catch {
+            throw CLIClientError.invalidOutput(error.localizedDescription)
+        }
+    }
+
+    func setProjectTracked(_ github: String, tracked: Bool) async throws {
+        let command = tracked ? "track" : "untrack"
+        _ = try await execute(arguments: ["projects", command, github])
+    }
+
+    func installAgent() async throws {
+        _ = try await execute(arguments: ["agent", "install"])
+    }
+
+    private func execute(arguments: [String]) async throws -> Data {
         let executableURL = executableURL
         return try await Task.detached(priority: .userInitiated) {
             guard FileManager.default.isExecutableFile(atPath: executableURL.path) else {
@@ -38,7 +61,7 @@ struct CLIClient: CLIClientProtocol {
             let standardOutput = Pipe()
             let standardError = Pipe()
             process.executableURL = executableURL
-            process.arguments = ["scan", "--json"]
+            process.arguments = arguments
             process.standardOutput = standardOutput
             process.standardError = standardError
             var environment = ProcessInfo.processInfo.environment
@@ -53,11 +76,7 @@ struct CLIClient: CLIClientProtocol {
                 let message = String(data: errorData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown error"
                 throw CLIClientError.commandFailed(process.terminationStatus, message)
             }
-            do {
-                return try JSONDecoder().decode(BeaconSnapshot.self, from: outputData)
-            } catch {
-                throw CLIClientError.invalidOutput(error.localizedDescription)
-            }
+            return outputData
         }.value
     }
 

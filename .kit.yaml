@@ -13,7 +13,7 @@ loop:
             - never
             - exec
             - --model
-            - gpt-5.5
+            - gpt-5.6
             - --sandbox
             - workspace-write
             - --ignore-user-config
@@ -39,7 +39,7 @@ registry:
           path: docs/references/rules/agent-team-orchestration.md
           source_repo: jamesonstone/kit
           source_branch: main
-          source_commit: 53053e1f3700544a6504810731c403837d901407
+          source_commit: 0508d5f6a26a33d94c43f4d00f3f8f04d644baff
           source_path: docs/references/rules/agent-team-orchestration.md
           installed_hash: sha256:1ddad317c3cd1fd48caae3cb9122e29f876f672df8c600e5e1fb743afa6559c8
           state: managed
@@ -48,7 +48,7 @@ registry:
           path: docs/references/rules/feature-notes.md
           source_repo: jamesonstone/kit
           source_branch: main
-          source_commit: 53053e1f3700544a6504810731c403837d901407
+          source_commit: 0508d5f6a26a33d94c43f4d00f3f8f04d644baff
           source_path: docs/references/rules/feature-notes.md
           installed_hash: sha256:7545870fd2f8dc484ff60f551c6c20f055856cdf4bc6a399195b1af259427450
           state: managed
@@ -57,7 +57,7 @@ registry:
           path: docs/references/rules/github-pr-delivery.md
           source_repo: jamesonstone/kit
           source_branch: main
-          source_commit: 53053e1f3700544a6504810731c403837d901407
+          source_commit: 0508d5f6a26a33d94c43f4d00f3f8f04d644baff
           source_path: docs/references/rules/github-pr-delivery.md
           installed_hash: sha256:fa5d23f67b544d14aab17e7e63c48d5726289483178b2619a2b6ee1b8ce4bd54
           state: managed
@@ -66,7 +66,7 @@ registry:
           path: docs/references/rules/kit-capabilities-usage.md
           source_repo: jamesonstone/kit
           source_branch: main
-          source_commit: 53053e1f3700544a6504810731c403837d901407
+          source_commit: 0508d5f6a26a33d94c43f4d00f3f8f04d644baff
           source_path: docs/references/rules/kit-capabilities-usage.md
           installed_hash: sha256:b48b8687f4dac7b59b7c0492739e8a0e97b1769226f15cfb7f997b78fef17207
           state: managed
@@ -75,7 +75,7 @@ registry:
           path: docs/references/rules/llms-txt.md
           source_repo: jamesonstone/kit
           source_branch: main
-          source_commit: 53053e1f3700544a6504810731c403837d901407
+          source_commit: 0508d5f6a26a33d94c43f4d00f3f8f04d644baff
           source_path: docs/references/rules/llms-txt.md
           installed_hash: sha256:4aaa326493395e357b1cd28ed2dda4c2c454e0fe7fa31fffdeea753bd6fb5884
           state: managed
@@ -84,7 +84,7 @@ registry:
           path: docs/references/rules/readme-header-tagline.md
           source_repo: jamesonstone/kit
           source_branch: main
-          source_commit: 53053e1f3700544a6504810731c403837d901407
+          source_commit: 0508d5f6a26a33d94c43f4d00f3f8f04d644baff
           source_path: docs/references/rules/readme-header-tagline.md
           installed_hash: sha256:062443de22fe7f99f17aeec03c8db15739cdbad64800716daeedb8b47aa63761
           state: managed
@@ -93,7 +93,7 @@ registry:
           path: docs/references/rules/safety-guardrails.md
           source_repo: jamesonstone/kit
           source_branch: main
-          source_commit: 53053e1f3700544a6504810731c403837d901407
+          source_commit: 0508d5f6a26a33d94c43f4d00f3f8f04d644baff
           source_path: docs/references/rules/safety-guardrails.md
           installed_hash: sha256:224ac020a7312dc1a862d8ee285f820b1ae66d1381dc8f870b709fd8832ebc42
           state: managed
@@ -102,7 +102,7 @@ registry:
           path: docs/references/rules/work-lane-gating.md
           source_repo: jamesonstone/kit
           source_branch: main
-          source_commit: 53053e1f3700544a6504810731c403837d901407
+          source_commit: 0508d5f6a26a33d94c43f4d00f3f8f04d644baff
           source_path: docs/references/rules/work-lane-gating.md
           installed_hash: sha256:7bd18273b06425a7809a315378acc147c745d6966e9f92399c0143d92539ae76
           state: managed

@@ -1,19 +1,75 @@
 import AppKit
 import SwiftUI
 
+enum DashboardSurface {
+    case menu
+    case window
+}
+
 struct MenuView: View {
     @ObservedObject var state: AppState
+    @ObservedObject var loginItem: LoginItemController
+    let surface: DashboardSurface
+    let openDashboard: () -> Void
     @State private var showingQuietProjects = false
+    @State private var showingProjectTracking = false
+    @State private var projectTrackingTab = ProjectTrackingTab.tracked
     @State private var quietSearch = ""
 
     var body: some View {
+        Group {
+            if surface == .menu {
+                dashboard
+                    .frame(width: 430, height: 540)
+            } else {
+                dashboard
+                    .frame(
+                        minWidth: 430,
+                        maxWidth: .infinity,
+                        minHeight: 540,
+                        maxHeight: .infinity
+                    )
+            }
+        }
+        .onAppear { loginItem.refresh() }
+    }
+
+    private var dashboard: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
             if let error = state.lastError {
                 errorBanner(error)
             }
+            if let error = loginItem.errorMessage {
+                errorBanner("Open at Login: \(error)")
+            }
+            if !state.agentAvailable {
+                enableAgentBanner
+            }
+            if let message = state.reactivationMessage {
+                Label(message, systemImage: "bolt.fill")
+                    .font(.caption)
+                    .foregroundStyle(BeaconPalette.mint)
+            }
+            if let reactivated = state.snapshot?.tracking?.autoReactivated, !reactivated.isEmpty {
+                reactivationBanner(reactivated)
+            }
             if let snapshot = state.snapshot {
-                if showingQuietProjects {
+                Picker("Projects", selection: $projectTrackingTab) {
+                    ForEach(ProjectTrackingTab.allCases) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                if projectTrackingTab == .untracked {
+                    ProjectTrackingView(state: state, selectedTab: $projectTrackingTab, onClose: {
+                        projectTrackingTab = .tracked
+                    }, showsTabPicker: false)
+                } else if showingProjectTracking {
+                    ProjectTrackingView(state: state, selectedTab: $projectTrackingTab, onClose: {
+                        showingProjectTracking = false
+                    })
+                } else if showingQuietProjects {
                     quietProjects
                 } else {
                     activeDashboard(snapshot)
@@ -30,11 +86,11 @@ struct MenuView: View {
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(BeaconPalette.cyan, BeaconPalette.lavender)
             }
+            loginItemControls
             Divider()
             actions
         }
         .padding(14)
-        .frame(width: 430, height: 540)
         .background(BeaconPalette.panelBackground)
     }
 
@@ -65,6 +121,13 @@ struct MenuView: View {
 
     private var actions: some View {
         HStack {
+            if surface == .menu {
+                Button(action: openDashboard) {
+                    Label("Window", systemImage: "macwindow")
+                }
+                .tint(BeaconPalette.pink)
+                .help("Open Beacon Dashboard")
+            }
             Button { Task { await state.scan() } } label: {
                 Label("Scan Now", systemImage: "arrow.clockwise")
             }
@@ -79,6 +142,14 @@ struct MenuView: View {
                 Label("Config", systemImage: "slider.horizontal.3")
             }
             .tint(BeaconPalette.lavender)
+            Button {
+                showingQuietProjects = false
+                projectTrackingTab = .tracked
+                showingProjectTracking = true
+            } label: {
+                Label("Projects", systemImage: "checklist")
+            }
+            .tint(BeaconPalette.gold)
             Spacer()
             Button { NSApplication.shared.terminate(nil) } label: {
                 Image(systemName: "power")
@@ -89,9 +160,76 @@ struct MenuView: View {
         .buttonStyle(.link)
     }
 
+    private var loginItemControls: some View {
+        HStack(spacing: 8) {
+            Toggle(
+                "Open Beacon at Login",
+                isOn: Binding(
+                    get: { loginItem.isEnabled },
+                    set: { loginItem.setEnabled($0) }
+                )
+            )
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .tint(BeaconPalette.cyan)
+            Spacer()
+            if loginItem.requiresApproval {
+                Button("Approve in Settings") {
+                    loginItem.openSystemSettings()
+                }
+                .buttonStyle(.link)
+                .font(.caption)
+                .foregroundStyle(BeaconPalette.gold)
+            }
+        }
+        .font(.caption.weight(.medium))
+        .foregroundStyle(loginItem.requiresApproval ? BeaconPalette.gold : BeaconPalette.lavender)
+    }
+
+    private var enableAgentBanner: some View {
+        HStack {
+            Label("Background agent unavailable", systemImage: "antenna.radiowaves.left.and.right.slash")
+                .font(.caption)
+                .foregroundStyle(BeaconPalette.gold)
+            Spacer()
+            Button("Enable") { Task { await state.enableAgent() } }
+                .buttonStyle(.bordered)
+                .tint(BeaconPalette.cyan)
+        }
+        .padding(8)
+        .background(BeaconPalette.softGradient(BeaconPalette.gold), in: RoundedRectangle(cornerRadius: 8))
+    }
+
     private func activeDashboard(_ snapshot: BeaconSnapshot) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
+                if !state.loadingProjects.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Loading Projects", systemImage: "antenna.radiowaves.left.and.right")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(BeaconPalette.borderGradient(BeaconPalette.cyan))
+                        ForEach(state.loadingProjects, id: \.projectID) { project in
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .controlSize(.mini)
+                                    .tint(BeaconPalette.cyan)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(project.name)
+                                        .font(.caption.weight(.semibold))
+                                    Text(stageLabel(project.stage))
+                                        .font(.caption2)
+                                        .foregroundStyle(BeaconPalette.lavender)
+                                }
+                                Spacer()
+                                Text(project.projectID)
+                                    .font(.caption2)
+                                    .foregroundStyle(BeaconPalette.cyan.opacity(0.85))
+                            }
+                            .padding(8)
+                            .background(BeaconPalette.softGradient(BeaconPalette.cyan), in: RoundedRectangle(cornerRadius: 8))
+                        }
+                    }
+                }
                 laneSection(
                     "Ready for Review",
                     symbol: "checkmark.circle.fill",
@@ -139,7 +277,41 @@ struct MenuView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                if state.untrackedProjectCount > 0 {
+                    Button {
+                        projectTrackingTab = .untracked
+                        showingProjectTracking = true
+                    } label: {
+                        HStack(spacing: 9) {
+                            Image(systemName: "eye.slash.fill")
+                                .foregroundStyle(BeaconPalette.pink)
+                            Text("\(state.untrackedProjectCount) Untracked Project\(state.untrackedProjectCount == 1 ? "" : "s")")
+                                .font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(BeaconPalette.cyan)
+                        }
+                        .padding(10)
+                        .background(BeaconPalette.softGradient(BeaconPalette.pink), in: RoundedRectangle(cornerRadius: 9))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 9)
+                                .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.pink), lineWidth: 0.8)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+        }
+    }
+
+    private func stageLabel(_ stage: String) -> String {
+        switch stage {
+        case "queued": return "Queued"
+        case "local": return "Checking local Git"
+        case "github": return "Checking GitHub"
+        case "failed": return "Refresh failed — showing previous result"
+        case "ready": return "Ready"
+        default: return "Cached"
         }
     }
 
@@ -218,6 +390,12 @@ struct MenuView: View {
                     .font(.caption2)
                     .foregroundStyle(BeaconPalette.lavender.opacity(0.85))
                     .lineLimit(1)
+            }
+            let stage = state.stage(for: project.id)
+            if stage != "ready" && stage != "cached" {
+                Text(stage.replacingOccurrences(of: "_", with: " ").capitalized)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(BeaconPalette.gold)
             }
             Spacer()
         }
@@ -301,6 +479,15 @@ struct MenuView: View {
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.pink), lineWidth: 0.8)
             }
+    }
+
+    private func reactivationBanner(_ projects: [String]) -> some View {
+        Label("Automatically tracking \(projects.joined(separator: ", "))", systemImage: "bolt.fill")
+            .font(.caption)
+            .foregroundStyle(BeaconPalette.mint)
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(BeaconPalette.softGradient(BeaconPalette.mint), in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func signalColor(_ signal: String) -> Color {

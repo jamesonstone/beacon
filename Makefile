@@ -1,4 +1,4 @@
-.PHONY: build test test-race release-test vet fmt fmt-check install scan scan-json doctor macos-build macos-test macos-run
+.PHONY: build test test-race release-test vet fmt fmt-check install scan scan-json doctor agent-install agent-status agent-stop agent-uninstall macos-build macos-test macos-run
 
 BEACON_DERIVED_DATA ?= $(TMPDIR)beacon-derived-data
 
@@ -34,6 +34,18 @@ scan-json:
 
 doctor:
 	go run ./cmd/beacon doctor
+
+agent-install:
+	go run ./cmd/beacon agent install
+
+agent-status:
+	go run ./cmd/beacon agent status
+
+agent-stop:
+	go run ./cmd/beacon agent stop
+
+agent-uninstall:
+	go run ./cmd/beacon agent uninstall
 
 macos-build:
 	xcodebuild -project macos/Beacon/Beacon.xcodeproj -scheme Beacon -configuration Debug -derivedDataPath "$(BEACON_DERIVED_DATA)" CODE_SIGNING_ALLOWED=NO build

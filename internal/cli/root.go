@@ -12,11 +12,13 @@ import (
 	"github.com/jamesonstone/beacon/internal/command"
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/discovery"
+	"github.com/jamesonstone/beacon/internal/githubapi"
 	"github.com/jamesonstone/beacon/internal/githubscan"
 	"github.com/jamesonstone/beacon/internal/gitscan"
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/output"
 	"github.com/jamesonstone/beacon/internal/scan"
+	"github.com/jamesonstone/beacon/internal/tracking"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -28,19 +30,27 @@ var (
 )
 
 type App struct {
-	In            io.Reader
-	Out           io.Writer
-	Err           io.Writer
-	Runner        command.Runner
-	InputIsTTY    func() bool
-	OutputIsTTY   func() bool
-	TerminalWidth func() int
-	scannerSource snapshotScanner
-	prompter      initPrompter
+	In                    io.Reader
+	Out                   io.Writer
+	Err                   io.Writer
+	Runner                command.Runner
+	InputIsTTY            func() bool
+	OutputIsTTY           func() bool
+	TerminalWidth         func() int
+	scannerSource         snapshotScanner
+	trackerSource         projectTracker
+	prompter              initPrompter
+	projectPrompterSource projectPrompter
 }
 
 type snapshotScanner interface {
 	Scan(context.Context, config.Config, string, bool) (model.Snapshot, error)
+}
+
+type projectTracker interface {
+	Reconcile(model.Snapshot) (model.Snapshot, error)
+	SetTracked(model.Snapshot, []string, bool) (model.Snapshot, error)
+	SetSelection(model.Snapshot, []string) (model.Snapshot, error)
 }
 
 func New() *cobra.Command {
@@ -63,6 +73,7 @@ func (a App) Root() *cobra.Command {
 	var configPath string
 	var colorMode string
 	var includeIdle bool
+	var noWatch bool
 	root := &cobra.Command{
 		Use:           "beacon",
 		Short:         "Review readiness for agent-driven Git work",
@@ -70,16 +81,23 @@ func (a App) Root() *cobra.Command {
 		SilenceUsage:  true,
 		Args:          noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return a.runHumanScan(cmd.Context(), configPath, "", true, colorMode, includeIdle, true, true)
+			return a.runAgentDashboard(cmd.Context(), configPath, colorMode, includeIdle, noWatch)
 		},
 	}
 	root.PersistentFlags().StringVar(&configPath, "config", "", "configuration file path")
 	root.PersistentFlags().StringVar(&colorMode, "color", "auto", "color output: auto, always, or never")
 	root.Flags().BoolVar(&includeIdle, "include-idle", false, "show projects with only idle work")
+	root.Flags().BoolVar(&noWatch, "no-watch", false, "render cached agent state without requesting a refresh")
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err} })
 	root.AddCommand(
 		a.initCommand(&configPath),
 		a.scanCommand(&configPath),
+		a.projectsCommand(&configPath),
+		a.selectCommand(&configPath),
+		a.rootTrackingCommand(&configPath, true),
+		a.rootTrackingCommand(&configPath, false),
+		a.refreshCommand(&configPath),
+		a.agentCommand(&configPath),
 		a.doctorCommand(&configPath),
 		a.openCommand(&configPath),
 		a.openNextCommand(&configPath),
@@ -93,10 +111,36 @@ func (a App) scanner() snapshotScanner {
 	if a.scannerSource != nil {
 		return a.scannerSource
 	}
-	git := gitscan.Scanner{Runner: a.Runner, Now: time.Now}
-	github := githubscan.Client{Runner: a.Runner}
-	discoverer := discovery.Discoverer{Runner: a.Runner}
+	return a.scannerComponents()
+}
+
+func (a App) scannerComponents() scan.Scanner {
+	return a.scannerComponentsWithRunner(githubapi.NewRunner(a.Runner, 5*time.Minute))
+}
+
+func (a App) scannerComponentsWithRunner(runner command.Runner) scan.Scanner {
+	git := gitscan.Scanner{Runner: runner, Now: time.Now}
+	github := githubscan.Client{Runner: runner}
+	discoverer := discovery.Discoverer{Runner: runner}
 	return scan.Scanner{Git: git, GitHub: github, Discovery: discoverer, Now: time.Now}
+}
+
+func (a App) tracker() projectTracker {
+	if a.trackerSource != nil {
+		return a.trackerSource
+	}
+	return tracking.Manager{Store: tracking.FileStore{}, Now: time.Now}
+}
+
+func (a App) scanSnapshot(ctx context.Context, cfg config.Config, repository string, refresh bool) (model.Snapshot, error) {
+	snapshot, err := a.scanner().Scan(ctx, cfg, repository, refresh)
+	if err != nil {
+		return model.Snapshot{}, err
+	}
+	if snapshot.ConfigPath == "" {
+		snapshot.ConfigPath = cfg.Path
+	}
+	return a.tracker().Reconcile(snapshot)
 }
 
 func (a App) scanCommand(configPath *string) *cobra.Command {
@@ -118,7 +162,7 @@ func (a App) scanCommand(configPath *string) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				snapshot, err := a.scanner().Scan(cmd.Context(), cfg, repository, !noRefresh)
+				snapshot, err := a.scanSnapshot(cmd.Context(), cfg, repository, !noRefresh)
 				if err != nil {
 					return err
 				}
@@ -161,7 +205,7 @@ func (a App) runHumanScan(ctx context.Context, path, repository string, refresh 
 	}
 	loader := startScanLoader(a.Out, showLoader && a.outputIsTTY(), color, a.terminalWidth())
 	defer loader.Stop(false)
-	snapshot, err := a.scanner().Scan(ctx, cfg, repository, refresh)
+	snapshot, err := a.scanSnapshot(ctx, cfg, repository, refresh)
 	loader.Stop(err == nil)
 	if err != nil {
 		return err
@@ -278,7 +322,7 @@ func (a App) loadSnapshot(ctx context.Context, path string) (model.Snapshot, err
 	if err != nil {
 		return model.Snapshot{}, err
 	}
-	return a.scanner().Scan(ctx, cfg, "", true)
+	return a.scanSnapshot(ctx, cfg, "", true)
 }
 
 func (a App) openLane(ctx context.Context, lane model.Lane) error {

@@ -31,3 +31,9 @@ done
   "$helper_directory/beacon-arm64" \
   "$helper_directory/beacon-amd64" \
   -output "$destination"
+
+# Xcode validates nested executables while signing the containing app. Sign the
+# universal helper first, using Xcode's selected identity when available and an
+# ad-hoc identity for local developer builds.
+signing_identity="${EXPANDED_CODE_SIGN_IDENTITY:--}"
+/usr/bin/codesign --force --sign "$signing_identity" --timestamp=none "$destination"
