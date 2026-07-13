@@ -193,7 +193,7 @@ path.
 - [x] T4: Add Go and Swift regression tests.
 - [x] T5: Reconcile README, constitution, and progress summary.
 - [x] T6: Run complete validation and read-only verification.
-- [ ] T7: Commit focused changes, push `GH-9`, and update PR #10.
+- [x] T7: Commit focused changes, push `GH-9`, and update PR #10.
 - [x] T8: Refine the detachable window default frame and Signal Notes default,
   editor size, and autosave behavior.
 
@@ -252,3 +252,5 @@ so the completed project-following contract is not rewritten.
   and full visible-screen height. The autosave regression proves the default
   three-second delay and latest-edit-only debounce contract; a live launch
   measured the resulting window at 580 by 1409 points on the active display.
+- Commit `67a367e` was pushed to `GH-9`, PR #10's description and test evidence
+  were updated, and its hosted Go and macOS checks passed.
