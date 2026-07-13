@@ -111,7 +111,7 @@ extension MenuView {
 
     private var notesPreview: String {
         let preview = state.notesContent
-            .split(whereSeparator: \Character.isNewline)
+            .split(whereSeparator: { $0.isNewline })
             .map(String.init)
             .first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
         return preview ?? "A tiny orbit for ideas in flight."
