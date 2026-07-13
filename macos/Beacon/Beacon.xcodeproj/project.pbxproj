@@ -22,6 +22,16 @@
 		10000000000000000000000E /* BeaconLoginItem.app in Embed Login Items */ = {isa = PBXBuildFile; fileRef = 200000000000000000000012 /* BeaconLoginItem.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		10000000000000000000000F /* ApplicationLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000013 /* ApplicationLifecycleTests.swift */; };
 		100000000000000000000010 /* DashboardStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000014 /* DashboardStyle.swift */; };
+		100000000000000000000011 /* AgentProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000015 /* AgentProtocol.swift */; };
+		100000000000000000000012 /* AppStatePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000016 /* AppStatePresentation.swift */; };
+		100000000000000000000013 /* MenuDashboardLayouts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000017 /* MenuDashboardLayouts.swift */; };
+		100000000000000000000014 /* MenuLaneViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000018 /* MenuLaneViews.swift */; };
+		100000000000000000000015 /* MenuEvidenceViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000019 /* MenuEvidenceViews.swift */; };
+		100000000000000000000016 /* AppStateTrackingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001A /* AppStateTrackingTests.swift */; };
+		100000000000000000000017 /* AppStateAgentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001B /* AppStateAgentTests.swift */; };
+		100000000000000000000018 /* AppStateTestClients.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001C /* AppStateTestClients.swift */; };
+		100000000000000000000019 /* AppStateTestSnapshots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001D /* AppStateTestSnapshots.swift */; };
+		10000000000000000000001A /* AppStateTestLaneFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000001E /* AppStateTestLaneFixtures.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,6 +84,16 @@
 		200000000000000000000012 /* BeaconLoginItem.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BeaconLoginItem.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		200000000000000000000013 /* ApplicationLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationLifecycleTests.swift; sourceTree = "<group>"; };
 		200000000000000000000014 /* DashboardStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardStyle.swift; sourceTree = "<group>"; };
+		200000000000000000000015 /* AgentProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentProtocol.swift; sourceTree = "<group>"; };
+		200000000000000000000016 /* AppStatePresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStatePresentation.swift; sourceTree = "<group>"; };
+		200000000000000000000017 /* MenuDashboardLayouts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuDashboardLayouts.swift; sourceTree = "<group>"; };
+		200000000000000000000018 /* MenuLaneViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuLaneViews.swift; sourceTree = "<group>"; };
+		200000000000000000000019 /* MenuEvidenceViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuEvidenceViews.swift; sourceTree = "<group>"; };
+		20000000000000000000001A /* AppStateTrackingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTrackingTests.swift; sourceTree = "<group>"; };
+		20000000000000000000001B /* AppStateAgentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateAgentTests.swift; sourceTree = "<group>"; };
+		20000000000000000000001C /* AppStateTestClients.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTestClients.swift; sourceTree = "<group>"; };
+		20000000000000000000001D /* AppStateTestSnapshots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTestSnapshots.swift; sourceTree = "<group>"; };
+		20000000000000000000001E /* AppStateTestLaneFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTestLaneFixtures.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -100,9 +120,14 @@
 				200000000000000000000002 /* Models.swift */,
 				200000000000000000000003 /* CLIClient.swift */,
 				200000000000000000000004 /* AppState.swift */,
+				200000000000000000000016 /* AppStatePresentation.swift */,
 				200000000000000000000005 /* MenuView.swift */,
+				200000000000000000000017 /* MenuDashboardLayouts.swift */,
+				200000000000000000000018 /* MenuLaneViews.swift */,
+				200000000000000000000019 /* MenuEvidenceViews.swift */,
 				200000000000000000000014 /* DashboardStyle.swift */,
 				20000000000000000000000B /* ProjectTrackingView.swift */,
+				200000000000000000000015 /* AgentProtocol.swift */,
 				20000000000000000000000C /* AgentClient.swift */,
 				20000000000000000000000D /* AppLifecycle.swift */,
 				20000000000000000000000E /* LoginItemController.swift */,
@@ -117,6 +142,11 @@
 			children = (
 				200000000000000000000007 /* ModelsTests.swift */,
 				200000000000000000000008 /* AppStateTests.swift */,
+				20000000000000000000001A /* AppStateTrackingTests.swift */,
+				20000000000000000000001B /* AppStateAgentTests.swift */,
+				20000000000000000000001C /* AppStateTestClients.swift */,
+				20000000000000000000001D /* AppStateTestSnapshots.swift */,
+				20000000000000000000001E /* AppStateTestLaneFixtures.swift */,
 				200000000000000000000013 /* ApplicationLifecycleTests.swift */,
 			);
 			path = BeaconTests;
@@ -237,8 +267,8 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		800000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000001, 100000000000000000000002, 100000000000000000000003, 100000000000000000000004, 100000000000000000000005, 100000000000000000000008, 100000000000000000000009, 10000000000000000000000A, 10000000000000000000000B, 100000000000000000000010); runOnlyForDeploymentPostprocessing = 0; };
-		800000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000006, 100000000000000000000007, 10000000000000000000000F); runOnlyForDeploymentPostprocessing = 0; };
+		800000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000001, 100000000000000000000002, 100000000000000000000003, 100000000000000000000004, 100000000000000000000005, 100000000000000000000008, 100000000000000000000009, 10000000000000000000000A, 10000000000000000000000B, 100000000000000000000010, 100000000000000000000011, 100000000000000000000012, 100000000000000000000013, 100000000000000000000014, 100000000000000000000015); runOnlyForDeploymentPostprocessing = 0; };
+		800000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (100000000000000000000006, 100000000000000000000007, 10000000000000000000000F, 100000000000000000000016, 100000000000000000000017, 100000000000000000000018, 100000000000000000000019, 10000000000000000000001A); runOnlyForDeploymentPostprocessing = 0; };
 		800000000000000000000003 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (10000000000000000000000D); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 

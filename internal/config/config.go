@@ -235,28 +235,6 @@ func normalizeSource(raw rawSource) (Source, error) {
 	return Source{Path: path}, nil
 }
 
-// CanonicalizeSourcePath rejects a source that is itself a symlink and
-// resolves any symlinked ancestors before discovery starts. Discovery can then
-// walk the canonical tree without crossing symlink directory entries.
-func CanonicalizeSourcePath(path string) (string, error) {
-	canonical, err := CanonicalizePath(path)
-	if err != nil {
-		return "", err
-	}
-	info, err := os.Lstat(canonical)
-	if err != nil {
-		return "", fmt.Errorf("inspect path %s: %w", canonical, err)
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return "", fmt.Errorf("source path is a symbolic link: %s", canonical)
-	}
-	resolved, err := filepath.EvalSymlinks(canonical)
-	if err != nil {
-		return "", fmt.Errorf("resolve source path %s: %w", canonical, err)
-	}
-	return filepath.Clean(resolved), nil
-}
-
 func normalizeRepository(raw rawRepository) (Repository, error) {
 	repo := Repository{
 		Name: strings.TrimSpace(raw.Name), GitHub: strings.TrimSpace(raw.GitHub),
@@ -298,42 +276,4 @@ func durationOrDefault(value string, fallback time.Duration) (time.Duration, err
 		return 0, fmt.Errorf("must be a positive Go duration: %q", value)
 	}
 	return duration, nil
-}
-
-func CanonicalizePath(path string) (string, error) {
-	if path == "~" || strings.HasPrefix(path, "~/") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("resolve home directory: %w", err)
-		}
-		path = filepath.Join(home, strings.TrimPrefix(path, "~/"))
-	}
-	absolute, err := filepath.Abs(path)
-	if err != nil {
-		return "", fmt.Errorf("resolve path %s: %w", path, err)
-	}
-	return filepath.Clean(absolute), nil
-}
-
-func Example() string {
-	return `version: 2
-
-settings:
-  scan_interval: 1m
-  remote_refresh_interval: 45m
-  stale_after: 24h
-  max_parallel: 4
-  github_author: "@me"
-  github_scope: mine
-
-sources:
-  - path: ~/go/src/github.com
-
-repositories:
-  - name: beacon
-    path: ~/go/src/github.com/jamesonstone/beacon
-    github: jamesonstone/beacon
-    base: main
-    remote: origin
-`
 }
