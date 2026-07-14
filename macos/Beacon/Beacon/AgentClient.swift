@@ -64,7 +64,19 @@ actor AgentClient: AgentClientProtocol {
     }
 
     func notes() async throws -> AgentEvent {
-        let event = try await request(type: "get_notes")
+        try await notes(noteID: "general")
+    }
+
+    func notesWorkspace() async throws -> AgentEvent {
+        let event = try await request(type: "get_notes_workspace")
+        guard event.type != "project_failed", event.notesWorkspace != nil else {
+            throw AgentClientError.command(event.message ?? "load signal note tabs failed")
+        }
+        return event
+    }
+
+    func notes(noteID: String) async throws -> AgentEvent {
+        let event = try await request(type: "get_notes", noteID: noteID)
         guard event.type != "project_failed" else {
             throw AgentClientError.command(event.message ?? "load signal notes failed")
         }
@@ -72,9 +84,33 @@ actor AgentClient: AgentClientProtocol {
     }
 
     func setNotes(_ content: String) async throws -> AgentEvent {
-        let event = try await request(type: "set_notes", content: content)
+        try await setNotes(content, noteID: "general")
+    }
+
+    func setNotes(_ content: String, noteID: String) async throws -> AgentEvent {
+        let event = try await request(type: "set_notes", content: content, noteID: noteID)
         guard event.type != "project_failed" else {
             throw AgentClientError.command(event.message ?? "save signal notes failed")
+        }
+        return event
+    }
+
+    func createNote(_ content: String) async throws -> AgentEvent {
+        try await noteWorkspaceMutation(type: "create_note", content: content)
+    }
+
+    func openNote(_ noteID: String) async throws -> AgentEvent {
+        try await noteWorkspaceMutation(type: "open_note", noteID: noteID)
+    }
+
+    func closeNote(_ noteID: String) async throws -> AgentEvent {
+        try await noteWorkspaceMutation(type: "close_note", noteID: noteID)
+    }
+
+    private func noteWorkspaceMutation(type: String, noteID: String? = nil, content: String? = nil) async throws -> AgentEvent {
+        let event = try await request(type: type, content: content, noteID: noteID)
+        guard event.type != "project_failed", event.notesWorkspace != nil else {
+            throw AgentClientError.command(event.message ?? "update signal note tabs failed")
         }
         return event
     }
@@ -128,9 +164,9 @@ actor AgentClient: AgentClientProtocol {
         }
     }
 
-    private func request(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, refresh: Bool? = nil) async throws -> AgentEvent {
+    private func request(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, noteID: String? = nil, refresh: Bool? = nil) async throws -> AgentEvent {
         let path = socketPath
-        let payload = try Self.requestData(type: type, projectID: projectID, projectIDs: projectIDs, trackingState: trackingState, laneID: laneID, attentionState: attentionState, pinned: pinned, note: note, tag: tag, title: title, content: content, refresh: refresh)
+        let payload = try Self.requestData(type: type, projectID: projectID, projectIDs: projectIDs, trackingState: trackingState, laneID: laneID, attentionState: attentionState, pinned: pinned, note: note, tag: tag, title: title, content: content, noteID: noteID, refresh: refresh)
         return try await Task.detached(priority: .userInitiated) {
             let socket = try UnixSocket(path: path)
             defer { socket.close() }
@@ -143,7 +179,7 @@ actor AgentClient: AgentClientProtocol {
         }.value
     }
 
-    private static func requestData(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, refresh: Bool? = nil) throws -> Data {
+    private static func requestData(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, noteID: String? = nil, refresh: Bool? = nil) throws -> Data {
         var object: [String: Any] = [
             "protocol_version": 1,
             "request_id": UUID().uuidString.lowercased(),
@@ -159,6 +195,7 @@ actor AgentClient: AgentClientProtocol {
         object["tag"] = tag
         object["title"] = title
         object["content"] = content
+        object["note_id"] = noteID
         object["refresh"] = refresh
         var data = try JSONSerialization.data(withJSONObject: object)
         data.append(0x0A)

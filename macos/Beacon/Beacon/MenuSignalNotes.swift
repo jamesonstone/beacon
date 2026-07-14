@@ -88,7 +88,13 @@ extension MenuView {
             .accessibilityLabel(signalNotesExpanded ? "Collapse Signal Notes" : "Expand Signal Notes")
 
             if signalNotesExpanded {
-                liveMarkdownEditor
+                SignalNoteTabStrip(state: state)
+
+                if state.activeNoteID == "new" {
+                    SignalNotePicker(state: state)
+                } else {
+                    liveMarkdownEditor
+                }
 
                 HStack(spacing: 8) {
                     if let error = state.notesError {
@@ -96,7 +102,7 @@ extension MenuView {
                             .font(BeaconTypography.regular(8))
                             .foregroundStyle(BeaconPalette.coral)
                             .lineLimit(1)
-                    } else if notesDraft != state.notesContent {
+                    } else if state.notesAreDirty {
                         Label(
                             state.isSavingNotes ? "Saving…" : "Autosaves after 3 seconds",
                             systemImage: state.isSavingNotes ? "arrow.triangle.2.circlepath" : "clock.badge.checkmark"
@@ -116,26 +122,37 @@ extension MenuView {
                             .foregroundStyle(BeaconPalette.lavender.opacity(0.72))
                     }
                     Spacer()
+
+                    if state.activeNoteID == "general", !state.notesCurrentLine.isEmpty {
+                        Button {
+                            Task { await state.createNoteFromCurrentLine() }
+                        } label: {
+                            Label("Detail from Line", systemImage: "text.line.first.and.arrowtriangle.forward")
+                        }
+                        .buttonStyle(.plain)
+                        .font(BeaconTypography.medium(8))
+                        .foregroundStyle(BeaconPalette.mint)
+                        .help("Create Detail From Current Line")
+                    }
+
                     Button("Revert") {
-                        notesAutosave.cancel()
-                        notesDraft = state.notesContent
+                        state.revertNotes()
                     }
                     .buttonStyle(.plain)
                     .font(BeaconTypography.medium(9))
                     .foregroundStyle(BeaconPalette.lavender)
-                    .disabled(notesDraft == state.notesContent || state.isSavingNotes)
+                    .disabled(!state.notesAreDirty || state.isSavingNotes)
 
                     Button {
-                        notesAutosave.cancel()
                         notesEditorFocused = false
-                        Task { await state.saveNotes(notesDraft) }
+                        Task { await state.saveNotes(state.notesDraft) }
                     } label: {
                         Label("Save", systemImage: "sparkles")
                             .font(BeaconTypography.semibold(9))
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(BeaconPalette.cyan.opacity(0.72))
-                    .disabled(notesDraft == state.notesContent || state.isSavingNotes)
+                    .disabled(!state.notesAreDirty || state.isSavingNotes)
                     .keyboardShortcut("s", modifiers: .command)
                 }
             }
@@ -152,8 +169,15 @@ extension MenuView {
 
     private var liveMarkdownEditor: some View {
         LiveMarkdownEditor(
-            text: $notesDraft,
+            text: Binding(
+                get: { state.notesDraft },
+                set: { state.updateNotesDraft($0) }
+            ),
             isFocused: $notesEditorFocused,
+            currentLine: Binding(
+                get: { state.notesCurrentLine },
+                set: { state.updateNotesCurrentLine($0) }
+            ),
             accessibilityLabel: "Live Markdown signal notes"
         )
         .padding(8)
@@ -162,6 +186,16 @@ extension MenuView {
         .overlay {
             RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.cyan), lineWidth: 0.7)
+        }
+        .contextMenu {
+            if state.activeNoteID == "general", !state.notesCurrentLine.isEmpty {
+                Button("Create Detail From Current Line") {
+                    Task { await state.createNoteFromCurrentLine() }
+                }
+            }
+            Button("New Detail Note") {
+                Task { await state.showNewNotePicker() }
+            }
         }
     }
 
@@ -173,21 +207,4 @@ extension MenuView {
         return preview ?? "A tiny orbit for ideas in flight."
     }
 
-    func scheduleSignalNotesAutosave(_ content: String) {
-        guard content != state.notesContent else {
-            notesAutosave.cancel()
-            return
-        }
-        notesAutosave.schedule(content: content) { candidate in
-            while state.isSavingNotes {
-                do {
-                    try await Task.sleep(for: .milliseconds(100))
-                } catch {
-                    return
-                }
-            }
-            guard candidate != state.notesContent else { return }
-            await state.saveNotes(candidate)
-        }
-    }
 }

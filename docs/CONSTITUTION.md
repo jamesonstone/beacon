@@ -184,8 +184,8 @@ must not feed new policy back into the scanner.
   reactivation.
 - `internal/workset` owns strict lane attention, pins, notes, tags, last-seen
   observations, factual deltas, manual lanes, and project-tracking migration.
-- `internal/notes` owns the atomic, size-bounded, user-only global Markdown
-  signal log.
+- `internal/notes` owns the atomic, size-bounded, user-only General document,
+  stable-ID detail documents, and versioned tab workspace.
 - `internal/agent` owns operational paths, per-project caches, protocol-v1
   transport, scheduling, subscriptions, lifecycle locking, and LaunchAgent
   installation.
@@ -286,11 +286,16 @@ incomplete collection evidence must never establish or compare a baseline.
 Operational files and directories are user-only and never contain GitHub
 credentials.
 
-The optional global Markdown signal log lives at
-`$XDG_DATA_HOME/beacon/notes.md`, defaulting to
-`$HOME/.local/share/beacon/notes.md`. It is atomically replaced with user-only
-permissions and is intentionally separate from repository files, configuration,
-lane evidence, and lane-specific notes.
+The optional global Markdown signal workspace keeps its pinned General document
+at `$XDG_DATA_HOME/beacon/notes.md`, defaulting to
+`$HOME/.local/share/beacon/notes.md`. Stable-ID detail documents and the
+versioned open-tab manifest live in the sibling `notes/` directory. Every
+document remains independently size-bounded and atomically replaced with
+user-only permissions. Directory locking, same-directory replacement, path
+validation, and symlink rejection apply to the complete workspace, which stays
+separate from repository files, configuration, lane evidence, and lane-specific
+notes. A close operation changes workspace metadata only and never deletes a
+detail document.
 
 Lane attention is stored separately in strict versioned JSON at
 `$HOME/.local/state/beacon/lanes.json` (or the equivalent `XDG_STATE_HOME`
@@ -373,7 +378,8 @@ beacon park <lane-id>
 beacon resume <lane-id>
 beacon note <lane-id> [text]
 beacon notes [--json]
-beacon notes show|set|append|edit|path
+beacon notes list|new|open|close
+beacon notes show|set|append|edit|path [--note <id-or-exact-title>]
 beacon tag <lane-id> <tag>
 beacon untag <lane-id> <tag>
 beacon add --manual <title>
@@ -403,8 +409,9 @@ other intentional paths for current evidence.
 
 Agent protocol version 1 is newline-delimited JSON over a user-only Unix-domain
 socket. It carries scan IDs, per-project revisions, stages, single and batch
-tracking and lane-attention changes, global Markdown notes, explicit typed
-repository-sync reports, heartbeats, and snapshot-schema-v3 payloads. Protocol evolution is independent
+tracking and lane-attention changes, selected Markdown documents, typed note
+workspace/create/open/close updates, explicit repository-sync reports,
+heartbeats, and snapshot-schema-v3 payloads. Protocol evolution is independent
 from the evidence snapshot schema. Clients discard events from a different
 active scan and older project revisions, then preserve last-good state on
 malformed events or disconnects.
@@ -469,10 +476,14 @@ a different destination switches directly to it. Lane tags render as removable
 chips and mutate through the Go background-agent authority. Typography uses selectable
 system designs and base sizes, defaulting to monospaced at 12 points.
 Both surfaces expose one expanded-by-default Signal Notes panel occupying about
-half of the shared dashboard. It edits the Go-owned local Markdown document
-through the agent protocol and applies rich styling in one live editor without
-changing its plain Markdown source; Swift contains no independent persistence
-rule. When Following contains no in-progress lanes and no projects are loading,
+half of the shared dashboard. General remains the pinned Go-owned Markdown
+document; unlimited stable-ID detail documents and their versioned open-state
+manifest remain under the same Go persistence authority. Swift owns no files or
+independent persistence rule. Both surfaces share one draft and autosave queue,
+flush before switching or closing, and preserve the active tab when saving
+fails. Native Command-K and Command-P switchers plus tab-cycle and numeric
+shortcuts operate through the frontmost shared view hierarchy. When Following
+contains no in-progress lanes and no projects are loading,
 both surfaces replace the empty lane body with an adaptive celebratory state whose
 copy describes lane state rather than repository-ref freshness.
 The Beacon wordmark may animate a modest horizontally traveling gradient across

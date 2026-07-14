@@ -5,6 +5,12 @@ protocol CLIClientProtocol {
     func setProjectTracked(_ github: String, tracked: Bool) async throws
     func notes() async throws -> AgentNotes
     func setNotes(_ content: String) async throws -> AgentNotes
+    func notesWorkspace() async throws -> AgentNotesWorkspace
+    func notes(noteID: String) async throws -> AgentNotes
+    func setNotes(_ content: String, noteID: String) async throws -> AgentNotesWorkspace
+    func createNote(_ content: String) async throws -> AgentNotesWorkspace
+    func openNote(_ noteID: String) async throws -> AgentNotesWorkspace
+    func closeNote(_ noteID: String) async throws -> AgentNotesWorkspace
     func repositorySync(refresh: Bool) async throws -> RepositorySyncReport
     func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport
     func dependencyLimits() async throws -> DependencyLimitReport
@@ -13,6 +19,19 @@ protocol CLIClientProtocol {
 extension CLIClientProtocol {
     func notes() async throws -> AgentNotes { throw AgentClientError.command("signal notes are unavailable") }
     func setNotes(_ content: String) async throws -> AgentNotes { throw AgentClientError.command("signal notes are unavailable") }
+    func notesWorkspace() async throws -> AgentNotesWorkspace { throw AgentClientError.command("signal note tabs are unavailable") }
+    func notes(noteID: String) async throws -> AgentNotes {
+        guard noteID == "general" else { throw AgentClientError.command("signal note tabs are unavailable") }
+        return try await notes()
+    }
+    func setNotes(_ content: String, noteID: String) async throws -> AgentNotesWorkspace {
+        guard noteID == "general" else { throw AgentClientError.command("signal note tabs are unavailable") }
+        let note = try await setNotes(content)
+        return AgentNotesWorkspace(version: 1, activeID: "general", openIDs: ["general"], tabs: [], active: note)
+    }
+    func createNote(_ content: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("signal note tabs are unavailable") }
+    func openNote(_ noteID: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("signal note tabs are unavailable") }
+    func closeNote(_ noteID: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("signal note tabs are unavailable") }
     func repositorySync(refresh: Bool) async throws -> RepositorySyncReport { throw AgentClientError.command("repository sync is unavailable") }
     func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport { throw AgentClientError.command("repository sync is unavailable") }
     func dependencyLimits() async throws -> DependencyLimitReport { throw AgentClientError.command("dependency limits are unavailable") }
@@ -64,11 +83,42 @@ struct CLIClient: CLIClientProtocol, AgentInstallerProtocol {
         try decodeNotes(try await execute(arguments: ["notes", "--json"]))
     }
 
+    func notesWorkspace() async throws -> AgentNotesWorkspace {
+        try decodeNotesWorkspace(try await execute(arguments: ["notes", "list", "--json"]))
+    }
+
+    func notes(noteID: String) async throws -> AgentNotes {
+        try decodeNotes(try await execute(arguments: ["notes", "show", "--note", noteID, "--json"]))
+    }
+
     func setNotes(_ content: String) async throws -> AgentNotes {
         try decodeNotes(try await execute(
             arguments: ["notes", "set", "--json"],
             standardInput: Data(content.utf8)
         ))
+    }
+
+    func setNotes(_ content: String, noteID: String) async throws -> AgentNotesWorkspace {
+        _ = try await execute(
+            arguments: ["notes", "set", "--note", noteID, "--json"],
+            standardInput: Data(content.utf8)
+        )
+        return try await notesWorkspace()
+    }
+
+    func createNote(_ content: String) async throws -> AgentNotesWorkspace {
+        try decodeNotesWorkspace(try await execute(
+            arguments: ["notes", "new", "--json"],
+            standardInput: Data(content.utf8)
+        ))
+    }
+
+    func openNote(_ noteID: String) async throws -> AgentNotesWorkspace {
+        try decodeNotesWorkspace(try await execute(arguments: ["notes", "open", noteID, "--json"]))
+    }
+
+    func closeNote(_ noteID: String) async throws -> AgentNotesWorkspace {
+        try decodeNotesWorkspace(try await execute(arguments: ["notes", "close", noteID, "--json"]))
     }
 
     func repositorySync(refresh: Bool) async throws -> RepositorySyncReport {
@@ -103,6 +153,14 @@ struct CLIClient: CLIClientProtocol, AgentInstallerProtocol {
     private func decodeNotes(_ data: Data) throws -> AgentNotes {
         do {
             return try JSONDecoder().decode(AgentNotes.self, from: data)
+        } catch {
+            throw CLIClientError.invalidOutput(error.localizedDescription)
+        }
+    }
+
+    private func decodeNotesWorkspace(_ data: Data) throws -> AgentNotesWorkspace {
+        do {
+            return try JSONDecoder().decode(AgentNotesWorkspace.self, from: data)
         } catch {
             throw CLIClientError.invalidOutput(error.localizedDescription)
         }

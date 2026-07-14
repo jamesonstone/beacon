@@ -36,8 +36,37 @@ actor DirectAgentAdapter: AgentClientProtocol {
         event(type: "notes", notes: try await client.notes())
     }
 
+    func notesWorkspace() async throws -> AgentEvent {
+        let workspace = try await client.notesWorkspace()
+        return event(type: "notes_workspace", notes: workspace.active, notesWorkspace: workspace)
+    }
+
+    func notes(noteID: String) async throws -> AgentEvent {
+        event(type: "notes", notes: try await client.notes(noteID: noteID))
+    }
+
     func setNotes(_ content: String) async throws -> AgentEvent {
         event(type: "notes_updated", notes: try await client.setNotes(content))
+    }
+
+    func setNotes(_ content: String, noteID: String) async throws -> AgentEvent {
+        let workspace = try await client.setNotes(content, noteID: noteID)
+        return event(type: "notes_updated", notes: workspace.active, notesWorkspace: workspace)
+    }
+
+    func createNote(_ content: String) async throws -> AgentEvent {
+        let workspace = try await client.createNote(content)
+        return event(type: "notes_workspace_updated", notes: workspace.active, notesWorkspace: workspace)
+    }
+
+    func openNote(_ noteID: String) async throws -> AgentEvent {
+        let workspace = try await client.openNote(noteID)
+        return event(type: "notes_workspace_updated", notes: workspace.active, notesWorkspace: workspace)
+    }
+
+    func closeNote(_ noteID: String) async throws -> AgentEvent {
+        let workspace = try await client.closeNote(noteID)
+        return event(type: "notes_workspace_updated", notes: workspace.active, notesWorkspace: workspace)
     }
 
     func repositorySync(refresh: Bool) async throws -> AgentEvent {
@@ -64,6 +93,7 @@ actor DirectAgentAdapter: AgentClientProtocol {
         type: String,
         snapshot: BeaconSnapshot? = nil,
         notes: AgentNotes? = nil,
+        notesWorkspace: AgentNotesWorkspace? = nil,
         repositorySync: RepositorySyncReport? = nil
     ) -> AgentEvent {
         AgentEvent(
@@ -80,6 +110,7 @@ actor DirectAgentAdapter: AgentClientProtocol {
             projects: nil,
             status: nil,
             notes: notes,
+            notesWorkspace: notesWorkspace,
             repositorySync: repositorySync
         )
     }

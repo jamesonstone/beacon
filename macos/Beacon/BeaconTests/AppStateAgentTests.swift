@@ -64,6 +64,91 @@ extension AppStateTests {
         XCTAssertEqual(saved, ["second"])
     }
 
+    func testSignalNoteWorkspaceSharesDraftAndFlushesBeforeSwitching() async {
+        let agent = NotesWorkspaceAgent()
+        let state = AppState(agent: agent, installer: nil)
+
+        await state.loadNotes()
+        XCTAssertEqual(state.activeNoteID, "general")
+        XCTAssertEqual(state.openNoteTabs.map(\.id), ["general", "detail-1", "detail-2"])
+        XCTAssertEqual(state.noteHistory.map(\.id), ["detail-2", "detail-1"])
+
+        state.updateNotesDraft("Renamed General\nexpanded")
+        XCTAssertEqual(state.activeNoteTitle, "General")
+        XCTAssertTrue(state.notesAreDirty)
+
+        await state.activateNote("detail-1")
+
+        let saved = await agent.savedNoteIDs
+        XCTAssertEqual(saved, ["general"])
+        XCTAssertEqual(state.activeNoteID, "detail-1")
+        XCTAssertEqual(state.notesDraft, "First detail\nbody")
+        XCTAssertFalse(state.notesAreDirty)
+    }
+
+    func testSignalNoteLiveTitleDuplicateActivationAndCycling() async {
+        let agent = NotesWorkspaceAgent()
+        let state = AppState(agent: agent, installer: nil)
+        await state.loadNotes()
+
+        await state.activateNote("detail-1")
+        state.updateNotesDraft("Live renamed title\nbody")
+        XCTAssertEqual(state.activeNoteTitle, "Live renamed title")
+        await state.activateNote("detail-1")
+        XCTAssertEqual(state.openNoteTabs.map(\.id), ["general", "detail-1", "detail-2"])
+
+        await state.cycleNotes(direction: 1)
+        XCTAssertEqual(state.activeNoteID, "detail-2")
+        await state.cycleNotes(direction: -1)
+        XCTAssertEqual(state.activeNoteID, "detail-1")
+    }
+
+    func testSignalNoteCloseFlushesAndSelectsLeftNeighbor() async {
+        let agent = NotesWorkspaceAgent(activeID: "detail-2")
+        let state = AppState(agent: agent, installer: nil)
+        await state.loadNotes()
+        state.updateNotesDraft("Second detail revised\nbody")
+
+        await state.closeNote("detail-2")
+
+        let saved = await agent.savedNoteIDs
+        XCTAssertEqual(saved, ["detail-2"])
+        XCTAssertEqual(state.activeNoteID, "detail-1")
+        XCTAssertEqual(state.openNoteTabs.map(\.id), ["general", "detail-1"])
+        XCTAssertTrue(state.noteHistory.contains { $0.id == "detail-2" && !$0.isOpen })
+    }
+
+    func testSignalNoteSaveFailureKeepsCurrentTabOpen() async {
+        let agent = NotesWorkspaceAgent(failSaves: true)
+        let state = AppState(agent: agent, installer: nil)
+        await state.loadNotes()
+        state.updateNotesDraft("Unsaved edit")
+
+        await state.activateNote("detail-1")
+
+        XCTAssertEqual(state.activeNoteID, "general")
+        XCTAssertEqual(state.notesDraft, "Unsaved edit")
+        XCTAssertNotNil(state.notesError)
+        let opened = await agent.openedNoteIDs
+        XCTAssertTrue(opened.isEmpty)
+    }
+
+    func testSignalNoteCreationUsesRememberedGeneralCaretLine() async {
+        let agent = NotesWorkspaceAgent()
+        let state = AppState(agent: agent, installer: nil)
+        await state.loadNotes()
+        state.updateNotesCurrentLine("  [labcore] generate endpoints refactor  ")
+
+        await state.showNewNotePicker()
+        XCTAssertEqual(state.activeNoteID, "new")
+        XCTAssertEqual(state.notesCurrentLine, "[labcore] generate endpoints refactor")
+        await state.createNoteFromCurrentLine()
+
+        XCTAssertEqual(state.activeNoteID, "detail-3")
+        XCTAssertEqual(state.notesDraft, "[labcore] generate endpoints refactor\n\n")
+        XCTAssertEqual(state.openNoteTabs.last?.id, "detail-3")
+    }
+
     func testRepositorySyncCheckAndApplyShareAgentAuthority() async {
         let behind = RepositorySyncItem(
             projectID: "owner/repo", name: "repo", path: "/repo", base: "main", remote: "origin",

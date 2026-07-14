@@ -12,6 +12,7 @@ import (
 
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/model"
+	"github.com/jamesonstone/beacon/internal/notes"
 	"github.com/jamesonstone/beacon/internal/reposync"
 	"github.com/jamesonstone/beacon/internal/tracking"
 	"github.com/jamesonstone/beacon/internal/workset"
@@ -170,6 +171,83 @@ func TestServerClientReadsWritesAndPublishesSignalNotes(t *testing.T) {
 	}
 	if err := <-done; err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestServerClientCreatesOpensAndClosesSignalNoteTabs(t *testing.T) {
+	root, err := os.MkdirTemp("/tmp", "beacon-tabs-agent-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	paths := testPaths(root)
+	cfg := config.Config{Path: paths.Config, Settings: config.Settings{MaxParallel: 1, TrackedRefreshInterval: time.Hour, UntrackedProbeInterval: time.Hour}}
+	engine := NewEngine(cfg, paths, Cache{Directory: paths.Projects}, func(context.Context) ([]config.Repository, error) {
+		return []config.Repository{}, nil
+	}, nil, nil, tracking.Manager{})
+	server := &Server{Paths: paths, Engine: engine}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- server.Serve(ctx) }()
+	waitForFile(t, paths.Socket)
+	client := Client{Socket: paths.Socket, Timeout: time.Second}
+	events, eventErrors, err := client.Subscribe(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-events
+
+	created, err := client.Request(context.Background(), Request{Type: RequestCreateNote, Content: "Idea\n\nBody"})
+	if err != nil || created.NotesWorkspace == nil || created.NotesWorkspace.Active == nil {
+		t.Fatalf("created event=%#v err=%v", created, err)
+	}
+	id := created.NotesWorkspace.ActiveID
+	if created.NotesWorkspace.Active.Title != "Idea" || created.NotesWorkspace.Active.ID != id {
+		t.Fatalf("created workspace=%#v", created.NotesWorkspace)
+	}
+	assertWorkspaceEvent(t, events, eventErrors, id)
+
+	closed, err := client.Request(context.Background(), Request{Type: RequestCloseNote, NoteID: id})
+	if err != nil || closed.NotesWorkspace == nil || closed.NotesWorkspace.ActiveID != notes.GeneralID {
+		t.Fatalf("closed event=%#v err=%v", closed, err)
+	}
+	assertWorkspaceEvent(t, events, eventErrors, notes.GeneralID)
+
+	opened, err := client.Request(context.Background(), Request{Type: RequestOpenNote, NoteID: "Idea"})
+	if err != nil || opened.NotesWorkspace == nil || opened.NotesWorkspace.ActiveID != id {
+		t.Fatalf("opened event=%#v err=%v", opened, err)
+	}
+	assertWorkspaceEvent(t, events, eventErrors, id)
+
+	loaded, err := client.Request(context.Background(), Request{Type: RequestGetNotesWorkspace})
+	if err != nil || loaded.Type != EventNotesWorkspace || loaded.NotesWorkspace == nil || loaded.NotesWorkspace.ActiveID != id {
+		t.Fatalf("loaded event=%#v err=%v", loaded, err)
+	}
+	if _, err := client.Request(context.Background(), Request{Type: RequestShutdown}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("server did not stop")
+	}
+}
+
+func assertWorkspaceEvent(t *testing.T, events <-chan Event, eventErrors <-chan error, activeID string) {
+	t.Helper()
+	select {
+	case event := <-events:
+		if event.Type != EventWorkspaceUpdated || event.NotesWorkspace == nil || event.NotesWorkspace.ActiveID != activeID {
+			t.Fatalf("workspace event=%#v", event)
+		}
+	case err := <-eventErrors:
+		t.Fatalf("subscription error: %v", err)
+	case <-time.After(time.Second):
+		t.Fatal("workspace update was not published")
 	}
 }
 
