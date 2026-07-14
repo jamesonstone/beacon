@@ -98,8 +98,8 @@ authorities rather than add Swift-side files or another synchronization path.
    autosave authority used by the menu extra and detachable dashboard.
 8. Add a horizontally scrollable tab strip, live first-line titles, a New Tab
    button, and hover/focus close controls with accessible labels.
-9. Add current-line promotion from the General editor toolbar, context menu,
-   and quick switcher.
+9. Add current-line promotion from the General editor context menu, New Tab
+   picker, and quick switcher without adding a persistent footer action.
 10. Add a searchable command registry. Command-K exposes all app-wide,
     dashboard, note, and applicable lane/project actions; Command-P exposes
     only General, New Tab, and open or closed detail notes.
@@ -233,6 +233,11 @@ After pull request #16 merged, the remaining older-agent failure on detail-note
 commands required issue #17 and branch `GH-17`. This follow-up completes the
 same upgrade boundary without changing the explicit agent lifecycle contract.
 
+After pull request #18 merged, user feedback found the persistent General-editor
+footer action confusing. Issue #19 and branch `GH-19` remove that single button
+while preserving current-line promotion in contextual and search-driven entry
+points.
+
 ## Evidence
 
 - Pre-mutation recon found a clean `main` matching `origin/main`, no matching
@@ -298,3 +303,13 @@ same upgrade boundary without changing the explicit agent lifecycle contract.
   build release-test macos-test macos-build`, the Linux amd64 cross-build,
   `kit check --all` across all 13 feature specifications, and
   `git diff --check`.
+- Pull request #18 subsequently merged as `1b64ea6`. Follow-up recon found a
+  clean, synchronized `main`, no matching open issue, and created assigned issue
+  #19 plus exact branch `GH-19` from `origin/main`.
+- The persistent `Detail from Line` footer label is absent from the macOS source;
+  current-line creation remains available from the General editor context menu,
+  New Tab picker, and quick switcher. Revert, Save, and autosave status retain
+  their existing implementation.
+- The complete issue #19 local gate passed: `make fmt-check vet test test-race
+  build release-test macos-test macos-build`, including all 63 macOS tests and
+  the universal Debug build, plus the Linux amd64 cross-build.

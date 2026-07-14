@@ -123,18 +123,6 @@ extension MenuView {
                     }
                     Spacer()
 
-                    if state.activeNoteID == "general", !state.notesCurrentLine.isEmpty {
-                        Button {
-                            Task { await state.createNoteFromCurrentLine() }
-                        } label: {
-                            Label("Detail from Line", systemImage: "text.line.first.and.arrowtriangle.forward")
-                        }
-                        .buttonStyle(.plain)
-                        .font(BeaconTypography.medium(8))
-                        .foregroundStyle(BeaconPalette.mint)
-                        .help("Create Detail From Current Line")
-                    }
-
                     Button("Revert") {
                         state.revertNotes()
                     }
