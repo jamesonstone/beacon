@@ -149,6 +149,45 @@ extension AppStateTests {
         XCTAssertEqual(state.openNoteTabs.last?.id, "detail-3")
     }
 
+    func testSignalNoteWorkspaceUsesBundledFallbackForOlderAgent() async {
+        let expanded = "[labcore] generate endpoints refactor\nexpanded detail"
+        let agent = LegacyNotesAgent()
+        let fallback = ScriptedNotesFallbackClient(workspaces: [
+            legacyFallbackWorkspace(activeID: "general", openIDs: ["general"]),
+            legacyFallbackWorkspace(activeID: "detail-1", openIDs: ["general", "detail-1"]),
+            legacyFallbackWorkspace(
+                activeID: "detail-1", openIDs: ["general", "detail-1"], detailContent: expanded
+            ),
+            legacyFallbackWorkspace(
+                activeID: "general", openIDs: ["general", "detail-1"], detailContent: expanded
+            ),
+            legacyFallbackWorkspace(
+                activeID: "detail-1", openIDs: ["general", "detail-1"], detailContent: expanded
+            ),
+            legacyFallbackWorkspace(activeID: "general", openIDs: ["general"], detailContent: expanded),
+        ])
+        let state = AppState(agent: agent, installer: nil, notesFallback: fallback)
+
+        await state.loadNotes()
+        state.updateNotesCurrentLine("[labcore] generate endpoints refactor")
+        await state.createNoteFromCurrentLine()
+        state.updateNotesDraft(expanded)
+        await state.activateNote("general")
+        await state.activateNote("detail-1")
+        await state.closeNote("detail-1")
+
+        let agentCalls = await agent.calls
+        let fallbackCalls = await fallback.calls
+        XCTAssertEqual(agentCalls, ["workspace"])
+        XCTAssertEqual(fallbackCalls, [
+            "workspace", "create", "set:detail-1", "open:general", "open:detail-1", "close:detail-1",
+        ])
+        XCTAssertEqual(state.activeNoteID, "general")
+        XCTAssertEqual(state.openNoteTabs.map(\.id), ["general"])
+        XCTAssertTrue(state.noteHistory.contains { $0.id == "detail-1" && !$0.isOpen })
+        XCTAssertNil(state.notesError)
+    }
+
     func testRepositorySyncCheckAndApplyShareAgentAuthority() async {
         let behind = RepositorySyncItem(
             projectID: "owner/repo", name: "repo", path: "/repo", base: "main", remote: "origin",

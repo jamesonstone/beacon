@@ -31,6 +31,7 @@ final class AppState: ObservableObject {
 
     let agent: AgentClientProtocol
     private let installer: AgentInstallerProtocol?
+    let notesFallback: CLIClientProtocol?
     private let repositorySyncFallback: CLIClientProtocol?
     private let dependencyLimitsClient: CLIClientProtocol?
     private var subscriptionTask: Task<Void, Never>?
@@ -42,15 +43,18 @@ final class AppState: ObservableObject {
     private var trackingFailures: [String: String] = [:]
     let notesAutosave = SignalNotesAutosave()
     var notesDraftID = "general"
+    var notesUseFallback = false
 
     init(
         agent: AgentClientProtocol = AgentClient(),
         installer: AgentInstallerProtocol? = CLIClient(),
+        notesFallback: CLIClientProtocol? = CLIClient(),
         repositorySyncFallback: CLIClientProtocol? = CLIClient(),
         dependencyLimitsClient: CLIClientProtocol? = CLIClient()
     ) {
         self.agent = agent
         self.installer = installer
+        self.notesFallback = notesFallback
         self.repositorySyncFallback = repositorySyncFallback
         self.dependencyLimitsClient = dependencyLimitsClient
     }
@@ -59,6 +63,7 @@ final class AppState: ObservableObject {
         self.init(
             agent: DirectAgentAdapter(client: client),
             installer: nil,
+            notesFallback: client,
             repositorySyncFallback: client,
             dependencyLimitsClient: client
         )
@@ -390,6 +395,7 @@ final class AppState: ObservableObject {
             }
         }
         if let workspace = event.notesWorkspace {
+            notesUseFallback = false
             applyNotesWorkspace(workspace)
         } else if let notes = event.notes {
             applyNotesDocument(notes, noteID: notes.id ?? activeNoteID)
