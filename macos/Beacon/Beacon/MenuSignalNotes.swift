@@ -6,6 +6,7 @@ enum SignalNotesPresentation {
     static let expandedHeightFraction = 0.5
     static let autosaveDelay: Duration = .seconds(3)
     static let createFromGeneralLabel = "Create New Note from Highlighted Text in General"
+    static let createFromGeneralSymbol = "doc.badge.plus"
 
     static func savedLabel(age: String) -> String {
         "Saved \(age)"
@@ -178,8 +179,13 @@ extension MenuView {
         }
         .contextMenu {
             if state.activeNoteID == "general", !state.notesCurrentLine.isEmpty {
-                Button(SignalNotesPresentation.createFromGeneralLabel) {
+                Button {
                     Task { await state.createNoteFromCurrentLine() }
+                } label: {
+                    Label(
+                        SignalNotesPresentation.createFromGeneralLabel,
+                        systemImage: SignalNotesPresentation.createFromGeneralSymbol
+                    )
                 }
             }
             Button("New Detail Note") {

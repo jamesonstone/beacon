@@ -67,7 +67,8 @@ the note switcher needs stronger visual contrast as its result set grows.
 - Delete actions appear on detail tabs, at the far right of New Tab history
   rows, and at the far right of detail-note switcher results.
 - The creation action is labeled **Create New Note from Highlighted Text in
-  General**. Its existing current-General-line copy behavior is unchanged.
+  General** and uses Beacon's existing `doc.badge.plus` symbol. Its existing
+  current-General-line copy behavior is unchanged.
 - CLI deletion is an explicit command rather than an interactive modal and
   retains current deterministic JSON and agent-fallback behavior.
 
@@ -118,8 +119,9 @@ the note switcher needs stronger visual contrast as its result set grows.
   permanent deletion only through the shared confirmation alert.
 - [x] AC6: New Tab delete controls sit at each row's far right, General/New Tab
   have no delete action, and the close X remains non-destructive.
-- [x] AC7: The creation label uses the approved text and the quick switcher has
-  materially darker, more legible contrast.
+- [x] AC7: The creation action uses the approved text and `doc.badge.plus`
+  symbol consistently, and the quick switcher has materially darker, more
+  legible contrast.
 - [x] AC8: Focused Go and Swift tests, full Make validation, Linux build, Kit,
   diff hygiene, and hosted checks are reported exactly.
 
@@ -174,8 +176,11 @@ the note switcher needs stronger visual contrast as its result set grows.
 - Deleting the active note intentionally discards its dirty draft only after
   confirmation. A failed delete keeps the draft and reschedules autosave.
 - The SwiftUI skill reinforced native `Alert` roles, keyboard-focusable plain
-  buttons, trailing destructive row actions, and accessible labels. The supplied
-  screenshots were sufficient, so no Figma artifact was introduced.
+  buttons, trailing destructive row actions, accessible labels, and native SF
+  Symbols. The supplied screenshots were sufficient, so no Figma artifact was
+  introduced.
+- Reusing `doc.badge.plus` from the empty-note state makes the creation action
+  immediately recognizable while preserving Beacon's native SF Symbol style.
 
 ## Documentation Updates
 

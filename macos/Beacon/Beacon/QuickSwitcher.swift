@@ -260,7 +260,7 @@ extension MenuView {
         if state.activeNoteID == "general", !state.notesCurrentLine.isEmpty {
             items.append(BeaconCommandItem(
                 id: "note-from-line", title: SignalNotesPresentation.createFromGeneralLabel, detail: state.notesCurrentLine,
-                symbol: "text.line.first.and.arrowtriangle.forward", keywords: "signal note",
+                symbol: SignalNotesPresentation.createFromGeneralSymbol, keywords: "signal note",
                 action: { Task { await state.createNoteFromCurrentLine() } }
             ))
         }

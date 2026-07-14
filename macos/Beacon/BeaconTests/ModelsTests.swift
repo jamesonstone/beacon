@@ -309,6 +309,7 @@ final class ModelsTests: XCTestCase {
             SignalNotesPresentation.createFromGeneralLabel,
             "Create New Note from Highlighted Text in General"
         )
+        XCTAssertEqual(SignalNotesPresentation.createFromGeneralSymbol, "doc.badge.plus")
     }
 
     func testDefaultAgentSocketUsesCacheDirectory() {

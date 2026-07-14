@@ -122,7 +122,10 @@ struct SignalNotePicker: View {
                 Button {
                     Task { await state.createNoteFromCurrentLine() }
                 } label: {
-                    Label(SignalNotesPresentation.createFromGeneralLabel, systemImage: "text.line.first.and.arrowtriangle.forward")
+                    Label(
+                        SignalNotesPresentation.createFromGeneralLabel,
+                        systemImage: SignalNotesPresentation.createFromGeneralSymbol
+                    )
                         .lineLimit(1)
                 }
                 .buttonStyle(.plain)
