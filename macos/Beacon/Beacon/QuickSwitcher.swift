@@ -137,6 +137,7 @@ struct BeaconQuickSwitcher: View {
         selection = (selection + delta + results.count) % results.count
     }
 
+    @MainActor
     private func performSelection() {
         guard results.indices.contains(selection) else { return }
         let command = results[selection]
