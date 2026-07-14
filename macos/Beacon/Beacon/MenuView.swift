@@ -14,6 +14,7 @@ struct MenuView: View {
     @State var selectedDashboardTab = DashboardTab.defaultTab
     @State var showingProjectInventory = false
     @State var showingRepositorySync = false
+    @State var showingDependencyLimits = false
     @State var projectInventoryTab = ProjectInventoryTab.following
     @State var tagLane: WorkLane?
     @State var tagText = ""
@@ -103,6 +104,11 @@ struct MenuView: View {
                         state: state,
                         onClose: { showingRepositorySync = false }
                     )
+                } else if showingDependencyLimits {
+                    DependencyLimitsView(
+                        state: state,
+                        onClose: { showingDependencyLimits = false }
+                    )
                 } else if let snapshot = state.snapshot {
                     if showingProjectInventory {
                         ProjectFollowingView(
@@ -155,6 +161,7 @@ struct MenuView: View {
             Spacer()
             refreshButton
             repositorySyncButton
+            dependencyLimitsButton
             viewModeMenu
             settingsMenu
         }
@@ -163,6 +170,7 @@ struct MenuView: View {
     private var repositorySyncButton: some View {
         Button {
             showingProjectInventory = false
+            showingDependencyLimits = false
             showingRepositorySync = true
             if state.repositorySyncReport == nil {
                 Task { await state.checkRepositorySync(refresh: false) }
@@ -199,6 +207,50 @@ struct MenuView: View {
         .buttonStyle(.plain)
         .help("Repository Sync — check and fast-forward local default branches")
         .accessibilityLabel("Repository Sync, \(state.repositoriesNeedingSync.count) need attention")
+    }
+
+    private var dependencyLimitsButton: some View {
+        let accent = state.dependencyUsageLevel.accentColor
+        return Button {
+            showingProjectInventory = false
+            showingRepositorySync = false
+            showingDependencyLimits = true
+            if state.dependencyLimitsReport == nil {
+                Task { await state.checkDependencyLimits() }
+            }
+        } label: {
+            Group {
+                if state.isCheckingDependencyLimits {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(accent)
+                } else if state.dependencyLimitsReport?.hasUsage == true {
+                    Text("\(state.dependencyUsagePercent)%")
+                        .font(.system(size: 8, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(accent)
+                        .minimumScaleFactor(0.75)
+                } else {
+                    Image(systemName: "gauge.with.dots.needle.50percent")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(accent)
+                }
+            }
+            .frame(width: 28, height: 28)
+            .background(BeaconPalette.softGradient(accent), in: RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(accent.opacity(0.42), lineWidth: 0.7)
+            }
+        }
+        .buttonStyle(.plain)
+        .help("Dependency Limits — check gh allowance explicitly")
+        .accessibilityLabel(dependencyLimitsAccessibilityLabel)
+    }
+
+    private var dependencyLimitsAccessibilityLabel: String {
+        guard state.dependencyLimitsReport != nil else { return "Dependency Limits, not checked" }
+        return "Dependency Limits, highest usage \(state.dependencyUsagePercent) percent"
     }
 
     private var refreshButton: some View {
@@ -328,12 +380,14 @@ struct MenuView: View {
     private func showProjects(_ tab: ProjectInventoryTab) {
         projectInventoryTab = tab
         showingRepositorySync = false
+        showingDependencyLimits = false
         showingProjectInventory = true
     }
 
     private func showDashboardTab(_ tab: DashboardTab) {
         showingProjectInventory = false
         showingRepositorySync = false
+        showingDependencyLimits = false
         selectedDashboardTab = tab
     }
 

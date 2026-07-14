@@ -96,6 +96,28 @@ final class ModelsTests: XCTestCase {
         XCTAssertTrue(report.repositories.first?.canUpdate == true)
     }
 
+    func testDependencyLimitPercentagesAndThresholds() throws {
+        let data = Data(#"{"checked_at":"2026-07-14T12:30:00Z","dependencies":[{"name":"gh","buckets":[{"id":"graphql","name":"GraphQL","limit":5000,"used":1,"remaining":4999,"reset_at":"2026-07-14T13:00:00Z"},{"id":"core","name":"REST Core","limit":5000,"used":2500,"remaining":2500,"reset_at":"2026-07-14T13:00:00Z"},{"id":"search","name":"Search","limit":30,"used":23,"remaining":7,"reset_at":"2026-07-14T13:00:00Z"}]}]}"#.utf8)
+        let report = try JSONDecoder().decode(DependencyLimitReport.self, from: data)
+
+        XCTAssertEqual(report.dependencies.first?.name, "gh")
+        XCTAssertEqual(report.dependencies.first?.buckets.map(\.usagePercent), [1, 50, 77])
+        XCTAssertEqual(report.highestUsagePercent, 77)
+        XCTAssertEqual(report.usageLevel, .critical)
+        XCTAssertEqual(DependencyLimitPresentation.level(percent: 49, hasUsage: true), .healthy)
+        XCTAssertEqual(DependencyLimitPresentation.level(percent: 50, hasUsage: true), .warning)
+        XCTAssertEqual(DependencyLimitPresentation.level(percent: 75, hasUsage: true), .warning)
+        XCTAssertEqual(DependencyLimitPresentation.level(percent: 76, hasUsage: true), .critical)
+        XCTAssertEqual(DependencyLimitPresentation.level(percent: 0, hasUsage: false), .unmeasured)
+    }
+
+    func testMenuBarBeaconKeepsCountSeparateAndAccessible() {
+        XCTAssertEqual(BeaconMenuBarPresentation.displayCount(1), "1")
+        XCTAssertEqual(BeaconMenuBarPresentation.displayCount(120), "99+")
+        XCTAssertEqual(BeaconMenuBarPresentation.accessibilityText(0), "Beacon, no items in progress")
+        XCTAssertEqual(BeaconMenuBarPresentation.accessibilityText(3), "Beacon, 3 items in progress")
+    }
+
     func testNeonWavePhaseIsPeriodicAndNormalized() {
         let start = Date(timeIntervalSinceReferenceDate: 120)
         let later = start.addingTimeInterval(NeonWave.cycle)

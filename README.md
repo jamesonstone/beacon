@@ -283,6 +283,8 @@ beacon sync
 beacon sync check --no-fetch
 beacon sync check --json
 beacon sync apply owner/repository --yes
+beacon limits
+beacon limits --json
 beacon projects
 beacon select
 beacon projects --followed
@@ -333,6 +335,12 @@ the default branch and fast-forward it. Dirty, detached, diverged, missing-ref,
 unmerged, and multi-worktree cases remain manual. This workflow never invokes
 `gh` or the GitHub API and never rebases, resets, stashes, deletes, commits,
 pushes, or changes GitHub state.
+
+`beacon limits` is an explicit snapshot of the external rate-limited dependency
+Beacon currently uses: authenticated `gh`. One invocation runs one bounded
+`gh api rate_limit` request and shows GraphQL, REST Core, and Search usage,
+remaining allowance, and reset time. Beacon never runs this command at startup
+or on a schedule; JSON output is available for the bundled macOS helper.
 
 The default working-set view groups lanes as **Active**, **Waiting**,
 **Recently Active**, and **Parked**. Dirty or unpublished work, recent local
@@ -423,6 +431,13 @@ default branch; row, selected, and all-safe buttons then run the same guarded
 fast-forward behavior as `beacon sync`. Both macOS surfaces delegate this work
 to Go and never execute Git or `gh` directly.
 
+The next **Dependency Limits** button is also explicit-only. Selecting it asks
+the bundled Go helper for one `gh api rate_limit` snapshot and shows the
+GraphQL, REST Core, and Search buckets. After the first check, the button shows
+the highest usage percentage in mint below 50%, gold from 50% through 75%, and
+coral above 75%; zero usage retains the gauge icon. No startup request or
+background polling is added.
+
 A compact tab row keeps repository attention one click away. **Following** is
 selected whenever a dashboard surface opens and contains Active, Waiting, and
 Recently Active lanes. **Parking Lot** is the next peer tab, followed by
@@ -439,6 +454,11 @@ Reduce Motion, and describes lane state without claiming local Git refs are curr
 The Beacon wordmark carries a modest neon/pastel color wave. It uses a shared,
 deterministic time phase in the menu and detached window and becomes a static
 neon gradient when Reduce Motion is enabled.
+
+The menu-bar item keeps a colored beacon-light glyph visible in every state.
+An in-progress lane count appears beside it in a separate gold-to-coral badge,
+so the app remains recognizable without burying the count among other status
+items.
 
 Beacon defaults to a 12-point system monospaced design. Settings provides
 System, Rounded, Monospaced, and Serif designs plus 11, 12, 13, 14, and 16-point

@@ -201,3 +201,20 @@ actor RepositorySyncFallbackClient: CLIClientProtocol {
         return reports[0]
     }
 }
+
+actor DependencyLimitsClient: CLIClientProtocol {
+    let report: DependencyLimitReport
+    private(set) var calls = 0
+
+    init(report: DependencyLimitReport) {
+        self.report = report
+    }
+
+    func scan() async throws -> BeaconSnapshot { throw TestError.failed }
+    func setProjectTracked(_ github: String, tracked: Bool) async throws {}
+
+    func dependencyLimits() async throws -> DependencyLimitReport {
+        calls += 1
+        return report
+    }
+}

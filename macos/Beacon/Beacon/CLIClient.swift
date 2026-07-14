@@ -7,6 +7,7 @@ protocol CLIClientProtocol {
     func setNotes(_ content: String) async throws -> AgentNotes
     func repositorySync(refresh: Bool) async throws -> RepositorySyncReport
     func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport
+    func dependencyLimits() async throws -> DependencyLimitReport
 }
 
 extension CLIClientProtocol {
@@ -14,6 +15,7 @@ extension CLIClientProtocol {
     func setNotes(_ content: String) async throws -> AgentNotes { throw AgentClientError.command("signal notes are unavailable") }
     func repositorySync(refresh: Bool) async throws -> RepositorySyncReport { throw AgentClientError.command("repository sync is unavailable") }
     func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport { throw AgentClientError.command("repository sync is unavailable") }
+    func dependencyLimits() async throws -> DependencyLimitReport { throw AgentClientError.command("dependency limits are unavailable") }
 }
 
 protocol AgentInstallerProtocol {
@@ -79,6 +81,19 @@ struct CLIClient: CLIClientProtocol, AgentInstallerProtocol {
 
     func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport {
         try decodeRepositorySync(try await execute(arguments: ["sync", "apply", "--json", "--yes"] + projectIDs))
+    }
+
+    func dependencyLimits() async throws -> DependencyLimitReport {
+        do {
+            return try JSONDecoder().decode(
+                DependencyLimitReport.self,
+                from: try await execute(arguments: ["limits", "--json"])
+            )
+        } catch let error as CLIClientError {
+            throw error
+        } catch {
+            throw CLIClientError.invalidOutput(error.localizedDescription)
+        }
     }
 
     func installAgent() async throws {

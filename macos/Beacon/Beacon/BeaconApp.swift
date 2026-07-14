@@ -26,76 +26,74 @@ struct BeaconMenuBarLabel: View {
     let inProgressCount: Int
 
     var body: some View {
-        Group {
+        HStack(spacing: 2) {
+            ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                BeaconPalette.pink.opacity(0.82),
+                                Color(red: 0.05, green: 0.02, blue: 0.16),
+                            ],
+                            center: .center,
+                            startRadius: 1,
+                            endRadius: 10
+                        )
+                    )
+                    .frame(width: 14, height: 14)
+
+                Image(systemName: "light.beacon.max.fill")
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(BeaconPalette.gold, BeaconPalette.cyan)
+                    .font(.system(size: 16, weight: .bold))
+
+                Circle()
+                    .fill(.white)
+                    .frame(width: 3, height: 3)
+                    .shadow(color: BeaconPalette.gold, radius: 2)
+            }
+            .frame(width: 22, height: 18)
+            .shadow(color: BeaconPalette.cyan.opacity(0.95), radius: 2)
+            .shadow(color: BeaconPalette.pink.opacity(0.65), radius: 3)
+
             if inProgressCount > 0 {
-                Text(displayCount)
-                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                Text(BeaconMenuBarPresentation.displayCount(inProgressCount))
+                    .font(.system(size: 9, weight: .heavy, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, displayCount.count > 2 ? 5 : 7)
-                    .frame(minWidth: 22, minHeight: 18)
+                    .foregroundStyle(Color(red: 0.04, green: 0.03, blue: 0.12))
+                    .padding(.horizontal, 4)
+                    .frame(minWidth: 15, minHeight: 15)
                     .background(
-                        Capsule()
-                            .fill(BeaconPalette.menuBarBadgeFill)
+                        LinearGradient(
+                            colors: [BeaconPalette.gold, BeaconPalette.coral],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: Capsule()
                     )
                     .overlay {
                         Capsule()
-                            .strokeBorder(BeaconPalette.neonGradient, lineWidth: 1.5)
+                            .strokeBorder(.white.opacity(0.72), lineWidth: 0.7)
                     }
-                    .overlay {
-                        Capsule()
-                            .strokeBorder(.white.opacity(0.42), lineWidth: 0.5)
-                            .padding(1.5)
-                    }
-                    .shadow(color: BeaconPalette.cyan.opacity(0.9), radius: 2)
-                    .shadow(color: BeaconPalette.pink.opacity(0.65), radius: 3)
+                    .shadow(color: BeaconPalette.gold.opacity(0.85), radius: 2)
                     .fixedSize()
-            } else {
-                ZStack {
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [
-                                    Color(red: 0.20, green: 0.08, blue: 0.42),
-                                    Color(red: 0.025, green: 0.02, blue: 0.10),
-                                ],
-                                center: .topLeading,
-                                startRadius: 1,
-                                endRadius: 13
-                            )
-                        )
-
-                    Circle()
-                        .strokeBorder(BeaconPalette.neonGradient, lineWidth: 1.2)
-
-                    Ellipse()
-                        .stroke(BeaconPalette.neonGradient, lineWidth: 1.4)
-                        .frame(width: 20, height: 8)
-                        .rotationEffect(.degrees(-24))
-
-                    Image(systemName: "sparkle")
-                        .font(.system(size: 7, weight: .bold))
-                        .foregroundStyle(.white)
-                        .offset(x: 2, y: -2)
-                }
-                .frame(width: 18, height: 18)
-                .shadow(color: BeaconPalette.cyan.opacity(0.9), radius: 2)
-                .shadow(color: BeaconPalette.pink.opacity(0.55), radius: 3)
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityText)
+        .accessibilityLabel(BeaconMenuBarPresentation.accessibilityText(inProgressCount))
+    }
+}
+
+enum BeaconMenuBarPresentation {
+    static func displayCount(_ count: Int) -> String {
+        count > 99 ? "99+" : String(max(0, count))
     }
 
-    private var displayCount: String {
-        inProgressCount > 99 ? "99+" : String(inProgressCount)
-    }
-
-    private var accessibilityText: String {
-        if inProgressCount == 0 {
+    static func accessibilityText(_ count: Int) -> String {
+        if count <= 0 {
             return "Beacon, no items in progress"
         }
-        return "Beacon, \(inProgressCount) items in progress"
+        return "Beacon, \(count) items in progress"
     }
 }
 
@@ -111,15 +109,6 @@ enum BeaconPalette {
         colors: [cyan, lavender, pink],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
-    )
-
-    static let menuBarBadgeFill = LinearGradient(
-        colors: [
-            Color(red: 0.015, green: 0.025, blue: 0.09).opacity(0.96),
-            Color(red: 0.15, green: 0.06, blue: 0.28).opacity(0.94),
-        ],
-        startPoint: .top,
-        endPoint: .bottom
     )
 
     static let panelBackground = LinearGradient(

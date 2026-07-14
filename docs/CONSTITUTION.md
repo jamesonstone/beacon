@@ -167,6 +167,8 @@ must not feed new policy back into the scanner.
   NUL-delimited Git porcelain output and performs bounded refreshes.
 - `internal/reposync` owns local default-branch comparison and the only guarded,
   explicit fast-forward mutation path.
+- `internal/githubapi` owns shared authenticated `gh` caching, background
+  reserves, and explicit dependency-limit snapshots.
 - `internal/githubscan` queries scoped open pull requests and issues through
   authenticated `gh` and normalizes checks, comments, reviews, unresolved
   threads, linked issues, and merge state.
@@ -324,6 +326,10 @@ state.
   conservatively debited at 25 points per command, and authoritative allowance
   state is refreshed after no more than five misses. Repository discovery uses
   only local Git remote and branch metadata and spends no GitHub capacity.
+- Dependency-limit inspection is never scheduled and never runs at application
+  startup. Each explicit inspection invokes exactly one bounded
+  `gh api rate_limit` request and reports GraphQL, REST Core, and Search without
+  initiating any additional API operation.
 - Under the default `mine` scope, one due-project batch performs one global
   authored-PR search and one global assigned-issue search, then enriches only
   matching authored PRs with recent activity. Explicit diagnostics may enrich
@@ -350,6 +356,7 @@ beacon scan [--repo NAME] [--json] [--no-refresh]
 beacon sync
 beacon sync check [project...] [--no-fetch] [--json]
 beacon sync apply <project>... [--yes] [--json]
+beacon limits [--json]
 beacon projects [--followed|--recent|--quiet]
 beacon select
 beacon projects follow <project>...
@@ -435,7 +442,9 @@ renders cached state immediately, applies monotonic incremental project events,
 and reconnects after disconnects without initiating collection. `Scan Now`
 forces a full evidence refresh. The separate repository-sync control loads
 local refs without network work and fetches only after **Check for Updates** or
-an update click. Both remain top-right controls in both surfaces. Agent status is authoritative
+an update click. A third dependency-limit control invokes the bundled helper's
+`limits --json` command only when selected; it never polls or joins application
+startup. These remain top-right controls in both surfaces. Agent status is authoritative
 for loading state, including scans that complete before their request
 acknowledgement. Only `@MainActor` publishes UI state. A
 failed refresh keeps the last successful snapshot visible with its timestamp
@@ -466,11 +475,10 @@ copy describes lane state rather than repository-ref freshness.
 The Beacon wordmark may animate a modest horizontally traveling gradient across
 the existing neon/pastel palette. It must remain readable, use no evidence or
 status policy, and render a static gradient when Reduce Motion is enabled.
-The menu-bar label shows the number of lanes across the CLI-provided active,
-waiting, and recently-active groups. Active counts use a high-contrast dark badge
-with a luminous neon-gradient border so the value remains visible over changing
-menu-bar backgrounds. When that count is zero, it shows a compact color
-neon-space glyph instead of a numeric badge. The menu window may use coordinated
+The menu-bar label always shows a compact, non-template colored beacon-light
+glyph. The number of lanes across the CLI-provided active, waiting, and
+recently-active groups appears as a separate high-contrast gold-to-coral badge
+when nonzero, rather than replacing the app identity. The menu window may use coordinated
 pastel and neon accents to distinguish existing CLI-provided groups and signals,
 but color must not introduce readiness or action policy in the Swift client.
 Individual evidence badges may be hidden as reversible local presentation
@@ -498,8 +506,8 @@ service.
 
 The application may use `NSWorkspace` to open pull requests, worktree paths,
 and `$HOME/.config/beacon/config.yaml`. It may invoke the bundled helper's
-project follow/unfollow and repository-sync commands but must not execute Git or
-`gh` directly or contain correlation, repository-sync safety, readiness,
+project follow/unfollow, repository-sync, and dependency-limit commands but
+must not execute Git or `gh` directly or contain correlation, repository-sync safety, readiness,
 fingerprint, cache, scheduling, or recent-activity policy. The
 bundled helper is named `beacon-cli` to avoid a case-insensitive filename
 collision with the `Beacon` application executable. The helper build must

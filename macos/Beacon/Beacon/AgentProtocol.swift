@@ -100,6 +100,75 @@ struct RepositorySyncItem: Codable, Equatable, Identifiable {
     }
 }
 
+struct DependencyLimitReport: Codable, Equatable {
+    let checkedAt: String
+    let dependencies: [DependencyLimit]
+
+    enum CodingKeys: String, CodingKey {
+        case dependencies
+        case checkedAt = "checked_at"
+    }
+
+    var highestUsagePercent: Int {
+        dependencies.flatMap(\.buckets).map(\.usagePercent).max() ?? 0
+    }
+
+    var hasUsage: Bool {
+        dependencies.flatMap(\.buckets).contains { $0.limit > 0 && $0.used > 0 }
+    }
+
+    var usageLevel: DependencyUsageLevel {
+        DependencyLimitPresentation.level(percent: highestUsagePercent, hasUsage: hasUsage)
+    }
+}
+
+struct DependencyLimit: Codable, Equatable, Identifiable {
+    let name: String
+    let buckets: [DependencyLimitBucket]
+
+    var id: String { name }
+}
+
+struct DependencyLimitBucket: Codable, Equatable, Identifiable {
+    let id: String
+    let name: String
+    let limit: Int
+    let used: Int
+    let remaining: Int
+    let resetAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, limit, used, remaining
+        case resetAt = "reset_at"
+    }
+
+    var usagePercent: Int {
+        DependencyLimitPresentation.percentage(used: used, limit: limit)
+    }
+}
+
+enum DependencyUsageLevel: String, Equatable {
+    case unmeasured
+    case healthy
+    case warning
+    case critical
+}
+
+enum DependencyLimitPresentation {
+    static func percentage(used: Int, limit: Int) -> Int {
+        guard used > 0, limit > 0 else { return 0 }
+        let roundedUp = Int(ceil((Double(used) / Double(limit)) * 100))
+        return min(100, max(1, roundedUp))
+    }
+
+    static func level(percent: Int, hasUsage: Bool) -> DependencyUsageLevel {
+        guard hasUsage, percent > 0 else { return .unmeasured }
+        if percent < 50 { return .healthy }
+        if percent <= 75 { return .warning }
+        return .critical
+    }
+}
+
 struct AgentEvent: Codable, Equatable {
     let protocolVersion: Int
     let requestID: String?

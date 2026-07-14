@@ -138,6 +138,43 @@ extension AppStateTests {
         XCTAssertNil(state.repositorySyncError)
     }
 
+    func testDependencyLimitsStayIdleUntilExplicitCheck() async {
+        let report = DependencyLimitReport(
+            checkedAt: "2026-07-14T12:30:00Z",
+            dependencies: [DependencyLimit(name: "gh", buckets: [
+                DependencyLimitBucket(
+                    id: "graphql", name: "GraphQL", limit: 5_000,
+                    used: 2_500, remaining: 2_500, resetAt: "2026-07-14T13:00:00Z"
+                ),
+            ])]
+        )
+        let client = DependencyLimitsClient(report: report)
+        let agent = ScriptedAgent(events: [TestSnapshots.snapshotEvent(TestSnapshots.empty)])
+        let state = AppState(
+            agent: agent,
+            installer: nil,
+            repositorySyncFallback: nil,
+            dependencyLimitsClient: client
+        )
+
+        state.start()
+        defer { state.stop() }
+        for _ in 0..<20 where state.snapshot == nil {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        let callsBeforeCheck = await client.calls
+        XCTAssertEqual(callsBeforeCheck, 0)
+
+        await state.checkDependencyLimits()
+
+        let callsAfterCheck = await client.calls
+        XCTAssertEqual(callsAfterCheck, 1)
+        XCTAssertEqual(state.dependencyUsagePercent, 50)
+        XCTAssertEqual(state.dependencyUsageLevel, .warning)
+        XCTAssertNil(state.dependencyLimitsError)
+        XCTAssertFalse(state.isCheckingDependencyLimits)
+    }
+
     func testAgentEventsRejectOlderProjectRevision() async {
         let agent = ScriptedAgent(events: [
             TestSnapshots.agentEvent(snapshot: TestSnapshots.withLane, projectID: "owner/repo", revision: 2),

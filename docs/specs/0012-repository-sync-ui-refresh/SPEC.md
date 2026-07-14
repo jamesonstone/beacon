@@ -44,6 +44,14 @@ references:
     read_policy: must
     used_for: whimsical no-work presentation and single-surface rich Markdown editing
     status: active
+  - id: user-rate-limit-icon-followup
+    name: Dependency limits and menu-bar identity follow-up
+    type: user-request
+    target: conversation
+    relation: implements
+    read_policy: must
+    used_for: explicit dependency-limit inspection and a distinctive colored menu-bar beacon
+    status: active
 skills:
   - name: figma:figma-swiftui
     source: codex
@@ -63,7 +71,9 @@ cleanup by making notes prominent and Markdown-readable, increasing typography,
 separating parked work, compacting the header, and simplifying Settings.
 When no work lane is in progress, the dashboard should replace its blank body
 with a lightweight celebratory state. Signal Notes should also behave as one
-live Markdown surface instead of asking the user to switch modes.
+live Markdown surface instead of asking the user to switch modes. A final
+follow-up should make Beacon's external dependency allowance visible only when
+requested and give the menu-bar item a recognizable colored beacon identity.
 
 ## Context
 
@@ -113,6 +123,17 @@ repository-sync reports and render the same behavior in both surfaces.
 - When Following has no in-progress lanes and no projects are loading, both
   macOS surfaces show an adaptive, whimsical all-caught-up backsplash. The copy
   describes lane state only and does not claim repositories are Git-current.
+- Dependency-limit inspection is an explicit user action. Beacon performs no
+  startup query, background polling, or scheduled rate-limit request.
+- GitHub CLI is the currently rate-limited external dependency. One inspection
+  runs one bounded `gh api rate_limit` command and presents its GraphQL, REST
+  Core, and Search buckets without spending additional API calls.
+- The header summary uses the highest current bucket utilization: mint below
+  50%, gold from 50% through 75%, and coral above 75%. Before inspection, or
+  while all buckets are unused, the button shows a neutral gauge symbol.
+- The menu-bar label always keeps a compact colored beacon glyph visible. An
+  in-progress lane count appears as a separate badge instead of replacing the
+  identity with an isolated numeral.
 
 ## Requirements
 
@@ -158,6 +179,13 @@ repository-sync reports and render the same behavior in both surfaces.
     plain Markdown as the binding and saved document, updates supported styling
     after each edit, preserves selection and undo, and respects the selected
     dashboard font settings.
+17. Add an equal-sized dependency-limit header button that performs no work
+    until selected, then requests one bounded Go-owned GitHub CLI inspection,
+    displays provider and bucket details, and summarizes the highest utilization
+    as a percentage with the clarified mint, gold, and coral thresholds.
+18. Replace the count-only menu-bar label with a compact, non-template colored
+    beacon glyph plus a legible in-progress count badge while retaining an
+    accurate accessibility label.
 
 ## Assumptions
 
@@ -172,6 +200,12 @@ repository-sync reports and render the same behavior in both surfaces.
 - A focused live syntax presentation is the simplest viable Notion-like behavior;
   Markdown markers remain editable source rather than introducing a second
   structured document model or lossy source conversion.
+- `/rate_limit` is the authoritative GitHub allowance snapshot. Reading it only
+  after a click provides useful visibility without introducing another passive
+  consumer of the user's API allowance.
+- Native SwiftUI shapes, system symbols, and existing palette tokens are enough
+  to make the menu-bar item distinctive without adding raster assets or a new
+  rendering dependency.
 
 ## Acceptance Criteria
 
@@ -201,6 +235,12 @@ repository-sync reports and render the same behavior in both surfaces.
 - [x] AC13: Signal Notes has no Edit/Preview control and styles Markdown live
   while retaining exact Markdown source, autosave, manual Save/Revert, selection,
   undo, accessibility, and configured font-family/base-size behavior.
+- [x] AC14: Selecting the dependency-limit control performs exactly one bounded
+  `gh api rate_limit` request, renders GraphQL, REST Core, and Search usage, and
+  updates the summary percentage and mint/gold/coral state without passive work.
+- [x] AC15: Both menu-bar states retain a distinctive colored beacon glyph, add
+  the in-progress count as a separate legible badge, and expose an accurate
+  accessibility label.
 
 ## Implementation Plan
 
@@ -212,6 +252,8 @@ repository-sync reports and render the same behavior in both surfaces.
    record evidence without performing delivery mutations.
 6. Add the adaptive zero-lane backsplash and replace mode-based notes with a
    single live Markdown editor, then repeat Swift, Xcode, Kit, and visual gates.
+7. Add explicit dependency-limit inspection, its shared macOS presentation, and
+   the colored beacon menu-bar label, then repeat focused, full, and visual gates.
 
 ## Agent Team Plan
 
@@ -233,6 +275,9 @@ repository-sync reports and render the same behavior in both surfaces.
 - [x] T7: Implement and test the adaptive zero-lane backsplash.
 - [x] T8: Implement and test live in-place Markdown styling without mode controls.
 - [x] T9: Re-run validation and visually inspect the follow-up behavior.
+- [x] T10: Implement and test one explicit Go dependency-limit inspection path.
+- [x] T11: Implement and test the Swift limit panel and threshold-aware button.
+- [x] T12: Implement and visually inspect the colored menu-bar beacon and badge.
 
 ## Validation Map
 
@@ -246,6 +291,8 @@ repository-sync reports and render the same behavior in both surfaces.
 | AC11 | `make fmt-check vet test test-race build release-test macos-test macos-build`, `kit check --all`, and `git diff --check` |
 | AC12 | Swift presentation predicates, adaptive compact/window layout review, and live detached-window inspection with zero in-progress lanes |
 | AC13 | Markdown style-range and exact-source unit tests, editor binding/focus behavior tests, Swift tests, Xcode build, and live rendered-source inspection |
+| AC14 | recorded Go command test, stable JSON decoding tests, Swift state and threshold tests, CLI help, and manual no-startup-query inspection |
+| AC15 | Swift presentation tests, universal Xcode build, and live menu-bar inspection with and without an in-progress count |
 
 ## Reflection Notes
 
@@ -268,12 +315,24 @@ repository-sync reports and render the same behavior in both surfaces.
 - Live Markdown styling deliberately keeps markers in the editable plain-text
   source. This preserves exact files and undo semantics while providing immediate
   visual hierarchy without a fragile parallel rich-document representation.
+- Dependency-limit inspection stays outside the long-lived agent protocol. The
+  shared Swift state invokes the bundled matching-version helper only after a
+  click, which keeps startup cache-only and avoids protocol churn for a
+  deliberately ephemeral snapshot.
+- The highest active bucket is the useful compact summary because one depleted
+  allowance can block its corresponding Beacon evidence path even when the
+  other buckets remain healthy. The detail panel retains every raw bucket.
+- A native multicolor `light.beacon.max.fill` symbol plus a separate warm count
+  badge is legible at menu-bar scale without adding an asset or hiding the app
+  identity whenever work exists.
 
 ## Documentation Updates
 
 - README documents the repository-sync command and safety boundaries.
-- The constitution records the explicit Git mutation exception and CLI/protocol
-  contracts.
+- README also documents `beacon limits`, its one-call explicit boundary, the
+  threshold colors, and the permanent menu-bar beacon/count treatment.
+- The constitution records the explicit Git mutation exception, dependency-limit
+  execution boundary, CLI/helper contract, and menu-bar presentation invariant.
 - The project progress summary reflects the validated delivery state.
 
 ## Delivery Decision
@@ -325,6 +384,25 @@ configuration changes.
 - The full final gate passed: `make fmt-check vet test test-race build
   release-test macos-test macos-build`, `kit check --all`, and
   `git diff --check`.
+- Recorded Go tests prove `beacon limits --json` invokes exactly one bounded
+  `gh api rate_limit` command, returns `gh` with stable GraphQL, REST Core, and
+  Search ordering, derives missing used counts conservatively, and emits typed
+  JSON. CLI help exposes the explicit command and JSON flag.
+- Swift decoding and presentation tests prove nonzero usage rounds up to a
+  visible percentage, the highest bucket drives mint/gold/coral thresholds,
+  zero usage keeps the neutral state, and a running AppState performs zero
+  dependency-limit calls before the explicit check and exactly one afterward.
+- All 52 Swift tests passed, and the universal Debug app built successfully for
+  Apple Silicon and Intel. The unchanged non-fatal local App Intents service
+  diagnostics remained visible during the test run.
+- Live inspection of the built detached dashboard and compact shared surface
+  confirmed the equal-sized dependency-limit control in the requested header
+  slot, a mint `8%` summary, and readable `gh` rows for GraphQL, REST Core, and
+  Search after one explicit request. The menu-bar presentation retains the
+  colored beacon-light glyph and keeps the lane count as a separate badge.
+- The final gate passed again with `make fmt-check vet test test-race build
+  release-test macos-test macos-build`, `kit check --all`, CLI help inspection,
+  and `git diff --check`.
 - After local completion, the user explicitly requested GitHub delivery. Live
   recon found no matching open issue or existing branch/PR, so assigned issue
   #11 was created and `GH-11` was branched from a freshly fetched `origin/main`.

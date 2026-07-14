@@ -22,10 +22,14 @@ final class AppState: ObservableObject {
     @Published private(set) var isCheckingRepositorySync = false
     @Published private(set) var isApplyingRepositorySync = false
     @Published private(set) var repositorySyncError: String?
+    @Published private(set) var dependencyLimitsReport: DependencyLimitReport?
+    @Published private(set) var isCheckingDependencyLimits = false
+    @Published private(set) var dependencyLimitsError: String?
 
     private let agent: AgentClientProtocol
     private let installer: AgentInstallerProtocol?
     private let repositorySyncFallback: CLIClientProtocol?
+    private let dependencyLimitsClient: CLIClientProtocol?
     private var subscriptionTask: Task<Void, Never>?
     private var revisions: [String: UInt64] = [:]
     private var activeScanID: String?
@@ -37,18 +41,21 @@ final class AppState: ObservableObject {
     init(
         agent: AgentClientProtocol = AgentClient(),
         installer: AgentInstallerProtocol? = CLIClient(),
-        repositorySyncFallback: CLIClientProtocol? = CLIClient()
+        repositorySyncFallback: CLIClientProtocol? = CLIClient(),
+        dependencyLimitsClient: CLIClientProtocol? = CLIClient()
     ) {
         self.agent = agent
         self.installer = installer
         self.repositorySyncFallback = repositorySyncFallback
+        self.dependencyLimitsClient = dependencyLimitsClient
     }
 
     convenience init(client: CLIClientProtocol) {
         self.init(
             agent: DirectAgentAdapter(client: client),
             installer: nil,
-            repositorySyncFallback: client
+            repositorySyncFallback: client,
+            dependencyLimitsClient: client
         )
     }
 
@@ -68,6 +75,14 @@ final class AppState: ObservableObject {
 
     var safeRepositoryUpdates: [RepositorySyncItem] {
         repositoriesNeedingSync.filter(\.canUpdate)
+    }
+
+    var dependencyUsagePercent: Int {
+        dependencyLimitsReport?.highestUsagePercent ?? 0
+    }
+
+    var dependencyUsageLevel: DependencyUsageLevel {
+        dependencyLimitsReport?.usageLevel ?? .unmeasured
     }
 
     func start() {
@@ -186,6 +201,22 @@ final class AppState: ObservableObject {
             repositorySyncError = nil
         } catch {
             repositorySyncError = error.localizedDescription
+        }
+    }
+
+    func checkDependencyLimits() async {
+        guard !isCheckingDependencyLimits else { return }
+        guard let dependencyLimitsClient else {
+            dependencyLimitsError = "The bundled Beacon helper cannot inspect dependency limits."
+            return
+        }
+        isCheckingDependencyLimits = true
+        defer { isCheckingDependencyLimits = false }
+        do {
+            dependencyLimitsReport = try await dependencyLimitsClient.dependencyLimits()
+            dependencyLimitsError = nil
+        } catch {
+            dependencyLimitsError = error.localizedDescription
         }
     }
 

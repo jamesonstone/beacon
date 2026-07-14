@@ -15,7 +15,7 @@
 | 0009 | beacon-working-set-radar | `docs/specs/0009-beacon-working-set-radar` | deliver | no | 2026-07-12 | Refocus Beacon on a small lane-level working set with durable attention, factual deltas, conservative enrichment, and direct activity tabs. |
 | 0010 | project-following | `docs/specs/0010-project-following` | deliver | no | 2026-07-13 | Make repository Following explicit, surface outside activity as Recently Updated, retain a complete Quiet inventory, and animate the accessible neon wordmark. |
 | 0011 | working-notes-refresh | `docs/specs/0011-working-notes-refresh` | deliver | no | 2026-07-13 | Add one local Markdown signal log plus unmistakable manual refresh controls across the CLI, menu extra, and detachable dashboard. |
-| 0012 | repository-sync-ui-refresh | `docs/specs/0012-repository-sync-ui-refresh` | deliver | no | 2026-07-14 | Add conservative Git-only stale-default detection and fast-forward actions, an all-caught-up state, and live Markdown editing while completing the shared dashboard refinements. |
+| 0012 | repository-sync-ui-refresh | `docs/specs/0012-repository-sync-ui-refresh` | deliver | no | 2026-07-14 | Add conservative Git-only stale-default detection and fast-forward actions, explicit dependency-limit visibility, a recognizable menu-bar beacon, and the shared dashboard refinements. |
 
 ## PROJECT INTENT
 
@@ -139,8 +139,8 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Keep dependent local repositories current after merged pull requests without spending GitHub capacity or automating risky Git history changes.
-- **APPROACH**: Compare local and remote default refs through one Go authority, fetch only on explicit actions, automate two guarded fast-forward cases, and share the resulting CLI and macOS behavior alongside an adaptive no-work backsplash and one lossless live Markdown editor.
-- **OPEN ITEMS**: No implementation items remain. The full Go, race, CLI, release, 49-test Swift, universal macOS build, Kit, diff-hygiene, and detached-window visual gates pass; the menu extra shares the validated adaptive view and compact layout branch. Issue #11, branch `GH-11`, and ready PR #12 contain the delivery; final human review and merge remain.
+- **APPROACH**: Compare local and remote default refs through one Go authority, keep Git and dependency-limit network work behind explicit actions, automate only guarded fast-forwards, and share the resulting CLI and macOS behavior alongside an adaptive no-work backsplash, one lossless live Markdown editor, and a recognizable colored menu-bar beacon.
+- **OPEN ITEMS**: No implementation items remain. The Go, race, CLI, release, 52-test Swift, universal macOS build, Kit, diff-hygiene, and live dependency-limit presentation gates pass. Issue #11, branch `GH-11`, and ready PR #12 contain the delivery; final human review and merge remain.
 - **POINTERS**: `docs/specs/0012-repository-sync-ui-refresh/SPEC.md`
 
 ## LAST UPDATED

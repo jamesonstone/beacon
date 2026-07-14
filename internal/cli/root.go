@@ -112,6 +112,7 @@ func (a App) Root() *cobra.Command {
 		a.rootTrackingCommand(&configPath, false),
 		a.refreshCommand(&configPath),
 		a.syncCommand(&configPath),
+		a.limitsCommand(),
 		a.agentCommand(&configPath),
 		a.doctorCommand(&configPath),
 		a.openCommand(&configPath),
