@@ -5,9 +5,11 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/jamesonstone/beacon/internal/agent"
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/model"
 )
@@ -21,6 +23,64 @@ func TestRootRegistersInitAndBareDashboard(t *testing.T) {
 	command, _, err := root.Find([]string{"init"})
 	if err != nil || command == nil || command.Name() != "init" {
 		t.Fatalf("init command = %v, %v", command, err)
+	}
+	command, _, err = root.Find([]string{"agent", "start"})
+	if err != nil || command == nil || command.Name() != "start" {
+		t.Fatalf("agent start command = %v, %v", command, err)
+	}
+}
+
+func TestDirectCLICommandsSelectAgentActivationWithoutLifecycleRecursion(t *testing.T) {
+	root := App{}.Root()
+	for _, test := range []struct {
+		args []string
+		want bool
+	}{
+		{args: nil, want: true},
+		{args: []string{"notes", "list"}, want: true},
+		{args: []string{"refresh"}, want: true},
+		{args: []string{"agent", "start"}, want: false},
+		{args: []string{"agent", "stop"}, want: false},
+		{args: []string{"doctor"}, want: false},
+		{args: []string{"init"}, want: false},
+		{args: []string{"config", "init"}, want: false},
+		{args: []string{"version"}, want: false},
+	} {
+		command := root
+		if len(test.args) > 0 {
+			var err error
+			command, _, err = root.Find(test.args)
+			if err != nil {
+				t.Fatalf("find %v: %v", test.args, err)
+			}
+		}
+		if got := shouldAutoStartAgent(command); got != test.want {
+			t.Fatalf("shouldAutoStartAgent(%v) = %t, want %t", test.args, got, test.want)
+		}
+	}
+}
+
+func TestDirectCLIExecutionStartsAgentBestEffortOnMacOS(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("automatic LaunchAgent activation is macOS-only")
+	}
+	configPath := writeBareDashboardConfig(t)
+	starter := &recordingAgentStarter{}
+	app := App{
+		Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Runner: &recordingRunner{},
+		autoStartAgent: true,
+		agentStarterSource: func(agent.Paths) agentStarter {
+			return starter
+		},
+	}
+	command := app.Root()
+	command.SetArgs([]string{"--config", configPath, "config", "path"})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if starter.calls != 1 {
+		t.Fatalf("agent start calls = %d", starter.calls)
 	}
 }
 
@@ -175,6 +235,13 @@ func TestScanSnapshotUsesPartialReconciliationForRepositoryFilter(t *testing.T) 
 }
 
 type recordingRunner struct{ target string }
+
+type recordingAgentStarter struct{ calls int }
+
+func (s *recordingAgentStarter) Start(context.Context) error {
+	s.calls++
+	return nil
+}
 
 type recordingSnapshotScanner struct {
 	snapshot model.Snapshot

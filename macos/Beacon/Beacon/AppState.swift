@@ -30,7 +30,7 @@ final class AppState: ObservableObject {
     @Published private(set) var dependencyLimitsError: String?
 
     let agent: AgentClientProtocol
-    private let installer: AgentInstallerProtocol?
+    private let installer: AgentLifecycleControllerProtocol?
     let notesFallback: CLIClientProtocol?
     private let repositorySyncFallback: CLIClientProtocol?
     private let dependencyLimitsClient: CLIClientProtocol?
@@ -47,7 +47,7 @@ final class AppState: ObservableObject {
 
     init(
         agent: AgentClientProtocol = AgentClient(),
-        installer: AgentInstallerProtocol? = CLIClient(),
+        installer: AgentLifecycleControllerProtocol? = CLIClient(),
         notesFallback: CLIClientProtocol? = CLIClient(),
         repositorySyncFallback: CLIClientProtocol? = CLIClient(),
         dependencyLimitsClient: CLIClientProtocol? = CLIClient()
@@ -97,6 +97,16 @@ final class AppState: ObservableObject {
 
     func start() {
         guard subscriptionTask == nil else { return }
+        if let installer {
+            do {
+                try installer.startAgent()
+                agentAvailable = true
+                lastError = nil
+            } catch {
+                agentAvailable = false
+                lastError = error.localizedDescription
+            }
+        }
         subscriptionTask = Task { [weak self] in
             await self?.listenForAgent()
         }
@@ -105,6 +115,18 @@ final class AppState: ObservableObject {
     func stop() {
         subscriptionTask?.cancel()
         subscriptionTask = nil
+    }
+
+    @discardableResult
+    func stopAgentSynchronously() -> Error? {
+        guard let installer else { return nil }
+        do {
+            try installer.stopAgent()
+            agentAvailable = false
+            return nil
+        } catch {
+            return error
+        }
     }
 
     func scan() async {

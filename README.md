@@ -305,6 +305,7 @@ beacon track owner/important-project
 beacon untrack owner/old-project
 beacon refresh
 beacon refresh beacon
+beacon agent start
 beacon agent status
 beacon open 'gh:jamesonstone/beacon#2'
 beacon open-next
@@ -502,8 +503,9 @@ at the row's far right; reopening an already-open note activates it without
 duplication. Detail-note results in Command-K and Command-P also expose delete,
 and every macOS delete action requires the same irreversible-action confirmation.
 The switcher uses an opaque dark backdrop so commands remain readable over the
-dashboard. The editor applies headings, emphasis, lists, quotes, inline code,
-links, and dividers while retaining exact plain-text source.
+dashboard. The directly editable native editor applies headings, emphasis,
+lists, quotes, inline code, links, and dividers while retaining exact plain-text
+source.
 
 Both surfaces share one draft and three-second autosave queue. A switch or close
 flushes dirty content first and stays on the current tab if saving fails. Use
@@ -576,6 +578,7 @@ Beacon uses the same executable for interactive commands and background work:
 
 ```bash
 beacon agent install
+beacon agent start
 beacon agent status
 beacon agent stop
 beacon agent uninstall
@@ -586,6 +589,14 @@ On macOS, installation creates the current-user LaunchAgent at
 the current user, uses the authenticated `gh` CLI, and never stores GitHub
 credentials. Authenticate `gh` persistently with `gh auth login`; environment-
 only tokens are not copied into the LaunchAgent.
+
+The macOS app starts or reconnects to this single user agent when it launches
+and synchronously unloads the LaunchAgent when the application quits. Closing
+only the detachable dashboard leaves the menu extra and agent active. Ordinary
+direct CLI work also starts a stopped agent on macOS; `beacon agent start` is
+the explicit idempotent form. `beacon agent stop` is safe to repeat and keeps
+the plist, notes, following state, and caches so the next CLI or app launch can
+resume them.
 
 Operational files are user-only:
 
@@ -634,7 +645,7 @@ cached or freshly scanned projects.
 If the agent is unavailable, inspect `beacon agent status` and the files under
 `~/Library/Logs/Beacon/`. Reinstalling the LaunchAgent does not remove caches or
 following choices. To reset only cached evidence, stop the agent, remove
-`~/.cache/beacon/projects/`, and start it again with `beacon agent install`;
+`~/.cache/beacon/projects/`, and start it again with `beacon agent start`;
 do not remove `tracking.json` unless you intentionally want every discovered
 project to restart in Quiet and rebuild Following manually.
 

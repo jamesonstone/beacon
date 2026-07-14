@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -44,6 +45,12 @@ type App struct {
 	projectPrompterSource projectPrompter
 	syncPrompterSource    repositorySyncPrompter
 	agentClientSource     func(string) agentRequestClient
+	agentStarterSource    func(agent.Paths) agentStarter
+	autoStartAgent        bool
+}
+
+type agentStarter interface {
+	Start(context.Context) error
 }
 
 type snapshotScanner interface {
@@ -69,6 +76,7 @@ func New() *cobra.Command {
 			}
 			return width
 		},
+		autoStartAgent: true,
 	}
 	return app.Root()
 }
@@ -86,6 +94,12 @@ func (a App) Root() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return a.runAgentDashboard(cmd.Context(), configPath, colorMode, includeIdle)
 		},
+	}
+	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		if a.autoStartAgent && runtime.GOOS == "darwin" && shouldAutoStartAgent(cmd) {
+			a.startAgentBestEffort(cmd.Context(), configPath)
+		}
+		return nil
 	}
 	root.PersistentFlags().StringVar(&configPath, "config", "", "configuration file path")
 	root.PersistentFlags().StringVar(&colorMode, "color", "auto", "color output: auto, always, or never")
@@ -121,6 +135,34 @@ func (a App) Root() *cobra.Command {
 		versionCommand(a.Out),
 	)
 	return root
+}
+
+func shouldAutoStartAgent(command *cobra.Command) bool {
+	if command.Name() == "init" {
+		return false
+	}
+	top := command
+	for top.Parent() != nil && top.Parent().Parent() != nil {
+		top = top.Parent()
+	}
+	switch top.Name() {
+	case "agent", "doctor", "init", "version":
+		return false
+	default:
+		return true
+	}
+}
+
+func (a App) startAgentBestEffort(ctx context.Context, configPath string) {
+	_, paths, err := a.agentConfig(configPath)
+	if err != nil {
+		return
+	}
+	starter := agentStarter(agent.Lifecycle{Paths: paths, Runner: a.Runner})
+	if a.agentStarterSource != nil {
+		starter = a.agentStarterSource(paths)
+	}
+	_ = starter.Start(ctx)
 }
 
 func (a App) scanner() snapshotScanner {

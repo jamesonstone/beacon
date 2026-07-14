@@ -18,6 +18,7 @@
 | 0012 | repository-sync-ui-refresh | `docs/specs/0012-repository-sync-ui-refresh` | deliver | no | 2026-07-14 | Add conservative Git-only stale-default detection and fast-forward actions, explicit dependency-limit visibility, repeat-to-Following navigation, a recognizable menu-bar beacon, and the shared dashboard refinements. |
 | 0013 | signal-note-tabs | `docs/specs/0013-signal-note-tabs` | deliver | no | 2026-07-14 | Extend Signal Notes into a persistent Go-owned tab workspace shared by the CLI, menu extra, and dashboard, with detail history and native quick switchers. |
 | 0014 | signal-note-deletion | `docs/specs/0014-signal-note-deletion` | deliver | no | 2026-07-14 | Add permanent detail-note deletion through the Go authority with shared macOS confirmation controls and a higher-contrast switcher. |
+| 0015 | notes-agent-lifecycle | `docs/specs/0015-notes-agent-lifecycle` | deliver | no | 2026-07-14 | Restore native Signal Notes input and bind the background agent lifetime to direct CLI or macOS application activation. |
 
 ## PROJECT INTENT
 
@@ -162,6 +163,15 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **APPROACH**: Add a separate Go-owned delete lifecycle, route tab, New Tab, and switcher actions through one native confirmation alert, and strengthen switcher contrast.
 - **OPEN ITEMS**: Implementation and the complete local gate are finished on issue #21 and branch `GH-21`; final human review and merge remain.
 - **POINTERS**: `docs/specs/0014-signal-note-deletion/SPEC.md`
+
+### notes-agent-lifecycle
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Keep Signal Notes directly editable and prevent the Beacon background agent from outliving every user-facing Beacon process.
+- **APPROACH**: Reconcile native editor focus only across real focus transitions, add idempotent Go start/stop authority, activate it from direct CLI or macOS launch, and synchronously unload it on application termination.
+- **OPEN ITEMS**: Implementation, the complete local gate, and ready-PR delivery are complete on issue #25 and branch `GH-25`; final human review and merge remain.
+- **POINTERS**: `docs/specs/0015-notes-agent-lifecycle/SPEC.md`
 
 ## LAST UPDATED
 
