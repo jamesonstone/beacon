@@ -150,7 +150,7 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **PAUSED**: no
 - **INTENT**: Let a brief General Signal Notes line grow into a durable detail document without losing the low-friction shared scratchpad.
 - **APPROACH**: Keep General pinned, persist stable-ID detail files plus open order and history through one Go store and additive agent protocol, expose equivalent CLI lifecycle commands, and share one macOS draft/autosave authority with tab and command switchers.
-- **OPEN ITEMS**: Implementation, the full local gate, and live CLI/macOS smoke are complete on issue #13 and branch `GH-13`; ready-PR delivery, hosted check observation, and final human review remain.
+- **OPEN ITEMS**: Implementation, full local validation, live CLI/macOS smoke, and hosted Go/macOS checks are complete on issue #13, branch `GH-13`, and ready PR #14; final human review and merge remain.
 - **POINTERS**: `docs/specs/0013-signal-note-tabs/SPEC.md`
 
 ## LAST UPDATED

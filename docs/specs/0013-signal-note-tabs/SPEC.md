@@ -138,7 +138,7 @@ authorities rather than add Swift-side files or another synchronization path.
   from either the current General line or an entered first-line title.
 - [x] AC8: Command-K, Command-P, cycling, numeric shortcuts, arrows, Return, and
   Escape work from both macOS surfaces without duplicating tabs.
-- [ ] AC9: Focused Go, race, Linux, Swift, Xcode, Kit, and diff-hygiene checks
+- [x] AC9: Focused Go, race, Linux, Swift, Xcode, Kit, and diff-hygiene checks
   pass and the ready PR reports hosted check state exactly.
 
 ## Implementation Plan
@@ -167,7 +167,7 @@ authorities rather than add Swift-side files or another synchronization path.
 - [x] T5: Implement command and tab switchers plus keyboard navigation.
 - [x] T6: Reconcile README, constitution, and project progress summary.
 - [x] T7: Run complete validation and self-review.
-- [ ] T8: Commit, push, open the ready PR, and record hosted check evidence.
+- [x] T8: Commit, push, open the ready PR, and record hosted check evidence.
 
 ## Validation Map
 
@@ -240,3 +240,12 @@ template and `Closes #13`.
   cycling, filtered Return activation, and Escape dismissal. The first pass
   exposed a palette-focus race; a deferred focus handoff fixed it, after which
   the 61-test Swift suite and universal Debug build passed again.
+- Commit `e30b7e2` published the complete feature and ready pull request #14
+  targets `main`, is assigned to `jamesonstone`, and remains open for review.
+- The first hosted macOS run failed under Xcode 15.4 because the palette
+  selection dispatcher called a main-actor closure from a nonisolated method.
+  Commit `e38a52c` added the required actor annotation; the focused 61-test
+  macOS suite, universal build, Kit, and diff gates passed before it was pushed.
+- On PR head `e38a52c`, hosted `go` passed in 38 seconds and hosted `macos`
+  passed in 1 minute 38 seconds. The PR is ready, cleanly mergeable, and was not
+  merged.
