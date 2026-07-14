@@ -39,13 +39,70 @@ struct AgentStatusDetails: Codable, Equatable {
 }
 
 struct AgentNotes: Codable, Equatable {
+    let id: String?
+    let title: String?
     let content: String
     let path: String
+    let createdAt: String?
     let updatedAt: String?
+    let openedAt: String?
+
+    init(
+        content: String,
+        path: String,
+        updatedAt: String?,
+        id: String? = nil,
+        title: String? = nil,
+        createdAt: String? = nil,
+        openedAt: String? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.content = content
+        self.path = path
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.openedAt = openedAt
+    }
 
     enum CodingKeys: String, CodingKey {
-        case content, path
+        case id, title, content, path
+        case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case openedAt = "opened_at"
+    }
+}
+
+struct AgentNoteTab: Codable, Equatable, Identifiable {
+    let id: String
+    let title: String
+    let path: String?
+    let createdAt: String?
+    let updatedAt: String?
+    let openedAt: String?
+    let isOpen: Bool
+    let pinned: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, path, pinned
+        case isOpen = "open"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case openedAt = "opened_at"
+    }
+}
+
+struct AgentNotesWorkspace: Codable, Equatable {
+    let version: Int
+    let activeID: String
+    let openIDs: [String]
+    let tabs: [AgentNoteTab]
+    let active: AgentNotes?
+
+    enum CodingKeys: String, CodingKey {
+        case version, tabs, active
+        case activeID = "active_id"
+        case openIDs = "open_ids"
     }
 }
 
@@ -183,6 +240,7 @@ struct AgentEvent: Codable, Equatable {
     let projects: [AgentProjectStatus]?
     let status: AgentStatusDetails?
     let notes: AgentNotes?
+    let notesWorkspace: AgentNotesWorkspace?
     let repositorySync: RepositorySyncReport?
 
     init(
@@ -199,6 +257,7 @@ struct AgentEvent: Codable, Equatable {
         projects: [AgentProjectStatus]?,
         status: AgentStatusDetails?,
         notes: AgentNotes?,
+        notesWorkspace: AgentNotesWorkspace? = nil,
         repositorySync: RepositorySyncReport? = nil
     ) {
         self.protocolVersion = protocolVersion
@@ -214,11 +273,13 @@ struct AgentEvent: Codable, Equatable {
         self.projects = projects
         self.status = status
         self.notes = notes
+        self.notesWorkspace = notesWorkspace
         self.repositorySync = repositorySync
     }
 
     enum CodingKeys: String, CodingKey {
         case type, revision, stage, message, snapshot, projects, status, notes
+        case notesWorkspace = "notes_workspace"
         case repositorySync = "repository_sync"
         case protocolVersion = "protocol_version"
         case requestID = "request_id"
@@ -243,6 +304,12 @@ protocol AgentClientProtocol {
     func addManualLane(_ title: String) async throws -> AgentEvent
     func notes() async throws -> AgentEvent
     func setNotes(_ content: String) async throws -> AgentEvent
+    func notesWorkspace() async throws -> AgentEvent
+    func notes(noteID: String) async throws -> AgentEvent
+    func setNotes(_ content: String, noteID: String) async throws -> AgentEvent
+    func createNote(_ content: String) async throws -> AgentEvent
+    func openNote(_ noteID: String) async throws -> AgentEvent
+    func closeNote(_ noteID: String) async throws -> AgentEvent
     func repositorySync(refresh: Bool) async throws -> AgentEvent
     func syncRepositories(_ projectIDs: [String]) async throws -> AgentEvent
 }
@@ -257,6 +324,18 @@ extension AgentClientProtocol {
     func addManualLane(_ title: String) async throws -> AgentEvent { throw AgentClientError.command("manual lanes are unavailable") }
     func notes() async throws -> AgentEvent { throw AgentClientError.command("signal notes are unavailable") }
     func setNotes(_ content: String) async throws -> AgentEvent { throw AgentClientError.command("signal notes are unavailable") }
+    func notesWorkspace() async throws -> AgentEvent { throw AgentClientError.command("signal note tabs are unavailable") }
+    func notes(noteID: String) async throws -> AgentEvent {
+        guard noteID == "general" else { throw AgentClientError.command("signal note tabs are unavailable") }
+        return try await notes()
+    }
+    func setNotes(_ content: String, noteID: String) async throws -> AgentEvent {
+        guard noteID == "general" else { throw AgentClientError.command("signal note tabs are unavailable") }
+        return try await setNotes(content)
+    }
+    func createNote(_ content: String) async throws -> AgentEvent { throw AgentClientError.command("signal note tabs are unavailable") }
+    func openNote(_ noteID: String) async throws -> AgentEvent { throw AgentClientError.command("signal note tabs are unavailable") }
+    func closeNote(_ noteID: String) async throws -> AgentEvent { throw AgentClientError.command("signal note tabs are unavailable") }
     func repositorySync(refresh: Bool) async throws -> AgentEvent { throw AgentClientError.command("repository sync is unavailable") }
     func syncRepositories(_ projectIDs: [String]) async throws -> AgentEvent { throw AgentClientError.command("repository sync is unavailable") }
 }

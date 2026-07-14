@@ -36,6 +36,10 @@ const (
 	RequestGetNotes          = "get_notes"
 	RequestSetNotes          = "set_notes"
 	RequestAppendNotes       = "append_notes"
+	RequestGetNotesWorkspace = "get_notes_workspace"
+	RequestCreateNote        = "create_note"
+	RequestOpenNote          = "open_note"
+	RequestCloseNote         = "close_note"
 	RequestGetRepositorySync = "get_repository_sync"
 	RequestSyncRepositories  = "sync_repositories"
 )
@@ -55,6 +59,8 @@ const (
 	EventWorkingSetChanged  = "working_set_changed"
 	EventNotes              = "notes"
 	EventNotesUpdated       = "notes_updated"
+	EventNotesWorkspace     = "notes_workspace"
+	EventWorkspaceUpdated   = "notes_workspace_updated"
 	EventRepositorySync     = "repository_sync"
 )
 
@@ -72,6 +78,7 @@ type Request struct {
 	Tag             string   `json:"tag,omitempty"`
 	Title           string   `json:"title,omitempty"`
 	Content         string   `json:"content,omitempty"`
+	NoteID          string   `json:"note_id,omitempty"`
 	Refresh         bool     `json:"refresh,omitempty"`
 }
 
@@ -111,6 +118,7 @@ type Event struct {
 	Projects        []ProjectStatus  `json:"projects,omitempty"`
 	Status          *Status          `json:"status,omitempty"`
 	Notes           *notes.Document  `json:"notes,omitempty"`
+	NotesWorkspace  *notes.Workspace `json:"notes_workspace,omitempty"`
 	RepositorySync  *reposync.Report `json:"repository_sync,omitempty"`
 }
 

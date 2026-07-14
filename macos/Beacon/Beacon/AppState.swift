@@ -13,11 +13,14 @@ final class AppState: ObservableObject {
     @Published private(set) var mutatingProjects: Set<String> = []
     @Published private(set) var agentAvailable = false
     @Published private(set) var projectStatuses: [String: AgentProjectStatus] = [:]
-    @Published private(set) var notesContent = ""
-    @Published private(set) var notesPath = ""
-    @Published private(set) var notesUpdatedAt: String?
-    @Published private(set) var isSavingNotes = false
-    @Published private(set) var notesError: String?
+    @Published var notesContent = ""
+    @Published var notesPath = ""
+    @Published var notesUpdatedAt: String?
+    @Published var notesWorkspace: AgentNotesWorkspace?
+    @Published var notesDraft = ""
+    @Published var notesCurrentLine = ""
+    @Published var isSavingNotes = false
+    @Published var notesError: String?
     @Published private(set) var repositorySyncReport: RepositorySyncReport?
     @Published private(set) var isCheckingRepositorySync = false
     @Published private(set) var isApplyingRepositorySync = false
@@ -26,7 +29,7 @@ final class AppState: ObservableObject {
     @Published private(set) var isCheckingDependencyLimits = false
     @Published private(set) var dependencyLimitsError: String?
 
-    private let agent: AgentClientProtocol
+    let agent: AgentClientProtocol
     private let installer: AgentInstallerProtocol?
     private let repositorySyncFallback: CLIClientProtocol?
     private let dependencyLimitsClient: CLIClientProtocol?
@@ -37,6 +40,8 @@ final class AppState: ObservableObject {
     private var trackingQueue: [TrackingMutation] = []
     private var trackingTask: Task<Void, Never>?
     private var trackingFailures: [String: String] = [:]
+    let notesAutosave = SignalNotesAutosave()
+    var notesDraftID = "general"
 
     init(
         agent: AgentClientProtocol = AgentClient(),
@@ -156,27 +161,6 @@ final class AppState: ObservableObject {
 
     func addManualLane(_ title: String) async {
         await applyLaneMutation { try await agent.addManualLane(title) }
-    }
-
-    func loadNotes() async {
-        do {
-            apply(try await agent.notes())
-            notesError = nil
-        } catch {
-            notesError = error.localizedDescription
-        }
-    }
-
-    func saveNotes(_ content: String) async {
-        guard !isSavingNotes else { return }
-        isSavingNotes = true
-        defer { isSavingNotes = false }
-        do {
-            apply(try await agent.setNotes(content))
-            notesError = nil
-        } catch {
-            notesError = error.localizedDescription
-        }
     }
 
     func checkRepositorySync(refresh: Bool) async {
@@ -358,7 +342,7 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func apply(_ event: AgentEvent) {
+    func apply(_ event: AgentEvent) {
         guard event.protocolVersion == 1 else {
             lastError = "Beacon agent returned invalid data: unsupported protocol \(event.protocolVersion)"
             return
@@ -405,11 +389,10 @@ final class AppState: ObservableObject {
                 lastError = nil
             }
         }
-        if let notes = event.notes {
-            notesContent = notes.content
-            notesPath = notes.path
-            notesUpdatedAt = notes.updatedAt
-            notesError = nil
+        if let workspace = event.notesWorkspace {
+            applyNotesWorkspace(workspace)
+        } else if let notes = event.notes {
+            applyNotesDocument(notes, noteID: notes.id ?? activeNoteID)
         }
         if event.type == "project_failed" {
             lastError = event.message ?? "Project refresh failed — showing previous result"

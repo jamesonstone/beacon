@@ -16,6 +16,7 @@
 | 0010 | project-following | `docs/specs/0010-project-following` | deliver | no | 2026-07-13 | Make repository Following explicit, surface outside activity as Recently Updated, retain a complete Quiet inventory, and animate the accessible neon wordmark. |
 | 0011 | working-notes-refresh | `docs/specs/0011-working-notes-refresh` | deliver | no | 2026-07-13 | Add one local Markdown signal log plus unmistakable manual refresh controls across the CLI, menu extra, and detachable dashboard. |
 | 0012 | repository-sync-ui-refresh | `docs/specs/0012-repository-sync-ui-refresh` | deliver | no | 2026-07-14 | Add conservative Git-only stale-default detection and fast-forward actions, explicit dependency-limit visibility, repeat-to-Following navigation, a recognizable menu-bar beacon, and the shared dashboard refinements. |
+| 0013 | signal-note-tabs | `docs/specs/0013-signal-note-tabs` | deliver | no | 2026-07-14 | Extend Signal Notes into a persistent Go-owned tab workspace shared by the CLI, menu extra, and dashboard, with detail history and native quick switchers. |
 
 ## PROJECT INTENT
 
@@ -142,6 +143,15 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **APPROACH**: Compare local and remote default refs through one Go authority, keep Git and dependency-limit network work behind explicit actions, automate only guarded fast-forwards, and share the resulting CLI and macOS behavior alongside an adaptive no-work backsplash, one lossless live Markdown editor, one mutually exclusive dashboard destination, and a recognizable colored menu-bar beacon.
 - **OPEN ITEMS**: No implementation items remain. Repeat-to-Following navigation and its focused route tests join the existing Go, race, CLI, release, 54-test Swift, universal macOS build, Kit, diff-hygiene, and live dependency-limit presentation gates on issue #11, branch `GH-11`, and ready PR #12; final human review and merge remain.
 - **POINTERS**: `docs/specs/0012-repository-sync-ui-refresh/SPEC.md`
+
+### signal-note-tabs
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Let a brief General Signal Notes line grow into a durable detail document without losing the low-friction shared scratchpad.
+- **APPROACH**: Keep General pinned, persist stable-ID detail files plus open order and history through one Go store and additive agent protocol, expose equivalent CLI lifecycle commands, and share one macOS draft/autosave authority with tab and command switchers.
+- **OPEN ITEMS**: Implementation, the full local gate, and live CLI/macOS smoke are complete on issue #13 and branch `GH-13`; ready-PR delivery, hosted check observation, and final human review remain.
+- **POINTERS**: `docs/specs/0013-signal-note-tabs/SPEC.md`
 
 ## LAST UPDATED
 

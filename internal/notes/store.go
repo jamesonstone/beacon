@@ -16,15 +16,30 @@ import (
 const MaxBytes = 256 * 1024
 
 type Document struct {
+	ID        string    `json:"id,omitempty"`
+	Title     string    `json:"title,omitempty"`
 	Content   string    `json:"content"`
 	Path      string    `json:"path"`
+	CreatedAt time.Time `json:"created_at,omitempty,omitzero"`
 	UpdatedAt time.Time `json:"updated_at,omitempty,omitzero"`
+	OpenedAt  time.Time `json:"opened_at,omitempty,omitzero"`
 }
 
 type Store interface {
 	Load(string) (Document, error)
 	Write(string, string) (Document, error)
 	Append(string, string) (Document, error)
+}
+
+type WorkspaceStore interface {
+	Store
+	LoadWorkspace(string) (Workspace, error)
+	LoadNote(string, string) (Document, error)
+	WriteNote(string, string, string) (Workspace, error)
+	AppendNote(string, string, string) (Workspace, error)
+	CreateNote(string, string) (Workspace, error)
+	OpenNote(string, string) (Workspace, error)
+	CloseNote(string, string) (Workspace, error)
 }
 
 type FileStore struct{}

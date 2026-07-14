@@ -1,0 +1,242 @@
+---
+kit_metadata_version: 1
+artifact: spec
+workflow_version: 2
+phase: deliver
+delivery_intent: ready_pull_request
+clarification:
+  status: ready
+  confidence: 100
+  unresolved_questions: 0
+feature:
+  id: "0013"
+  slug: signal-note-tabs
+  dir: 0013-signal-note-tabs
+relationships:
+  - type: builds_on
+    target: 0011-working-notes-refresh
+references:
+  - id: issue-13
+    name: Add Signal Note tabs and quick switchers
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/13
+    relation: implements
+    read_policy: must
+    used_for: user-approved delivery lane and acceptance contract
+    status: active
+  - id: constitution
+    name: Beacon constitution
+    type: doc
+    target: docs/CONSTITUTION.md
+    relation: constrains
+    read_policy: must
+    used_for: Go persistence authority, additive protocol evolution, and shared macOS state
+    status: active
+skills:
+  - name: figma:figma-swiftui
+    source: codex
+    path: /Users/jamesonstone/.codex/plugins/cache/openai-curated-remote/figma/2.0.14/skills/figma-swiftui/SKILL.md
+    trigger: shared SwiftUI menu-extra and dashboard implementation
+    required: true
+---
+
+# Signal Note Tabs
+
+## Thesis
+
+Beacon should let one brief Signal Notes line grow into a durable detail note
+without losing the low-friction general scratchpad. The CLI, menu extra, and
+detachable dashboard should share one persistent tab workspace whose files and
+open state remain local, explicit, and Go-owned.
+
+## Context
+
+Feature 0011 added one atomic Markdown document and one shared SwiftUI editor.
+Longer ideas currently make that document noisy and cannot remain independently
+open. Both macOS surfaces already share `AppState`, and the agent protocol
+already publishes notes updates, so the extension should preserve those
+authorities rather than add Swift-side files or another synchronization path.
+
+## Clarifications
+
+- General remains the existing `$XDG_DATA_HOME/beacon/notes.md` document and is
+  pinned, always open, and never closable.
+- Detail files live under `$XDG_DATA_HOME/beacon/notes/`; a versioned workspace
+  manifest in that directory stores stable IDs, open order, active selection,
+  creation time, and last-opened time.
+- The trimmed literal first line is the tab title. Empty first lines display as
+  `Untitled`; editing the title never renames the stable file.
+- Creating from the current General line copies that line into the detail file
+  and leaves General unchanged.
+- Open order is stable insertion order. Reopening a closed file appends it;
+  selecting an open file activates it without duplication or reordering.
+- Closing removes only open-state metadata. It never deletes the Markdown file.
+- New Tab is a singleton persistent picker, not a Markdown file. It lists all
+  detail notes most-recently-opened first and can create from the current line
+  or a separately entered title.
+- There is no hard tab-count limit. The existing 256 KiB limit remains per
+  Markdown document, and aggregate lists load metadata rather than all content.
+- Existing no-selector CLI commands continue to address General.
+- Both macOS surfaces share one draft and autosave authority. Dirty content is
+  flushed before switching or closing; a failed save keeps the tab active.
+
+## Requirements
+
+1. Add a traversal-safe, user-only, atomic detail-note and workspace store with
+   stable timestamp-plus-random IDs, regular-file enforcement, and recovery by
+   discovering valid Markdown files when workspace metadata is absent or stale.
+2. Represent General, New Tab, open order, active selection, note timestamps,
+   and most-recently-opened history with deterministic typed metadata.
+3. Add CLI list/new/open/close workflows and `--note` selectors to show, set,
+   append, edit, and path while preserving every existing General workflow.
+4. Accept stable IDs or unique exact titles, reject ambiguous titles with their
+   IDs, reserve `general` and `new`, and support `new --from-line N`.
+5. Extend protocol v1 additively with workspace/create/open/close requests,
+   optional note selectors, typed workspace payloads, and subscriber updates.
+6. Keep direct CLI fallback and agent-backed mutations behaviorally equivalent.
+7. Replace per-surface notes drafts with one shared `AppState` workspace and
+   autosave authority used by the menu extra and detachable dashboard.
+8. Add a horizontally scrollable tab strip, live first-line titles, a New Tab
+   button, and hover/focus close controls with accessible labels.
+9. Add current-line promotion from the General editor toolbar, context menu,
+   and quick switcher.
+10. Add a searchable command registry. Command-K exposes all app-wide,
+    dashboard, note, and applicable lane/project actions; Command-P exposes
+    only General, New Tab, and open or closed detail notes.
+11. Support keyboard result navigation, dismissal, next/previous tab cycling,
+    bracket cycling, and Command-1 through Command-9 direct selection on both
+    macOS surfaces.
+12. Reconcile the README, constitution, and project progress summary with the
+    new storage, CLI, protocol, and macOS contracts.
+
+## Assumptions
+
+- Most-recently-opened ordering is descending, with creation time and stable ID
+  as deterministic tie-breakers.
+- Duplicate titles are valid; only selector resolution requires disambiguation.
+- New Tab remains open until explicitly closed and is restored across relaunch.
+- Closing the active detail selects its left neighbor, then General.
+- No delete command or destructive note lifecycle is part of this feature.
+- The supplied screenshot is current-state context; no Figma artifact is
+  required.
+
+## Acceptance Criteria
+
+- [x] AC1: Existing General storage and no-selector CLI behavior remain
+  compatible without migration or repository writes.
+- [x] AC2: Detail files and workspace state are atomic, user-only, bounded per
+  document, traversal-safe, stable across relaunch, and unlimited in count.
+- [x] AC3: First-line titles, copy-from-line creation, open ordering, duplicate
+  prevention, close fallback, and most-recent history are deterministic.
+- [x] AC4: CLI lifecycle commands, selectors, stdin, JSON, edit, and path
+  workflows behave deterministically through agent and fallback paths.
+- [x] AC5: Protocol v1 publishes additive workspace updates that keep two
+  clients synchronized without loading every note body.
+- [x] AC6: Menu extra and dashboard display the same open and active tabs, use
+  one draft/autosave authority, and preserve dirty content on save failure.
+- [x] AC7: New Tab lists and reopens all detail files and creates detail notes
+  from either the current General line or an entered first-line title.
+- [x] AC8: Command-K, Command-P, cycling, numeric shortcuts, arrows, Return, and
+  Escape work from both macOS surfaces without duplicating tabs.
+- [ ] AC9: Focused Go, race, Linux, Swift, Xcode, Kit, and diff-hygiene checks
+  pass and the ready PR reports hosted check state exactly.
+
+## Implementation Plan
+
+1. Add the spec, workspace store, typed models, and focused store tests.
+2. Extend the agent protocol and CLI with selectors and lifecycle commands.
+3. Move notes draft/autosave authority into shared Swift state and add clients.
+4. Build the tab strip, New Tab history, current-line promotion, and switchers.
+5. Add regression coverage, reconcile documentation, run validation, and
+   deliver issue #13 on branch `GH-13` as a ready pull request.
+
+## Agent Team Plan
+
+- The supervisor owns specification, Go/Swift implementation, integration,
+  validation, documentation, and delivery.
+- Work remains serial because storage, protocol, CLI, and Swift state share one
+  evolving contract and overlapping files.
+- No subagents are used; one accountable lane avoids contract drift.
+
+## Task Checklist
+
+- [x] T1: Create issue #13, branch `GH-13`, and this canonical specification.
+- [x] T2: Implement the Go workspace store and storage tests.
+- [x] T3: Implement agent protocol and CLI lifecycle support with tests.
+- [x] T4: Implement shared Swift state, clients, tabs, and New Tab behavior.
+- [x] T5: Implement command and tab switchers plus keyboard navigation.
+- [x] T6: Reconcile README, constitution, and project progress summary.
+- [x] T7: Run complete validation and self-review.
+- [ ] T8: Commit, push, open the ready PR, and record hosted check evidence.
+
+## Validation Map
+
+| Criterion | Validation |
+| --- | --- |
+| AC1-AC3 | notes store tests for migration, IDs, titles, state, ordering, discovery, security, concurrency, and bounds |
+| AC4 | CLI table tests for lifecycle, selectors, stdin, JSON, ambiguity, editor, agent, and fallback behavior |
+| AC5 | protocol server/client subscription and additive JSON decoding tests |
+| AC6-AC8 | Swift model, shared-state, autosave, palette, shortcut, and two-surface tests plus manual smoke |
+| AC9 | `make fmt-check vet test test-race build release-test macos-test macos-build`, Linux build, `kit check --all`, and `git diff --check` |
+
+## Reflection Notes
+
+- Stable IDs decouple file identity from the live first-line title, which keeps
+  duplicate titles valid and avoids filesystem churn while editing.
+- The manifest stores only workspace state and timestamps. First-line metadata
+  is discovered from bounded reads, and only the active document body is loaded.
+- General and New Tab are reserved workspace identities. General is always the
+  first pinned tab; New Tab is a closable singleton picker rather than a file.
+- One directory lock spans the General file, detail files, and manifest so CLI
+  and agent mutations share the same cross-process serialization boundary.
+- The existing additive protocol version remains sufficient: older General-only
+  clients ignore the new fields while current clients receive typed workspace
+  snapshots after every create, open, close, set, and append operation.
+- Moving the draft and debounce timer into `AppState` eliminated surface-local
+  save races. Switch and close operations now share one flush-or-stay contract.
+- Native SwiftUI shortcuts keep dispatch in the frontmost shared dashboard view.
+  A deferred focus handoff is required so a newly presented palette receives
+  arrows, Return, and Escape instead of leaving focus in the Markdown editor.
+
+## Documentation Updates
+
+- Extend README Signal Notes storage, CLI, and macOS usage.
+- Extend the constitution's notes ownership, CLI, protocol, and macOS boundary.
+- Refresh the project progress summary after Kit validation.
+
+## Delivery Decision
+
+The user explicitly requested a new issue, branch, and pull request. The lane is
+issue #13, branch `GH-13`, and a ready PR targeting `main` with the repository
+template and `Closes #13`.
+
+## Evidence
+
+- Pre-mutation recon found a clean `main` matching `origin/main`, no matching
+  open issue or PR, authenticated human GitHub user `jamesonstone`, and human
+  git author/committer `Jameson Stone <jameson@stone.tc>`.
+- Issue #13 was created and assigned to `jamesonstone`.
+- `origin/main` was fetched, local and remote main had zero divergence, and
+  `GH-13` was created at the exact `origin/main` commit with no existing PR.
+- Store tests cover migration, stable IDs and titles, open order, MRU history,
+  duplicate prevention, close fallback, external discovery, corrupt manifests,
+  permissions, traversal and symlink rejection, concurrent writes, unlimited
+  tab creation, per-document size bounds, and NUL rejection.
+- CLI and agent tests cover General compatibility, lifecycle commands, title and
+  ID selectors, ambiguity, stdin, JSON, paths, agent routing and fallback, typed
+  workspace broadcasts, active-only content, and subscriber synchronization.
+- The Swift suite passes 61 tests covering shared drafts and autosave, switch and
+  close flushing, failure retention, live titles, duplicate activation, cycling,
+  current-line creation, workspace decoding, and switcher filtering.
+- The full local gate passed: `make fmt-check vet test test-race build
+  release-test macos-test macos-build`, the Linux amd64 cross-build,
+  `kit check --all` across all 13 feature specifications, and
+  `git diff --check`.
+- An isolated CLI smoke created the supplied `[labcore]` detail from General,
+  closed it without deletion, listed it as closed, reopened it after a separate
+  process invocation, and confirmed General remained unchanged.
+- Live inspection of the built macOS dashboard confirmed persistent tabs,
+  closed-note search in Command-P, the complete Command-K registry, Control-Tab
+  cycling, filtered Return activation, and Escape dismissal. The first pass
+  exposed a palette-focus race; a deferred focus handoff fixed it, after which
+  the 61-test Swift suite and universal Debug build passed again.

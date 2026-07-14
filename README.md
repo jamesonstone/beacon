@@ -268,6 +268,12 @@ beacon note 'git:jamesonstone/beacon@GH-5' 'finish the macOS smoke test'
 beacon notes
 beacon notes append 'Retest the merged release before lunch.'
 printf '# Signal Log\n\n- verify PR #10\n' | beacon notes set
+beacon notes new '[labcore] generate endpoints refactor'
+beacon notes new --from-line 1
+beacon notes list
+beacon notes show --note 20260714T150000.000000000Z-a1b2c3d4
+beacon notes open '[labcore] generate endpoints refactor'
+beacon notes close 20260714T150000.000000000Z-a1b2c3d4
 beacon notes edit
 beacon notes path
 beacon tag 'git:jamesonstone/beacon@GH-5' 'manual test'
@@ -359,14 +365,22 @@ the CLI and macOS lane cards; they never affect Beacon's attention or action
 policy. Manual lanes support planning or research without requiring Git,
 GitHub, Kit, or a Codex task API.
 
-`beacon notes` is a separate global Markdown scratchpad for real-time thoughts
-that span lanes. `show`, `set`, `append`, `edit`, and `path` subcommands all use
-`$XDG_DATA_HOME/beacon/notes.md`, defaulting to
-`$HOME/.local/share/beacon/notes.md`. The document is size-bounded, atomically
-saved with user-only permissions, and never interpreted as Git/GitHub evidence.
-On macOS, `beacon notes edit` waits for the editor to close and then publishes
-the saved document to running Beacon clients; other platforms can use `set`,
-`append`, or edit the path directly while Beacon is stopped.
+`beacon notes` is a local tabbed Markdown workspace for real-time thoughts that
+span lanes. The original `$XDG_DATA_HOME/beacon/notes.md` document remains the
+pinned General tab and the target of every command without `--note`. Detail
+notes use stable IDs under `$XDG_DATA_HOME/beacon/notes/<id>.md`; their trimmed
+first line is the displayed title, while `notes/workspace.json` preserves open
+order, active selection, and most-recently-opened history. Closing a tab never
+deletes its file.
+
+Use `list`, `new`, `open`, and `close` to manage the workspace. `show`, `set`,
+`append`, `edit`, and `path` accept `--note <stable-id-or-unique-exact-title>`;
+`general` explicitly selects the original document. `new --from-line N` copies
+one General line as a new detail title without changing General. Duplicate
+titles are allowed but require a stable ID when selecting them. Every document
+keeps the 256 KiB bound, and all files and workspace state are atomically saved
+with user-only permissions. On macOS, `beacon notes edit` waits for the editor
+to close and publishes the saved workspace to running Beacon clients.
 
 Idle work inside Following is treated as inventory instead of queue content.
 Human output hides idle followed projects by default and replaces them with a
@@ -474,11 +488,20 @@ appears again. Use **Restore Hidden Badges** in Settings to clear all dismissals
 
 The whimsical **Signal Notes** panel sits at the bottom of both surfaces and is
 expanded by default to roughly half the surface, while a manual collapse choice
-persists. One live editor applies headings, emphasis, lists, quotes, inline code,
-links, and dividers as Markdown is entered while retaining the exact plain-text
-source. It autosaves three seconds after the latest edit, and Save and Revert
-remain available for immediate control. All writes travel through the Go agent
-authority so the menu, detached window, and `beacon notes` stay synchronized.
+persists. Its horizontally scrolling tab strip pins General first, keeps any
+number of detail notes open, and reveals each detail tab's close control on hover
+or keyboard focus. New Tab is one persistent picker over all prior detail files
+in most-recently-opened order; reopening an already-open note activates it
+without duplication. The editor applies headings, emphasis, lists, quotes,
+inline code, links, and dividers while retaining exact plain-text source.
+
+Both surfaces share one draft and three-second autosave queue. A switch or close
+flushes dirty content first and stays on the current tab if saving fails. Use
+**Create Detail From Current Line** while editing General to copy the caret line
+into a new note. Command-K opens the app-wide quick switcher, Command-P searches
+notes only, Control-Tab or Command-Shift-bracket cycles tabs, and Command-1
+through Command-9 selects by open-tab position. All writes travel through the
+Go agent authority so the menu, detached window, and CLI remain synchronized.
 
 Use **Open Beacon at Login** in either view to enable quiet startup. Beacon
 registers its embedded login helper through macOS Service Management. A login

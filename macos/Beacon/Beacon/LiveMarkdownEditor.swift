@@ -199,6 +199,7 @@ enum LiveMarkdownStyler {
 struct LiveMarkdownEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var isFocused: Bool
+    @Binding var currentLine: String
     let accessibilityLabel: String
 
     func makeCoordinator() -> Coordinator {
@@ -275,6 +276,9 @@ struct LiveMarkdownEditor: NSViewRepresentable {
 
         func textDidBeginEditing(_ notification: Notification) {
             parent.isFocused = true
+            if let textView = notification.object as? NSTextView {
+                updateCurrentLine(from: textView)
+            }
         }
 
         func textDidEndEditing(_ notification: Notification) {
@@ -301,10 +305,28 @@ struct LiveMarkdownEditor: NSViewRepresentable {
                 range: editedParagraphRange(in: textView, editedRange: pendingEditRange)
             )
             pendingEditRange = nil
+            updateCurrentLine(from: textView)
+        }
+
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            updateCurrentLine(from: textView)
         }
 
         func applyFullStyle(to textView: NSTextView) {
             applyStyle(to: textView, range: nil)
+        }
+
+        func updateCurrentLine(from textView: NSTextView) {
+            let source = textView.string as NSString
+            guard source.length > 0 else {
+                parent.currentLine = ""
+                return
+            }
+            let location = min(textView.selectedRange().location, source.length - 1)
+            let lineRange = source.lineRange(for: NSRange(location: location, length: 0))
+            parent.currentLine = source.substring(with: lineRange)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
         private func applyStyle(to textView: NSTextView, range: NSRange?) {

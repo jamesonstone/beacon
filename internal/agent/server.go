@@ -17,7 +17,7 @@ import (
 type Server struct {
 	Paths  Paths
 	Engine *Engine
-	Notes  notes.Store
+	Notes  notes.WorkspaceStore
 
 	mutex  sync.Mutex
 	cancel context.CancelFunc
@@ -102,28 +102,66 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 		status := s.Engine.Status()
 		response(Event{Type: EventAgentStatus, Status: &status})
 	case RequestGetNotes:
-		document, notesErr := s.notesStore().Load(s.Paths.Notes)
+		document, notesErr := s.notesStore().LoadNote(s.Paths.Notes, request.NoteID)
 		if notesErr != nil {
 			response(Event{Type: EventProjectFailed, Stage: "notes", Message: notesErr.Error()})
 			return
 		}
 		response(Event{Type: EventNotes, Notes: &document})
+	case RequestGetNotesWorkspace:
+		workspace, notesErr := s.notesStore().LoadWorkspace(s.Paths.Notes)
+		if notesErr != nil {
+			response(Event{Type: EventProjectFailed, Stage: "notes", Message: notesErr.Error()})
+			return
+		}
+		response(Event{Type: EventNotesWorkspace, NotesWorkspace: &workspace, Notes: workspace.Active})
 	case RequestSetNotes, RequestAppendNotes:
 		store := s.notesStore()
-		var document notes.Document
-		var notesErr error
-		if request.Type == RequestAppendNotes {
-			document, notesErr = store.Append(s.Paths.Notes, request.Content)
-		} else {
-			document, notesErr = store.Write(s.Paths.Notes, request.Content)
+		selected, notesErr := store.LoadNote(s.Paths.Notes, request.NoteID)
+		if notesErr != nil {
+			response(Event{Type: EventProjectFailed, Stage: "notes", Message: notesErr.Error()})
+			return
 		}
+		var workspace notes.Workspace
+		if request.Type == RequestAppendNotes {
+			workspace, notesErr = store.AppendNote(s.Paths.Notes, selected.ID, request.Content)
+		} else {
+			workspace, notesErr = store.WriteNote(s.Paths.Notes, selected.ID, request.Content)
+		}
+		if notesErr != nil {
+			response(Event{Type: EventProjectFailed, Stage: "notes", Message: notesErr.Error()})
+			return
+		}
+		document, notesErr := store.LoadNote(s.Paths.Notes, selected.ID)
 		if notesErr != nil {
 			response(Event{Type: EventProjectFailed, Stage: "notes", Message: notesErr.Error()})
 			return
 		}
 		event := Event{
 			ProtocolVersion: ProtocolVersion, Type: EventNotesUpdated,
-			GeneratedAt: time.Now().UTC(), Notes: &document,
+			GeneratedAt: time.Now().UTC(), Notes: &document, NotesWorkspace: &workspace,
+		}
+		s.Engine.hub.Publish(event)
+		response(event)
+	case RequestCreateNote, RequestOpenNote, RequestCloseNote:
+		store := s.notesStore()
+		var workspace notes.Workspace
+		var notesErr error
+		switch request.Type {
+		case RequestCreateNote:
+			workspace, notesErr = store.CreateNote(s.Paths.Notes, request.Content)
+		case RequestOpenNote:
+			workspace, notesErr = store.OpenNote(s.Paths.Notes, request.NoteID)
+		case RequestCloseNote:
+			workspace, notesErr = store.CloseNote(s.Paths.Notes, request.NoteID)
+		}
+		if notesErr != nil {
+			response(Event{Type: EventProjectFailed, Stage: "notes", Message: notesErr.Error()})
+			return
+		}
+		event := Event{
+			ProtocolVersion: ProtocolVersion, Type: EventWorkspaceUpdated,
+			GeneratedAt: time.Now().UTC(), NotesWorkspace: &workspace, Notes: workspace.Active,
 		}
 		s.Engine.hub.Publish(event)
 		response(event)
@@ -252,7 +290,7 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 	}
 }
 
-func (s *Server) notesStore() notes.Store {
+func (s *Server) notesStore() notes.WorkspaceStore {
 	if s.Notes != nil {
 		return s.Notes
 	}

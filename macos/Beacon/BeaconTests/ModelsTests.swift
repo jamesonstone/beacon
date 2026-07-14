@@ -259,6 +259,51 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(event.projects?.first?.lastProbeAt, "2026-07-11T15:50:00Z")
     }
 
+    func testDecodesAdditiveSignalNotesWorkspaceProtocol() throws {
+        let data = Data(#"""
+        {
+          "protocol_version": 1,
+          "type": "notes_workspace",
+          "generated_at": "2026-07-14T15:00:00Z",
+          "notes_workspace": {
+            "version": 1,
+            "active_id": "detail-1",
+            "open_ids": ["general", "detail-1"],
+            "tabs": [
+              {"id":"general","title":"General","path":"/notes.md","open":true,"pinned":true},
+              {"id":"detail-1","title":"Refactor","path":"/notes/detail-1.md","open":true,"opened_at":"2026-07-14T14:00:00Z"}
+            ],
+            "active": {
+              "id":"detail-1","title":"Refactor","content":"Refactor\nbody",
+              "path":"/notes/detail-1.md","updated_at":"2026-07-14T15:00:00Z"
+            }
+          }
+        }
+        """#.utf8)
+
+        let event = try JSONDecoder().decode(AgentEvent.self, from: data)
+        let workspace = try XCTUnwrap(event.notesWorkspace)
+        XCTAssertEqual(workspace.activeID, "detail-1")
+        XCTAssertEqual(workspace.openIDs, ["general", "detail-1"])
+        XCTAssertEqual(workspace.tabs.last?.title, "Refactor")
+        XCTAssertTrue(workspace.tabs.last?.isOpen == true)
+        XCTAssertEqual(workspace.active?.content, "Refactor\nbody")
+    }
+
+    @MainActor
+    func testQuickSwitcherFilteringSearchesTitlesDetailsAndKeywords() {
+        let command = BeaconCommandItem(
+            id: "note-refactor", title: "Generate endpoints refactor",
+            detail: "Closed · detail-1", symbol: "doc.text",
+            keywords: "signal note labcore", action: {}
+        )
+
+        XCTAssertTrue(command.matches("endpoints"))
+        XCTAssertTrue(command.matches("closed"))
+        XCTAssertTrue(command.matches("labcore"))
+        XCTAssertFalse(command.matches("swagger"))
+    }
+
     func testDefaultAgentSocketUsesCacheDirectory() {
         XCTAssertTrue(AgentClient.defaultSocketPath().hasSuffix("/.cache/beacon/agent.sock"))
     }

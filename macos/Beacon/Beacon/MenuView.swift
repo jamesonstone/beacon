@@ -18,9 +18,10 @@ struct MenuView: View {
     @State var showingTagEditor = false
     @State var manualTitle = ""
     @State var showingManualEditor = false
-    @State var notesDraft = ""
     @State var notesEditorFocused = false
-    @StateObject var notesAutosave = SignalNotesAutosave()
+    @State var switcherScope: BeaconSwitcherScope?
+    @State var switcherQuery = ""
+    @State var switcherSelection = 0
     @AppStorage("beacon.dashboard.view-mode") private var viewModeValue = DashboardViewMode.stacked.rawValue
     @AppStorage("beacon.dismissed-evidence-badges") private var dismissedEvidenceBadgesValue = "[]"
     @AppStorage("beacon.signal-notes-expanded") var signalNotesExpanded = SignalNotesPresentation.expandedByDefault
@@ -66,15 +67,24 @@ struct MenuView: View {
         }
         .onAppear {
             loginItem.refresh()
-            notesDraft = state.notesContent
         }
-        .onChange(of: state.notesContent) { previous, latest in
-            if !notesEditorFocused || notesDraft == previous {
-                notesDraft = latest
+        .background { keyboardShortcutControls }
+        .overlay {
+            if let switcherScope {
+                ZStack {
+                    Color.black.opacity(0.34)
+                        .contentShape(Rectangle())
+                        .onTapGesture { self.switcherScope = nil }
+                    BeaconQuickSwitcher(
+                        scope: switcherScope,
+                        commands: switcherScope == .all ? allSwitcherCommands : noteSwitcherCommands,
+                        query: $switcherQuery,
+                        selection: $switcherSelection,
+                        dismiss: { self.switcherScope = nil }
+                    )
+                    .padding(18)
+                }
             }
-        }
-        .onChange(of: notesDraft) { _, latest in
-            scheduleSignalNotesAutosave(latest)
         }
         .alert("Add lane tag", isPresented: $showingTagEditor) {
             TextField("Short tag", text: $tagText)
@@ -88,6 +98,30 @@ struct MenuView: View {
             Button("Add") { Task { await state.addManualLane(manualTitle) } }
             Button("Cancel", role: .cancel) {}
         }
+    }
+
+    private var keyboardShortcutControls: some View {
+        ZStack {
+            Button("Quick Switcher") { showSwitcher(.all) }
+                .keyboardShortcut("k", modifiers: .command)
+            Button("Tab Search") { showSwitcher(.notes) }
+                .keyboardShortcut("p", modifiers: .command)
+            Button("Next Signal Note") { Task { await state.cycleNotes(direction: 1) } }
+                .keyboardShortcut(.tab, modifiers: .control)
+            Button("Previous Signal Note") { Task { await state.cycleNotes(direction: -1) } }
+                .keyboardShortcut(.tab, modifiers: [.control, .shift])
+            Button("Next Signal Note Alternate") { Task { await state.cycleNotes(direction: 1) } }
+                .keyboardShortcut("]", modifiers: [.command, .shift])
+            Button("Previous Signal Note Alternate") { Task { await state.cycleNotes(direction: -1) } }
+                .keyboardShortcut("[", modifiers: [.command, .shift])
+            ForEach(0..<9, id: \.self) { index in
+                Button("Signal Note \(index + 1)") { Task { await state.activateNote(at: index) } }
+                    .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
+            }
+        }
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .accessibilityHidden(true)
     }
 
     private var dashboard: some View {
@@ -386,7 +420,7 @@ struct MenuView: View {
         .help("Settings")
     }
 
-    private func showProjects(_ tab: ProjectInventoryTab) {
+    func showProjects(_ tab: ProjectInventoryTab) {
         projectInventoryTab = tab
         toggleDashboardDestination(.projectInventory)
     }
