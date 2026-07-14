@@ -194,6 +194,7 @@ func newGitFixture(t *testing.T) gitFixture {
 		source: filepath.Join(root, "source"), work: filepath.Join(root, "work"),
 	}
 	fixture.git(root, "init", "--bare", fixture.remote)
+	fixture.git(fixture.remote, "symbolic-ref", "HEAD", "refs/heads/main")
 	fixture.git(root, "init", "--initial-branch=main", fixture.source)
 	fixture.configure(fixture.source)
 	fixture.write(fixture.source, "state.txt", "one\n")
