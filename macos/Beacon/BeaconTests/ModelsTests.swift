@@ -308,6 +308,30 @@ final class ModelsTests: XCTestCase {
         XCTAssertTrue(AgentClient.defaultSocketPath().hasSuffix("/.cache/beacon/agent.sock"))
     }
 
+    func testGeneralNoteRequestsPreserveLegacyAgentPayloadShape() throws {
+        let getRequest = try Self.requestObject(
+            AgentClient.noteRequestData(type: "get_notes", noteID: "general")
+        )
+        XCTAssertEqual(getRequest["type"] as? String, "get_notes")
+        XCTAssertNil(getRequest["note_id"])
+
+        let setRequest = try Self.requestObject(
+            AgentClient.noteRequestData(type: "set_notes", content: "saved", noteID: "general")
+        )
+        XCTAssertEqual(setRequest["content"] as? String, "saved")
+        XCTAssertNil(setRequest["note_id"])
+
+        let detailRequest = try Self.requestObject(
+            AgentClient.noteRequestData(type: "get_notes", noteID: "detail-1")
+        )
+        XCTAssertEqual(detailRequest["note_id"] as? String, "detail-1")
+    }
+
+    private static func requestObject(_ data: Data) throws -> [String: Any] {
+        let object = try JSONSerialization.jsonObject(with: data)
+        return try XCTUnwrap(object as? [String: Any])
+    }
+
     private static func snapshotObject() throws -> [String: Any] {
         let object = try JSONSerialization.jsonObject(with: Data(snapshotJSON.utf8))
         return try XCTUnwrap(object as? [String: Any])

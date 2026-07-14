@@ -122,8 +122,9 @@ authorities rather than add Swift-side files or another synchronization path.
 
 ## Acceptance Criteria
 
-- [x] AC1: Existing General storage and no-selector CLI behavior remain
-  compatible without migration or repository writes.
+- [x] AC1: Existing General storage, no-selector CLI behavior, and the exact
+  selector-free agent request shape remain compatible without migration or
+  repository writes, including while an older strict agent is still running.
 - [x] AC2: Detail files and workspace state are atomic, user-only, bounded per
   document, traversal-safe, stable across relaunch, and unlimited in count.
 - [x] AC3: First-line titles, copy-from-line creation, open ordering, duplicate
@@ -173,7 +174,7 @@ authorities rather than add Swift-side files or another synchronization path.
 
 | Criterion | Validation |
 | --- | --- |
-| AC1-AC3 | notes store tests for migration, IDs, titles, state, ordering, discovery, security, concurrency, and bounds |
+| AC1-AC3 | notes store tests for migration, IDs, titles, state, ordering, discovery, security, concurrency, and bounds, plus Swift request-shape coverage for older strict agents |
 | AC4 | CLI table tests for lifecycle, selectors, stdin, JSON, ambiguity, editor, agent, and fallback behavior |
 | AC5 | protocol server/client subscription and additive JSON decoding tests |
 | AC6-AC8 | Swift model, shared-state, autosave, palette, shortcut, and two-surface tests plus manual smoke |
@@ -192,6 +193,11 @@ authorities rather than add Swift-side files or another synchronization path.
 - The existing additive protocol version remains sufficient: older General-only
   clients ignore the new fields while current clients receive typed workspace
   snapshots after every create, open, close, set, and append operation.
+- Additive request fields are not safe in the opposite direction because older
+  agents strictly reject unknown JSON keys. General reads and writes therefore
+  keep the original selector-free wire shape even though current clients model
+  the document internally with the reserved `general` ID; a workspace lookup
+  can then fall back without blanking the editor during an app/agent upgrade.
 - Moving the draft and debounce timer into `AppState` eliminated surface-local
   save races. Switch and close operations now share one flush-or-stay contract.
 - Native SwiftUI shortcuts keep dispatch in the frontmost shared dashboard view.
@@ -209,6 +215,11 @@ authorities rather than add Swift-side files or another synchronization path.
 The user explicitly requested a new issue, branch, and pull request. The lane is
 issue #13, branch `GH-13`, and a ready PR targeting `main` with the repository
 template and `Closes #13`.
+
+After pull request #14 merged, the reported General-loading regression required
+a direct completion fix. That follow-up uses issue #15 and branch `GH-15`, with
+a separate ready pull request because the original feature lane is already
+merged.
 
 ## Evidence
 
@@ -249,3 +260,14 @@ template and `Closes #13`.
 - On PR head `e38a52c`, hosted `go` passed in 38 seconds and hosted `macos`
   passed in 1 minute 38 seconds. The PR is ready, cleanly mergeable, and was not
   merged.
+- Pull request #14 subsequently merged as `4a4709c`. Follow-up recon for the
+  reported blank General editor found a clean `main` at `origin/main`, no
+  matching issue or branch, and created issue #15 plus branch `GH-15` from that
+  exact remote head.
+- The regression was the inverse compatibility direction: the current app sent
+  `note_id` for General after its workspace request fell back, while the older
+  running agent strictly rejected that unknown request key. The new Swift
+  request-shape test verifies selector-free General reads and writes while
+  retaining stable IDs for detail requests; all 62 macOS tests passed.
+- The complete local follow-up gate passed: `make fmt-check vet test test-race
+  build release-test macos-test macos-build` and the Linux amd64 cross-build.

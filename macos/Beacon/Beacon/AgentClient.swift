@@ -76,7 +76,7 @@ actor AgentClient: AgentClientProtocol {
     }
 
     func notes(noteID: String) async throws -> AgentEvent {
-        let event = try await request(type: "get_notes", noteID: noteID)
+        let event = try await request(payload: Self.noteRequestData(type: "get_notes", noteID: noteID))
         guard event.type != "project_failed" else {
             throw AgentClientError.command(event.message ?? "load signal notes failed")
         }
@@ -88,7 +88,9 @@ actor AgentClient: AgentClientProtocol {
     }
 
     func setNotes(_ content: String, noteID: String) async throws -> AgentEvent {
-        let event = try await request(type: "set_notes", content: content, noteID: noteID)
+        let event = try await request(
+            payload: Self.noteRequestData(type: "set_notes", content: content, noteID: noteID)
+        )
         guard event.type != "project_failed" else {
             throw AgentClientError.command(event.message ?? "save signal notes failed")
         }
@@ -165,8 +167,12 @@ actor AgentClient: AgentClientProtocol {
     }
 
     private func request(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, noteID: String? = nil, refresh: Bool? = nil) async throws -> AgentEvent {
-        let path = socketPath
         let payload = try Self.requestData(type: type, projectID: projectID, projectIDs: projectIDs, trackingState: trackingState, laneID: laneID, attentionState: attentionState, pinned: pinned, note: note, tag: tag, title: title, content: content, noteID: noteID, refresh: refresh)
+        return try await request(payload: payload)
+    }
+
+    private func request(payload: Data) async throws -> AgentEvent {
+        let path = socketPath
         return try await Task.detached(priority: .userInitiated) {
             let socket = try UnixSocket(path: path)
             defer { socket.close() }
@@ -177,6 +183,14 @@ actor AgentClient: AgentClientProtocol {
             }
             return event
         }.value
+    }
+
+    static func noteRequestData(type: String, content: String? = nil, noteID: String) throws -> Data {
+        try requestData(
+            type: type,
+            content: content,
+            noteID: noteID == "general" ? nil : noteID
+        )
     }
 
     private static func requestData(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, noteID: String? = nil, refresh: Bool? = nil) throws -> Data {
