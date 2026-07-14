@@ -140,7 +140,7 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **PAUSED**: no
 - **INTENT**: Keep dependent local repositories current after merged pull requests without spending GitHub capacity or automating risky Git history changes.
 - **APPROACH**: Compare local and remote default refs through one Go authority, fetch only on explicit actions, automate two guarded fast-forward cases, and share the resulting CLI and macOS behavior alongside an adaptive no-work backsplash and one lossless live Markdown editor.
-- **OPEN ITEMS**: No implementation items remain. The full Go, race, CLI, release, 49-test Swift, universal macOS build, Kit, diff-hygiene, and detached-window visual gates pass; the menu extra shares the validated adaptive view and compact layout branch. Delivery is assigned to issue #11 on `GH-11`; final human review and merge remain.
+- **OPEN ITEMS**: No implementation items remain. The full Go, race, CLI, release, 49-test Swift, universal macOS build, Kit, diff-hygiene, and detached-window visual gates pass; the menu extra shares the validated adaptive view and compact layout branch. Issue #11, branch `GH-11`, and ready PR #12 contain the delivery; final human review and merge remain.
 - **POINTERS**: `docs/specs/0012-repository-sync-ui-refresh/SPEC.md`
 
 ## LAST UPDATED

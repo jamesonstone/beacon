@@ -3,7 +3,7 @@ kit_metadata_version: 1
 artifact: spec
 workflow_version: 2
 phase: deliver
-delivery_intent: issue_branch_pr_in_progress
+delivery_intent: ready_pull_request
 clarification:
   status: ready
   confidence: 100
@@ -328,3 +328,5 @@ configuration changes.
 - After local completion, the user explicitly requested GitHub delivery. Live
   recon found no matching open issue or existing branch/PR, so assigned issue
   #11 was created and `GH-11` was branched from a freshly fetched `origin/main`.
+- Commit `c51c2cd` published the complete validated change set, and ready pull
+  request #12 targets `main` with Jameson Stone assigned for human review.
