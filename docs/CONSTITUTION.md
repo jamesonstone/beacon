@@ -58,6 +58,15 @@ fresh evidence updates a non-followed project's factual activity record, or a
 scan produces a new last-good result. Evidence must never change Following
 membership.
 
+Repository sync is a separate, explicit mutation boundary. A passive check is
+local-only; an explicit check may fetch only configured default-branch refs.
+After confirmation, Beacon may fast-forward a clean checked-out default branch,
+or return a clean feature branch already contained in the remote default branch
+to the local default branch and fast-forward it. Dirty, detached, diverged,
+unmerged, missing-ref, and multi-worktree states must be refused. Repository
+sync never invokes `gh` or the GitHub API and never rebases, hard-resets,
+force-updates, stashes, deletes, commits, pushes, or changes GitHub state.
+
 ### Independent Signals Before Conclusions
 
 Worktree, publication, pull-request, issue, CI, review, merge, and freshness state are
@@ -156,6 +165,10 @@ must not feed new policy back into the scanner.
   `exec.CommandContext` with argument arrays.
 - `internal/gitscan` discovers and inspects worktrees using stable,
   NUL-delimited Git porcelain output and performs bounded refreshes.
+- `internal/reposync` owns local default-branch comparison and the only guarded,
+  explicit fast-forward mutation path.
+- `internal/githubapi` owns shared authenticated `gh` caching, background
+  reserves, and explicit dependency-limit snapshots.
 - `internal/githubscan` queries scoped open pull requests and issues through
   authenticated `gh` and normalizes checks, comments, reviews, unresolved
   threads, linked issues, and merge state.
@@ -293,6 +306,9 @@ state.
 - Local Git commands use five-second timeouts, fetch uses 30 seconds, and
   GitHub commands use 20 seconds unless a later specification changes the
   contract deliberately.
+- Repository-sync checks and updates run concurrently only up to
+  `settings.max_parallel`; apply rechecks worktree cleanliness, checked-out
+  branch, relevant refs, and worktree placement immediately before mutation.
 - Refresh is deduplicated for worktrees that share a Git common directory.
   Frequent local observation never fetches; fetch is reserved for explicit
   refresh or a deliberately slow remote cadence.
@@ -310,6 +326,10 @@ state.
   conservatively debited at 25 points per command, and authoritative allowance
   state is refreshed after no more than five misses. Repository discovery uses
   only local Git remote and branch metadata and spends no GitHub capacity.
+- Dependency-limit inspection is never scheduled and never runs at application
+  startup. Each explicit inspection invokes exactly one bounded
+  `gh api rate_limit` request and reports GraphQL, REST Core, and Search without
+  initiating any additional API operation.
 - Under the default `mine` scope, one due-project batch performs one global
   authored-PR search and one global assigned-issue search, then enriches only
   matching authored PRs with recent activity. Explicit diagnostics may enrich
@@ -333,6 +353,10 @@ The supported command surface is:
 beacon [--color auto|always|never]
 beacon init [--source PATH ...] [--github-scope mine|all] [--yes]
 beacon scan [--repo NAME] [--json] [--no-refresh]
+beacon sync
+beacon sync check [project...] [--no-fetch] [--json]
+beacon sync apply <project>... [--yes] [--json]
+beacon limits [--json]
 beacon projects [--followed|--recent|--quiet]
 beacon select
 beacon projects follow <project>...
@@ -379,8 +403,8 @@ other intentional paths for current evidence.
 
 Agent protocol version 1 is newline-delimited JSON over a user-only Unix-domain
 socket. It carries scan IDs, per-project revisions, stages, single and batch
-tracking and lane-attention changes, global Markdown notes, heartbeats, and
-snapshot-schema-v3 payloads. Protocol evolution is independent
+tracking and lane-attention changes, global Markdown notes, explicit typed
+repository-sync reports, heartbeats, and snapshot-schema-v3 payloads. Protocol evolution is independent
 from the evidence snapshot schema. Clients discard events from a different
 active scan and older project revisions, then preserve last-good state on
 malformed events or disconnects.
@@ -415,9 +439,12 @@ groups, evidence, and actions.
 
 The application connects to the background agent through a Swift actor,
 renders cached state immediately, applies monotonic incremental project events,
-and reconnects after disconnects without initiating collection. `Scan Now` is
-the only macOS action that forces a full refresh and remains visible as a
-top-right header control in both surfaces. Agent status is authoritative
+and reconnects after disconnects without initiating collection. `Scan Now`
+forces a full evidence refresh. The separate repository-sync control loads
+local refs without network work and fetches only after **Check for Updates** or
+an update click. A third dependency-limit control invokes the bundled helper's
+`limits --json` command only when selected; it never polls or joins application
+startup. These remain top-right controls in both surfaces. Agent status is authoritative
 for loading state, including scans that complete before their request
 acknowledgement. Only `@MainActor` publishes UI state. A
 failed refresh keeps the last successful snapshot visible with its timestamp
@@ -431,25 +458,30 @@ evidence collection itself.
 Secondary commands and preferences live in a top-right Settings menu. A
 separate compact view control offers a persisted stacked list, horizontal tile
 strips, and an experimental state-column kanban board over the same ordered
-lanes. A compact peer tab row presents Following by default plus Recently
-Updated and Quiet repository inventories. Following renders the shared lane
-working set; Recently Updated and Quiet render shared Go project categories
-without reimplementing evidence policy. Tab and view selection are presentation
-state only. Lane tags render as removable
-chips and mutate through the Go background-agent authority. JetBrains Mono Nerd
-Font is preferred when locally available, with a system monospaced fallback so
-typography cannot become an application-startup dependency.
-Both surfaces expose one collapsed-by-default Signal Notes panel at the bottom
-of the shared dashboard. It edits the Go-owned local Markdown document through
-the agent protocol; Swift contains no independent persistence rule.
+lanes. A compact peer tab row presents Following by default, then Parking Lot,
+Recently Updated, and Quiet. Following omits parked lanes; the other tabs render
+their shared Go categories without reimplementing evidence policy. Settings
+must not duplicate primary Recently Updated or Quiet navigation. Tab and view
+selection are presentation state only. Dashboard destinations use one mutually
+exclusive presentation state: a destination control opens its page on first
+selection, selecting that same control again returns to Following, and selecting
+a different destination switches directly to it. Lane tags render as removable
+chips and mutate through the Go background-agent authority. Typography uses selectable
+system designs and base sizes, defaulting to monospaced at 12 points.
+Both surfaces expose one expanded-by-default Signal Notes panel occupying about
+half of the shared dashboard. It edits the Go-owned local Markdown document
+through the agent protocol and applies rich styling in one live editor without
+changing its plain Markdown source; Swift contains no independent persistence
+rule. When Following contains no in-progress lanes and no projects are loading,
+both surfaces replace the empty lane body with an adaptive celebratory state whose
+copy describes lane state rather than repository-ref freshness.
 The Beacon wordmark may animate a modest horizontally traveling gradient across
 the existing neon/pastel palette. It must remain readable, use no evidence or
 status policy, and render a static gradient when Reduce Motion is enabled.
-The menu-bar label shows the number of lanes across the CLI-provided active,
-waiting, and recently-active groups. Active counts use a high-contrast dark badge
-with a luminous neon-gradient border so the value remains visible over changing
-menu-bar backgrounds. When that count is zero, it shows a compact color
-neon-space glyph instead of a numeric badge. The menu window may use coordinated
+The menu-bar label always shows a compact, non-template colored beacon-light
+glyph. The number of lanes across the CLI-provided active, waiting, and
+recently-active groups appears as a separate high-contrast gold-to-coral badge
+when nonzero, rather than replacing the app identity. The menu window may use coordinated
 pastel and neon accents to distinguish existing CLI-provided groups and signals,
 but color must not introduce readiness or action policy in the Swift client.
 Individual evidence badges may be hidden as reversible local presentation
@@ -477,8 +509,9 @@ service.
 
 The application may use `NSWorkspace` to open pull requests, worktree paths,
 and `$HOME/.config/beacon/config.yaml`. It may invoke the bundled helper's
-project follow/unfollow commands but must not execute Git or `gh` directly or
-contain correlation, readiness, fingerprint, cache, scheduling, or recent-activity policy. The
+project follow/unfollow, repository-sync, and dependency-limit commands but
+must not execute Git or `gh` directly or contain correlation, repository-sync safety, readiness,
+fingerprint, cache, scheduling, or recent-activity policy. The
 bundled helper is named `beacon-cli` to avoid a case-insensitive filename
 collision with the `Beacon` application executable. The helper build must
 support the target Mac architectures; the standalone CLI remains named

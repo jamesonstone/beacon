@@ -11,8 +11,7 @@ struct MenuView: View {
     @ObservedObject var loginItem: LoginItemController
     let surface: DashboardSurface
     let openDashboard: () -> Void
-    @State var selectedDashboardTab = DashboardTab.defaultTab
-    @State var showingProjectInventory = false
+    @State var dashboardDestination = DashboardDestination.following
     @State var projectInventoryTab = ProjectInventoryTab.following
     @State var tagLane: WorkLane?
     @State var tagText = ""
@@ -20,11 +19,13 @@ struct MenuView: View {
     @State var manualTitle = ""
     @State var showingManualEditor = false
     @State var notesDraft = ""
+    @State var notesEditorFocused = false
     @StateObject var notesAutosave = SignalNotesAutosave()
-    @FocusState var notesEditorFocused: Bool
     @AppStorage("beacon.dashboard.view-mode") private var viewModeValue = DashboardViewMode.stacked.rawValue
     @AppStorage("beacon.dismissed-evidence-badges") private var dismissedEvidenceBadgesValue = "[]"
     @AppStorage("beacon.signal-notes-expanded") var signalNotesExpanded = SignalNotesPresentation.expandedByDefault
+    @AppStorage(BeaconTypography.familyKey) private var fontFamilyValue = BeaconTypography.defaultFamily.rawValue
+    @AppStorage(BeaconTypography.baseSizeKey) private var fontSizeValue = BeaconTypography.defaultBaseSize
 
     var viewMode: DashboardViewMode {
         get { DashboardViewMode(rawValue: viewModeValue) ?? .stacked }
@@ -33,6 +34,13 @@ struct MenuView: View {
 
     var dismissedEvidenceBadges: Set<String> {
         EvidenceBadgeDismissals.decode(dismissedEvidenceBadgesValue)
+    }
+
+    var selectedDashboardTab: DashboardTab {
+        guard case let .tab(tab) = dashboardDestination else {
+            return .defaultTab
+        }
+        return tab
     }
 
     func dismissEvidenceBadge(_ key: String) {
@@ -83,69 +91,170 @@ struct MenuView: View {
     }
 
     private var dashboard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            header
-            if let error = state.lastError {
-                errorBanner(error)
-            }
-            if let error = loginItem.errorMessage {
-                errorBanner("Open at Login: \(error)")
-            }
-            if !state.agentAvailable {
-                enableAgentBanner
-            }
-            if let snapshot = state.snapshot {
-                if showingProjectInventory {
-                    ProjectFollowingView(
-                        state: state,
-                        selectedTab: $projectInventoryTab,
-                        onClose: { showingProjectInventory = false }
-                    )
-                } else {
-                    dashboardTabs()
-                    dashboardContent(snapshot)
+        GeometryReader { geometry in
+            VStack(alignment: .leading, spacing: 8) {
+                header
+                if let error = state.lastError {
+                    errorBanner(error)
                 }
-            } else if state.isScanning {
-                ProgressView("Scanning repositories…")
-                    .tint(BeaconPalette.cyan)
-                    .frame(maxWidth: .infinity, minHeight: 180)
-            } else {
-                ContentUnavailableView("No scan available", systemImage: "dot.radiowaves.left.and.right")
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(BeaconPalette.cyan, BeaconPalette.lavender)
+                if let error = loginItem.errorMessage {
+                    errorBanner("Open at Login: \(error)")
+                }
+                if !state.agentAvailable {
+                    enableAgentBanner
+                }
+                if dashboardDestination == .repositorySync {
+                    RepositorySyncView(
+                        state: state,
+                        onClose: showFollowing
+                    )
+                } else if dashboardDestination == .dependencyLimits {
+                    DependencyLimitsView(
+                        state: state,
+                        onClose: showFollowing
+                    )
+                } else if let snapshot = state.snapshot {
+                    if dashboardDestination == .projectInventory {
+                        ProjectFollowingView(
+                            state: state,
+                            selectedTab: $projectInventoryTab,
+                            onClose: showFollowing
+                        )
+                    } else {
+                        dashboardTabs()
+                        dashboardContent(snapshot)
+                    }
+                } else if state.isScanning {
+                    ProgressView("Scanning repositories…")
+                        .tint(BeaconPalette.cyan)
+                        .frame(maxWidth: .infinity, minHeight: 180)
+                } else {
+                    ContentUnavailableView("No scan available", systemImage: "dot.radiowaves.left.and.right")
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(BeaconPalette.cyan, BeaconPalette.lavender)
+                }
+                signalNotesPanel
+                    .frame(height: signalNotesExpanded ? max(220, geometry.size.height * SignalNotesPresentation.expandedHeightFraction) : nil)
             }
-            signalNotesPanel
+            .padding(12)
         }
-        .padding(12)
         .font(BeaconTypography.regular(12))
         .background(BeaconPalette.panelBackground)
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 10) {
-            HStack(spacing: 8) {
+        HStack(alignment: .center, spacing: 8) {
+            HStack(spacing: 6) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(BeaconPalette.neonGradient)
                     .shadow(color: BeaconPalette.cyan.opacity(0.55), radius: 2)
-                VStack(alignment: .leading, spacing: 3) {
-                    NeonWaveWordmark("Beacon")
-                        .font(BeaconTypography.bold(17))
-                    Text("\(state.inProgressCount) lanes in focus")
-                        .font(BeaconTypography.medium(11))
-                        .foregroundStyle(BeaconPalette.mint)
-                    if let generatedAt = state.snapshot?.generatedAt {
-                        Text("Updated \(timeSinceActivity(generatedAt))")
-                            .font(BeaconTypography.regular(9))
-                            .foregroundStyle(BeaconPalette.lavender.opacity(0.82))
-                    }
+                NeonWaveWordmark("Beacon")
+                    .font(BeaconTypography.bold(17))
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text("\(state.inProgressCount) lanes in focus")
+                    .font(BeaconTypography.medium(10))
+                    .foregroundStyle(BeaconPalette.mint)
+                if let generatedAt = state.snapshot?.generatedAt {
+                    Text("Updated \(timeSinceActivity(generatedAt))")
+                        .font(BeaconTypography.regular(8))
+                        .foregroundStyle(BeaconPalette.lavender.opacity(0.82))
                 }
             }
             Spacer()
             refreshButton
+            repositorySyncButton
+            dependencyLimitsButton
             viewModeMenu
             settingsMenu
         }
+    }
+
+    private var repositorySyncButton: some View {
+        Button {
+            let isOpening = toggleDashboardDestination(.repositorySync)
+            if isOpening, state.repositorySyncReport == nil, !state.isCheckingRepositorySync {
+                Task { await state.checkRepositorySync(refresh: false) }
+            }
+        } label: {
+            Group {
+                if state.isCheckingRepositorySync || state.isApplyingRepositorySync {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(BeaconPalette.gold)
+                } else {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(BeaconPalette.gold)
+                }
+            }
+            .frame(width: 28, height: 28)
+            .background(BeaconPalette.softGradient(BeaconPalette.gold), in: RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(BeaconPalette.gold.opacity(0.42), lineWidth: 0.7)
+            }
+            .overlay(alignment: .topTrailing) {
+                if !state.repositoriesNeedingSync.isEmpty {
+                    Text("\(min(state.repositoriesNeedingSync.count, 99))")
+                        .font(.system(size: 7, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.black)
+                        .padding(3)
+                        .background(BeaconPalette.gold, in: Circle())
+                        .offset(x: 3, y: -3)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .help(dashboardDestination == .repositorySync
+            ? "Return to Following"
+            : "Repository Sync — check and fast-forward local default branches")
+        .accessibilityLabel("Repository Sync, \(state.repositoriesNeedingSync.count) need attention")
+    }
+
+    private var dependencyLimitsButton: some View {
+        let accent = state.dependencyUsageLevel.accentColor
+        return Button {
+            let isOpening = toggleDashboardDestination(.dependencyLimits)
+            if isOpening, state.dependencyLimitsReport == nil, !state.isCheckingDependencyLimits {
+                Task { await state.checkDependencyLimits() }
+            }
+        } label: {
+            Group {
+                if state.isCheckingDependencyLimits {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(accent)
+                } else if state.dependencyLimitsReport?.hasUsage == true {
+                    Text("\(state.dependencyUsagePercent)%")
+                        .font(.system(size: 8, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(accent)
+                        .minimumScaleFactor(0.75)
+                } else {
+                    Image(systemName: "gauge.with.dots.needle.50percent")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(accent)
+                }
+            }
+            .frame(width: 28, height: 28)
+            .background(BeaconPalette.softGradient(accent), in: RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(accent.opacity(0.42), lineWidth: 0.7)
+            }
+        }
+        .buttonStyle(.plain)
+        .help(dashboardDestination == .dependencyLimits
+            ? "Return to Following"
+            : "Dependency Limits — check gh allowance explicitly")
+        .accessibilityLabel(dependencyLimitsAccessibilityLabel)
+    }
+
+    private var dependencyLimitsAccessibilityLabel: String {
+        guard state.dependencyLimitsReport != nil else { return "Dependency Limits, not checked" }
+        return "Dependency Limits, highest usage \(state.dependencyUsagePercent) percent"
     }
 
     private var refreshButton: some View {
@@ -209,12 +318,31 @@ struct MenuView: View {
                 .disabled(state.inProgressCount == 0)
             Button { manualTitle = ""; showingManualEditor = true } label: { Label("Add Manual Lane", systemImage: "plus.circle") }
             Divider()
-            Button { showProjects(.following) } label: { Label("Manage Following", systemImage: "star") }
-            Button { showDashboardTab(.recent) } label: { Label("Recently Updated", systemImage: "sparkles") }
-            Button { showDashboardTab(.quiet) } label: {
-                Label("Quiet Projects", systemImage: "moon.stars")
+            Button { showProjects(.following) } label: {
+                Label(
+                    dashboardDestination == .projectInventory ? "Return to Following" : "Manage Following",
+                    systemImage: "star"
+                )
             }
             Button { state.openConfig() } label: { Label("Open Config", systemImage: "slider.horizontal.3") }
+            Menu {
+                Picker("Font", selection: $fontFamilyValue) {
+                    ForEach(BeaconFontFamily.allCases) { family in
+                        Text(family.title).tag(family.rawValue)
+                    }
+                }
+            } label: {
+                Label("Font: \(BeaconFontFamily(rawValue: fontFamilyValue)?.title ?? BeaconTypography.defaultFamily.title)", systemImage: "textformat")
+            }
+            Menu {
+                Picker("Font Size", selection: $fontSizeValue) {
+                    ForEach(BeaconFontSize.allCases) { size in
+                        Text(size.title).tag(size.rawValue)
+                    }
+                }
+            } label: {
+                Label("Font Size: \(fontSizeValue) pt", systemImage: "textformat.size")
+            }
             Button {
                 dismissedEvidenceBadgesValue = "[]"
             } label: {
@@ -260,18 +388,28 @@ struct MenuView: View {
 
     private func showProjects(_ tab: ProjectInventoryTab) {
         projectInventoryTab = tab
-        showingProjectInventory = true
+        toggleDashboardDestination(.projectInventory)
     }
 
-    private func showDashboardTab(_ tab: DashboardTab) {
-        showingProjectInventory = false
-        selectedDashboardTab = tab
+    func showDashboardTab(_ tab: DashboardTab) {
+        toggleDashboardDestination(.tab(tab))
+    }
+
+    @discardableResult
+    private func toggleDashboardDestination(_ destination: DashboardDestination) -> Bool {
+        let isOpening = dashboardDestination != destination
+        dashboardDestination = dashboardDestination.toggled(selecting: destination)
+        return isOpening
+    }
+
+    private func showFollowing() {
+        dashboardDestination = .following
     }
 
     private var enableAgentBanner: some View {
         HStack {
             Label("Background agent unavailable", systemImage: "antenna.radiowaves.left.and.right.slash")
-                .font(.caption)
+                .font(BeaconTypography.regular(10))
                 .foregroundStyle(BeaconPalette.gold)
             Spacer()
             Button("Enable") { Task { await state.enableAgent() } }

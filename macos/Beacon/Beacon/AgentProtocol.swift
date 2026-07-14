@@ -49,6 +49,126 @@ struct AgentNotes: Codable, Equatable {
     }
 }
 
+struct RepositorySyncReport: Codable, Equatable {
+    let checkedAt: String
+    let fetchAttempted: Bool
+    let repositories: [RepositorySyncItem]
+
+    enum CodingKeys: String, CodingKey {
+        case repositories
+        case checkedAt = "checked_at"
+        case fetchAttempted = "fetch_attempted"
+    }
+}
+
+struct RepositorySyncItem: Codable, Equatable, Identifiable {
+    let projectID: String
+    let name: String
+    let path: String
+    let base: String
+    let remote: String
+    let currentBranch: String?
+    let baseWorktree: String?
+    let currentAhead: Int
+    let currentBehind: Int
+    let defaultAhead: Int
+    let defaultBehind: Int
+    let dirty: Bool
+    let detached: Bool
+    let needsUpdate: Bool
+    let canUpdate: Bool
+    let fetched: Bool
+    let updated: Bool
+    let state: String
+    let action: String
+    let reason: String
+    let error: String?
+
+    var id: String { projectID }
+
+    enum CodingKeys: String, CodingKey {
+        case name, path, base, remote, dirty, detached, fetched, updated, state, action, reason, error
+        case projectID = "project_id"
+        case currentBranch = "current_branch"
+        case baseWorktree = "base_worktree"
+        case currentAhead = "current_ahead"
+        case currentBehind = "current_behind"
+        case defaultAhead = "default_ahead"
+        case defaultBehind = "default_behind"
+        case needsUpdate = "needs_update"
+        case canUpdate = "can_update"
+    }
+}
+
+struct DependencyLimitReport: Codable, Equatable {
+    let checkedAt: String
+    let dependencies: [DependencyLimit]
+
+    enum CodingKeys: String, CodingKey {
+        case dependencies
+        case checkedAt = "checked_at"
+    }
+
+    var highestUsagePercent: Int {
+        dependencies.flatMap(\.buckets).map(\.usagePercent).max() ?? 0
+    }
+
+    var hasUsage: Bool {
+        dependencies.flatMap(\.buckets).contains { $0.limit > 0 && $0.used > 0 }
+    }
+
+    var usageLevel: DependencyUsageLevel {
+        DependencyLimitPresentation.level(percent: highestUsagePercent, hasUsage: hasUsage)
+    }
+}
+
+struct DependencyLimit: Codable, Equatable, Identifiable {
+    let name: String
+    let buckets: [DependencyLimitBucket]
+
+    var id: String { name }
+}
+
+struct DependencyLimitBucket: Codable, Equatable, Identifiable {
+    let id: String
+    let name: String
+    let limit: Int
+    let used: Int
+    let remaining: Int
+    let resetAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, limit, used, remaining
+        case resetAt = "reset_at"
+    }
+
+    var usagePercent: Int {
+        DependencyLimitPresentation.percentage(used: used, limit: limit)
+    }
+}
+
+enum DependencyUsageLevel: String, Equatable {
+    case unmeasured
+    case healthy
+    case warning
+    case critical
+}
+
+enum DependencyLimitPresentation {
+    static func percentage(used: Int, limit: Int) -> Int {
+        guard used > 0, limit > 0 else { return 0 }
+        let roundedUp = Int(ceil((Double(used) / Double(limit)) * 100))
+        return min(100, max(1, roundedUp))
+    }
+
+    static func level(percent: Int, hasUsage: Bool) -> DependencyUsageLevel {
+        guard hasUsage, percent > 0 else { return .unmeasured }
+        if percent < 50 { return .healthy }
+        if percent <= 75 { return .warning }
+        return .critical
+    }
+}
+
 struct AgentEvent: Codable, Equatable {
     let protocolVersion: Int
     let requestID: String?
@@ -63,9 +183,43 @@ struct AgentEvent: Codable, Equatable {
     let projects: [AgentProjectStatus]?
     let status: AgentStatusDetails?
     let notes: AgentNotes?
+    let repositorySync: RepositorySyncReport?
+
+    init(
+        protocolVersion: Int,
+        requestID: String?,
+        type: String,
+        scanID: String?,
+        projectID: String?,
+        revision: UInt64?,
+        stage: String?,
+        generatedAt: String,
+        message: String?,
+        snapshot: BeaconSnapshot?,
+        projects: [AgentProjectStatus]?,
+        status: AgentStatusDetails?,
+        notes: AgentNotes?,
+        repositorySync: RepositorySyncReport? = nil
+    ) {
+        self.protocolVersion = protocolVersion
+        self.requestID = requestID
+        self.type = type
+        self.scanID = scanID
+        self.projectID = projectID
+        self.revision = revision
+        self.stage = stage
+        self.generatedAt = generatedAt
+        self.message = message
+        self.snapshot = snapshot
+        self.projects = projects
+        self.status = status
+        self.notes = notes
+        self.repositorySync = repositorySync
+    }
 
     enum CodingKeys: String, CodingKey {
         case type, revision, stage, message, snapshot, projects, status, notes
+        case repositorySync = "repository_sync"
         case protocolVersion = "protocol_version"
         case requestID = "request_id"
         case scanID = "scan_id"
@@ -89,6 +243,8 @@ protocol AgentClientProtocol {
     func addManualLane(_ title: String) async throws -> AgentEvent
     func notes() async throws -> AgentEvent
     func setNotes(_ content: String) async throws -> AgentEvent
+    func repositorySync(refresh: Bool) async throws -> AgentEvent
+    func syncRepositories(_ projectIDs: [String]) async throws -> AgentEvent
 }
 
 extension AgentClientProtocol {
@@ -101,6 +257,8 @@ extension AgentClientProtocol {
     func addManualLane(_ title: String) async throws -> AgentEvent { throw AgentClientError.command("manual lanes are unavailable") }
     func notes() async throws -> AgentEvent { throw AgentClientError.command("signal notes are unavailable") }
     func setNotes(_ content: String) async throws -> AgentEvent { throw AgentClientError.command("signal notes are unavailable") }
+    func repositorySync(refresh: Bool) async throws -> AgentEvent { throw AgentClientError.command("repository sync is unavailable") }
+    func syncRepositories(_ projectIDs: [String]) async throws -> AgentEvent { throw AgentClientError.command("repository sync is unavailable") }
 }
 
 enum AgentClientError: LocalizedError {

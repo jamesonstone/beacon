@@ -42,6 +42,7 @@ type App struct {
 	trackerSource         projectTracker
 	prompter              initPrompter
 	projectPrompterSource projectPrompter
+	syncPrompterSource    repositorySyncPrompter
 	agentClientSource     func(string) agentRequestClient
 }
 
@@ -110,6 +111,8 @@ func (a App) Root() *cobra.Command {
 		a.rootTrackingCommand(&configPath, true),
 		a.rootTrackingCommand(&configPath, false),
 		a.refreshCommand(&configPath),
+		a.syncCommand(&configPath),
+		a.limitsCommand(),
 		a.agentCommand(&configPath),
 		a.doctorCommand(&configPath),
 		a.openCommand(&configPath),

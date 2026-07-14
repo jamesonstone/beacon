@@ -2,6 +2,7 @@ import SwiftUI
 
 enum DashboardTab: String, CaseIterable, Identifiable {
     case following
+    case parking
     case recent
     case quiet
 
@@ -12,6 +13,7 @@ enum DashboardTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .following: "Following"
+        case .parking: "Parking Lot"
         case .recent: "Recently Updated"
         case .quiet: "Quiet"
         }
@@ -20,9 +22,23 @@ enum DashboardTab: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .following: "star.fill"
+        case .parking: "pause.circle.fill"
         case .recent: "sparkles"
         case .quiet: "moon.stars.fill"
         }
+    }
+}
+
+enum DashboardDestination: Equatable {
+    case tab(DashboardTab)
+    case projectInventory
+    case repositorySync
+    case dependencyLimits
+
+    static let following = DashboardDestination.tab(.following)
+
+    func toggled(selecting destination: DashboardDestination) -> DashboardDestination {
+        self == destination ? .following : destination
     }
 }
 
@@ -33,7 +49,7 @@ extension MenuView {
                 let accent = dashboardTabAccent(tab)
                 let selected = selectedDashboardTab == tab
                 Button {
-                    selectedDashboardTab = tab
+                    showDashboardTab(tab)
                 } label: {
                     VStack(spacing: 2) {
                         Label(tab.title, systemImage: tab.symbol)
@@ -57,7 +73,7 @@ extension MenuView {
                     }
                 }
                 .buttonStyle(.plain)
-                .help("Show \(tab.title)")
+                .help(selected && tab != .following ? "Return to Following" : "Show \(tab.title)")
             }
         }
     }
@@ -67,6 +83,8 @@ extension MenuView {
         switch selectedDashboardTab {
         case .following:
             activeDashboard(snapshot)
+        case .parking:
+            parkedDashboard(snapshot)
         case .recent:
             ProjectFollowingView(
                 state: state,
@@ -90,6 +108,8 @@ extension MenuView {
         switch tab {
         case .following:
             state.followedProjectCount
+        case .parking:
+            snapshotParkedCount
         case .recent:
             state.recentProjectCount
         case .quiet:
@@ -100,20 +120,59 @@ extension MenuView {
     func dashboardTabAccent(_ tab: DashboardTab) -> Color {
         switch tab {
         case .following: BeaconPalette.mint
+        case .parking: BeaconPalette.lavender
         case .recent: BeaconPalette.pink
         case .quiet: BeaconPalette.cyan
         }
     }
 
+    private var snapshotParkedCount: Int {
+        guard let snapshot = state.snapshot, let workingSet = snapshot.workingSet else { return 0 }
+        return workingSet.parked.count
+    }
+
     @ViewBuilder
     func activeDashboard(_ snapshot: BeaconSnapshot) -> some View {
-        switch viewMode {
-        case .stacked:
-            stackedDashboard(snapshot)
-        case .tiles:
-            tileDashboard(snapshot)
-        case .kanban:
-            kanbanDashboard(snapshot)
+        if UpToDatePresentation.shouldShow(
+            inProgressCount: state.inProgressCount,
+            loadingProjectCount: state.loadingProjects.count
+        ) {
+            UpToDateBacksplash(surface: surface)
+        } else {
+            switch viewMode {
+            case .stacked:
+                stackedDashboard(snapshot)
+            case .tiles:
+                tileDashboard(snapshot)
+            case .kanban:
+                kanbanDashboard(snapshot)
+            }
+        }
+    }
+
+    @ViewBuilder
+    func parkedDashboard(_ snapshot: BeaconSnapshot) -> some View {
+        let lanes = state.lanes(for: snapshot.workingSet?.parked ?? [])
+        if lanes.isEmpty {
+            ContentUnavailableView("Parking Lot is empty", systemImage: "pause.circle")
+                .foregroundStyle(BeaconPalette.lavender)
+        } else {
+            switch viewMode {
+            case .stacked:
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        laneSection("Parking Lot", symbol: "pause.circle.fill", accent: BeaconPalette.lavender, lanes: lanes)
+                    }
+                }
+            case .tiles:
+                ScrollView {
+                    tileSection("Parking Lot", symbol: "pause.circle.fill", accent: BeaconPalette.lavender, lanes: lanes)
+                }
+            case .kanban:
+                GeometryReader { geometry in
+                    kanbanColumn("Parking Lot", symbol: "pause.circle.fill", accent: BeaconPalette.lavender, lanes: lanes, height: geometry.size.height)
+                }
+            }
         }
     }
 
@@ -123,7 +182,7 @@ extension MenuView {
                 if !state.loadingProjects.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Label("Loading Projects", systemImage: "antenna.radiowaves.left.and.right")
-                            .font(.subheadline.weight(.semibold))
+                            .font(BeaconTypography.semibold(11))
                             .foregroundStyle(BeaconPalette.borderGradient(BeaconPalette.cyan))
                         ForEach(state.loadingProjects, id: \.projectID) { project in
                             HStack(spacing: 8) {
@@ -132,14 +191,14 @@ extension MenuView {
                                     .tint(BeaconPalette.cyan)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(project.name)
-                                        .font(.caption.weight(.semibold))
+                                        .font(BeaconTypography.semibold(10))
                                     Text(stageLabel(project.stage))
-                                        .font(.caption2)
+                                        .font(BeaconTypography.regular(9))
                                         .foregroundStyle(BeaconPalette.lavender)
                                 }
                                 Spacer()
                                 Text(project.projectID)
-                                    .font(.caption2)
+                                    .font(BeaconTypography.regular(9))
                                     .foregroundStyle(BeaconPalette.cyan.opacity(0.85))
                             }
                             .padding(8)
@@ -151,7 +210,6 @@ extension MenuView {
                     laneSection("Active", symbol: "bolt.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: working.active))
                     laneSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: working.waiting))
                     laneSection("Recently Active", symbol: "sparkles", accent: BeaconPalette.cyan, lanes: state.lanes(for: working.recent))
-                    laneSection("Parking Lot", symbol: "pause.circle.fill", accent: BeaconPalette.lavender, lanes: state.lanes(for: working.parked))
                 } else {
                     laneSection("Ready for Review", symbol: "checkmark.circle.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: snapshot.groups.ready))
                     laneSection("Needs Action", symbol: "exclamationmark.triangle.fill", accent: BeaconPalette.coral, lanes: state.lanes(for: snapshot.groups.action))
@@ -169,7 +227,6 @@ extension MenuView {
                     tileSection("Active", symbol: "bolt.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: working.active))
                     tileSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: working.waiting))
                     tileSection("Recently Active", symbol: "sparkles", accent: BeaconPalette.cyan, lanes: state.lanes(for: working.recent))
-                    tileSection("Parking Lot", symbol: "pause.circle.fill", accent: BeaconPalette.lavender, lanes: state.lanes(for: working.parked))
                 } else {
                     tileSection("Ready for Review", symbol: "checkmark.circle.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: snapshot.groups.ready))
                     tileSection("Needs Action", symbol: "exclamationmark.triangle.fill", accent: BeaconPalette.coral, lanes: state.lanes(for: snapshot.groups.action))
@@ -187,7 +244,6 @@ extension MenuView {
                         kanbanColumn("Active", symbol: "bolt.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: working.active), height: geometry.size.height)
                         kanbanColumn("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: working.waiting), height: geometry.size.height)
                         kanbanColumn("Recent", symbol: "sparkles", accent: BeaconPalette.cyan, lanes: state.lanes(for: working.recent), height: geometry.size.height)
-                        kanbanColumn("Parked", symbol: "pause.circle.fill", accent: BeaconPalette.lavender, lanes: state.lanes(for: working.parked), height: geometry.size.height)
                     } else {
                         kanbanColumn("Ready", symbol: "checkmark.circle.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: snapshot.groups.ready), height: geometry.size.height)
                         kanbanColumn("Action", symbol: "exclamationmark.triangle.fill", accent: BeaconPalette.coral, lanes: state.lanes(for: snapshot.groups.action), height: geometry.size.height)

@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import Beacon
 
@@ -7,6 +8,40 @@ final class ModelsTests: XCTestCase {
             SignalNotesPresentation.savedLabel(age: "2 minutes ago"),
             "Saved 2 minutes ago"
         )
+    }
+
+    func testSignalNotesLiveMarkdownStylesWithoutChangingSource() {
+        let source = "## Plan\n\n**Ship carefully.**\n> Verify `main`.\n[Open](https://example.test)\n---"
+        let spans = LiveMarkdownStyler.spans(in: source)
+        XCTAssertTrue(spans.contains { $0.role == .heading(level: 2) })
+        XCTAssertTrue(spans.contains { $0.role == .strong })
+        XCTAssertTrue(spans.contains { $0.role == .quote })
+        XCTAssertTrue(spans.contains { $0.role == .inlineCode })
+        XCTAssertTrue(spans.contains { $0.role == .link })
+        XCTAssertTrue(spans.contains { $0.role == .divider })
+
+        let storage = NSTextStorage(string: source)
+        LiveMarkdownStyler.apply(to: storage)
+        XCTAssertEqual(storage.string, source)
+
+        let headingFont = storage.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
+        let bodyLocation = (source as NSString).range(of: "Ship").location
+        let bodyFont = storage.attribute(.font, at: bodyLocation, effectiveRange: nil) as? NSFont
+        XCTAssertGreaterThan(try XCTUnwrap(headingFont).pointSize, try XCTUnwrap(bodyFont).pointSize)
+        XCTAssertEqual(SignalNotesPresentation.expandedHeightFraction, 0.5)
+    }
+
+    func testUpToDateBacksplashRequiresNoWorkAndNoLoadingProjects() {
+        XCTAssertTrue(UpToDatePresentation.shouldShow(inProgressCount: 0, loadingProjectCount: 0))
+        XCTAssertFalse(UpToDatePresentation.shouldShow(inProgressCount: 1, loadingProjectCount: 0))
+        XCTAssertFalse(UpToDatePresentation.shouldShow(inProgressCount: 0, loadingProjectCount: 1))
+    }
+
+    func testDashboardTypographyUsesSelectableSystemDesignsAndTwelvePointDefault() {
+        XCTAssertEqual(BeaconFontFamily.allCases.map(\.rawValue), ["system", "rounded", "monospaced", "serif"])
+        XCTAssertEqual(BeaconTypography.defaultBaseSize, 12)
+        XCTAssertEqual(BeaconTypography.resolvedSize(10, baseSize: 12), 12)
+        XCTAssertEqual(BeaconTypography.resolvedSize(17, baseSize: 14), 21)
     }
 
     func testDecodesCompleteSchemaVersionThree() throws {
@@ -44,9 +79,66 @@ final class ModelsTests: XCTestCase {
 
     func testDashboardTabsKeepFollowingAsTheStableDefault() {
         XCTAssertEqual(DashboardTab.defaultTab, .following)
-        XCTAssertEqual(DashboardTab.allCases.map(\.rawValue), ["following", "recent", "quiet"])
+        XCTAssertEqual(DashboardTab.allCases.map(\.rawValue), ["following", "parking", "recent", "quiet"])
+        XCTAssertEqual(DashboardTab.allCases[1], .parking)
+        XCTAssertEqual(DashboardTab.parking.title, "Parking Lot")
         XCTAssertEqual(DashboardTab.recent.title, "Recently Updated")
         XCTAssertEqual(DashboardTab.quiet.symbol, "moon.stars.fill")
+    }
+
+    func testDashboardDestinationsReturnToFollowingWhenSelectedAgain() {
+        let destinations: [DashboardDestination] = [
+            .tab(.parking),
+            .tab(.recent),
+            .tab(.quiet),
+            .projectInventory,
+            .repositorySync,
+            .dependencyLimits,
+        ]
+
+        for destination in destinations {
+            XCTAssertEqual(DashboardDestination.following.toggled(selecting: destination), destination)
+            XCTAssertEqual(destination.toggled(selecting: destination), .following)
+        }
+    }
+
+    func testDashboardDestinationSwitchesDirectlyToDifferentSelection() {
+        XCTAssertEqual(
+            DashboardDestination.repositorySync.toggled(selecting: .dependencyLimits),
+            .dependencyLimits
+        )
+    }
+
+    func testDecodesRepositorySyncProtocolReport() throws {
+        let data = Data(Self.repositorySyncEventJSON.utf8)
+        let event = try JSONDecoder().decode(AgentEvent.self, from: data)
+        let report = try XCTUnwrap(event.repositorySync)
+        XCTAssertFalse(report.fetchAttempted)
+        XCTAssertEqual(report.repositories.first?.projectID, "owner/repo")
+        XCTAssertEqual(report.repositories.first?.currentBehind, 2)
+        XCTAssertTrue(report.repositories.first?.canUpdate == true)
+    }
+
+    func testDependencyLimitPercentagesAndThresholds() throws {
+        let data = Data(#"{"checked_at":"2026-07-14T12:30:00Z","dependencies":[{"name":"gh","buckets":[{"id":"graphql","name":"GraphQL","limit":5000,"used":1,"remaining":4999,"reset_at":"2026-07-14T13:00:00Z"},{"id":"core","name":"REST Core","limit":5000,"used":2500,"remaining":2500,"reset_at":"2026-07-14T13:00:00Z"},{"id":"search","name":"Search","limit":30,"used":23,"remaining":7,"reset_at":"2026-07-14T13:00:00Z"}]}]}"#.utf8)
+        let report = try JSONDecoder().decode(DependencyLimitReport.self, from: data)
+
+        XCTAssertEqual(report.dependencies.first?.name, "gh")
+        XCTAssertEqual(report.dependencies.first?.buckets.map(\.usagePercent), [1, 50, 77])
+        XCTAssertEqual(report.highestUsagePercent, 77)
+        XCTAssertEqual(report.usageLevel, .critical)
+        XCTAssertEqual(DependencyLimitPresentation.level(percent: 49, hasUsage: true), .healthy)
+        XCTAssertEqual(DependencyLimitPresentation.level(percent: 50, hasUsage: true), .warning)
+        XCTAssertEqual(DependencyLimitPresentation.level(percent: 75, hasUsage: true), .warning)
+        XCTAssertEqual(DependencyLimitPresentation.level(percent: 76, hasUsage: true), .critical)
+        XCTAssertEqual(DependencyLimitPresentation.level(percent: 0, hasUsage: false), .unmeasured)
+    }
+
+    func testMenuBarBeaconKeepsCountSeparateAndAccessible() {
+        XCTAssertEqual(BeaconMenuBarPresentation.displayCount(1), "1")
+        XCTAssertEqual(BeaconMenuBarPresentation.displayCount(120), "99+")
+        XCTAssertEqual(BeaconMenuBarPresentation.accessibilityText(0), "Beacon, no items in progress")
+        XCTAssertEqual(BeaconMenuBarPresentation.accessibilityText(3), "Beacon, 3 items in progress")
     }
 
     func testNeonWavePhaseIsPeriodicAndNormalized() {
@@ -175,6 +267,39 @@ final class ModelsTests: XCTestCase {
         let object = try JSONSerialization.jsonObject(with: Data(snapshotJSON.utf8))
         return try XCTUnwrap(object as? [String: Any])
     }
+
+    private static let repositorySyncEventJSON = #"""
+    {
+      "protocol_version": 1,
+      "type": "repository_sync",
+      "generated_at": "2026-07-14T12:00:00Z",
+      "repository_sync": {
+        "checked_at": "2026-07-14T12:00:00Z",
+        "fetch_attempted": false,
+        "repositories": [{
+          "project_id": "owner/repo",
+          "name": "repo",
+          "path": "/repo",
+          "base": "main",
+          "remote": "origin",
+          "current_branch": "main",
+          "current_ahead": 0,
+          "current_behind": 2,
+          "default_ahead": 0,
+          "default_behind": 2,
+          "dirty": false,
+          "detached": false,
+          "needs_update": true,
+          "can_update": true,
+          "fetched": false,
+          "updated": false,
+          "state": "behind",
+          "action": "fast_forward",
+          "reason": "main can fast-forward"
+        }]
+      }
+    }
+    """#
 
     private static let snapshotJSON = #"""
     {

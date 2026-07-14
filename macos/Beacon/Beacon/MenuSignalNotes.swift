@@ -1,7 +1,9 @@
+import Foundation
 import SwiftUI
 
 enum SignalNotesPresentation {
     static let expandedByDefault = true
+    static let expandedHeightFraction = 0.5
     static let autosaveDelay: Duration = .seconds(3)
 
     static func savedLabel(age: String) -> String {
@@ -86,19 +88,7 @@ extension MenuView {
             .accessibilityLabel(signalNotesExpanded ? "Collapse Signal Notes" : "Expand Signal Notes")
 
             if signalNotesExpanded {
-                TextEditor(text: $notesDraft)
-                    .focused($notesEditorFocused)
-                    .font(BeaconTypography.regular(10))
-                    .foregroundStyle(BeaconPalette.mint)
-                    .scrollContentBackground(.hidden)
-                    .padding(6)
-                    .frame(height: surface == .menu ? 120 : 180)
-                    .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 8))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.cyan), lineWidth: 0.7)
-                    }
-                    .accessibilityLabel("Markdown signal notes")
+                liveMarkdownEditor
 
                 HStack(spacing: 8) {
                     if let error = state.notesError {
@@ -158,6 +148,21 @@ extension MenuView {
                 .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.pink), lineWidth: 0.7)
         }
         .shadow(color: BeaconPalette.pink.opacity(0.10), radius: 5, y: 2)
+    }
+
+    private var liveMarkdownEditor: some View {
+        LiveMarkdownEditor(
+            text: $notesDraft,
+            isFocused: $notesEditorFocused,
+            accessibilityLabel: "Live Markdown signal notes"
+        )
+        .padding(8)
+        .frame(minHeight: surface == .menu ? 120 : 180, maxHeight: .infinity)
+        .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.cyan), lineWidth: 0.7)
+        }
     }
 
     private var notesPreview: String {

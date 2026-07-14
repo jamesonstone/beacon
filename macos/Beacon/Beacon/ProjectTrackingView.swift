@@ -36,11 +36,11 @@ struct ProjectFollowingView: View {
                 }
                 Spacer()
                 Text("\(projects.count) \(selectedTab.title.lowercased())")
-                    .font(.caption.weight(.medium))
+                    .font(BeaconTypography.medium(9))
                     .foregroundStyle(BeaconPalette.lavender)
                 if state.queuedTrackingCount > 0 {
                     Text("\(state.queuedTrackingCount) queued")
-                        .font(.caption.weight(.semibold))
+                        .font(BeaconTypography.semibold(10))
                         .foregroundStyle(BeaconPalette.gold)
                 }
             }
@@ -93,13 +93,13 @@ struct ProjectFollowingView: View {
         return HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(project.name)
-                    .font(.subheadline.weight(.semibold))
+                    .font(BeaconTypography.semibold(11))
                     .foregroundStyle(BeaconPalette.borderGradient(accent))
                 Text(project.github)
-                    .font(.caption)
+                    .font(BeaconTypography.regular(10))
                     .foregroundStyle(BeaconPalette.cyan.opacity(0.9))
                 Text(project.path)
-                    .font(.caption2)
+                    .font(BeaconTypography.regular(9))
                     .foregroundStyle(BeaconPalette.lavender.opacity(0.78))
                     .lineLimit(1)
                 let status = state.projectStatuses[project.github]
@@ -114,7 +114,7 @@ struct ProjectFollowingView: View {
                         Text("Checked \(relativeTime(probe))")
                     }
                 }
-                .font(.caption2)
+                .font(BeaconTypography.regular(9))
                 .foregroundStyle(accent.opacity(0.9))
             }
             Spacer()

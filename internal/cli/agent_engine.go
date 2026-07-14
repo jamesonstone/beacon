@@ -11,6 +11,7 @@ import (
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/githubapi"
 	"github.com/jamesonstone/beacon/internal/model"
+	"github.com/jamesonstone/beacon/internal/reposync"
 	"github.com/jamesonstone/beacon/internal/tracking"
 	"github.com/jamesonstone/beacon/internal/workset"
 )
@@ -70,6 +71,7 @@ func (a App) newAgentEngine(ctx context.Context, path string) (*agent.Engine, ag
 	cache := agent.Cache{Directory: paths.Projects, Now: time.Now}
 	prober := agent.Prober{Runner: githubRunner, Remote: scanner.GitHub}
 	engine := agent.NewEngine(cfg, paths, cache, repositories, projectScanner, prober, tracker)
+	engine.RepositorySync = reposync.Service{Runner: a.Runner, MaxParallel: cfg.Settings.MaxParallel, Now: time.Now}
 	workingSet := workset.Manager{Store: workset.FileStore{}, Now: time.Now}
 	engine.WorkingSet = &workingSet
 	engine.ScanBatch = func(
