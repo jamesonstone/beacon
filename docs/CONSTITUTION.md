@@ -295,7 +295,9 @@ user-only permissions. Directory locking, same-directory replacement, path
 validation, and symlink rejection apply to the complete workspace, which stays
 separate from repository files, configuration, lane evidence, and lane-specific
 notes. A close operation changes workspace metadata only and never deletes a
-detail document.
+detail document. A distinct permanent delete operation accepts detail notes
+only, removes the selected Markdown file and its workspace metadata under the
+same directory lock, and selects the active note's left neighbor or General.
 
 Lane attention is stored separately in strict versioned JSON at
 `$HOME/.local/state/beacon/lanes.json` (or the equivalent `XDG_STATE_HOME`
@@ -378,7 +380,7 @@ beacon park <lane-id>
 beacon resume <lane-id>
 beacon note <lane-id> [text]
 beacon notes [--json]
-beacon notes list|new|open|close
+beacon notes list|new|open|close|delete
 beacon notes show|set|append|edit|path [--note <id-or-exact-title>]
 beacon tag <lane-id> <tag>
 beacon untag <lane-id> <tag>
@@ -481,8 +483,12 @@ document; unlimited stable-ID detail documents and their versioned open-state
 manifest remain under the same Go persistence authority. Swift owns no files or
 independent persistence rule. Both surfaces share one draft and autosave queue,
 flush before switching or closing, and preserve the active tab when saving
-fails. Native Command-K and Command-P switchers plus tab-cycle and numeric
-shortcuts operate through the frontmost shared view hierarchy. When Following
+fails. Closing remains non-destructive. Permanent detail-note delete actions on
+tabs, New Tab history, and Command-K/Command-P results all route through one
+native destructive confirmation alert; General and New Tab expose no delete
+action. The switchers use an opaque dark surface over a dimmed backdrop. Native
+Command-K and Command-P switchers plus tab-cycle and numeric shortcuts operate
+through the frontmost shared view hierarchy. When Following
 contains no in-progress lanes and no projects are loading,
 both surfaces replace the empty lane body with an adaptive celebratory state whose
 copy describes lane state rather than repository-ref freshness.

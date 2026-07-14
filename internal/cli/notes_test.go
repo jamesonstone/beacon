@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -166,6 +168,26 @@ func TestNotesDetailLifecycleAndSelectors(t *testing.T) {
 	if !strings.Contains(list, "ACTIVE") || !strings.Contains(list, "first idea") || !strings.Contains(list, id) {
 		t.Fatalf("list = %q", list)
 	}
+	deleted := executeNotesCommand(t, "", "notes", "delete", id, "--json")
+	var deletedWorkspace notes.Workspace
+	if err := json.Unmarshal([]byte(deleted), &deletedWorkspace); err != nil {
+		t.Fatal(err)
+	}
+	if deletedWorkspace.ActiveID != notes.GeneralID || containsString(deletedWorkspace.OpenIDs, id) {
+		t.Fatalf("deleted workspace = %#v", deletedWorkspace)
+	}
+	if _, err := (notes.FileStore{}).LoadNote(filepath.Join(root, "beacon", "notes.md"), id); err == nil {
+		t.Fatal("deleted note is still loadable")
+	}
+
+	human := executeNotesCommand(t, "", "notes", "new", "Temporary", "--json")
+	var temporary notes.Workspace
+	if err := json.Unmarshal([]byte(human), &temporary); err != nil {
+		t.Fatal(err)
+	}
+	if output := executeNotesCommand(t, "", "notes", "delete", "Temporary"); output != "deleted signal note Temporary\n" {
+		t.Fatalf("delete output = %q", output)
+	}
 }
 
 func TestNotesNewFromLineValidatesSelection(t *testing.T) {
@@ -215,6 +237,16 @@ func TestNotesDetailStdinJSONPathAndAmbiguousTitles(t *testing.T) {
 	command.SetArgs([]string{"notes", "show", "--note", "Duplicate"})
 	if err := command.ExecuteContext(context.Background()); err == nil || !strings.Contains(err.Error(), first.ActiveID) || !strings.Contains(err.Error(), second.ActiveID) {
 		t.Fatalf("ambiguous title error = %v", err)
+	}
+	command = app.Root()
+	command.SetArgs([]string{"notes", "delete", "Duplicate"})
+	if err := command.ExecuteContext(context.Background()); err == nil || !strings.Contains(err.Error(), first.ActiveID) || !strings.Contains(err.Error(), second.ActiveID) {
+		t.Fatalf("ambiguous delete error = %v", err)
+	}
+	command = app.Root()
+	command.SetArgs([]string{"notes", "delete", notes.GeneralID})
+	if err := command.ExecuteContext(context.Background()); err == nil || !strings.Contains(err.Error(), "cannot be deleted") {
+		t.Fatalf("General delete error = %v", err)
 	}
 
 	stdinJSON := executeNotesCommand(t, "From stdin\nbody", "notes", "new", "--json")
@@ -293,6 +325,44 @@ func TestNotesWorkspaceMutationsFallbackWhenAgentLacksWorkspace(t *testing.T) {
 	}
 }
 
+func TestNotesDeleteFallsBackWhenCapableAgentLacksDeleteRequest(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", root)
+	path := filepath.Join(root, "beacon", "notes.md")
+	created, err := (notes.FileStore{}).CreateNote(path, "Legacy deletion\nbody")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &sequencedNotesAgentClient{events: []agent.Event{
+		{Type: agent.EventNotesWorkspace, NotesWorkspace: &created},
+		{Type: agent.EventProjectFailed, Message: "unknown agent request: " + agent.RequestDeleteNote},
+	}}
+	var output bytes.Buffer
+	app := App{
+		In: bytes.NewBuffer(nil), Out: &output, Err: &bytes.Buffer{}, Runner: &notesRunner{},
+		InputIsTTY: func() bool { return false }, OutputIsTTY: func() bool { return false },
+		agentClientSource: func(string) agentRequestClient { return client },
+	}
+	command := app.Root()
+	command.SetArgs([]string{"notes", "delete", created.ActiveID, "--json"})
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var workspace notes.Workspace
+	if err := json.Unmarshal(output.Bytes(), &workspace); err != nil {
+		t.Fatal(err)
+	}
+	if containsString(workspace.OpenIDs, created.ActiveID) {
+		t.Fatalf("workspace = %#v", workspace)
+	}
+	if len(client.requests) != 2 || client.requests[1].Type != agent.RequestDeleteNote {
+		t.Fatalf("requests = %#v", client.requests)
+	}
+	if _, err := os.Lstat(created.Active.Path); !os.IsNotExist(err) {
+		t.Fatalf("deleted note still exists: %v", err)
+	}
+}
+
 func TestNotesDetailWriteFallbackProbesOlderAgentBeforeMutation(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", root)
@@ -357,6 +427,21 @@ type notesAgentClient struct {
 	event    agent.Event
 	err      error
 	requests []agent.Request
+}
+
+type sequencedNotesAgentClient struct {
+	events   []agent.Event
+	requests []agent.Request
+}
+
+func (c *sequencedNotesAgentClient) Request(_ context.Context, request agent.Request) (agent.Event, error) {
+	c.requests = append(c.requests, request)
+	if len(c.events) == 0 {
+		return agent.Event{}, errors.New("unexpected agent request")
+	}
+	event := c.events[0]
+	c.events = c.events[1:]
+	return event, nil
 }
 
 func (c *notesAgentClient) Request(_ context.Context, request agent.Request) (agent.Event, error) {

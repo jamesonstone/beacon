@@ -304,6 +304,13 @@ final class ModelsTests: XCTestCase {
         XCTAssertFalse(command.matches("swagger"))
     }
 
+    func testSignalNoteCreationLabelMatchesSharedPresentationContract() {
+        XCTAssertEqual(
+            SignalNotesPresentation.createFromGeneralLabel,
+            "Create New Note from Highlighted Text in General"
+        )
+    }
+
     func testDefaultAgentSocketUsesCacheDirectory() {
         XCTAssertTrue(AgentClient.defaultSocketPath().hasSuffix("/.cache/beacon/agent.sock"))
     }

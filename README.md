@@ -274,6 +274,7 @@ beacon notes list
 beacon notes show --note 20260714T150000.000000000Z-a1b2c3d4
 beacon notes open '[labcore] generate endpoints refactor'
 beacon notes close 20260714T150000.000000000Z-a1b2c3d4
+beacon notes delete 20260714T150000.000000000Z-a1b2c3d4
 beacon notes edit
 beacon notes path
 beacon tag 'git:jamesonstone/beacon@GH-5' 'manual test'
@@ -371,16 +372,18 @@ pinned General tab and the target of every command without `--note`. Detail
 notes use stable IDs under `$XDG_DATA_HOME/beacon/notes/<id>.md`; their trimmed
 first line is the displayed title, while `notes/workspace.json` preserves open
 order, active selection, and most-recently-opened history. Closing a tab never
-deletes its file.
+deletes its file; `delete` is the separate permanent detail-note operation and
+never accepts General or New Tab.
 
-Use `list`, `new`, `open`, and `close` to manage the workspace. `show`, `set`,
-`append`, `edit`, and `path` accept `--note <stable-id-or-unique-exact-title>`;
-`general` explicitly selects the original document. `new --from-line N` copies
-one General line as a new detail title without changing General. Duplicate
-titles are allowed but require a stable ID when selecting them. Every document
-keeps the 256 KiB bound, and all files and workspace state are atomically saved
-with user-only permissions. On macOS, `beacon notes edit` waits for the editor
-to close and publishes the saved workspace to running Beacon clients.
+Use `list`, `new`, `open`, `close`, and `delete` to manage the workspace.
+`show`, `set`, `append`, `edit`, and `path` accept
+`--note <stable-id-or-unique-exact-title>`; `general` explicitly selects the
+original document. `new --from-line N` copies one General line as a new detail
+title without changing General. Duplicate titles are allowed but require a
+stable ID when selecting or deleting them. Every document keeps the 256 KiB
+bound, and all files and workspace state are atomically saved with user-only
+permissions. On macOS, `beacon notes edit` waits for the editor to close and
+publishes the saved workspace to running Beacon clients.
 
 Idle work inside Following is treated as inventory instead of queue content.
 Human output hides idle followed projects by default and replaces them with a
@@ -489,19 +492,24 @@ appears again. Use **Restore Hidden Badges** in Settings to clear all dismissals
 The whimsical **Signal Notes** panel sits at the bottom of both surfaces and is
 expanded by default to roughly half the surface, while a manual collapse choice
 persists. Its horizontally scrolling tab strip pins General first, keeps any
-number of detail notes open, and reveals each detail tab's close control on hover
-or keyboard focus. New Tab is one persistent picker over all prior detail files
-in most-recently-opened order; reopening an already-open note activates it
-without duplication. The editor applies headings, emphasis, lists, quotes,
-inline code, links, and dividers while retaining exact plain-text source.
+number of detail notes open, and reveals distinct close and delete controls on
+hover or keyboard focus. New Tab is one persistent picker over all prior detail
+files in most-recently-opened order, with each permanent delete control aligned
+at the row's far right; reopening an already-open note activates it without
+duplication. Detail-note results in Command-K and Command-P also expose delete,
+and every macOS delete action requires the same irreversible-action confirmation.
+The switcher uses an opaque dark backdrop so commands remain readable over the
+dashboard. The editor applies headings, emphasis, lists, quotes, inline code,
+links, and dividers while retaining exact plain-text source.
 
 Both surfaces share one draft and three-second autosave queue. A switch or close
 flushes dirty content first and stays on the current tab if saving fails. Use
-**Create Detail From Current Line** while editing General to copy the caret line
-into a new note. Command-K opens the app-wide quick switcher, Command-P searches
-notes only, Control-Tab or Command-Shift-bracket cycles tabs, and Command-1
-through Command-9 selects by open-tab position. All writes travel through the
-Go agent authority so the menu, detached window, and CLI remain synchronized.
+**Create New Note from Highlighted Text in General** while editing General to
+copy the caret line into a new note. Command-K opens the app-wide quick switcher,
+Command-P searches notes only, Control-Tab or Command-Shift-bracket cycles tabs,
+and Command-1 through Command-9 selects by open-tab position. All writes and
+deletions travel through the Go agent authority so the menu, detached window,
+and CLI remain synchronized.
 
 Use **Open Beacon at Login** in either view to enable quiet startup. Beacon
 registers its embedded login helper through macOS Service Management. A login

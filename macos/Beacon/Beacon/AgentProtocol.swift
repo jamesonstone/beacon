@@ -310,6 +310,7 @@ protocol AgentClientProtocol {
     func createNote(_ content: String) async throws -> AgentEvent
     func openNote(_ noteID: String) async throws -> AgentEvent
     func closeNote(_ noteID: String) async throws -> AgentEvent
+    func deleteNote(_ noteID: String) async throws -> AgentEvent
     func repositorySync(refresh: Bool) async throws -> AgentEvent
     func syncRepositories(_ projectIDs: [String]) async throws -> AgentEvent
 }
@@ -336,6 +337,7 @@ extension AgentClientProtocol {
     func createNote(_ content: String) async throws -> AgentEvent { throw AgentClientError.command("signal note tabs are unavailable") }
     func openNote(_ noteID: String) async throws -> AgentEvent { throw AgentClientError.command("signal note tabs are unavailable") }
     func closeNote(_ noteID: String) async throws -> AgentEvent { throw AgentClientError.command("signal note tabs are unavailable") }
+    func deleteNote(_ noteID: String) async throws -> AgentEvent { throw AgentClientError.command("signal note deletion is unavailable") }
     func repositorySync(refresh: Bool) async throws -> AgentEvent { throw AgentClientError.command("repository sync is unavailable") }
     func syncRepositories(_ projectIDs: [String]) async throws -> AgentEvent { throw AgentClientError.command("repository sync is unavailable") }
 }
