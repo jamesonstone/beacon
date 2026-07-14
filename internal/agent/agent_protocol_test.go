@@ -224,6 +224,17 @@ func TestServerClientCreatesOpensAndClosesSignalNoteTabs(t *testing.T) {
 	if err != nil || loaded.Type != EventNotesWorkspace || loaded.NotesWorkspace == nil || loaded.NotesWorkspace.ActiveID != id {
 		t.Fatalf("loaded event=%#v err=%v", loaded, err)
 	}
+
+	deleted, err := client.Request(context.Background(), Request{Type: RequestDeleteNote, NoteID: id})
+	if err != nil || deleted.NotesWorkspace == nil || deleted.NotesWorkspace.ActiveID != notes.GeneralID {
+		t.Fatalf("deleted event=%#v err=%v", deleted, err)
+	}
+	for _, tab := range deleted.NotesWorkspace.Tabs {
+		if tab.ID == id {
+			t.Fatalf("deleted tab remains in workspace: %#v", deleted.NotesWorkspace.Tabs)
+		}
+	}
+	assertWorkspaceEvent(t, events, eventErrors, notes.GeneralID)
 	if _, err := client.Request(context.Background(), Request{Type: RequestShutdown}); err != nil {
 		t.Fatal(err)
 	}

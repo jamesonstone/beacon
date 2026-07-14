@@ -288,6 +288,10 @@ actor ScriptedNotesFallbackClient: CLIClientProtocol {
         try next("close:\(noteID)")
     }
 
+    func deleteNote(_ noteID: String) async throws -> AgentNotesWorkspace {
+        try next("delete:\(noteID)")
+    }
+
     private func next(_ call: String) throws -> AgentNotesWorkspace {
         calls.append(call)
         guard !workspaces.isEmpty else { throw TestError.failed }
@@ -298,7 +302,8 @@ actor ScriptedNotesFallbackClient: CLIClientProtocol {
 func legacyFallbackWorkspace(
     activeID: String,
     openIDs: [String],
-    detailContent: String = "[labcore] generate endpoints refactor\n\n"
+    detailContent: String = "[labcore] generate endpoints refactor\n\n",
+    includeDetail: Bool = true
 ) -> AgentNotesWorkspace {
     let general = AgentNotes(
         content: "General spark\nsecond line", path: "/tmp/beacon/notes.md",
@@ -310,21 +315,24 @@ func legacyFallbackWorkspace(
         title: "[labcore] generate endpoints refactor"
     )
     let openSet = Set(openIDs)
+    var tabs = [
+        AgentNoteTab(
+            id: "general", title: "General", path: general.path,
+            createdAt: nil, updatedAt: general.updatedAt, openedAt: nil,
+            isOpen: true, pinned: true
+        ),
+    ]
+    if includeDetail {
+        tabs.append(AgentNoteTab(
+            id: "detail-1", title: detail.title ?? "Untitled", path: detail.path,
+            createdAt: nil, updatedAt: detail.updatedAt, openedAt: nil,
+            isOpen: openSet.contains("detail-1"), pinned: nil
+        ))
+    }
     return AgentNotesWorkspace(
         version: 1, activeID: activeID, openIDs: openIDs,
-        tabs: [
-            AgentNoteTab(
-                id: "general", title: "General", path: general.path,
-                createdAt: nil, updatedAt: general.updatedAt, openedAt: nil,
-                isOpen: true, pinned: true
-            ),
-            AgentNoteTab(
-                id: "detail-1", title: detail.title ?? "Untitled", path: detail.path,
-                createdAt: nil, updatedAt: detail.updatedAt, openedAt: nil,
-                isOpen: openSet.contains("detail-1"), pinned: nil
-            ),
-        ],
-        active: activeID == "general" ? general : detail
+        tabs: tabs,
+        active: activeID == "general" ? general : (includeDetail ? detail : nil)
     )
 }
 
@@ -354,6 +362,7 @@ actor NotesWorkspaceAgent: AgentClientProtocol {
     private(set) var savedNoteIDs: [String] = []
     private(set) var openedNoteIDs: [String] = []
     private(set) var closedNoteIDs: [String] = []
+    private(set) var deletedNoteIDs: [String] = []
 
     init(
         openIDs: [String] = ["general", "detail-1", "detail-2"],
@@ -444,6 +453,18 @@ actor NotesWorkspaceAgent: AgentClientProtocol {
         openIDs.remove(at: index)
         if activeID == noteID {
             activeID = index > 0 ? openIDs[index - 1] : "general"
+        }
+        return workspaceEvent(type: "notes_workspace_updated")
+    }
+
+    func deleteNote(_ noteID: String) async throws -> AgentEvent {
+        deletedNoteIDs.append(noteID)
+        guard noteID != "general", noteID != "new", documents[noteID] != nil else { throw TestError.failed }
+        let index = openIDs.firstIndex(of: noteID)
+        openIDs.removeAll { $0 == noteID }
+        documents[noteID] = nil
+        if activeID == noteID {
+            activeID = index.flatMap { $0 > 0 && $0 - 1 < openIDs.count ? openIDs[$0 - 1] : nil } ?? "general"
         }
         return workspaceEvent(type: "notes_workspace_updated")
     }

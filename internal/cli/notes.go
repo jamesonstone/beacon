@@ -35,6 +35,7 @@ func (a App) notesCommand(configPath *string) *cobra.Command {
 		a.notesNewCommand(configPath),
 		a.notesOpenCommand(configPath),
 		a.notesCloseCommand(configPath),
+		a.notesDeleteCommand(configPath),
 	)
 	return command
 }
@@ -246,6 +247,10 @@ func (a App) notesCloseCommand(configPath *string) *cobra.Command {
 	return a.notesLifecycleCommand(configPath, "close", "Close a signal note without deleting it", agent.RequestCloseNote)
 }
 
+func (a App) notesDeleteCommand(configPath *string) *cobra.Command {
+	return a.notesLifecycleCommand(configPath, "delete", "Permanently delete a detail signal note", agent.RequestDeleteNote)
+}
+
 func (a App) notesLifecycleCommand(configPath *string, name, short, requestType string) *cobra.Command {
 	var jsonOutput bool
 	command := &cobra.Command{
@@ -258,9 +263,11 @@ func (a App) notesLifecycleCommand(configPath *string, name, short, requestType 
 			if jsonOutput {
 				return encodeJSON(a.Out, workspace)
 			}
-			pastTense := "opened"
-			if name == "close" {
-				pastTense = "closed"
+			pastTense := map[string]string{
+				"open": "opened", "close": "closed", "delete": "deleted",
+			}[name]
+			if pastTense == "" {
+				pastTense = name + "d"
 			}
 			_, err = fmt.Fprintf(a.Out, "%s signal note %s\n", pastTense, args[0])
 			return err
@@ -309,6 +316,8 @@ func (a App) mutateNotesWorkspaceDirect(request agent.Request) (notes.Workspace,
 		return store.OpenNote(path, request.NoteID)
 	case agent.RequestCloseNote:
 		return store.CloseNote(path, request.NoteID)
+	case agent.RequestDeleteNote:
+		return store.DeleteNote(path, request.NoteID)
 	default:
 		return notes.Workspace{}, fmt.Errorf("unsupported notes workspace mutation: %s", request.Type)
 	}

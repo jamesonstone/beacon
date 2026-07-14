@@ -22,6 +22,7 @@ struct MenuView: View {
     @State var switcherScope: BeaconSwitcherScope?
     @State var switcherQuery = ""
     @State var switcherSelection = 0
+    @State var notePendingDeletion: AgentNoteTab?
     @AppStorage("beacon.dashboard.view-mode") private var viewModeValue = DashboardViewMode.stacked.rawValue
     @AppStorage("beacon.dismissed-evidence-badges") private var dismissedEvidenceBadgesValue = "[]"
     @AppStorage("beacon.signal-notes-expanded") var signalNotesExpanded = SignalNotesPresentation.expandedByDefault
@@ -72,7 +73,7 @@ struct MenuView: View {
         .overlay {
             if let switcherScope {
                 ZStack {
-                    Color.black.opacity(0.34)
+                    Color.black.opacity(0.52)
                         .contentShape(Rectangle())
                         .onTapGesture { self.switcherScope = nil }
                     BeaconQuickSwitcher(
@@ -80,6 +81,7 @@ struct MenuView: View {
                         commands: switcherScope == .all ? allSwitcherCommands : noteSwitcherCommands,
                         query: $switcherQuery,
                         selection: $switcherSelection,
+                        onDeleteNote: requestNoteDeletion,
                         dismiss: { self.switcherScope = nil }
                     )
                     .padding(18)
@@ -97,6 +99,16 @@ struct MenuView: View {
             TextField("Planning or research lane", text: $manualTitle)
             Button("Add") { Task { await state.addManualLane(manualTitle) } }
             Button("Cancel", role: .cancel) {}
+        }
+        .alert(item: $notePendingDeletion) { tab in
+            Alert(
+                title: Text("Delete \u{201c}\(tab.title)\u{201d}?"),
+                message: Text("This permanently deletes the detail note and cannot be undone."),
+                primaryButton: .destructive(Text("Delete Note")) {
+                    Task { await state.deleteNote(tab.id) }
+                },
+                secondaryButton: .cancel()
+            )
         }
     }
 
@@ -122,6 +134,12 @@ struct MenuView: View {
         .frame(width: 0, height: 0)
         .opacity(0)
         .accessibilityHidden(true)
+    }
+
+    func requestNoteDeletion(_ tab: AgentNoteTab) {
+        guard tab.id != "general", tab.id != "new" else { return }
+        switcherScope = nil
+        notePendingDeletion = tab
     }
 
     private var dashboard: some View {

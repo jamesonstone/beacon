@@ -112,6 +112,103 @@ func TestWorkspacePreventsDuplicatesAndClosingNeverDeletes(t *testing.T) {
 	}
 }
 
+func TestWorkspaceDeletesDetailAndSelectsLeftNeighbor(t *testing.T) {
+	general := filepath.Join(t.TempDir(), "notes.md")
+	store := FileStore{}
+	first, err := store.CreateNote(general, "First\nbody")
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstID := first.ActiveID
+	second, err := store.CreateNote(general, "Second\nbody")
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondID := second.ActiveID
+	secondPath := second.Active.Path
+
+	workspace, err := store.DeleteNote(general, secondID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if workspace.ActiveID != firstID || strings.Join(workspace.OpenIDs, ",") != "general,"+firstID {
+		t.Fatalf("workspace after active delete = %#v", workspace)
+	}
+	if _, err := os.Lstat(secondPath); !os.IsNotExist(err) {
+		t.Fatalf("deleted detail still exists: %v", err)
+	}
+	for _, tab := range workspace.Tabs {
+		if tab.ID == secondID {
+			t.Fatalf("deleted tab remains in workspace: %#v", workspace.Tabs)
+		}
+	}
+
+	if _, err := store.CloseNote(general, firstID); err != nil {
+		t.Fatal(err)
+	}
+	workspace, err = store.DeleteNote(general, "First")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if workspace.ActiveID != GeneralID || strings.Join(workspace.OpenIDs, ",") != GeneralID {
+		t.Fatalf("workspace after closed delete = %#v", workspace)
+	}
+	if _, err := store.LoadNote(general, firstID); err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("load deleted note error = %v", err)
+	}
+}
+
+func TestWorkspaceDeleteRejectsProtectedAndAmbiguousNotes(t *testing.T) {
+	general := filepath.Join(t.TempDir(), "notes.md")
+	store := FileStore{}
+	first, err := store.CreateNote(general, "Duplicate\nfirst")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := store.CreateNote(general, "Duplicate\nsecond")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, selector := range []string{GeneralID, NewTabID} {
+		if _, err := store.DeleteNote(general, selector); err == nil || !strings.Contains(err.Error(), "cannot be deleted") {
+			t.Fatalf("delete %q error = %v", selector, err)
+		}
+	}
+	if _, err := store.DeleteNote(general, "Duplicate"); err == nil || !strings.Contains(err.Error(), first.ActiveID) || !strings.Contains(err.Error(), second.ActiveID) {
+		t.Fatalf("ambiguous delete error = %v", err)
+	}
+	if _, err := store.DeleteNote(general, "../notes.md"); err == nil {
+		t.Fatal("accepted traversal selector")
+	}
+}
+
+func TestWorkspaceDeleteRejectsSymlinkReplacement(t *testing.T) {
+	root := t.TempDir()
+	general := filepath.Join(root, "notes.md")
+	store := FileStore{}
+	workspace, err := store.CreateNote(general, "Replace me\nbody")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(root, "target.md")
+	if err := os.WriteFile(target, []byte("must remain"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(workspace.Active.Path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, workspace.Active.Path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.DeleteNote(general, workspace.ActiveID); err == nil || !strings.Contains(err.Error(), "regular files") {
+		t.Fatalf("delete symlink error = %v", err)
+	}
+	contents, err := os.ReadFile(target)
+	if err != nil || string(contents) != "must remain" {
+		t.Fatalf("symlink target contents=%q err=%v", contents, err)
+	}
+}
+
 func TestWorkspaceRejectsManifestAndDirectorySymlinks(t *testing.T) {
 	store := FileStore{}
 

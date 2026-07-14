@@ -15,7 +15,26 @@ struct BeaconCommandItem: Identifiable {
     let detail: String
     let symbol: String
     let keywords: String
+    let deletableNote: AgentNoteTab?
     let action: @MainActor () -> Void
+
+    init(
+        id: String,
+        title: String,
+        detail: String,
+        symbol: String,
+        keywords: String,
+        deletableNote: AgentNoteTab? = nil,
+        action: @escaping @MainActor () -> Void
+    ) {
+        self.id = id
+        self.title = title
+        self.detail = detail
+        self.symbol = symbol
+        self.keywords = keywords
+        self.deletableNote = deletableNote
+        self.action = action
+    }
 
     func matches(_ query: String) -> Bool {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -29,6 +48,7 @@ struct BeaconQuickSwitcher: View {
     let commands: [BeaconCommandItem]
     @Binding var query: String
     @Binding var selection: Int
+    let onDeleteNote: (AgentNoteTab) -> Void
     let dismiss: () -> Void
     @FocusState private var searchFocused: Bool
 
@@ -64,42 +84,62 @@ struct BeaconQuickSwitcher: View {
                     ScrollView {
                         LazyVStack(spacing: 3) {
                             ForEach(Array(results.enumerated()), id: \.element.id) { index, command in
-                                Button {
-                                    selection = index
-                                    performSelection()
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: command.symbol)
-                                            .frame(width: 15)
-                                            .foregroundStyle(index == selection ? BeaconPalette.mint : BeaconPalette.cyan)
-                                        VStack(alignment: .leading, spacing: 1) {
-                                            Text(command.title)
-                                                .font(BeaconTypography.medium(9))
-                                                .foregroundStyle(BeaconPalette.mint)
-                                                .lineLimit(1)
-                                            if !command.detail.isEmpty {
-                                                Text(command.detail)
-                                                    .font(BeaconTypography.regular(7))
-                                                    .foregroundStyle(BeaconPalette.lavender.opacity(0.72))
+                                HStack(spacing: 4) {
+                                    Button {
+                                        selection = index
+                                        performSelection()
+                                    } label: {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: command.symbol)
+                                                .frame(width: 15)
+                                                .foregroundStyle(index == selection ? BeaconPalette.mint : BeaconPalette.cyan)
+                                            VStack(alignment: .leading, spacing: 1) {
+                                                Text(command.title)
+                                                    .font(BeaconTypography.medium(9))
+                                                    .foregroundStyle(BeaconPalette.mint)
                                                     .lineLimit(1)
+                                                if !command.detail.isEmpty {
+                                                    Text(command.detail)
+                                                        .font(BeaconTypography.regular(7))
+                                                        .foregroundStyle(BeaconPalette.lavender.opacity(0.72))
+                                                        .lineLimit(1)
+                                                }
+                                            }
+                                            Spacer()
+                                            if index == selection {
+                                                Image(systemName: "return")
+                                                    .font(.system(size: 8, weight: .semibold))
+                                                    .foregroundStyle(BeaconPalette.lavender)
                                             }
                                         }
-                                        Spacer()
-                                        if index == selection {
-                                            Image(systemName: "return")
-                                                .font(.system(size: 8, weight: .semibold))
-                                                .foregroundStyle(BeaconPalette.lavender)
-                                        }
+                                        .padding(.leading, 8)
+                                        .frame(height: 34)
+                                        .contentShape(Rectangle())
                                     }
-                                    .padding(.horizontal, 8)
-                                    .frame(height: 34)
-                                    .contentShape(Rectangle())
-                                    .background(
-                                        index == selection ? BeaconPalette.softGradient(BeaconPalette.cyan) : BeaconPalette.softGradient(.clear),
-                                        in: RoundedRectangle(cornerRadius: 7)
-                                    )
+                                    .buttonStyle(.plain)
+                                    .frame(maxWidth: .infinity)
+
+                                    if let tab = command.deletableNote {
+                                        Button {
+                                            dismiss()
+                                            onDeleteNote(tab)
+                                        } label: {
+                                            Image(systemName: "trash")
+                                                .font(.system(size: 9, weight: .semibold))
+                                                .foregroundStyle(BeaconPalette.coral)
+                                                .frame(width: 25, height: 25)
+                                                .contentShape(Rectangle())
+                                        }
+                                        .buttonStyle(.plain)
+                                        .help("Delete \(tab.title)")
+                                        .accessibilityLabel("Delete \(tab.title) note")
+                                    }
                                 }
-                                .buttonStyle(.plain)
+                                .padding(.trailing, 5)
+                                .background(
+                                    index == selection ? BeaconPalette.softGradient(BeaconPalette.cyan) : BeaconPalette.softGradient(.clear),
+                                    in: RoundedRectangle(cornerRadius: 7)
+                                )
                                 .id(command.id)
                             }
                         }
@@ -117,7 +157,7 @@ struct BeaconQuickSwitcher: View {
         }
         .padding(12)
         .frame(maxWidth: 390, maxHeight: 390)
-        .background(BeaconPalette.panelBackground, in: RoundedRectangle(cornerRadius: 12))
+        .background(BeaconPalette.switcherBackground, in: RoundedRectangle(cornerRadius: 12))
         .overlay {
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.cyan), lineWidth: 1)
@@ -163,6 +203,7 @@ extension MenuView {
                 id: "note-\(tab.id)", title: tab.id == state.activeNoteID ? state.activeNoteTitle : tab.title,
                 detail: tab.isOpen ? "Open · \(tab.id)" : "Closed · \(tab.id)",
                 symbol: tab.isOpen ? "rectangle.on.rectangle" : "doc.text", keywords: "signal note tab",
+                deletableNote: tab,
                 action: { Task { await state.activateNote(tab.id) } }
             )
         }
@@ -218,8 +259,8 @@ extension MenuView {
         ]
         if state.activeNoteID == "general", !state.notesCurrentLine.isEmpty {
             items.append(BeaconCommandItem(
-                id: "note-from-line", title: "Create Detail From Current Line", detail: state.notesCurrentLine,
-                symbol: "text.line.first.and.arrowtriangle.forward", keywords: "signal note",
+                id: "note-from-line", title: SignalNotesPresentation.createFromGeneralLabel, detail: state.notesCurrentLine,
+                symbol: SignalNotesPresentation.createFromGeneralSymbol, keywords: "signal note",
                 action: { Task { await state.createNoteFromCurrentLine() } }
             ))
         }

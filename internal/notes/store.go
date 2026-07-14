@@ -40,6 +40,7 @@ type WorkspaceStore interface {
 	CreateNote(string, string) (Workspace, error)
 	OpenNote(string, string) (Workspace, error)
 	CloseNote(string, string) (Workspace, error)
+	DeleteNote(string, string) (Workspace, error)
 }
 
 type FileStore struct{}

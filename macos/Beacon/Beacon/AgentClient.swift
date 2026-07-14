@@ -109,6 +109,10 @@ actor AgentClient: AgentClientProtocol {
         try await noteWorkspaceMutation(type: "close_note", noteID: noteID)
     }
 
+    func deleteNote(_ noteID: String) async throws -> AgentEvent {
+        try await noteWorkspaceMutation(type: "delete_note", noteID: noteID)
+    }
+
     private func noteWorkspaceMutation(type: String, noteID: String? = nil, content: String? = nil) async throws -> AgentEvent {
         let event = try await request(type: type, content: content, noteID: noteID)
         guard event.type != "project_failed", event.notesWorkspace != nil else {

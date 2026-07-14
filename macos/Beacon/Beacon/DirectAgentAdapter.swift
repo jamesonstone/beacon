@@ -69,6 +69,11 @@ actor DirectAgentAdapter: AgentClientProtocol {
         return event(type: "notes_workspace_updated", notes: workspace.active, notesWorkspace: workspace)
     }
 
+    func deleteNote(_ noteID: String) async throws -> AgentEvent {
+        let workspace = try await client.deleteNote(noteID)
+        return event(type: "notes_workspace_updated", notes: workspace.active, notesWorkspace: workspace)
+    }
+
     func repositorySync(refresh: Bool) async throws -> AgentEvent {
         event(type: "repository_sync", repositorySync: try await client.repositorySync(refresh: refresh))
     }

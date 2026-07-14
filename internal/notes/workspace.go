@@ -225,3 +225,68 @@ func (FileStore) CloseNote(generalPath, selector string) (Workspace, error) {
 	})
 	return workspace, err
 }
+
+func (FileStore) DeleteNote(generalPath, selector string) (Workspace, error) {
+	fileMutex.Lock()
+	defer fileMutex.Unlock()
+	var workspace Workspace
+	err := withWriteLock(generalPath, func() error {
+		current, manifest, err := loadWorkspaceState(generalPath)
+		if err != nil {
+			return err
+		}
+		id, err := resolveSelector(current, selector, true)
+		if err != nil {
+			return err
+		}
+		switch id {
+		case GeneralID:
+			return errors.New("General Signal Notes cannot be deleted")
+		case NewTabID:
+			return errors.New("New Tab cannot be deleted")
+		}
+		path, err := notePath(generalPath, current, id)
+		if err != nil {
+			return err
+		}
+		info, err := os.Lstat(path)
+		if err != nil {
+			return fmt.Errorf("inspect Beacon detail note %s: %w", path, err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+			return fmt.Errorf("Beacon detail notes must be regular files: %s", path)
+		}
+
+		index := indexOf(current.OpenIDs, id)
+		manifest.OpenIDs = removeID(current.OpenIDs, id)
+		manifest.Entries = removeManifestEntry(manifest.Entries, id)
+		if current.ActiveID == id {
+			manifest.ActiveID = GeneralID
+			if index > 0 && index-1 < len(manifest.OpenIDs) {
+				manifest.ActiveID = manifest.OpenIDs[index-1]
+			}
+		}
+		if err := writeManifest(generalPath, manifest); err != nil {
+			return err
+		}
+		if err := os.Remove(path); err != nil {
+			return fmt.Errorf("delete Beacon detail note %s: %w", path, err)
+		}
+		if err := syncDirectory(filepath.Dir(path)); err != nil {
+			return err
+		}
+		workspace, err = loadWorkspace(generalPath)
+		return err
+	})
+	return workspace, err
+}
+
+func removeManifestEntry(entries []manifestEntry, id string) []manifestEntry {
+	result := make([]manifestEntry, 0, len(entries))
+	for _, entry := range entries {
+		if entry.ID != id {
+			result = append(result, entry)
+		}
+	}
+	return result
+}

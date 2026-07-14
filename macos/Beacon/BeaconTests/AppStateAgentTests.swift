@@ -118,6 +118,24 @@ extension AppStateTests {
         XCTAssertTrue(state.noteHistory.contains { $0.id == "detail-2" && !$0.isOpen })
     }
 
+    func testSignalNoteDeleteDiscardsActiveDraftAndRemovesHistory() async {
+        let agent = NotesWorkspaceAgent(activeID: "detail-2")
+        let state = AppState(agent: agent, installer: nil)
+        await state.loadNotes()
+        state.updateNotesDraft("Unsaved content that will be deleted")
+
+        await state.deleteNote("detail-2")
+
+        let saved = await agent.savedNoteIDs
+        let deleted = await agent.deletedNoteIDs
+        XCTAssertTrue(saved.isEmpty)
+        XCTAssertEqual(deleted, ["detail-2"])
+        XCTAssertEqual(state.activeNoteID, "detail-1")
+        XCTAssertEqual(state.openNoteTabs.map(\.id), ["general", "detail-1"])
+        XCTAssertFalse(state.noteHistory.contains { $0.id == "detail-2" })
+        XCTAssertNil(state.notesError)
+    }
+
     func testSignalNoteSaveFailureKeepsCurrentTabOpen() async {
         let agent = NotesWorkspaceAgent(failSaves: true)
         let state = AppState(agent: agent, installer: nil)
@@ -165,6 +183,7 @@ extension AppStateTests {
                 activeID: "detail-1", openIDs: ["general", "detail-1"], detailContent: expanded
             ),
             legacyFallbackWorkspace(activeID: "general", openIDs: ["general"], detailContent: expanded),
+            legacyFallbackWorkspace(activeID: "general", openIDs: ["general"], detailContent: expanded, includeDetail: false),
         ])
         let state = AppState(agent: agent, installer: nil, notesFallback: fallback)
 
@@ -175,16 +194,17 @@ extension AppStateTests {
         await state.activateNote("general")
         await state.activateNote("detail-1")
         await state.closeNote("detail-1")
+        await state.deleteNote("detail-1")
 
         let agentCalls = await agent.calls
         let fallbackCalls = await fallback.calls
         XCTAssertEqual(agentCalls, ["workspace"])
         XCTAssertEqual(fallbackCalls, [
-            "workspace", "create", "set:detail-1", "open:general", "open:detail-1", "close:detail-1",
+            "workspace", "create", "set:detail-1", "open:general", "open:detail-1", "close:detail-1", "delete:detail-1",
         ])
         XCTAssertEqual(state.activeNoteID, "general")
         XCTAssertEqual(state.openNoteTabs.map(\.id), ["general"])
-        XCTAssertTrue(state.noteHistory.contains { $0.id == "detail-1" && !$0.isOpen })
+        XCTAssertFalse(state.noteHistory.contains { $0.id == "detail-1" })
         XCTAssertNil(state.notesError)
     }
 

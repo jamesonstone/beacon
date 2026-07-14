@@ -40,6 +40,7 @@ const (
 	RequestCreateNote        = "create_note"
 	RequestOpenNote          = "open_note"
 	RequestCloseNote         = "close_note"
+	RequestDeleteNote        = "delete_note"
 	RequestGetRepositorySync = "get_repository_sync"
 	RequestSyncRepositories  = "sync_repositories"
 )

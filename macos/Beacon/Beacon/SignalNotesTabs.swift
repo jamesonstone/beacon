@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SignalNoteTabStrip: View {
     @ObservedObject var state: AppState
+    let onDeleteNote: (AgentNoteTab) -> Void
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -12,7 +13,8 @@ struct SignalNoteTabStrip: View {
                         title: tab.id == state.activeNoteID ? state.activeNoteTitle : tab.title,
                         selected: tab.id == state.activeNoteID,
                         onSelect: { Task { await state.activateNote(tab.id) } },
-                        onClose: tab.id == "general" ? nil : { Task { await state.closeNote(tab.id) } }
+                        onClose: tab.id == "general" ? nil : { Task { await state.closeNote(tab.id) } },
+                        onDelete: tab.id == "general" ? nil : { onDeleteNote(tab) }
                     )
                 }
                 Button {
@@ -39,6 +41,7 @@ private struct SignalNoteTabButton: View {
     let selected: Bool
     let onSelect: () -> Void
     let onClose: (() -> Void)?
+    let onDelete: (() -> Void)?
     @State private var hovering = false
     @FocusState private var focused: Bool
 
@@ -59,6 +62,18 @@ private struct SignalNoteTabButton: View {
             }
             .buttonStyle(.plain)
             .focused($focused)
+
+            if let onDelete, hovering || focused {
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 7, weight: .bold))
+                        .frame(width: 13, height: 13)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(BeaconPalette.coral.opacity(0.9))
+                .help("Delete \(title)")
+                .accessibilityLabel("Delete \(title) note")
+            }
 
             if let onClose, hovering || focused {
                 Button(action: onClose) {
@@ -89,6 +104,7 @@ private struct SignalNoteTabButton: View {
 
 struct SignalNotePicker: View {
     @ObservedObject var state: AppState
+    let onDeleteNote: (AgentNoteTab) -> Void
     @State private var title = ""
 
     var body: some View {
@@ -106,7 +122,10 @@ struct SignalNotePicker: View {
                 Button {
                     Task { await state.createNoteFromCurrentLine() }
                 } label: {
-                    Label("Create from current General line", systemImage: "text.line.first.and.arrowtriangle.forward")
+                    Label(
+                        SignalNotesPresentation.createFromGeneralLabel,
+                        systemImage: SignalNotesPresentation.createFromGeneralSymbol
+                    )
                         .lineLimit(1)
                 }
                 .buttonStyle(.plain)
@@ -129,33 +148,47 @@ struct SignalNotePicker: View {
                 ScrollView {
                     LazyVStack(spacing: 4) {
                         ForEach(state.noteHistory) { tab in
-                            Button {
-                                Task { await state.activateNote(tab.id) }
-                            } label: {
-                                HStack(spacing: 7) {
-                                    Image(systemName: tab.isOpen ? "rectangle.on.rectangle" : "doc.text")
-                                        .foregroundStyle(tab.isOpen ? BeaconPalette.mint : BeaconPalette.cyan)
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text(tab.title)
-                                            .font(BeaconTypography.medium(9))
-                                            .foregroundStyle(BeaconPalette.mint)
-                                            .lineLimit(1)
-                                        Text(tab.id)
-                                            .font(BeaconTypography.regular(7))
-                                            .foregroundStyle(BeaconPalette.lavender.opacity(0.68))
+                            HStack(spacing: 5) {
+                                Button {
+                                    Task { await state.activateNote(tab.id) }
+                                } label: {
+                                    HStack(spacing: 7) {
+                                        Image(systemName: tab.isOpen ? "rectangle.on.rectangle" : "doc.text")
+                                            .foregroundStyle(tab.isOpen ? BeaconPalette.mint : BeaconPalette.cyan)
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Text(tab.title)
+                                                .font(BeaconTypography.medium(9))
+                                                .foregroundStyle(BeaconPalette.mint)
+                                                .lineLimit(1)
+                                            Text(tab.id)
+                                                .font(BeaconTypography.regular(7))
+                                                .foregroundStyle(BeaconPalette.lavender.opacity(0.68))
+                                        }
+                                        Spacer()
+                                        if tab.isOpen {
+                                            Text("OPEN")
+                                                .font(BeaconTypography.bold(7))
+                                                .foregroundStyle(BeaconPalette.mint)
+                                        }
                                     }
-                                    Spacer()
-                                    if tab.isOpen {
-                                        Text("OPEN")
-                                            .font(BeaconTypography.bold(7))
-                                            .foregroundStyle(BeaconPalette.mint)
-                                    }
+                                    .contentShape(Rectangle())
                                 }
-                                .padding(7)
-                                .contentShape(Rectangle())
-                                .background(Color.black.opacity(0.14), in: RoundedRectangle(cornerRadius: 6))
+                                .buttonStyle(.plain)
+                                .frame(maxWidth: .infinity)
+
+                                Button { onDeleteNote(tab) } label: {
+                                    Image(systemName: "trash")
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundStyle(BeaconPalette.coral)
+                                        .frame(width: 24, height: 24)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .help("Delete \(tab.title)")
+                                .accessibilityLabel("Delete \(tab.title) note")
                             }
-                            .buttonStyle(.plain)
+                            .padding(7)
+                            .background(Color.black.opacity(0.14), in: RoundedRectangle(cornerRadius: 6))
                         }
                     }
                 }

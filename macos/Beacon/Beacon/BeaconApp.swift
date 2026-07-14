@@ -121,6 +121,15 @@ enum BeaconPalette {
         endPoint: .bottomTrailing
     )
 
+    static let switcherBackground = LinearGradient(
+        colors: [
+            Color(red: 0.035, green: 0.028, blue: 0.055),
+            Color(red: 0.075, green: 0.045, blue: 0.090),
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
     static func softGradient(_ accent: Color) -> LinearGradient {
         LinearGradient(
             colors: [accent.opacity(0.18), lavender.opacity(0.09), cyan.opacity(0.035)],

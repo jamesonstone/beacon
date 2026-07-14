@@ -123,6 +123,24 @@ extension AppState {
         )
     }
 
+    func deleteNote(_ noteID: String) async {
+        guard noteID != "general", noteID != "new" else { return }
+        let deletingActiveNote = noteID == activeNoteID
+        if deletingActiveNote {
+            notesAutosave.cancel()
+            while isSavingNotes {
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+        }
+        await applyNotesMutation(
+            { try await agent.deleteNote(noteID) },
+            fallback: { try await $0.deleteNote(noteID) }
+        )
+        if deletingActiveNote, notesError != nil, notesAreDirty {
+            scheduleNotesAutosave(notesDraft)
+        }
+    }
+
     func cycleNotes(direction: Int) async {
         let identifiers = openNoteTabs.map(\.id)
         guard identifiers.count > 1, let index = identifiers.firstIndex(of: activeNoteID) else { return }

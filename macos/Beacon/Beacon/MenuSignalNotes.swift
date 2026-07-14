@@ -5,6 +5,8 @@ enum SignalNotesPresentation {
     static let expandedByDefault = true
     static let expandedHeightFraction = 0.5
     static let autosaveDelay: Duration = .seconds(3)
+    static let createFromGeneralLabel = "Create New Note from Highlighted Text in General"
+    static let createFromGeneralSymbol = "doc.badge.plus"
 
     static func savedLabel(age: String) -> String {
         "Saved \(age)"
@@ -88,10 +90,10 @@ extension MenuView {
             .accessibilityLabel(signalNotesExpanded ? "Collapse Signal Notes" : "Expand Signal Notes")
 
             if signalNotesExpanded {
-                SignalNoteTabStrip(state: state)
+                SignalNoteTabStrip(state: state, onDeleteNote: requestNoteDeletion)
 
                 if state.activeNoteID == "new" {
-                    SignalNotePicker(state: state)
+                    SignalNotePicker(state: state, onDeleteNote: requestNoteDeletion)
                 } else {
                     liveMarkdownEditor
                 }
@@ -177,8 +179,13 @@ extension MenuView {
         }
         .contextMenu {
             if state.activeNoteID == "general", !state.notesCurrentLine.isEmpty {
-                Button("Create Detail From Current Line") {
+                Button {
                     Task { await state.createNoteFromCurrentLine() }
+                } label: {
+                    Label(
+                        SignalNotesPresentation.createFromGeneralLabel,
+                        systemImage: SignalNotesPresentation.createFromGeneralSymbol
+                    )
                 }
             }
             Button("New Detail Note") {

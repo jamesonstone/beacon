@@ -11,6 +11,7 @@ protocol CLIClientProtocol {
     func createNote(_ content: String) async throws -> AgentNotesWorkspace
     func openNote(_ noteID: String) async throws -> AgentNotesWorkspace
     func closeNote(_ noteID: String) async throws -> AgentNotesWorkspace
+    func deleteNote(_ noteID: String) async throws -> AgentNotesWorkspace
     func repositorySync(refresh: Bool) async throws -> RepositorySyncReport
     func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport
     func dependencyLimits() async throws -> DependencyLimitReport
@@ -32,6 +33,7 @@ extension CLIClientProtocol {
     func createNote(_ content: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("signal note tabs are unavailable") }
     func openNote(_ noteID: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("signal note tabs are unavailable") }
     func closeNote(_ noteID: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("signal note tabs are unavailable") }
+    func deleteNote(_ noteID: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("signal note deletion is unavailable") }
     func repositorySync(refresh: Bool) async throws -> RepositorySyncReport { throw AgentClientError.command("repository sync is unavailable") }
     func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport { throw AgentClientError.command("repository sync is unavailable") }
     func dependencyLimits() async throws -> DependencyLimitReport { throw AgentClientError.command("dependency limits are unavailable") }
@@ -119,6 +121,10 @@ struct CLIClient: CLIClientProtocol, AgentInstallerProtocol {
 
     func closeNote(_ noteID: String) async throws -> AgentNotesWorkspace {
         try decodeNotesWorkspace(try await execute(arguments: ["notes", "close", noteID, "--json"]))
+    }
+
+    func deleteNote(_ noteID: String) async throws -> AgentNotesWorkspace {
+        try decodeNotesWorkspace(try await execute(arguments: ["notes", "delete", noteID, "--json"]))
     }
 
     func repositorySync(refresh: Bool) async throws -> RepositorySyncReport {

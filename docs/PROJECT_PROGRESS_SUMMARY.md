@@ -17,6 +17,7 @@
 | 0011 | working-notes-refresh | `docs/specs/0011-working-notes-refresh` | deliver | no | 2026-07-13 | Add one local Markdown signal log plus unmistakable manual refresh controls across the CLI, menu extra, and detachable dashboard. |
 | 0012 | repository-sync-ui-refresh | `docs/specs/0012-repository-sync-ui-refresh` | deliver | no | 2026-07-14 | Add conservative Git-only stale-default detection and fast-forward actions, explicit dependency-limit visibility, repeat-to-Following navigation, a recognizable menu-bar beacon, and the shared dashboard refinements. |
 | 0013 | signal-note-tabs | `docs/specs/0013-signal-note-tabs` | deliver | no | 2026-07-14 | Extend Signal Notes into a persistent Go-owned tab workspace shared by the CLI, menu extra, and dashboard, with detail history and native quick switchers. |
+| 0014 | signal-note-deletion | `docs/specs/0014-signal-note-deletion` | deliver | no | 2026-07-14 | Add permanent detail-note deletion through the Go authority with shared macOS confirmation controls and a higher-contrast switcher. |
 
 ## PROJECT INTENT
 
@@ -152,6 +153,15 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **APPROACH**: Keep General pinned, persist stable-ID detail files plus open order and history through one Go store and additive agent protocol, expose equivalent CLI lifecycle commands, and share one macOS draft/autosave authority with tab and command switchers.
 - **OPEN ITEMS**: Implementation, full local validation, live CLI/macOS smoke, and hosted Go/macOS checks are complete on issue #13, branch `GH-13`, and ready PR #14; final human review and merge remain.
 - **POINTERS**: `docs/specs/0013-signal-note-tabs/SPEC.md`
+
+### signal-note-deletion
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Permanently remove obsolete detail notes without making tab close destructive or allowing General to be deleted.
+- **APPROACH**: Add a separate Go-owned delete lifecycle, route tab, New Tab, and switcher actions through one native confirmation alert, and strengthen switcher contrast.
+- **OPEN ITEMS**: Implementation and the complete local gate are finished on issue #21 and branch `GH-21`; final human review and merge remain.
+- **POINTERS**: `docs/specs/0014-signal-note-deletion/SPEC.md`
 
 ## LAST UPDATED
 
