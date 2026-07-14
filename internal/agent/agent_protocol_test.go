@@ -12,6 +12,7 @@ import (
 
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/model"
+	"github.com/jamesonstone/beacon/internal/reposync"
 	"github.com/jamesonstone/beacon/internal/tracking"
 	"github.com/jamesonstone/beacon/internal/workset"
 )
@@ -170,6 +171,63 @@ func TestServerClientReadsWritesAndPublishesSignalNotes(t *testing.T) {
 	if err := <-done; err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestServerClientChecksAndAppliesRepositorySync(t *testing.T) {
+	root, err := os.MkdirTemp("/tmp", "beacon-sync-agent-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	paths := testPaths(root)
+	repository := config.Repository{Name: "repo", Path: root, GitHub: "owner/repo", Base: "main", Remote: "origin"}
+	cfg := config.Config{Path: paths.Config, Settings: config.Settings{
+		MaxParallel: 1, TrackedRefreshInterval: time.Hour, UntrackedProbeInterval: time.Hour,
+	}}
+	scanProject := func(context.Context, config.Repository, bool, func(string)) (model.Snapshot, error) {
+		return model.Snapshot{SchemaVersion: model.SchemaVersion}, nil
+	}
+	engine := NewEngine(cfg, paths, Cache{Directory: paths.Projects}, func(context.Context) ([]config.Repository, error) {
+		return []config.Repository{repository}, nil
+	}, scanProject, nil, tracking.Manager{})
+	synchronizer := &recordingRepositorySynchronizer{}
+	engine.RepositorySync = synchronizer
+	server := &Server{Paths: paths, Engine: engine}
+	done := make(chan error, 1)
+	go func() { done <- server.Serve(context.Background()) }()
+	waitForFile(t, paths.Socket)
+	client := Client{Socket: paths.Socket}
+
+	checked, err := client.Request(context.Background(), Request{Type: RequestGetRepositorySync, Refresh: true})
+	if err != nil || checked.RepositorySync == nil || !synchronizer.refresh {
+		t.Fatalf("checked=%#v refresh=%t err=%v", checked, synchronizer.refresh, err)
+	}
+	applied, err := client.Request(context.Background(), Request{Type: RequestSyncRepositories, ProjectIDs: []string{"owner/repo"}})
+	if err != nil || applied.RepositorySync == nil || len(synchronizer.projectIDs) != 1 || synchronizer.projectIDs[0] != "owner/repo" {
+		t.Fatalf("applied=%#v project_ids=%#v err=%v", applied, synchronizer.projectIDs, err)
+	}
+
+	if _, err := client.Request(context.Background(), Request{Type: RequestShutdown}); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+type recordingRepositorySynchronizer struct {
+	refresh    bool
+	projectIDs []string
+}
+
+func (s *recordingRepositorySynchronizer) Check(_ context.Context, repositories []config.Repository, refresh bool) reposync.Report {
+	s.refresh = refresh
+	return reposync.Report{Repositories: []reposync.Repository{{ProjectID: repositories[0].GitHub}}}
+}
+
+func (s *recordingRepositorySynchronizer) Apply(_ context.Context, _ []config.Repository, projectIDs []string) reposync.Report {
+	s.projectIDs = append([]string(nil), projectIDs...)
+	return reposync.Report{Repositories: []reposync.Repository{{ProjectID: projectIDs[0], Updated: true}}}
 }
 
 func TestServerClientMutatesWorkingSetThroughSharedAuthority(t *testing.T) {

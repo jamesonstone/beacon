@@ -279,6 +279,10 @@ beacon scan --include-idle
 beacon scan --json
 beacon scan --color=never
 beacon scan --repo beacon
+beacon sync
+beacon sync check --no-fetch
+beacon sync check --json
+beacon sync apply owner/repository --yes
 beacon projects
 beacon select
 beacon projects --followed
@@ -313,6 +317,22 @@ inventory.
 complete repository inventory. `scan --json` remains deterministic, ANSI-free, and
 does not require the agent. `--color=auto|always|never` controls human styling;
 auto requires a TTY and honors `NO_COLOR`.
+
+`beacon sync` is the explicit Git-only path for finding configured repositories
+whose checked-out branch or local default branch is behind its fetched remote
+default branch. In a terminal it fetches only the configured default-branch ref,
+preselects every safe candidate, and asks once before updating one or many
+repositories. Use `beacon sync check --no-fetch` for a network-free view of
+existing local refs, or `beacon sync check` to run bounded
+`git fetch --prune --no-tags` checks. `sync apply` requires named repositories
+and `--yes` outside an interactive terminal.
+
+Automatic sync is intentionally narrow: Beacon can fast-forward a clean
+checked-out default branch, or return a clean fully merged feature branch to
+the default branch and fast-forward it. Dirty, detached, diverged, missing-ref,
+unmerged, and multi-worktree cases remain manual. This workflow never invokes
+`gh` or the GitHub API and never rebases, resets, stashes, deletes, commits,
+pushes, or changes GitHub state.
 
 The default working-set view groups lanes as **Active**, **Waiting**,
 **Recently Active**, and **Parked**. Dirty or unpublished work, recent local
@@ -384,8 +404,8 @@ choose **Open Dashboard** in the top-right Settings menu or activate Beacon from
 Command-Tab to reopen the same window.
 
 The menu and detached window are two views over one shared background-agent
-connection. They show the same Following, Recently Updated, and Quiet projects
-and never
+connection. They show the same Following, Parking Lot, Recently Updated, and
+Quiet views and never
 start duplicate repository scans. Secondary actions live in the top-right gear
 menu so lane evidence receives the full height. The adjacent view button
 switches between the default stacked list, horizontal state tiles, and an
@@ -396,31 +416,46 @@ A dedicated neon refresh button in the top-right of both surfaces performs
 normal evidence cache, run one coalesced batched refresh, and update both views.
 Repeated clicks cannot start overlapping scans.
 
+The adjacent **Repository Sync** button first shows a network-free comparison
+against existing remote-tracking refs. Its badge counts repositories that need
+attention. **Check for Updates** explicitly fetches only each configured remote
+default branch; row, selected, and all-safe buttons then run the same guarded
+fast-forward behavior as `beacon sync`. Both macOS surfaces delegate this work
+to Go and never execute Git or `gh` directly.
+
 A compact tab row keeps repository attention one click away. **Following** is
-selected whenever a dashboard surface opens and contains the existing Active,
-Waiting, Recently Active, and Parking Lot lane layouts. **Recently Updated** is
-the outside-activity inbox, and **Quiet** is the complete remaining discovered
-inventory. Both outside views are searchable and provide a nonblocking Follow
-action. Settings opens the same Following manager rather than maintaining a
-second selection model.
+selected whenever a dashboard surface opens and contains Active, Waiting, and
+Recently Active lanes. **Parking Lot** is the next peer tab, followed by
+**Recently Updated**, the outside-activity inbox, and **Quiet**, the remaining
+discovered inventory. Both outside views are searchable and provide a
+nonblocking Follow action. Settings keeps only the Following manager instead of
+duplicating those primary tabs.
+
+When Following has no work in progress and no projects are still loading, the
+blank lane area becomes a lightweight **All caught up** backsplash. Its native
+SwiftUI orbit adapts to the compact menu extra and the detached window, respects
+Reduce Motion, and describes lane state without claiming local Git refs are current.
 
 The Beacon wordmark carries a modest neon/pastel color wave. It uses a shared,
 deterministic time phase in the menu and detached window and becomes a static
 neon gradient when Reduce Motion is enabled.
 
-Beacon uses JetBrains Mono Nerd Font when it is installed and falls back to the
-system monospaced font when it is unavailable. Lane notation appears as compact
-tag chips: use **Tag** to add context and the chip's close control to remove it.
+Beacon defaults to a 12-point system monospaced design. Settings provides
+System, Rounded, Monospaced, and Serif designs plus 11, 12, 13, 14, and 16-point
+base sizes; both surfaces share the persisted choice. Lane notation appears as
+compact tag chips: use **Tag** to add context and the chip's close control to remove it.
 Evidence badges such as **Dirty**, **CI None**, and **Review None** also reveal
 a trailing close control on hover. Hiding a badge is local presentation state:
 it does not change the underlying evidence or next action, and a changed signal
 appears again. Use **Restore Hidden Badges** in Settings to clear all dismissals.
 
 The whimsical **Signal Notes** panel sits at the bottom of both surfaces and is
-expanded by default, while a manual collapse choice persists. Its larger editor
-autosaves three seconds after the latest edit; Save and Revert remain available
-for immediate control. All writes travel through the Go agent authority so the
-menu, detached window, and `beacon notes` stay synchronized.
+expanded by default to roughly half the surface, while a manual collapse choice
+persists. One live editor applies headings, emphasis, lists, quotes, inline code,
+links, and dividers as Markdown is entered while retaining the exact plain-text
+source. It autosaves three seconds after the latest edit, and Save and Revert
+remain available for immediate control. All writes travel through the Go agent
+authority so the menu, detached window, and `beacon notes` stay synchronized.
 
 Use **Open Beacon at Login** in either view to enable quiet startup. Beacon
 registers its embedded login helper through macOS Service Management. A login
@@ -451,6 +486,8 @@ Common workflows:
 - Run `beacon projects --recent` to inspect outside activity.
 - Run `beacon projects --quiet` to inspect the remaining discovered inventory.
 - Run `beacon refresh [project]` to request background work without blocking.
+- Run `beacon sync` after merged pull requests to select safe local updates.
+- Run `beacon sync check --no-fetch` for a network-free stale-branch check.
 - Run `beacon agent status` to inspect the process, socket, cache count, and active refresh.
 - Run `beacon open-next` to open the highest-priority review or action item.
 - Run `beacon scan --repo NAME` to focus on one configured project.

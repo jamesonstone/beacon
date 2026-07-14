@@ -40,6 +40,14 @@ actor DirectAgentAdapter: AgentClientProtocol {
         event(type: "notes_updated", notes: try await client.setNotes(content))
     }
 
+    func repositorySync(refresh: Bool) async throws -> AgentEvent {
+        event(type: "repository_sync", repositorySync: try await client.repositorySync(refresh: refresh))
+    }
+
+    func syncRepositories(_ projectIDs: [String]) async throws -> AgentEvent {
+        event(type: "repository_sync", repositorySync: try await client.syncRepositories(projectIDs))
+    }
+
     func status() async throws -> AgentStatusDetails {
         AgentStatusDetails(
             running: true,
@@ -55,7 +63,8 @@ actor DirectAgentAdapter: AgentClientProtocol {
     private func event(
         type: String,
         snapshot: BeaconSnapshot? = nil,
-        notes: AgentNotes? = nil
+        notes: AgentNotes? = nil,
+        repositorySync: RepositorySyncReport? = nil
     ) -> AgentEvent {
         AgentEvent(
             protocolVersion: 1,
@@ -70,7 +79,8 @@ actor DirectAgentAdapter: AgentClientProtocol {
             snapshot: snapshot,
             projects: nil,
             status: nil,
-            notes: notes
+            notes: notes,
+            repositorySync: repositorySync
         )
     }
 }

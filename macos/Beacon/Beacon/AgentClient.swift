@@ -79,6 +79,22 @@ actor AgentClient: AgentClientProtocol {
         return event
     }
 
+    func repositorySync(refresh: Bool) async throws -> AgentEvent {
+        let event = try await request(type: "get_repository_sync", refresh: refresh)
+        guard event.type != "project_failed", event.repositorySync != nil else {
+            throw AgentClientError.command(event.message ?? "repository sync check failed")
+        }
+        return event
+    }
+
+    func syncRepositories(_ projectIDs: [String]) async throws -> AgentEvent {
+        let event = try await request(type: "sync_repositories", projectIDs: projectIDs)
+        guard event.type != "project_failed", event.repositorySync != nil else {
+            throw AgentClientError.command(event.message ?? "repository sync failed")
+        }
+        return event
+    }
+
     func status() async throws -> AgentStatusDetails {
         let event = try await request(type: "get_agent_status")
         guard let status = event.status else {
@@ -112,9 +128,9 @@ actor AgentClient: AgentClientProtocol {
         }
     }
 
-    private func request(type: String, projectID: String? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil) async throws -> AgentEvent {
+    private func request(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, refresh: Bool? = nil) async throws -> AgentEvent {
         let path = socketPath
-        let payload = try Self.requestData(type: type, projectID: projectID, trackingState: trackingState, laneID: laneID, attentionState: attentionState, pinned: pinned, note: note, tag: tag, title: title, content: content)
+        let payload = try Self.requestData(type: type, projectID: projectID, projectIDs: projectIDs, trackingState: trackingState, laneID: laneID, attentionState: attentionState, pinned: pinned, note: note, tag: tag, title: title, content: content, refresh: refresh)
         return try await Task.detached(priority: .userInitiated) {
             let socket = try UnixSocket(path: path)
             defer { socket.close() }
@@ -127,13 +143,14 @@ actor AgentClient: AgentClientProtocol {
         }.value
     }
 
-    private static func requestData(type: String, projectID: String? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil) throws -> Data {
+    private static func requestData(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, refresh: Bool? = nil) throws -> Data {
         var object: [String: Any] = [
             "protocol_version": 1,
             "request_id": UUID().uuidString.lowercased(),
             "type": type,
         ]
         object["project_id"] = projectID
+        object["project_ids"] = projectIDs
         object["tracking_state"] = trackingState
         object["lane_id"] = laneID
         object["attention_state"] = attentionState
@@ -142,6 +159,7 @@ actor AgentClient: AgentClientProtocol {
         object["tag"] = tag
         object["title"] = title
         object["content"] = content
+        object["refresh"] = refresh
         var data = try JSONSerialization.data(withJSONObject: object)
         data.append(0x0A)
         return data

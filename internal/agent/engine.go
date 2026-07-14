@@ -10,6 +10,7 @@ import (
 
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/model"
+	"github.com/jamesonstone/beacon/internal/reposync"
 	"github.com/jamesonstone/beacon/internal/tracking"
 	"github.com/jamesonstone/beacon/internal/workset"
 )
@@ -23,19 +24,25 @@ type ProjectProber interface {
 	Probe(context.Context, config.Repository, string) (ProbeResult, error)
 }
 
+type RepositorySynchronizer interface {
+	Check(context.Context, []config.Repository, bool) reposync.Report
+	Apply(context.Context, []config.Repository, []string) reposync.Report
+}
+
 type Engine struct {
-	Config       config.Config
-	Paths        Paths
-	Cache        Cache
-	Repositories RepositoryProvider
-	ScanProject  ProjectScanner
-	ScanBatch    ProjectBatchScanner
-	Prober       ProjectProber
-	ProbeBatch   ProjectBatchProber
-	Tracker      tracking.Manager
-	WorkingSet   *workset.Manager
-	Now          func() time.Time
-	StartedAt    time.Time
+	Config         config.Config
+	Paths          Paths
+	Cache          Cache
+	Repositories   RepositoryProvider
+	ScanProject    ProjectScanner
+	ScanBatch      ProjectBatchScanner
+	Prober         ProjectProber
+	ProbeBatch     ProjectBatchProber
+	RepositorySync RepositorySynchronizer
+	Tracker        tracking.Manager
+	WorkingSet     *workset.Manager
+	Now            func() time.Time
+	StartedAt      time.Time
 
 	mutex       sync.RWMutex
 	records     map[string]ProjectRecord

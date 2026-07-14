@@ -5,11 +5,15 @@ protocol CLIClientProtocol {
     func setProjectTracked(_ github: String, tracked: Bool) async throws
     func notes() async throws -> AgentNotes
     func setNotes(_ content: String) async throws -> AgentNotes
+    func repositorySync(refresh: Bool) async throws -> RepositorySyncReport
+    func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport
 }
 
 extension CLIClientProtocol {
     func notes() async throws -> AgentNotes { throw AgentClientError.command("signal notes are unavailable") }
     func setNotes(_ content: String) async throws -> AgentNotes { throw AgentClientError.command("signal notes are unavailable") }
+    func repositorySync(refresh: Bool) async throws -> RepositorySyncReport { throw AgentClientError.command("repository sync is unavailable") }
+    func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport { throw AgentClientError.command("repository sync is unavailable") }
 }
 
 protocol AgentInstallerProtocol {
@@ -65,6 +69,18 @@ struct CLIClient: CLIClientProtocol, AgentInstallerProtocol {
         ))
     }
 
+    func repositorySync(refresh: Bool) async throws -> RepositorySyncReport {
+        var arguments = ["sync", "check", "--json"]
+        if !refresh {
+            arguments.append("--no-fetch")
+        }
+        return try decodeRepositorySync(try await execute(arguments: arguments))
+    }
+
+    func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport {
+        try decodeRepositorySync(try await execute(arguments: ["sync", "apply", "--json", "--yes"] + projectIDs))
+    }
+
     func installAgent() async throws {
         _ = try await execute(arguments: ["agent", "install"])
     }
@@ -72,6 +88,14 @@ struct CLIClient: CLIClientProtocol, AgentInstallerProtocol {
     private func decodeNotes(_ data: Data) throws -> AgentNotes {
         do {
             return try JSONDecoder().decode(AgentNotes.self, from: data)
+        } catch {
+            throw CLIClientError.invalidOutput(error.localizedDescription)
+        }
+    }
+
+    private func decodeRepositorySync(_ data: Data) throws -> RepositorySyncReport {
+        do {
+            return try JSONDecoder().decode(RepositorySyncReport.self, from: data)
         } catch {
             throw CLIClientError.invalidOutput(error.localizedDescription)
         }

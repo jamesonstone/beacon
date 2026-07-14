@@ -70,7 +70,11 @@ actor ScriptedAgent: AgentClientProtocol {
     let statusDetails: AgentStatusDetails
     private(set) var refreshCalls = 0
     private(set) var setNotesCalls = 0
+    private(set) var repositoryCheckRefreshes: [Bool] = []
+    private(set) var syncedProjectIDs: [[String]] = []
     private var signalNotes: AgentNotes
+    private var repositorySyncReports: [RepositorySyncReport]
+    private let repositorySyncError: Error?
 
     init(
         events: [AgentEvent],
@@ -79,12 +83,18 @@ actor ScriptedAgent: AgentClientProtocol {
             running: true, pid: 1, startedAt: nil, refreshing: false,
             scanID: nil, projectCount: 1, socket: "/socket"
         ),
-        signalNotes: AgentNotes = AgentNotes(content: "", path: "/tmp/beacon/notes.md", updatedAt: nil)
+        signalNotes: AgentNotes = AgentNotes(content: "", path: "/tmp/beacon/notes.md", updatedAt: nil),
+        repositorySyncReports: [RepositorySyncReport] = [
+            RepositorySyncReport(checkedAt: "2026-07-14T12:00:00Z", fetchAttempted: false, repositories: [])
+        ],
+        repositorySyncError: Error? = nil
     ) {
         self.events = events
         self.terminalError = terminalError
         self.statusDetails = statusDetails
         self.signalNotes = signalNotes
+        self.repositorySyncReports = repositorySyncReports
+        self.repositorySyncError = repositorySyncError
     }
 
     func snapshot() async throws -> AgentEvent {
@@ -125,6 +135,18 @@ actor ScriptedAgent: AgentClientProtocol {
         return notesEvent(type: "notes_updated")
     }
 
+    func repositorySync(refresh: Bool) async throws -> AgentEvent {
+        repositoryCheckRefreshes.append(refresh)
+        if let repositorySyncError { throw repositorySyncError }
+        return repositorySyncEvent(nextRepositorySyncReport())
+    }
+
+    func syncRepositories(_ projectIDs: [String]) async throws -> AgentEvent {
+        syncedProjectIDs.append(projectIDs)
+        if let repositorySyncError { throw repositorySyncError }
+        return repositorySyncEvent(nextRepositorySyncReport())
+    }
+
     private func notesEvent(type: String) -> AgentEvent {
         AgentEvent(
             protocolVersion: 1, requestID: nil, type: type, scanID: nil,
@@ -132,5 +154,50 @@ actor ScriptedAgent: AgentClientProtocol {
             generatedAt: "2026-07-13T14:00:00Z", message: nil,
             snapshot: nil, projects: nil, status: nil, notes: signalNotes
         )
+    }
+
+    private func nextRepositorySyncReport() -> RepositorySyncReport {
+        if repositorySyncReports.count > 1 {
+            return repositorySyncReports.removeFirst()
+        }
+        return repositorySyncReports[0]
+    }
+
+    private func repositorySyncEvent(_ report: RepositorySyncReport) -> AgentEvent {
+        AgentEvent(
+            protocolVersion: 1, requestID: nil, type: "repository_sync", scanID: nil,
+            projectID: nil, revision: nil, stage: "ready",
+            generatedAt: report.checkedAt, message: nil,
+            snapshot: nil, projects: nil, status: nil, notes: nil,
+            repositorySync: report
+        )
+    }
+}
+
+actor RepositorySyncFallbackClient: CLIClientProtocol {
+    private var reports: [RepositorySyncReport]
+    private(set) var checkRefreshes: [Bool] = []
+    private(set) var syncedProjectIDs: [[String]] = []
+
+    init(reports: [RepositorySyncReport]) {
+        self.reports = reports
+    }
+
+    func scan() async throws -> BeaconSnapshot { throw TestError.failed }
+    func setProjectTracked(_ github: String, tracked: Bool) async throws {}
+
+    func repositorySync(refresh: Bool) async throws -> RepositorySyncReport {
+        checkRefreshes.append(refresh)
+        return nextReport()
+    }
+
+    func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport {
+        syncedProjectIDs.append(projectIDs)
+        return nextReport()
+    }
+
+    private func nextReport() -> RepositorySyncReport {
+        if reports.count > 1 { return reports.removeFirst() }
+        return reports[0]
     }
 }

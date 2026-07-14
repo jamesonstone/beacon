@@ -10,31 +10,34 @@ import (
 
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/notes"
+	"github.com/jamesonstone/beacon/internal/reposync"
 )
 
 const ProtocolVersion = 1
 
 const (
-	RequestGetSnapshot      = "get_snapshot"
-	RequestSubscribe        = "subscribe"
-	RequestRefreshAll       = "refresh_all"
-	RequestRefreshProject   = "refresh_project"
-	RequestSetTrackingState = "set_tracking_state"
-	RequestSetTrackingBatch = "set_tracking_batch"
-	RequestSetSelection     = "set_tracking_selection"
-	RequestListProjects     = "list_projects"
-	RequestGetAgentStatus   = "get_agent_status"
-	RequestShutdown         = "shutdown"
-	RequestSetLaneAttention = "set_lane_attention"
-	RequestSetLanePinned    = "set_lane_pinned"
-	RequestSetLaneNote      = "set_lane_note"
-	RequestAddLaneTag       = "add_lane_tag"
-	RequestRemoveLaneTag    = "remove_lane_tag"
-	RequestMarkLaneSeen     = "mark_lane_seen"
-	RequestAddManualLane    = "add_manual_lane"
-	RequestGetNotes         = "get_notes"
-	RequestSetNotes         = "set_notes"
-	RequestAppendNotes      = "append_notes"
+	RequestGetSnapshot       = "get_snapshot"
+	RequestSubscribe         = "subscribe"
+	RequestRefreshAll        = "refresh_all"
+	RequestRefreshProject    = "refresh_project"
+	RequestSetTrackingState  = "set_tracking_state"
+	RequestSetTrackingBatch  = "set_tracking_batch"
+	RequestSetSelection      = "set_tracking_selection"
+	RequestListProjects      = "list_projects"
+	RequestGetAgentStatus    = "get_agent_status"
+	RequestShutdown          = "shutdown"
+	RequestSetLaneAttention  = "set_lane_attention"
+	RequestSetLanePinned     = "set_lane_pinned"
+	RequestSetLaneNote       = "set_lane_note"
+	RequestAddLaneTag        = "add_lane_tag"
+	RequestRemoveLaneTag     = "remove_lane_tag"
+	RequestMarkLaneSeen      = "mark_lane_seen"
+	RequestAddManualLane     = "add_manual_lane"
+	RequestGetNotes          = "get_notes"
+	RequestSetNotes          = "set_notes"
+	RequestAppendNotes       = "append_notes"
+	RequestGetRepositorySync = "get_repository_sync"
+	RequestSyncRepositories  = "sync_repositories"
 )
 
 const (
@@ -52,6 +55,7 @@ const (
 	EventWorkingSetChanged  = "working_set_changed"
 	EventNotes              = "notes"
 	EventNotesUpdated       = "notes_updated"
+	EventRepositorySync     = "repository_sync"
 )
 
 type Request struct {
@@ -68,6 +72,7 @@ type Request struct {
 	Tag             string   `json:"tag,omitempty"`
 	Title           string   `json:"title,omitempty"`
 	Content         string   `json:"content,omitempty"`
+	Refresh         bool     `json:"refresh,omitempty"`
 }
 
 type ProjectStatus struct {
@@ -93,19 +98,20 @@ type Status struct {
 }
 
 type Event struct {
-	ProtocolVersion int             `json:"protocol_version"`
-	RequestID       string          `json:"request_id,omitempty"`
-	Type            string          `json:"type"`
-	ScanID          string          `json:"scan_id,omitempty"`
-	ProjectID       string          `json:"project_id,omitempty"`
-	Revision        uint64          `json:"revision,omitempty"`
-	Stage           string          `json:"stage,omitempty"`
-	GeneratedAt     time.Time       `json:"generated_at"`
-	Message         string          `json:"message,omitempty"`
-	Snapshot        *model.Snapshot `json:"snapshot,omitempty"`
-	Projects        []ProjectStatus `json:"projects,omitempty"`
-	Status          *Status         `json:"status,omitempty"`
-	Notes           *notes.Document `json:"notes,omitempty"`
+	ProtocolVersion int              `json:"protocol_version"`
+	RequestID       string           `json:"request_id,omitempty"`
+	Type            string           `json:"type"`
+	ScanID          string           `json:"scan_id,omitempty"`
+	ProjectID       string           `json:"project_id,omitempty"`
+	Revision        uint64           `json:"revision,omitempty"`
+	Stage           string           `json:"stage,omitempty"`
+	GeneratedAt     time.Time        `json:"generated_at"`
+	Message         string           `json:"message,omitempty"`
+	Snapshot        *model.Snapshot  `json:"snapshot,omitempty"`
+	Projects        []ProjectStatus  `json:"projects,omitempty"`
+	Status          *Status          `json:"status,omitempty"`
+	Notes           *notes.Document  `json:"notes,omitempty"`
+	RepositorySync  *reposync.Report `json:"repository_sync,omitempty"`
 }
 
 func Encode(writer io.Writer, value any) error {

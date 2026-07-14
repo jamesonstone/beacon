@@ -49,7 +49,7 @@ extension MenuView {
 
     func errorBanner(_ message: String) -> some View {
         Label(message, systemImage: "exclamationmark.triangle.fill")
-            .font(.caption)
+            .font(BeaconTypography.regular(10))
             .foregroundStyle(BeaconPalette.pink)
             .padding(8)
             .frame(maxWidth: .infinity, alignment: .leading)

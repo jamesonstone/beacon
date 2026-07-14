@@ -25,28 +25,110 @@ enum DashboardViewMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum BeaconFontFamily: String, CaseIterable, Identifiable {
+    case system
+    case rounded
+    case monospaced
+    case serif
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: "System"
+        case .rounded: "Rounded"
+        case .monospaced: "Monospaced"
+        case .serif: "Serif"
+        }
+    }
+
+    var design: Font.Design {
+        switch self {
+        case .system: .default
+        case .rounded: .rounded
+        case .monospaced: .monospaced
+        case .serif: .serif
+        }
+    }
+
+    var appKitDesign: NSFontDescriptor.SystemDesign {
+        switch self {
+        case .system: .default
+        case .rounded: .rounded
+        case .monospaced: .monospaced
+        case .serif: .serif
+        }
+    }
+}
+
+enum BeaconFontSize: Int, CaseIterable, Identifiable {
+    case compact = 11
+    case standard = 12
+    case comfortable = 13
+    case large = 14
+    case extraLarge = 16
+
+    var id: Int { rawValue }
+    var title: String { "\(rawValue) pt" }
+}
+
 enum BeaconTypography {
+    static let familyKey = "beacon.dashboard.font-family"
+    static let baseSizeKey = "beacon.dashboard.font-size"
+    static let defaultFamily = BeaconFontFamily.monospaced
+    static let defaultBaseSize = BeaconFontSize.standard.rawValue
+
     static func regular(_ size: CGFloat) -> Font {
-        preferred("JetBrainsMonoNFM-Regular", size: size, weight: .regular)
+        preferred(size: size, weight: .regular)
     }
 
     static func medium(_ size: CGFloat) -> Font {
-        preferred("JetBrainsMonoNFM-Medium", size: size, weight: .medium)
+        preferred(size: size, weight: .medium)
     }
 
     static func semibold(_ size: CGFloat) -> Font {
-        preferred("JetBrainsMonoNFM-SemiBold", size: size, weight: .semibold)
+        preferred(size: size, weight: .semibold)
     }
 
     static func bold(_ size: CGFloat) -> Font {
-        preferred("JetBrainsMonoNFM-Bold", size: size, weight: .bold)
+        preferred(size: size, weight: .bold)
     }
 
-    private static func preferred(_ name: String, size: CGFloat, weight: Font.Weight) -> Font {
-        guard NSFont(name: name, size: size) != nil else {
-            return .system(size: size, weight: weight, design: .monospaced)
+    static func appKitFont(_ size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+        let pointSize = resolvedSize(size)
+        let base = NSFont.systemFont(ofSize: pointSize, weight: weight)
+        guard let descriptor = base.fontDescriptor.withDesign(selectedFamily.appKitDesign) else {
+            return base
         }
-        return .custom(name, size: size)
+        return NSFont(descriptor: descriptor, size: pointSize) ?? base
+    }
+
+    static var selectionSignature: String {
+        "\(selectedFamily.rawValue):\(selectedBaseSize)"
+    }
+
+    static func resolvedSize(_ size: CGFloat) -> CGFloat {
+        resolvedSize(size, baseSize: selectedBaseSize)
+    }
+
+    static func resolvedSize(_ size: CGFloat, baseSize: Int) -> CGFloat {
+        max(8, size + CGFloat(baseSize - 10))
+    }
+
+    private static var selectedBaseSize: Int {
+        let value = UserDefaults.standard.integer(forKey: baseSizeKey)
+        return BeaconFontSize(rawValue: value)?.rawValue ?? defaultBaseSize
+    }
+
+    private static var selectedFamily: BeaconFontFamily {
+        guard let value = UserDefaults.standard.string(forKey: familyKey) else {
+            return defaultFamily
+        }
+        return BeaconFontFamily(rawValue: value) ?? defaultFamily
+    }
+
+    private static func preferred(size: CGFloat, weight: Font.Weight) -> Font {
+        .system(size: resolvedSize(size), weight: weight, design: selectedFamily.design)
     }
 }
 

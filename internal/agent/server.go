@@ -11,6 +11,7 @@ import (
 
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/notes"
+	"github.com/jamesonstone/beacon/internal/reposync"
 )
 
 type Server struct {
@@ -126,6 +127,23 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 		}
 		s.Engine.hub.Publish(event)
 		response(event)
+	case RequestGetRepositorySync, RequestSyncRepositories:
+		if s.Engine.RepositorySync == nil {
+			response(Event{Type: EventProjectFailed, Stage: "repository-sync", Message: "repository sync is unavailable"})
+			return
+		}
+		repositories, repositoryErr := s.Engine.Repositories(ctx)
+		if repositoryErr != nil {
+			response(Event{Type: EventProjectFailed, Stage: "repository-sync", Message: repositoryErr.Error()})
+			return
+		}
+		var report reposync.Report
+		if request.Type == RequestSyncRepositories {
+			report = s.Engine.RepositorySync.Apply(ctx, repositories, request.ProjectIDs)
+		} else {
+			report = s.Engine.RepositorySync.Check(ctx, repositories, request.Refresh)
+		}
+		response(Event{Type: EventRepositorySync, Stage: "ready", RepositorySync: &report})
 	case RequestRefreshAll, RequestRefreshProject:
 		project := request.ProjectID
 		if request.Type == RequestRefreshAll {
