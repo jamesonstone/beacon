@@ -11,10 +11,7 @@ struct MenuView: View {
     @ObservedObject var loginItem: LoginItemController
     let surface: DashboardSurface
     let openDashboard: () -> Void
-    @State var selectedDashboardTab = DashboardTab.defaultTab
-    @State var showingProjectInventory = false
-    @State var showingRepositorySync = false
-    @State var showingDependencyLimits = false
+    @State var dashboardDestination = DashboardDestination.following
     @State var projectInventoryTab = ProjectInventoryTab.following
     @State var tagLane: WorkLane?
     @State var tagText = ""
@@ -37,6 +34,13 @@ struct MenuView: View {
 
     var dismissedEvidenceBadges: Set<String> {
         EvidenceBadgeDismissals.decode(dismissedEvidenceBadgesValue)
+    }
+
+    var selectedDashboardTab: DashboardTab {
+        guard case let .tab(tab) = dashboardDestination else {
+            return .defaultTab
+        }
+        return tab
     }
 
     func dismissEvidenceBadge(_ key: String) {
@@ -99,22 +103,22 @@ struct MenuView: View {
                 if !state.agentAvailable {
                     enableAgentBanner
                 }
-                if showingRepositorySync {
+                if dashboardDestination == .repositorySync {
                     RepositorySyncView(
                         state: state,
-                        onClose: { showingRepositorySync = false }
+                        onClose: showFollowing
                     )
-                } else if showingDependencyLimits {
+                } else if dashboardDestination == .dependencyLimits {
                     DependencyLimitsView(
                         state: state,
-                        onClose: { showingDependencyLimits = false }
+                        onClose: showFollowing
                     )
                 } else if let snapshot = state.snapshot {
-                    if showingProjectInventory {
+                    if dashboardDestination == .projectInventory {
                         ProjectFollowingView(
                             state: state,
                             selectedTab: $projectInventoryTab,
-                            onClose: { showingProjectInventory = false }
+                            onClose: showFollowing
                         )
                     } else {
                         dashboardTabs()
@@ -169,10 +173,8 @@ struct MenuView: View {
 
     private var repositorySyncButton: some View {
         Button {
-            showingProjectInventory = false
-            showingDependencyLimits = false
-            showingRepositorySync = true
-            if state.repositorySyncReport == nil {
+            let isOpening = toggleDashboardDestination(.repositorySync)
+            if isOpening, state.repositorySyncReport == nil, !state.isCheckingRepositorySync {
                 Task { await state.checkRepositorySync(refresh: false) }
             }
         } label: {
@@ -205,17 +207,17 @@ struct MenuView: View {
             }
         }
         .buttonStyle(.plain)
-        .help("Repository Sync — check and fast-forward local default branches")
+        .help(dashboardDestination == .repositorySync
+            ? "Return to Following"
+            : "Repository Sync — check and fast-forward local default branches")
         .accessibilityLabel("Repository Sync, \(state.repositoriesNeedingSync.count) need attention")
     }
 
     private var dependencyLimitsButton: some View {
         let accent = state.dependencyUsageLevel.accentColor
         return Button {
-            showingProjectInventory = false
-            showingRepositorySync = false
-            showingDependencyLimits = true
-            if state.dependencyLimitsReport == nil {
+            let isOpening = toggleDashboardDestination(.dependencyLimits)
+            if isOpening, state.dependencyLimitsReport == nil, !state.isCheckingDependencyLimits {
                 Task { await state.checkDependencyLimits() }
             }
         } label: {
@@ -244,7 +246,9 @@ struct MenuView: View {
             }
         }
         .buttonStyle(.plain)
-        .help("Dependency Limits — check gh allowance explicitly")
+        .help(dashboardDestination == .dependencyLimits
+            ? "Return to Following"
+            : "Dependency Limits — check gh allowance explicitly")
         .accessibilityLabel(dependencyLimitsAccessibilityLabel)
     }
 
@@ -314,7 +318,12 @@ struct MenuView: View {
                 .disabled(state.inProgressCount == 0)
             Button { manualTitle = ""; showingManualEditor = true } label: { Label("Add Manual Lane", systemImage: "plus.circle") }
             Divider()
-            Button { showProjects(.following) } label: { Label("Manage Following", systemImage: "star") }
+            Button { showProjects(.following) } label: {
+                Label(
+                    dashboardDestination == .projectInventory ? "Return to Following" : "Manage Following",
+                    systemImage: "star"
+                )
+            }
             Button { state.openConfig() } label: { Label("Open Config", systemImage: "slider.horizontal.3") }
             Menu {
                 Picker("Font", selection: $fontFamilyValue) {
@@ -379,16 +388,22 @@ struct MenuView: View {
 
     private func showProjects(_ tab: ProjectInventoryTab) {
         projectInventoryTab = tab
-        showingRepositorySync = false
-        showingDependencyLimits = false
-        showingProjectInventory = true
+        toggleDashboardDestination(.projectInventory)
     }
 
-    private func showDashboardTab(_ tab: DashboardTab) {
-        showingProjectInventory = false
-        showingRepositorySync = false
-        showingDependencyLimits = false
-        selectedDashboardTab = tab
+    func showDashboardTab(_ tab: DashboardTab) {
+        toggleDashboardDestination(.tab(tab))
+    }
+
+    @discardableResult
+    private func toggleDashboardDestination(_ destination: DashboardDestination) -> Bool {
+        let isOpening = dashboardDestination != destination
+        dashboardDestination = dashboardDestination.toggled(selecting: destination)
+        return isOpening
+    }
+
+    private func showFollowing() {
+        dashboardDestination = .following
     }
 
     private var enableAgentBanner: some View {

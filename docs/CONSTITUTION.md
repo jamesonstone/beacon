@@ -462,8 +462,11 @@ lanes. A compact peer tab row presents Following by default, then Parking Lot,
 Recently Updated, and Quiet. Following omits parked lanes; the other tabs render
 their shared Go categories without reimplementing evidence policy. Settings
 must not duplicate primary Recently Updated or Quiet navigation. Tab and view
-selection are presentation state only. Lane tags render as removable chips and
-mutate through the Go background-agent authority. Typography uses selectable
+selection are presentation state only. Dashboard destinations use one mutually
+exclusive presentation state: a destination control opens its page on first
+selection, selecting that same control again returns to Following, and selecting
+a different destination switches directly to it. Lane tags render as removable
+chips and mutate through the Go background-agent authority. Typography uses selectable
 system designs and base sizes, defaulting to monospaced at 12 points.
 Both surfaces expose one expanded-by-default Signal Notes panel occupying about
 half of the shared dashboard. It edits the Go-owned local Markdown document

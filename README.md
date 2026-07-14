@@ -444,7 +444,10 @@ Recently Active lanes. **Parking Lot** is the next peer tab, followed by
 **Recently Updated**, the outside-activity inbox, and **Quiet**, the remaining
 discovered inventory. Both outside views are searchable and provide a
 nonblocking Follow action. Settings keeps only the Following manager instead of
-duplicating those primary tabs.
+duplicating those primary tabs. Any destination control opens its page on the
+first selection and returns to **Following** when selected again; selecting a
+different destination switches directly to it. This applies to the peer tabs,
+Repository Sync, Dependency Limits, and Manage Following.
 
 When Following has no work in progress and no projects are still loading, the
 blank lane area becomes a lightweight **All caught up** backsplash. Its native

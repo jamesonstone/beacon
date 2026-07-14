@@ -86,6 +86,29 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(DashboardTab.quiet.symbol, "moon.stars.fill")
     }
 
+    func testDashboardDestinationsReturnToFollowingWhenSelectedAgain() {
+        let destinations: [DashboardDestination] = [
+            .tab(.parking),
+            .tab(.recent),
+            .tab(.quiet),
+            .projectInventory,
+            .repositorySync,
+            .dependencyLimits,
+        ]
+
+        for destination in destinations {
+            XCTAssertEqual(DashboardDestination.following.toggled(selecting: destination), destination)
+            XCTAssertEqual(destination.toggled(selecting: destination), .following)
+        }
+    }
+
+    func testDashboardDestinationSwitchesDirectlyToDifferentSelection() {
+        XCTAssertEqual(
+            DashboardDestination.repositorySync.toggled(selecting: .dependencyLimits),
+            .dependencyLimits
+        )
+    }
+
     func testDecodesRepositorySyncProtocolReport() throws {
         let data = Data(Self.repositorySyncEventJSON.utf8)
         let event = try JSONDecoder().decode(AgentEvent.self, from: data)

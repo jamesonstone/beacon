@@ -52,6 +52,14 @@ references:
     read_policy: must
     used_for: explicit dependency-limit inspection and a distinctive colored menu-bar beacon
     status: active
+  - id: user-navigation-toggle-followup
+    name: Repeated destination navigation follow-up
+    type: user-request
+    target: conversation
+    relation: implements
+    read_policy: must
+    used_for: returning every repeated dashboard destination selection to Following
+    status: active
 skills:
   - name: figma:figma-swiftui
     source: codex
@@ -74,6 +82,8 @@ with a lightweight celebratory state. Signal Notes should also behave as one
 live Markdown surface instead of asking the user to switch modes. A final
 follow-up should make Beacon's external dependency allowance visible only when
 requested and give the menu-bar item a recognizable colored beacon identity.
+Repeated selection of any destination control should return the user to Following
+instead of leaving the destination open.
 
 ## Context
 
@@ -134,6 +144,9 @@ repository-sync reports and render the same behavior in both surfaces.
 - The menu-bar label always keeps a compact colored beacon glyph visible. An
   in-progress lane count appears as a separate badge instead of replacing the
   identity with an isolated numeral.
+- A destination control opens its destination on first selection. Selecting the
+  same control again returns to Following; selecting a different destination
+  navigates directly to that destination.
 
 ## Requirements
 
@@ -186,6 +199,9 @@ repository-sync reports and render the same behavior in both surfaces.
 18. Replace the count-only menu-bar label with a compact, non-template colored
     beacon glyph plus a legible in-progress count badge while retaining an
     accurate accessibility label.
+19. Model shared dashboard navigation as one mutually exclusive destination and
+    make repeated selection of any non-Following tab, header panel, or Following
+    manager return both macOS surfaces to Following.
 
 ## Assumptions
 
@@ -241,6 +257,9 @@ repository-sync reports and render the same behavior in both surfaces.
 - [x] AC15: Both menu-bar states retain a distinctive colored beacon glyph, add
   the in-progress count as a separate legible badge, and expose an accurate
   accessibility label.
+- [x] AC16: Every non-Following tab, header panel, and Following-manager
+  destination opens on first selection, returns to Following when selected
+  again, and switches directly when a different destination is selected.
 
 ## Implementation Plan
 
@@ -254,6 +273,8 @@ repository-sync reports and render the same behavior in both surfaces.
    single live Markdown editor, then repeat Swift, Xcode, Kit, and visual gates.
 7. Add explicit dependency-limit inspection, its shared macOS presentation, and
    the colored beacon menu-bar label, then repeat focused, full, and visual gates.
+8. Replace independent dashboard navigation flags with one tested destination
+   state and apply the repeat-to-Following rule to every destination control.
 
 ## Agent Team Plan
 
@@ -278,6 +299,7 @@ repository-sync reports and render the same behavior in both surfaces.
 - [x] T10: Implement and test one explicit Go dependency-limit inspection path.
 - [x] T11: Implement and test the Swift limit panel and threshold-aware button.
 - [x] T12: Implement and visually inspect the colored menu-bar beacon and badge.
+- [x] T13: Implement and test repeat-to-Following dashboard navigation.
 
 ## Validation Map
 
@@ -293,6 +315,7 @@ repository-sync reports and render the same behavior in both surfaces.
 | AC13 | Markdown style-range and exact-source unit tests, editor binding/focus behavior tests, Swift tests, Xcode build, and live rendered-source inspection |
 | AC14 | recorded Go command test, stable JSON decoding tests, Swift state and threshold tests, CLI help, and manual no-startup-query inspection |
 | AC15 | Swift presentation tests, universal Xcode build, and live menu-bar inspection with and without an in-progress count |
+| AC16 | Swift route-transition tests plus macOS test/build validation for tabs, header panels, Following management, and cross-destination selection |
 
 ## Reflection Notes
 
@@ -325,14 +348,20 @@ repository-sync reports and render the same behavior in both surfaces.
 - A native multicolor `light.beacon.max.fill` symbol plus a separate warm count
   badge is legible at menu-bar scale without adding an asset or hiding the app
   identity whenever work exists.
+- One mutually exclusive dashboard destination makes repeat-to-Following behavior
+  deterministic across tabs, header panels, and Following management while a
+  different selection still navigates directly to its destination.
 
 ## Documentation Updates
 
 - README documents the repository-sync command and safety boundaries.
 - README also documents `beacon limits`, its one-call explicit boundary, the
   threshold colors, and the permanent menu-bar beacon/count treatment.
+- README documents repeat-to-Following navigation for every internal dashboard
+  destination control.
 - The constitution records the explicit Git mutation exception, dependency-limit
-  execution boundary, CLI/helper contract, and menu-bar presentation invariant.
+  execution boundary, CLI/helper contract, menu-bar presentation invariant, and
+  single-destination navigation rule.
 - The project progress summary reflects the validated delivery state.
 
 ## Delivery Decision
@@ -408,3 +437,10 @@ configuration changes.
   #11 was created and `GH-11` was branched from a freshly fetched `origin/main`.
 - Commit `c51c2cd` published the complete validated change set, and ready pull
   request #12 targets `main` with Jameson Stone assigned for human review.
+- Navigation transition tests cover Parking Lot, Recently Updated, Quiet,
+  Repository Sync, Dependency Limits, Manage Following, repeated selection back
+  to Following, and direct switching between different destinations.
+- The complete local gate passed with all 54 Swift tests and a successful
+  universal macOS Debug build: `make fmt-check vet test test-race build
+  release-test macos-test macos-build`, `kit check --all` across all 12 feature
+  specifications, and `git diff --check`.

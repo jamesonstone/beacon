@@ -29,6 +29,19 @@ enum DashboardTab: String, CaseIterable, Identifiable {
     }
 }
 
+enum DashboardDestination: Equatable {
+    case tab(DashboardTab)
+    case projectInventory
+    case repositorySync
+    case dependencyLimits
+
+    static let following = DashboardDestination.tab(.following)
+
+    func toggled(selecting destination: DashboardDestination) -> DashboardDestination {
+        self == destination ? .following : destination
+    }
+}
+
 extension MenuView {
     func dashboardTabs() -> some View {
         HStack(spacing: 5) {
@@ -36,7 +49,7 @@ extension MenuView {
                 let accent = dashboardTabAccent(tab)
                 let selected = selectedDashboardTab == tab
                 Button {
-                    selectedDashboardTab = tab
+                    showDashboardTab(tab)
                 } label: {
                     VStack(spacing: 2) {
                         Label(tab.title, systemImage: tab.symbol)
@@ -60,7 +73,7 @@ extension MenuView {
                     }
                 }
                 .buttonStyle(.plain)
-                .help("Show \(tab.title)")
+                .help(selected && tab != .following ? "Return to Following" : "Show \(tab.title)")
             }
         }
     }
