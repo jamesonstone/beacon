@@ -18,9 +18,37 @@ import (
 const launchAgentLabel = "com.jamesonstone.beacon.agent"
 
 type Lifecycle struct {
-	Paths      Paths
-	Runner     command.Runner
-	Executable string
+	Paths        Paths
+	Runner       command.Runner
+	Executable   string
+	StatusSource func(context.Context) (Status, error)
+	WaitForReady func(context.Context, string, time.Duration) bool
+}
+
+// Start makes the installed user agent available without restarting a healthy
+// instance. When no LaunchAgent exists yet, it installs one using the current
+// executable before waiting for the socket authority to become ready.
+func (l Lifecycle) Start(ctx context.Context) error {
+	if runtime.GOOS != "darwin" {
+		return errors.New("Beacon background agent startup is supported on macOS only")
+	}
+	if status, err := l.Status(ctx); err == nil && status.Running {
+		return nil
+	}
+	// Refresh the plist whenever a stopped agent starts so an app update or a
+	// switch between the standalone and bundled CLI cannot retain a stale
+	// executable path. Install already performs bootout before bootstrap.
+	if err := l.Install(ctx); err != nil {
+		return err
+	}
+	wait := l.WaitForReady
+	if wait == nil {
+		wait = waitForStart
+	}
+	if wait(ctx, l.Paths.Socket, 2*time.Second) {
+		return nil
+	}
+	return errors.New("Beacon background agent did not become ready")
 }
 
 func (l Lifecycle) Install(ctx context.Context) error {
@@ -54,7 +82,10 @@ func (l Lifecycle) Install(ctx context.Context) error {
 }
 
 func (l Lifecycle) Status(ctx context.Context) (Status, error) {
-	event, err := (Client{Socket: l.Paths.Socket}).Request(ctx, Request{Type: RequestGetAgentStatus})
+	if l.StatusSource != nil {
+		return l.StatusSource(ctx)
+	}
+	event, err := (Client{Socket: l.Paths.Socket, Timeout: 500 * time.Millisecond}).Request(ctx, Request{Type: RequestGetAgentStatus})
 	if err != nil {
 		return Status{Running: false, Socket: l.Paths.Socket}, err
 	}
@@ -69,33 +100,46 @@ func (l Lifecycle) Stop(ctx context.Context) error {
 		if _, statErr := os.Stat(l.Paths.LaunchAgent); statErr == nil {
 			domain := "gui/" + strconv.Itoa(os.Getuid())
 			if _, err := l.Runner.Run(ctx, "", "launchctl", "bootout", domain, l.Paths.LaunchAgent); err != nil {
-				return fmt.Errorf("stop Beacon LaunchAgent: %w", err)
+				if agentProcessAlive(l.Paths) {
+					return fmt.Errorf("stop Beacon LaunchAgent: %w", err)
+				}
+				return nil
 			}
 			if waitForStop(l.Paths.Socket, 2*time.Second) {
 				return nil
 			}
 		}
 	}
-	_, err := (Client{Socket: l.Paths.Socket}).Request(ctx, Request{Type: RequestShutdown})
+	_, err := (Client{Socket: l.Paths.Socket, Timeout: 500 * time.Millisecond}).Request(ctx, Request{Type: RequestShutdown})
 	if err == nil {
-		return nil
+		if waitForStop(l.Paths.Socket, 2*time.Second) {
+			return nil
+		}
+		return errors.New("Beacon agent did not stop after shutdown request")
 	}
 	contents, readErr := os.ReadFile(l.Paths.PID)
 	if readErr != nil {
 		if errors.Is(readErr, os.ErrNotExist) {
-			return errors.New("Beacon agent is not running")
+			return nil
 		}
 		return readErr
 	}
 	pid, parseErr := strconv.Atoi(strings.TrimSpace(string(contents)))
 	if parseErr != nil || !processAlive(pid) {
-		return errors.New("Beacon agent is not running; stale PID file remains")
+		_ = os.Remove(l.Paths.PID)
+		return nil
 	}
 	process, findErr := os.FindProcess(pid)
 	if findErr != nil {
 		return findErr
 	}
-	return process.Signal(os.Interrupt)
+	if err := process.Signal(os.Interrupt); err != nil {
+		return err
+	}
+	if waitForStop(l.Paths.Socket, 2*time.Second) {
+		return nil
+	}
+	return errors.New("Beacon agent did not stop after interrupt")
 }
 
 func (l Lifecycle) Uninstall(ctx context.Context) error {
@@ -195,4 +239,29 @@ func waitForStop(path string, timeout time.Duration) bool {
 		time.Sleep(25 * time.Millisecond)
 	}
 	return false
+}
+
+func waitForStart(ctx context.Context, socket string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		status, err := (Lifecycle{Paths: Paths{Socket: socket}}).Status(ctx)
+		if err == nil && status.Running {
+			return true
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(25 * time.Millisecond):
+		}
+	}
+	return false
+}
+
+func agentProcessAlive(paths Paths) bool {
+	contents, err := os.ReadFile(paths.PID)
+	if err != nil {
+		return false
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(contents)))
+	return err == nil && processAlive(pid)
 }

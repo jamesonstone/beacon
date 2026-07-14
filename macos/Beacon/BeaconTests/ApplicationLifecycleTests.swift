@@ -3,6 +3,10 @@ import XCTest
 
 @MainActor
 final class ApplicationLifecycleTests: XCTestCase {
+    func testXCTestHostDoesNotOwnRealAgentLifecycle() {
+        XCTAssertTrue(AppDelegate.isRunningUnitTests)
+    }
+
     func testDashboardWindowIsSingletonAndReopensAfterClose() {
         let model = testApplicationModel()
 
@@ -45,6 +49,28 @@ final class ApplicationLifecycleTests: XCTestCase {
         login.handleLaunch(isLoginLaunch: true)
         XCTAssertNil(login.dashboardWindow)
         login.stop()
+    }
+
+    func testApplicationStartAndTerminationOwnAgentLifecycle() async {
+        let lifecycle = StubAgentLifecycleController()
+        let state = AppState(
+            agent: ScriptedAgent(events: [TestSnapshots.snapshotEvent(TestSnapshots.empty)]),
+            installer: lifecycle,
+            notesFallback: nil,
+            repositorySyncFallback: nil,
+            dependencyLimitsClient: nil
+        )
+        let model = BeaconApplicationModel(
+            state: state,
+            loginItem: LoginItemController(service: StubLoginItemService(status: .disabled))
+        )
+
+        model.start()
+        model.start()
+        XCTAssertEqual(lifecycle.startCount, 1)
+        XCTAssertNil(model.terminate())
+        XCTAssertEqual(lifecycle.stopCount, 1)
+        XCTAssertFalse(state.agentAvailable)
     }
 
     func testLoginItemControllerRegistersAndUnregisters() {
@@ -144,4 +170,22 @@ private final class StubLoginItemService: LoginItemServiceProtocol {
 
 private enum TestLifecycleError: Error {
     case failed
+}
+
+private final class StubAgentLifecycleController: AgentLifecycleControllerProtocol {
+    private(set) var startCount = 0
+    private(set) var installCount = 0
+    private(set) var stopCount = 0
+
+    func startAgent() throws {
+        startCount += 1
+    }
+
+    func installAgent() async throws {
+        installCount += 1
+    }
+
+    func stopAgent() throws {
+        stopCount += 1
+    }
 }

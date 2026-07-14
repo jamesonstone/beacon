@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -17,6 +18,42 @@ import (
 	"github.com/jamesonstone/beacon/internal/tracking"
 	"github.com/jamesonstone/beacon/internal/workset"
 )
+
+func TestClientRequestTimeoutBoundsAnUnresponsiveConnectedAgent(t *testing.T) {
+	root, err := os.MkdirTemp("/tmp", "beacon-client-timeout-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	socket := filepath.Join(root, "agent.sock")
+	listener, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	release := make(chan struct{})
+	go func() {
+		connection, acceptErr := listener.Accept()
+		if acceptErr != nil {
+			return
+		}
+		defer connection.Close()
+		<-release
+	}()
+
+	started := time.Now()
+	_, err = (Client{Socket: socket, Timeout: 25 * time.Millisecond}).Request(
+		context.Background(),
+		Request{Type: RequestGetAgentStatus},
+	)
+	close(release)
+	if err == nil {
+		t.Fatal("unresponsive agent request unexpectedly succeeded")
+	}
+	if elapsed := time.Since(started); elapsed > 500*time.Millisecond {
+		t.Fatalf("request timeout took %s", elapsed)
+	}
+}
 
 func TestSchedulerBoundsConcurrencyAndCoalescesDuplicates(t *testing.T) {
 	var active atomic.Int32

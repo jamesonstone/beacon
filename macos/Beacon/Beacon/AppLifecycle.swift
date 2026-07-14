@@ -34,6 +34,12 @@ final class BeaconApplicationModel {
         state.stop()
     }
 
+    @discardableResult
+    func terminate() -> Error? {
+        state.stop()
+        return state.stopAgentSynchronously()
+    }
+
     func handleLaunch(isLoginLaunch: Bool) {
         start()
         if !isLoginLaunch {
@@ -111,6 +117,11 @@ final class DashboardWindowController: NSWindowController {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    static var isRunningUnitTests: Bool {
+        NSClassFromString("XCTestCase") != nil
+            || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
     private let model: BeaconApplicationModel
     private let isLoginLaunch: Bool
     private var finishedLaunching = false
@@ -122,6 +133,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        guard !Self.isRunningUnitTests else { return }
         NSApplication.shared.setActivationPolicy(.regular)
         finishedLaunching = true
         model.handleLaunch(isLoginLaunch: isLoginLaunch)
@@ -141,6 +153,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        model.stop()
+        guard !Self.isRunningUnitTests else { return }
+        if let error = model.terminate() {
+            NSLog("Beacon could not stop its background agent: %@", error.localizedDescription)
+        }
     }
 }

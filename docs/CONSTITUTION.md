@@ -387,7 +387,7 @@ beacon untag <lane-id> <tag>
 beacon add --manual <title>
 beacon seen <lane-id>
 beacon refresh [project]
-beacon agent install|serve|status|stop|uninstall
+beacon agent install|start|serve|status|stop|uninstall
 beacon doctor [--json]
 beacon open <lane-id>
 beacon open-next
@@ -458,6 +458,14 @@ for loading state, including scans that complete before their request
 acknowledgement. Only `@MainActor` publishes UI state. A
 failed refresh keeps the last successful snapshot visible with its timestamp
 and an error or stale banner.
+Application launch idempotently starts or reconnects to the single user-scoped
+agent before subscription retry. Normal application termination synchronously
+unloads the LaunchAgent and stops any remaining socket/PID authority before the
+process exits; closing only the detachable dashboard is not termination.
+Ordinary direct CLI work may best-effort start a stopped macOS agent without
+polluting command output, while explicit lifecycle, initialization, version,
+and diagnostic commands retain their own semantics. Start and stop are
+idempotent and never remove user notes, following state, or caches.
 Both macOS surfaces render one reusable SwiftUI dashboard over the same
 `AppState`; they must not duplicate subscriptions, scans, Git/GitHub policy, or
 snapshot interpretation. An embedded, signed login-item helper may launch the
@@ -481,7 +489,9 @@ Both surfaces expose one expanded-by-default Signal Notes panel occupying about
 half of the shared dashboard. General remains the pinned Go-owned Markdown
 document; unlimited stable-ID detail documents and their versioned open-state
 manifest remain under the same Go persistence authority. Swift owns no files or
-independent persistence rule. Both surfaces share one draft and autosave queue,
+independent persistence rule. The native editor remains editable and selectable;
+focus reconciliation may resign first responder only after an explicit focused
+to unfocused transition. Both surfaces share one draft and autosave queue,
 flush before switching or closing, and preserve the active tab when saving
 fails. Closing remains non-destructive. Permanent detail-note delete actions on
 tabs, New Tab history, and Command-K/Command-P results all route through one

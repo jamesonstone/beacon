@@ -30,11 +30,29 @@ func (a App) agentCommand(configPath *string) *cobra.Command {
 	command.AddCommand(
 		a.agentServeCommand(configPath),
 		a.agentInstallCommand(configPath),
+		a.agentStartCommand(configPath),
 		a.agentStatusCommand(configPath),
 		a.agentStopCommand(configPath),
 		a.agentUninstallCommand(configPath),
 	)
 	return command
+}
+
+func (a App) agentStartCommand(configPath *string) *cobra.Command {
+	return &cobra.Command{
+		Use: "start", Short: "Start the user LaunchAgent if it is stopped", Args: noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			_, paths, err := a.agentConfig(*configPath)
+			if err != nil {
+				return err
+			}
+			if err := (agent.Lifecycle{Paths: paths, Runner: a.Runner}).Start(cmd.Context()); err != nil {
+				return err
+			}
+			_, err = fmt.Fprintln(a.Out, "started Beacon agent")
+			return err
+		},
+	}
 }
 
 func (a App) agentServeCommand(configPath *string) *cobra.Command {

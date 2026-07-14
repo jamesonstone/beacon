@@ -3,11 +3,13 @@ package agent
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLaunchAgentPlistEscapesPathsAndUsesSingleBinary(t *testing.T) {
@@ -56,6 +58,82 @@ func TestLifecycleInstallAndUninstallUseUserOnlyFiles(t *testing.T) {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Fatalf("lifecycle file still exists: %s", path)
 		}
+	}
+}
+
+func TestLifecycleStartInstallsOnceAndLeavesHealthyAgentRunning(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("LaunchAgent lifecycle is supported on macOS only")
+	}
+	paths := testPaths(t.TempDir())
+	runner := &lifecycleCommandRunner{}
+	running := false
+	if err := os.MkdirAll(filepath.Dir(paths.LaunchAgent), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(paths.LaunchAgent, []byte("stale executable"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	lifecycle := Lifecycle{
+		Paths: paths, Runner: runner, Executable: "/Applications/Beacon.app/Contents/MacOS/beacon-cli",
+		StatusSource: func(context.Context) (Status, error) {
+			if running {
+				return Status{Running: true}, nil
+			}
+			return Status{}, ErrUnavailable
+		},
+		WaitForReady: func(context.Context, string, time.Duration) bool {
+			running = true
+			return true
+		},
+	}
+
+	if err := lifecycle.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	commandsAfterStart := len(runner.commands)
+	if commandsAfterStart != 2 || !strings.Contains(strings.Join(runner.commands, "\n"), "launchctl bootstrap") {
+		t.Fatalf("start commands = %v", runner.commands)
+	}
+	plist, err := os.ReadFile(paths.LaunchAgent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(plist), "/Applications/Beacon.app/Contents/MacOS/beacon-cli") {
+		t.Fatalf("start did not refresh stale plist: %s", plist)
+	}
+	if err := lifecycle.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(runner.commands) != commandsAfterStart {
+		t.Fatalf("healthy start added commands: %v", runner.commands)
+	}
+}
+
+func TestLifecycleStopIsIdempotent(t *testing.T) {
+	paths := testPaths(t.TempDir())
+	if err := os.MkdirAll(filepath.Dir(paths.LaunchAgent), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(paths.LaunchAgent, []byte("plist"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runner := &lifecycleCommandRunner{}
+	lifecycle := Lifecycle{Paths: paths, Runner: runner}
+
+	if err := lifecycle.Stop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	runner.err = errors.New("service is not loaded")
+	if err := lifecycle.Stop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	expectedCommands := 0
+	if runtime.GOOS == "darwin" {
+		expectedCommands = 2
+	}
+	if len(runner.commands) != expectedCommands {
+		t.Fatalf("stop command count = %d, want %d: %v", len(runner.commands), expectedCommands, runner.commands)
 	}
 }
 

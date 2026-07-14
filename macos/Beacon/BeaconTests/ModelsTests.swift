@@ -31,6 +31,37 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(SignalNotesPresentation.expandedHeightFraction, 0.5)
     }
 
+    func testSignalNotesEditorIsWritableAndOnlyResignsAfterFocusTransition() {
+        let textView = NSTextView()
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 200),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = textView
+
+        LiveMarkdownEditor.configureEditing(on: textView)
+
+        XCTAssertTrue(textView.isEditable)
+        XCTAssertTrue(textView.isSelectable)
+        XCTAssertTrue(window.makeFirstResponder(textView))
+        textView.insertText("General note", replacementRange: NSRange(location: 0, length: 0))
+        XCTAssertEqual(textView.string, "General note")
+        XCTAssertFalse(LiveMarkdownEditorFocusPolicy.shouldResign(
+            wasFocused: false,
+            isFocused: false
+        ))
+        XCTAssertFalse(LiveMarkdownEditorFocusPolicy.shouldResign(
+            wasFocused: true,
+            isFocused: true
+        ))
+        XCTAssertTrue(LiveMarkdownEditorFocusPolicy.shouldResign(
+            wasFocused: true,
+            isFocused: false
+        ))
+    }
+
     func testUpToDateBacksplashRequiresNoWorkAndNoLoadingProjects() {
         XCTAssertTrue(UpToDatePresentation.shouldShow(inProgressCount: 0, loadingProjectCount: 0))
         XCTAssertFalse(UpToDatePresentation.shouldShow(inProgressCount: 1, loadingProjectCount: 0))

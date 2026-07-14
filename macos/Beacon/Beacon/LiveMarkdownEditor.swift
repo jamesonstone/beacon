@@ -215,6 +215,7 @@ struct LiveMarkdownEditor: NSViewRepresentable {
         scrollView.drawsBackground = false
 
         textView.delegate = context.coordinator
+        Self.configureEditing(on: textView)
         textView.drawsBackground = false
         textView.isRichText = false
         textView.importsGraphics = false
@@ -255,9 +256,18 @@ struct LiveMarkdownEditor: NSViewRepresentable {
         if needsFullStyle {
             context.coordinator.applyFullStyle(to: textView)
         }
-        if !isFocused, textView.window?.firstResponder === textView {
+        if LiveMarkdownEditorFocusPolicy.shouldResign(
+            wasFocused: context.coordinator.wasFocused,
+            isFocused: isFocused
+        ), textView.window?.firstResponder === textView {
             textView.window?.makeFirstResponder(nil)
         }
+        context.coordinator.wasFocused = isFocused
+    }
+
+    static func configureEditing(on textView: NSTextView) {
+        textView.isEditable = true
+        textView.isSelectable = true
     }
 
     private func clamped(_ range: NSRange, length: Int) -> NSRange {
@@ -268,13 +278,16 @@ struct LiveMarkdownEditor: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: LiveMarkdownEditor
         var styleSignature = ""
+        var wasFocused: Bool
         private var pendingEditRange: NSRange?
 
         init(parent: LiveMarkdownEditor) {
             self.parent = parent
+            wasFocused = parent.isFocused
         }
 
         func textDidBeginEditing(_ notification: Notification) {
+            wasFocused = true
             parent.isFocused = true
             if let textView = notification.object as? NSTextView {
                 updateCurrentLine(from: textView)
@@ -282,6 +295,7 @@ struct LiveMarkdownEditor: NSViewRepresentable {
         }
 
         func textDidEndEditing(_ notification: Notification) {
+            wasFocused = false
             parent.isFocused = false
         }
 
@@ -349,5 +363,11 @@ struct LiveMarkdownEditor: NSViewRepresentable {
             let end = min(source.length, max(start + 1, editEnd + 1))
             return source.paragraphRange(for: NSRange(location: start, length: end - start))
         }
+    }
+}
+
+enum LiveMarkdownEditorFocusPolicy {
+    static func shouldResign(wasFocused: Bool, isFocused: Bool) -> Bool {
+        wasFocused && !isFocused
     }
 }

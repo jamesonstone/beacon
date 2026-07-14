@@ -43,6 +43,11 @@ protocol AgentInstallerProtocol {
     func installAgent() async throws
 }
 
+protocol AgentLifecycleControllerProtocol: AgentInstallerProtocol {
+    func startAgent() throws
+    func stopAgent() throws
+}
+
 enum CLIClientError: LocalizedError {
     case helperMissing(String)
     case commandFailed(Int32, String)
@@ -60,7 +65,7 @@ enum CLIClientError: LocalizedError {
     }
 }
 
-struct CLIClient: CLIClientProtocol, AgentInstallerProtocol {
+struct CLIClient: CLIClientProtocol, AgentLifecycleControllerProtocol {
     private let executableURL: URL
 
     init(executableURL: URL = CLIClient.defaultExecutableURL()) {
@@ -156,6 +161,14 @@ struct CLIClient: CLIClientProtocol, AgentInstallerProtocol {
         _ = try await execute(arguments: ["agent", "install"])
     }
 
+    func startAgent() throws {
+        _ = try executeSynchronously(arguments: ["agent", "start"])
+    }
+
+    func stopAgent() throws {
+        _ = try executeSynchronously(arguments: ["agent", "stop"])
+    }
+
     private func decodeNotes(_ data: Data) throws -> AgentNotes {
         do {
             return try JSONDecoder().decode(AgentNotes.self, from: data)
@@ -183,36 +196,60 @@ struct CLIClient: CLIClientProtocol, AgentInstallerProtocol {
     private func execute(arguments: [String], standardInput: Data? = nil) async throws -> Data {
         let executableURL = executableURL
         return try await Task.detached(priority: .userInitiated) {
-            guard FileManager.default.isExecutableFile(atPath: executableURL.path) else {
-                throw CLIClientError.helperMissing(executableURL.path)
-            }
-            let process = Process()
-            let standardOutput = Pipe()
-            let standardError = Pipe()
-            process.executableURL = executableURL
-            process.arguments = arguments
-            process.standardOutput = standardOutput
-            process.standardError = standardError
-            let inputPipe = standardInput == nil ? nil : Pipe()
-            process.standardInput = inputPipe
-            var environment = ProcessInfo.processInfo.environment
-            environment["PATH"] = CLIClient.commandPath(existing: environment["PATH"])
-            process.environment = environment
-
-            try process.run()
-            if let standardInput, let inputPipe {
-                try inputPipe.fileHandleForWriting.write(contentsOf: standardInput)
-                try inputPipe.fileHandleForWriting.close()
-            }
-            let outputData = standardOutput.fileHandleForReading.readDataToEndOfFile()
-            let errorData = standardError.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else {
-                let message = String(data: errorData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown error"
-                throw CLIClientError.commandFailed(process.terminationStatus, message)
-            }
-            return outputData
+            try Self.executeBlocking(
+                executableURL: executableURL,
+                arguments: arguments,
+                standardInput: standardInput
+            )
         }.value
+    }
+
+    private func executeSynchronously(
+        arguments: [String],
+        standardInput: Data? = nil
+    ) throws -> Data {
+        try Self.executeBlocking(
+            executableURL: executableURL,
+            arguments: arguments,
+            standardInput: standardInput
+        )
+    }
+
+    private static func executeBlocking(
+        executableURL: URL,
+        arguments: [String],
+        standardInput: Data?
+    ) throws -> Data {
+        guard FileManager.default.isExecutableFile(atPath: executableURL.path) else {
+            throw CLIClientError.helperMissing(executableURL.path)
+        }
+        let process = Process()
+        let standardOutput = Pipe()
+        let standardError = Pipe()
+        process.executableURL = executableURL
+        process.arguments = arguments
+        process.standardOutput = standardOutput
+        process.standardError = standardError
+        let inputPipe = standardInput == nil ? nil : Pipe()
+        process.standardInput = inputPipe
+        var environment = ProcessInfo.processInfo.environment
+        environment["PATH"] = commandPath(existing: environment["PATH"])
+        process.environment = environment
+
+        try process.run()
+        if let standardInput, let inputPipe {
+            try inputPipe.fileHandleForWriting.write(contentsOf: standardInput)
+            try inputPipe.fileHandleForWriting.close()
+        }
+        let outputData = standardOutput.fileHandleForReading.readDataToEndOfFile()
+        let errorData = standardError.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            let message = String(data: errorData, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown error"
+            throw CLIClientError.commandFailed(process.terminationStatus, message)
+        }
+        return outputData
     }
 
     static func defaultExecutableURL() -> URL {

@@ -67,11 +67,14 @@ func (r *probeCommandRunner) Run(_ context.Context, _ string, name string, args 
 	}
 }
 
-type lifecycleCommandRunner struct{ commands []string }
+type lifecycleCommandRunner struct {
+	commands []string
+	err      error
+}
 
 func (r *lifecycleCommandRunner) Run(_ context.Context, _ string, name string, args ...string) ([]byte, error) {
 	r.commands = append(r.commands, name+" "+strings.Join(args, " "))
-	return nil, nil
+	return nil, r.err
 }
 
 func (p *mutableProber) Probe(context.Context, config.Repository, string) (ProbeResult, error) {

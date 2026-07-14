@@ -23,6 +23,15 @@ func (c Client) Request(ctx context.Context, request Request) (Event, error) {
 		return Event{}, err
 	}
 	defer connection.Close()
+	if c.Timeout > 0 {
+		if err := connection.SetDeadline(time.Now().Add(c.Timeout)); err != nil {
+			return Event{}, fmt.Errorf("set agent request deadline: %w", err)
+		}
+	} else if deadline, ok := ctx.Deadline(); ok {
+		if err := connection.SetDeadline(deadline); err != nil {
+			return Event{}, fmt.Errorf("set agent request deadline: %w", err)
+		}
+	}
 	request.ProtocolVersion = ProtocolVersion
 	if request.RequestID == "" {
 		request.RequestID = newID()
