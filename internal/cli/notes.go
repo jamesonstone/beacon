@@ -102,19 +102,37 @@ func (a App) writeNotes(ctx context.Context, configPath, selector, content strin
 	if appendContent {
 		requestType = agent.RequestAppendNotes
 	}
-	event, err := a.requestNotes(ctx, configPath, agent.Request{Type: requestType, NoteID: selector, Content: content})
-	if err == nil {
-		if event.Notes != nil {
-			return *event.Notes, nil
+	useAgent := true
+	var err error
+	if selector != notes.GeneralID {
+		useAgent, err = a.notesAgentSupportsWorkspace(ctx, configPath)
+		if err != nil {
+			return notes.Document{}, err
 		}
-		if event.Message != "" {
-			return notes.Document{}, errors.New(event.Message)
+	}
+	if useAgent {
+		noteID := selector
+		if selector == notes.GeneralID {
+			noteID = ""
 		}
-		return notes.Document{}, errors.New("Beacon agent returned no notes document")
+		event, requestErr := a.requestNotes(ctx, configPath, agent.Request{Type: requestType, NoteID: noteID, Content: content})
+		if requestErr == nil {
+			if event.Notes != nil {
+				return *event.Notes, nil
+			}
+			if event.Message != "" {
+				return notes.Document{}, errors.New(event.Message)
+			}
+			return notes.Document{}, errors.New("Beacon agent returned no notes document")
+		}
+		if !errors.Is(requestErr, agent.ErrUnavailable) {
+			return notes.Document{}, requestErr
+		}
 	}
-	if !errors.Is(err, agent.ErrUnavailable) {
-		return notes.Document{}, err
-	}
+	return a.writeNotesDirect(selector, content, appendContent)
+}
+
+func (a App) writeNotesDirect(selector, content string, appendContent bool) (notes.Document, error) {
 	path, err := notes.ResolvePath()
 	if err != nil {
 		return notes.Document{}, err
@@ -253,19 +271,32 @@ func (a App) notesLifecycleCommand(configPath *string, name, short, requestType 
 }
 
 func (a App) mutateNotesWorkspace(ctx context.Context, configPath string, request agent.Request) (notes.Workspace, error) {
-	event, err := a.requestNotes(ctx, configPath, request)
-	if err == nil {
-		if event.NotesWorkspace != nil {
-			return *event.NotesWorkspace, nil
-		}
-		if event.Message != "" {
-			return notes.Workspace{}, errors.New(event.Message)
-		}
-		return notes.Workspace{}, errors.New("Beacon agent returned no notes workspace")
-	}
-	if !errors.Is(err, agent.ErrUnavailable) {
+	useAgent, err := a.notesAgentSupportsWorkspace(ctx, configPath)
+	if err != nil {
 		return notes.Workspace{}, err
 	}
+	if useAgent {
+		event, requestErr := a.requestNotes(ctx, configPath, request)
+		if requestErr == nil {
+			if event.NotesWorkspace != nil {
+				return *event.NotesWorkspace, nil
+			}
+			if unsupportedNotesRequest(event, request.Type) {
+				return a.mutateNotesWorkspaceDirect(request)
+			}
+			if event.Message != "" {
+				return notes.Workspace{}, errors.New(event.Message)
+			}
+			return notes.Workspace{}, errors.New("Beacon agent returned no notes workspace")
+		}
+		if !errors.Is(requestErr, agent.ErrUnavailable) {
+			return notes.Workspace{}, requestErr
+		}
+	}
+	return a.mutateNotesWorkspaceDirect(request)
+}
+
+func (a App) mutateNotesWorkspaceDirect(request agent.Request) (notes.Workspace, error) {
 	path, err := notes.ResolvePath()
 	if err != nil {
 		return notes.Workspace{}, err
@@ -281,6 +312,30 @@ func (a App) mutateNotesWorkspace(ctx context.Context, configPath string, reques
 	default:
 		return notes.Workspace{}, fmt.Errorf("unsupported notes workspace mutation: %s", request.Type)
 	}
+}
+
+func (a App) notesAgentSupportsWorkspace(ctx context.Context, configPath string) (bool, error) {
+	event, err := a.requestNotes(ctx, configPath, agent.Request{Type: agent.RequestGetNotesWorkspace})
+	if errors.Is(err, agent.ErrUnavailable) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if event.NotesWorkspace != nil {
+		return true, nil
+	}
+	if unsupportedNotesRequest(event, agent.RequestGetNotesWorkspace) {
+		return false, nil
+	}
+	if event.Message != "" {
+		return false, errors.New(event.Message)
+	}
+	return false, errors.New("Beacon agent returned no notes workspace")
+}
+
+func unsupportedNotesRequest(event agent.Event, requestType string) bool {
+	return event.Type == agent.EventProjectFailed && event.Message == "unknown agent request: "+requestType
 }
 
 func (a App) requestNotes(ctx context.Context, configPath string, request agent.Request) (agent.Event, error) {

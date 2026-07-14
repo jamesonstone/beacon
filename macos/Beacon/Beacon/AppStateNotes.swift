@@ -7,7 +7,20 @@ extension AppState {
             do {
                 apply(try await agent.notesWorkspace())
             } catch {
-                apply(try await agent.notes())
+                if shouldUseNotesFallback(for: error), let notesFallback {
+                    notesUseFallback = true
+                    do {
+                        applyNotesWorkspace(try await notesFallback.notesWorkspace())
+                    } catch let fallbackError {
+                        do {
+                            apply(try await agent.notes())
+                        } catch {
+                            throw fallbackError
+                        }
+                    }
+                } else {
+                    apply(try await agent.notes())
+                }
             }
             notesError = nil
         } catch {
@@ -67,7 +80,10 @@ extension AppState {
 
     func showNewNotePicker() async {
         guard await flushNotes() else { return }
-        await applyNotesMutation { try await agent.openNote("new") }
+        await applyNotesMutation(
+            { try await agent.openNote("new") },
+            fallback: { try await $0.openNote("new") }
+        )
     }
 
     func createNote(title: String) async {
@@ -83,19 +99,28 @@ extension AppState {
 
     func createNote(content: String) async {
         guard await flushNotes() else { return }
-        await applyNotesMutation { try await agent.createNote(content) }
+        await applyNotesMutation(
+            { try await agent.createNote(content) },
+            fallback: { try await $0.createNote(content) }
+        )
     }
 
     func activateNote(_ noteID: String) async {
         guard noteID != activeNoteID else { return }
         guard await flushNotes() else { return }
-        await applyNotesMutation { try await agent.openNote(noteID) }
+        await applyNotesMutation(
+            { try await agent.openNote(noteID) },
+            fallback: { try await $0.openNote(noteID) }
+        )
     }
 
     func closeNote(_ noteID: String) async {
         guard noteID != "general" else { return }
         guard await flushNotes() else { return }
-        await applyNotesMutation { try await agent.closeNote(noteID) }
+        await applyNotesMutation(
+            { try await agent.closeNote(noteID) },
+            fallback: { try await $0.closeNote(noteID) }
+        )
     }
 
     func cycleNotes(direction: Int) async {
@@ -169,7 +194,10 @@ extension AppState {
         isSavingNotes = true
         defer { isSavingNotes = false }
         do {
-            apply(try await agent.setNotes(content, noteID: noteID))
+            try await performNotesMutation(
+                { try await agent.setNotes(content, noteID: noteID) },
+                fallback: { try await $0.setNotes(content, noteID: noteID) }
+            )
             notesError = nil
             return true
         } catch {
@@ -178,12 +206,46 @@ extension AppState {
         }
     }
 
-    private func applyNotesMutation(_ operation: () async throws -> AgentEvent) async {
+    private func applyNotesMutation(
+        _ operation: () async throws -> AgentEvent,
+        fallback: (CLIClientProtocol) async throws -> AgentNotesWorkspace
+    ) async {
         do {
-            apply(try await operation())
+            try await performNotesMutation(operation, fallback: fallback)
             notesError = nil
         } catch {
             notesError = error.localizedDescription
+        }
+    }
+
+    private func performNotesMutation(
+        _ operation: () async throws -> AgentEvent,
+        fallback: (CLIClientProtocol) async throws -> AgentNotesWorkspace
+    ) async throws {
+        if notesUseFallback, let notesFallback {
+            applyNotesWorkspace(try await fallback(notesFallback))
+            return
+        }
+        do {
+            apply(try await operation())
+        } catch {
+            guard shouldUseNotesFallback(for: error), let notesFallback else {
+                throw error
+            }
+            notesUseFallback = true
+            applyNotesWorkspace(try await fallback(notesFallback))
+        }
+    }
+
+    private func shouldUseNotesFallback(for error: Error) -> Bool {
+        guard let agentError = error as? AgentClientError else { return false }
+        switch agentError {
+        case .connection:
+            return true
+        case .command(let message):
+            return message.contains("unknown field") || message.contains("unknown agent request")
+        case .invalidResponse:
+            return false
         }
     }
 }

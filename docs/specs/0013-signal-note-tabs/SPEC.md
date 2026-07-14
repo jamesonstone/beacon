@@ -124,13 +124,16 @@ authorities rather than add Swift-side files or another synchronization path.
 
 - [x] AC1: Existing General storage, no-selector CLI behavior, and the exact
   selector-free agent request shape remain compatible without migration or
-  repository writes, including while an older strict agent is still running.
+  repository writes, including while an older strict agent is still running;
+  tab workspace operations use the bundled Go fallback until that agent is
+  restarted.
 - [x] AC2: Detail files and workspace state are atomic, user-only, bounded per
   document, traversal-safe, stable across relaunch, and unlimited in count.
 - [x] AC3: First-line titles, copy-from-line creation, open ordering, duplicate
   prevention, close fallback, and most-recent history are deterministic.
 - [x] AC4: CLI lifecycle commands, selectors, stdin, JSON, edit, and path
-  workflows behave deterministically through agent and fallback paths.
+  workflows behave deterministically through current-agent, unavailable-agent,
+  and unsupported-older-agent fallback paths.
 - [x] AC5: Protocol v1 publishes additive workspace updates that keep two
   clients synchronized without loading every note body.
 - [x] AC6: Menu extra and dashboard display the same open and active tabs, use
@@ -175,7 +178,7 @@ authorities rather than add Swift-side files or another synchronization path.
 | Criterion | Validation |
 | --- | --- |
 | AC1-AC3 | notes store tests for migration, IDs, titles, state, ordering, discovery, security, concurrency, and bounds, plus Swift request-shape coverage for older strict agents |
-| AC4 | CLI table tests for lifecycle, selectors, stdin, JSON, ambiguity, editor, agent, and fallback behavior |
+| AC4 | CLI table tests for lifecycle, selectors, stdin, JSON, ambiguity, editor, current-agent routing, unavailable-agent fallback, and unsupported-older-agent fallback |
 | AC5 | protocol server/client subscription and additive JSON decoding tests |
 | AC6-AC8 | Swift model, shared-state, autosave, palette, shortcut, and two-surface tests plus manual smoke |
 | AC9 | `make fmt-check vet test test-race build release-test macos-test macos-build`, Linux build, `kit check --all`, and `git diff --check` |
@@ -198,6 +201,11 @@ authorities rather than add Swift-side files or another synchronization path.
   keep the original selector-free wire shape even though current clients model
   the document internally with the reserved `general` ID; a workspace lookup
   can then fall back without blanking the editor during an app/agent upgrade.
+- LaunchAgent installation is intentionally explicit, so replacing the app does
+  not imply that its already-running agent process has restarted. An unknown
+  workspace command is therefore treated like agent unavailability for notes
+  only: the bundled Go helper uses the same locked store directly, while a
+  capable running agent remains the primary mutation and broadcast authority.
 - Moving the draft and debounce timer into `AppState` eliminated surface-local
   save races. Switch and close operations now share one flush-or-stay contract.
 - Native SwiftUI shortcuts keep dispatch in the frontmost shared dashboard view.
@@ -220,6 +228,10 @@ After pull request #14 merged, the reported General-loading regression required
 a direct completion fix. That follow-up uses issue #15 and branch `GH-15`, with
 a separate ready pull request because the original feature lane is already
 merged.
+
+After pull request #16 merged, the remaining older-agent failure on detail-note
+commands required issue #17 and branch `GH-17`. This follow-up completes the
+same upgrade boundary without changing the explicit agent lifecycle contract.
 
 ## Evidence
 
@@ -271,3 +283,18 @@ merged.
   retaining stable IDs for detail requests; all 62 macOS tests passed.
 - The complete local follow-up gate passed: `make fmt-check vet test test-race
   build release-test macos-test macos-build` and the Linux amd64 cross-build.
+- After pull request #16 merged as `a3c8bc6`, follow-up recon created issue #17
+  and exact branch `GH-17` from the synchronized `origin/main` head. The detail
+  failure came from the same older running agent rejecting the new
+  `get_notes_workspace` command before it could create a tab.
+- CLI capability tests now prove current-agent routing, safe direct-store
+  fallback for unavailable and unsupported older agents, selector-free General
+  writes, detail writes without unsupported mutation attempts, and preservation
+  of supported-agent failures. The Swift regression exercises General loading,
+  the supplied `[labcore]` current-line creation, detail saving, switching, and
+  closing entirely through the bundled fallback after one failed capability
+  request; all 63 macOS tests passed.
+- The complete issue #17 local gate passed: `make fmt-check vet test test-race
+  build release-test macos-test macos-build`, the Linux amd64 cross-build,
+  `kit check --all` across all 13 feature specifications, and
+  `git diff --check`.
