@@ -19,8 +19,10 @@ extension MenuView {
     func projectHeader(_ project: ProjectLaneGroup, accent: Color) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(project.name)
-                .font(BeaconTypography.semibold(10))
-                .foregroundStyle(BeaconPalette.borderGradient(accent))
+                .font(BeaconTypography.bold(DashboardLanePresentation.projectNameSize))
+                .foregroundStyle(accent)
+                .lineLimit(1)
+                .accessibilityAddTraits(.isHeader)
             if let progress = project.progress {
                 Text("\(progress.feature) · \(actionLabel(progress.phase))")
                     .font(BeaconTypography.regular(9))
@@ -52,7 +54,9 @@ extension MenuView {
                     projectGlyph(lane, accent: accent)
                 }
                 Text(workItemTitle(lane))
-                    .font(BeaconTypography.semibold(compact ? 11 : 13))
+                    .font(BeaconTypography.semibold(
+                        compact ? 11 : DashboardLanePresentation.laneTitleSize
+                    ))
                     .lineLimit(compact ? 2 : 1)
                 Spacer()
                 if let pullRequest = lane.pullRequest {

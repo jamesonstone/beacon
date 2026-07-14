@@ -44,6 +44,15 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(BeaconTypography.resolvedSize(17, baseSize: 14), 21)
     }
 
+    func testStackedDashboardPrioritizesProjectNameOverLaneTitle() {
+        XCTAssertEqual(DashboardLanePresentation.projectNameSize, 15)
+        XCTAssertEqual(DashboardLanePresentation.laneTitleSize, 13)
+        XCTAssertGreaterThan(
+            DashboardLanePresentation.projectNameSize,
+            DashboardLanePresentation.laneTitleSize
+        )
+    }
+
     func testDecodesCompleteSchemaVersionThree() throws {
         let data = Data(Self.snapshotJSON.utf8)
         let snapshot = try JSONDecoder().decode(BeaconSnapshot.self, from: data)

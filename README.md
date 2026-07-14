@@ -435,6 +435,9 @@ start duplicate repository scans. Secondary actions live in the top-right gear
 menu so lane evidence receives the full height. The adjacent view button
 switches between the default stacked list, horizontal state tiles, and an
 experimental kanban board; the selection persists across launches.
+In the default stacked view, each project name is a solid, bold heading above
+its lanes so repository context is visible before the pull request or issue
+title.
 
 A dedicated neon refresh button in the top-right of both surfaces performs
 **Scan Now**. Use it after merging one or several pull requests to bypass the

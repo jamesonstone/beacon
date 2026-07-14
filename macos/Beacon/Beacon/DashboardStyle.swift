@@ -132,6 +132,11 @@ enum BeaconTypography {
     }
 }
 
+enum DashboardLanePresentation {
+    static let projectNameSize: CGFloat = 15
+    static let laneTitleSize: CGFloat = 13
+}
+
 enum NeonWave {
     static let cycle: TimeInterval = 6
     static let gradient = LinearGradient(
