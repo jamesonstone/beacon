@@ -8,7 +8,7 @@ import (
 	"github.com/jamesonstone/beacon/internal/model"
 )
 
-func TestReconcileBuildsSmallLaneWorkingSet(t *testing.T) {
+func TestReconcileKeepsOpenPullRequestsInFollowedWorkingSet(t *testing.T) {
 	manager, now := testManager(t)
 	snapshot := testSnapshot(now,
 		testLane("dirty", "owner/repo", "feature-a", model.WorktreeDirty, model.PublicationPublished, now.Add(-time.Hour)),
@@ -19,11 +19,11 @@ func TestReconcileBuildsSmallLaneWorkingSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.WorkingSet.Active) != 1 || updated.WorkingSet.Active[0] != "dirty" || len(updated.WorkingSet.Recent) != 0 {
+	if len(updated.WorkingSet.Active) != 2 || updated.WorkingSet.Active[0] != "dirty" || updated.WorkingSet.Active[1] != "old-pr" || len(updated.WorkingSet.Recent) != 0 {
 		t.Fatalf("working set = %#v", updated.WorkingSet)
 	}
-	if updated.Lanes[1].Attention != nil {
-		t.Fatal("inactive PR entered working set")
+	if updated.Lanes[1].Attention == nil || updated.Lanes[1].Attention.State != model.AttentionActive {
+		t.Fatalf("open PR attention = %#v", updated.Lanes[1].Attention)
 	}
 	updated, err = manager.SetPinned(updated, "old-pr", true)
 	if err != nil {
@@ -36,8 +36,17 @@ func TestReconcileBuildsSmallLaneWorkingSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.WorkingSet.Active) != 1 || updated.Lanes[1].Attention != nil {
-		t.Fatalf("unpinned inactive PR remained in working set = %#v", updated.WorkingSet)
+	if len(updated.WorkingSet.Active) != 2 || updated.Lanes[1].Attention == nil || updated.Lanes[1].Attention.Pinned {
+		t.Fatalf("unpinned open PR left working set = %#v", updated.WorkingSet)
+	}
+	updated.Lanes[1].PullRequest = nil
+	updated.Lanes[1].Signals.PullRequest = model.PullRequestNone
+	updated, err = manager.Reconcile(updated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.WorkingSet.Active) != 1 || updated.WorkingSet.Active[0] != "dirty" || updated.Lanes[1].Attention != nil {
+		t.Fatalf("closed PR remained in working set = %#v", updated.WorkingSet)
 	}
 }
 

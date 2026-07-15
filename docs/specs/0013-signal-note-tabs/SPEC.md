@@ -24,6 +24,14 @@ references:
     read_policy: must
     used_for: user-approved delivery lane and acceptance contract
     status: active
+  - id: issue-27
+    name: Improve Beacon visibility and Signal Notes editing
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/27
+    relation: supports
+    read_policy: must
+    used_for: native spelling-underlines follow-up
+    status: active
   - id: constitution
     name: Beacon constitution
     type: doc
@@ -79,6 +87,9 @@ authorities rather than add Swift-side files or another synchronization path.
 - Existing no-selector CLI commands continue to address General.
 - Both macOS surfaces share one draft and autosave authority. Dirty content is
   flushed before switching or closing; a failed save keeps the tab active.
+- The native editor enables macOS continuous spelling underlines using the
+  user's preferred languages and learned words. Grammar checking, automatic
+  correction, and custom dictionaries remain out of scope for the lean pass.
 
 ## Requirements
 
@@ -108,6 +119,9 @@ authorities rather than add Swift-side files or another synchronization path.
     macOS surfaces.
 12. Reconcile the README, constitution, and project progress summary with the
     new storage, CLI, protocol, and macOS contracts.
+13. Enable native spelling underlines in every General and detail-note editor
+    without changing stored Markdown, enabling grammar, or applying automatic
+    corrections.
 
 ## Assumptions
 
@@ -144,6 +158,9 @@ authorities rather than add Swift-side files or another synchronization path.
   Escape work from both macOS surfaces without duplicating tabs.
 - [x] AC9: Focused Go, race, Linux, Swift, Xcode, Kit, and diff-hygiene checks
   pass and the ready PR reports hosted check state exactly.
+- [x] AC10: General and detail-note editors enable native continuous spelling
+  underlines while grammar and automatic spelling correction remain disabled,
+  and Markdown restyling preserves AppKit's temporary spelling attributes.
 
 ## Implementation Plan
 
@@ -153,6 +170,8 @@ authorities rather than add Swift-side files or another synchronization path.
 4. Build the tab strip, New Tab history, current-line promotion, and switchers.
 5. Add regression coverage, reconcile documentation, run validation, and
    deliver issue #13 on branch `GH-13` as a ready pull request.
+6. Configure the shared native editor for spelling-only checking and verify
+   that Markdown styling does not remove temporary spelling indicators.
 
 ## Agent Team Plan
 
@@ -172,6 +191,8 @@ authorities rather than add Swift-side files or another synchronization path.
 - [x] T6: Reconcile README, constitution, and project progress summary.
 - [x] T7: Run complete validation and self-review.
 - [x] T8: Commit, push, open the ready PR, and record hosted check evidence.
+- [x] T9: Enable lean native spell checking, add focused Swift coverage, and
+  reconcile the user-facing Notes documentation.
 
 ## Validation Map
 
@@ -182,6 +203,7 @@ authorities rather than add Swift-side files or another synchronization path.
 | AC5 | protocol server/client subscription and additive JSON decoding tests |
 | AC6-AC8 | Swift model, shared-state, autosave, palette, shortcut, and two-surface tests plus manual smoke |
 | AC9 | `make fmt-check vet test test-race build release-test macos-test macos-build`, Linux build, `kit check --all`, and `git diff --check` |
+| AC10 | Swift editor-configuration assertions, temporary spelling-attribute preservation regression, `make macos-test`, and `make macos-build` |
 
 ## Reflection Notes
 
@@ -211,10 +233,15 @@ authorities rather than add Swift-side files or another synchronization path.
 - Native SwiftUI shortcuts keep dispatch in the frontmost shared dashboard view.
   A deferred focus handoff is required so a newly presented palette receives
   arrows, Return, and Escape instead of leaving focus in the Markdown editor.
+- AppKit spelling indicators are temporary layout attributes, so permanent
+  Markdown font and color restyling can coexist with native underlines without
+  changing the stored text or introducing a second text-processing authority.
 
 ## Documentation Updates
 
 - Extend README Signal Notes storage, CLI, and macOS usage.
+- Document native spelling underlines and the intentional grammar/autocorrection
+  exclusions.
 - Extend the constitution's notes ownership, CLI, protocol, and macOS boundary.
 - Refresh the project progress summary after Kit validation.
 
@@ -237,6 +264,10 @@ After pull request #18 merged, user feedback found the persistent General-editor
 footer action confusing. Issue #19 and branch `GH-19` remove that single button
 while preserving current-line promotion in contextual and search-driven entry
 points.
+
+The lean native spell-checking refinement is delivered as a focused feature
+commit on assigned issue #27 and exact branch `GH-27`, within the user-approved
+multi-focus ready pull request to `main`.
 
 ## Evidence
 
@@ -313,3 +344,8 @@ points.
 - The complete issue #19 local gate passed: `make fmt-check vet test test-race
   build release-test macos-test macos-build`, including all 63 macOS tests and
   the universal Debug build, plus the Linux amd64 cross-build.
+- The local lean spell-checking follow-up enables AppKit continuous spelling
+  while explicitly disabling grammar and automatic correction. The regression
+  verifies Markdown restyling preserves temporary spelling indicators; all 70
+  macOS tests, the universal Debug build, Go formatting/vet/tests, all 15 Kit
+  feature checks, and final diff hygiene passed on the combined dirty tree.

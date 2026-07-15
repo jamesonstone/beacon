@@ -26,67 +26,113 @@ struct BeaconMenuBarLabel: View {
     let inProgressCount: Int
 
     var body: some View {
-        HStack(spacing: 2) {
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                BeaconPalette.pink.opacity(0.82),
-                                Color(red: 0.05, green: 0.02, blue: 0.16),
-                            ],
-                            center: .center,
-                            startRadius: 1,
-                            endRadius: 10
-                        )
-                    )
-                    .frame(width: 14, height: 14)
-
-                Image(systemName: "light.beacon.max.fill")
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(BeaconPalette.gold, BeaconPalette.cyan)
-                    .font(.system(size: 16, weight: .bold))
-
-                Circle()
-                    .fill(.white)
-                    .frame(width: 3, height: 3)
-                    .shadow(color: BeaconPalette.gold, radius: 2)
-            }
-            .frame(width: 22, height: 18)
-            .shadow(color: BeaconPalette.cyan.opacity(0.95), radius: 2)
-            .shadow(color: BeaconPalette.pink.opacity(0.65), radius: 3)
-
-            if inProgressCount > 0 {
-                Text(BeaconMenuBarPresentation.displayCount(inProgressCount))
-                    .font(.system(size: 9, weight: .heavy, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(Color(red: 0.04, green: 0.03, blue: 0.12))
-                    .padding(.horizontal, 4)
-                    .frame(minWidth: 15, minHeight: 15)
-                    .background(
-                        LinearGradient(
-                            colors: [BeaconPalette.gold, BeaconPalette.coral],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        in: Capsule()
-                    )
-                    .overlay {
-                        Capsule()
-                            .strokeBorder(.white.opacity(0.72), lineWidth: 0.7)
-                    }
-                    .shadow(color: BeaconPalette.gold.opacity(0.85), radius: 2)
-                    .fixedSize()
-            }
-        }
+        BeaconMenuBarDome(count: inProgressCount)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(BeaconMenuBarPresentation.accessibilityText(inProgressCount))
+    }
+}
+
+struct BeaconMenuBarDome: View {
+    let count: Int
+
+    private var domeWidth: CGFloat {
+        BeaconMenuBarPresentation.domeWidth(count)
+    }
+
+    var body: some View {
+        ZStack {
+            Capsule()
+                .fill(BeaconPalette.gold)
+                .frame(width: 1.5, height: 4)
+                .offset(y: -7)
+
+            Capsule()
+                .fill(BeaconPalette.cyan)
+                .frame(width: 1.5, height: 4)
+                .rotationEffect(.degrees(-48))
+                .offset(x: -(domeWidth * 0.38), y: -5)
+
+            Capsule()
+                .fill(BeaconPalette.cyan)
+                .frame(width: 1.5, height: 4)
+                .rotationEffect(.degrees(48))
+                .offset(x: domeWidth * 0.38, y: -5)
+
+            BeaconDomeShape()
+                .fill(
+                    LinearGradient(
+                        colors: [BeaconPalette.gold, BeaconPalette.coral],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: domeWidth, height: 11)
+                .offset(y: 3)
+
+            Capsule()
+                .fill(BeaconPalette.gold)
+                .frame(width: domeWidth + 2, height: 1.5)
+                .offset(y: 7)
+
+            Text(BeaconMenuBarPresentation.displayCount(count))
+                .font(.system(
+                    size: BeaconMenuBarPresentation.countFontSize(count),
+                    weight: .heavy,
+                    design: .rounded
+                ))
+                .monospacedDigit()
+                .foregroundStyle(Color(red: 0.04, green: 0.03, blue: 0.12))
+                .lineLimit(1)
+                .offset(y: 3)
+        }
+        .frame(width: domeWidth + 6, height: 18)
+        .shadow(color: BeaconPalette.cyan.opacity(0.80), radius: 1.5)
+        .shadow(color: BeaconPalette.gold.opacity(0.70), radius: 2.5)
+    }
+}
+
+struct BeaconDomeShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let shoulderY = rect.minY + rect.height * 0.58
+        let bottomY = rect.maxY - 0.5
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX + 1, y: bottomY))
+        path.addLine(to: CGPoint(x: rect.minX + 2, y: shoulderY))
+        path.addCurve(
+            to: CGPoint(x: rect.midX, y: rect.minY),
+            control1: CGPoint(x: rect.minX + 2, y: rect.minY + rect.height * 0.16),
+            control2: CGPoint(x: rect.midX - rect.width * 0.22, y: rect.minY)
+        )
+        path.addCurve(
+            to: CGPoint(x: rect.maxX - 2, y: shoulderY),
+            control1: CGPoint(x: rect.midX + rect.width * 0.22, y: rect.minY),
+            control2: CGPoint(x: rect.maxX - 2, y: rect.minY + rect.height * 0.16)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX - 1, y: bottomY))
+        path.closeSubpath()
+        return path
     }
 }
 
 enum BeaconMenuBarPresentation {
     static func displayCount(_ count: Int) -> String {
         count > 99 ? "99+" : String(max(0, count))
+    }
+
+    static func domeWidth(_ count: Int) -> CGFloat {
+        switch displayCount(count).count {
+        case 1: 14
+        case 2: 18
+        default: 24
+        }
+    }
+
+    static func countFontSize(_ count: Int) -> CGFloat {
+        switch displayCount(count).count {
+        case 1: 9
+        case 2: 8
+        default: 6.5
+        }
     }
 
     static func accessibilityText(_ count: Int) -> String {

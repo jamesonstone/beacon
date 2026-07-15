@@ -62,6 +62,34 @@ final class ModelsTests: XCTestCase {
         ))
     }
 
+    func testSignalNotesEditorEnablesLeanSpellCheckingAndPreservesIndicators() throws {
+        let textView = NSTextView()
+        textView.string = "mispelled note"
+
+        LiveMarkdownEditor.configureEditing(on: textView)
+
+        XCTAssertTrue(textView.isContinuousSpellCheckingEnabled)
+        XCTAssertFalse(textView.isGrammarCheckingEnabled)
+        XCTAssertFalse(textView.isAutomaticSpellingCorrectionEnabled)
+
+        let layoutManager = try XCTUnwrap(textView.layoutManager)
+        let spellingState = NSAttributedString.SpellingState.spelling.rawValue
+        layoutManager.addTemporaryAttribute(
+            .spellingState,
+            value: spellingState,
+            forCharacterRange: NSRange(location: 0, length: 9)
+        )
+
+        LiveMarkdownStyler.apply(to: try XCTUnwrap(textView.textStorage))
+
+        let preservedState = layoutManager.temporaryAttribute(
+            .spellingState,
+            atCharacterIndex: 0,
+            effectiveRange: nil
+        ) as? NSNumber
+        XCTAssertEqual(preservedState?.intValue, spellingState)
+    }
+
     func testUpToDateBacksplashRequiresNoWorkAndNoLoadingProjects() {
         XCTAssertTrue(UpToDatePresentation.shouldShow(inProgressCount: 0, loadingProjectCount: 0))
         XCTAssertFalse(UpToDatePresentation.shouldShow(inProgressCount: 1, loadingProjectCount: 0))
@@ -174,9 +202,18 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(DependencyLimitPresentation.level(percent: 0, hasUsage: false), .unmeasured)
     }
 
-    func testMenuBarBeaconKeepsCountSeparateAndAccessible() {
+    func testMenuBarBeaconDomeAdaptsToLiveCountAndRemainsAccessible() {
+        XCTAssertEqual(BeaconMenuBarPresentation.displayCount(-1), "0")
         XCTAssertEqual(BeaconMenuBarPresentation.displayCount(1), "1")
+        XCTAssertEqual(BeaconMenuBarPresentation.displayCount(30), "30")
         XCTAssertEqual(BeaconMenuBarPresentation.displayCount(120), "99+")
+        XCTAssertEqual(BeaconMenuBarPresentation.domeWidth(1), 14)
+        XCTAssertEqual(BeaconMenuBarPresentation.domeWidth(30), 18)
+        XCTAssertEqual(BeaconMenuBarPresentation.domeWidth(120), 24)
+        XCTAssertGreaterThan(
+            BeaconMenuBarPresentation.countFontSize(1),
+            BeaconMenuBarPresentation.countFontSize(120)
+        )
         XCTAssertEqual(BeaconMenuBarPresentation.accessibilityText(0), "Beacon, no items in progress")
         XCTAssertEqual(BeaconMenuBarPresentation.accessibilityText(3), "Beacon, 3 items in progress")
     }

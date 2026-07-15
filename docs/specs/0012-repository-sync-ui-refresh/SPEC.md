@@ -20,6 +20,14 @@ relationships:
   - type: builds_on
     target: 0011-working-notes-refresh
 references:
+  - id: issue-27
+    name: Improve Beacon visibility and Signal Notes editing
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/27
+    relation: supports
+    read_policy: must
+    used_for: adaptive menu-bar beacon dome follow-up
+    status: active
   - id: constitution
     name: Beacon constitution
     type: doc
@@ -141,9 +149,9 @@ repository-sync reports and render the same behavior in both surfaces.
 - The header summary uses the highest current bucket utilization: mint below
   50%, gold from 50% through 75%, and coral above 75%. Before inspection, or
   while all buckets are unused, the button shows a neutral gauge symbol.
-- The menu-bar label always keeps a compact colored beacon glyph visible. An
-  in-progress lane count appears as a separate badge instead of replacing the
-  identity with an isolated numeral.
+- The menu-bar label is one compact colored beacon dome containing the live
+  in-progress lane count. Dome width and type scale adapt through `99+` so the
+  identity and count remain legible together.
 - A destination control opens its destination on first selection. Selecting the
   same control again returns to Following; selecting a different destination
   navigates directly to that destination.
@@ -197,8 +205,8 @@ repository-sync reports and render the same behavior in both surfaces.
     displays provider and bucket details, and summarizes the highest utilization
     as a percentage with the clarified mint, gold, and coral thresholds.
 18. Replace the count-only menu-bar label with a compact, non-template colored
-    beacon glyph plus a legible in-progress count badge while retaining an
-    accurate accessibility label.
+    beacon dome containing a legible in-progress count, adaptive width and type
+    scale through `99+`, and an accurate accessibility label.
 19. Model shared dashboard navigation as one mutually exclusive destination and
     make repeated selection of any non-Following tab, header panel, or Following
     manager return both macOS surfaces to Following.
@@ -254,9 +262,9 @@ repository-sync reports and render the same behavior in both surfaces.
 - [x] AC14: Selecting the dependency-limit control performs exactly one bounded
   `gh api rate_limit` request, renders GraphQL, REST Core, and Search usage, and
   updates the summary percentage and mint/gold/coral state without passive work.
-- [x] AC15: Both menu-bar states retain a distinctive colored beacon glyph, add
-  the in-progress count as a separate legible badge, and expose an accurate
-  accessibility label.
+- [x] AC15: Every menu-bar count state uses a distinctive colored beacon dome,
+  adapts its width and type scale for one-, two-, and three-character counts,
+  and exposes an accurate accessibility label.
 - [x] AC16: Every non-Following tab, header panel, and Following-manager
   destination opens on first selection, returns to Following when selected
   again, and switches directly when a different destination is selected.
@@ -298,7 +306,7 @@ repository-sync reports and render the same behavior in both surfaces.
 - [x] T9: Re-run validation and visually inspect the follow-up behavior.
 - [x] T10: Implement and test one explicit Go dependency-limit inspection path.
 - [x] T11: Implement and test the Swift limit panel and threshold-aware button.
-- [x] T12: Implement and visually inspect the colored menu-bar beacon and badge.
+- [x] T12: Implement and visually inspect the adaptive colored menu-bar beacon.
 - [x] T13: Implement and test repeat-to-Following dashboard navigation.
 
 ## Validation Map
@@ -345,9 +353,9 @@ repository-sync reports and render the same behavior in both surfaces.
 - The highest active bucket is the useful compact summary because one depleted
   allowance can block its corresponding Beacon evidence path even when the
   other buckets remain healthy. The detail panel retains every raw bucket.
-- A native multicolor `light.beacon.max.fill` symbol plus a separate warm count
-  badge is legible at menu-bar scale without adding an asset or hiding the app
-  identity whenever work exists.
+- A native SwiftUI dome keeps the beacon identity and live count in one compact
+  menu-bar item. Deterministic width and type-scale steps retain legibility from
+  zero through the capped `99+` state without adding a raster asset.
 - One mutually exclusive dashboard destination makes repeat-to-Following behavior
   deterministic across tabs, header panels, and Following management while a
   different selection still navigates directly to its destination.
@@ -370,6 +378,10 @@ Deliver the complete validated change through assigned GitHub issue #11 and the
 exact issue branch `GH-11`, using a ready pull request to `main`. The requested
 delivery does not authorize merge, force-push, branch deletion, or repository
 configuration changes.
+
+The adaptive menu-bar dome follow-up is delivered as a focused feature commit
+on assigned issue #27 and exact branch `GH-27`, within the user-approved
+multi-focus ready pull request to `main`.
 
 ## Evidence
 

@@ -268,6 +268,9 @@ struct LiveMarkdownEditor: NSViewRepresentable {
     static func configureEditing(on textView: NSTextView) {
         textView.isEditable = true
         textView.isSelectable = true
+        textView.isContinuousSpellCheckingEnabled = true
+        textView.isGrammarCheckingEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
     }
 
     private func clamped(_ range: NSRange, length: Int) -> NSRange {

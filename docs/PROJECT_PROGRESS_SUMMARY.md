@@ -115,7 +115,7 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Make Beacon a personal memory for the small set of Git, PR, and manual lanes currently competing for attention.
-- **APPROACH**: Persist lane-level attention, pins, notes, tags, last-seen observations, and factual deltas; observe local Git frequently without network work; discover GitHub activity globally and enrich only recent active work by default; present lane attention inside the explicit Following repository set while Recently Updated and Quiet hold outside project inventory; retain stacked, horizontal-tile, experimental kanban, and broad diagnostic views.
+- **APPROACH**: Persist lane-level attention, pins, notes, tags, last-seen observations, and factual deltas; observe local Git frequently without network work; discover GitHub activity globally, enrich every open in-scope PR for followed projects regardless of age, and retain the recent cutoff for outside activity; present lane attention inside the explicit Following repository set while Recently Updated and Quiet hold outside project inventory; retain stacked, horizontal-tile, experimental kanban, and broad diagnostic views.
 - **OPEN ITEMS**: The working-set implementation is complete on issue #5 / PR #6. The direct activity-tab refinement is validated for delivery on issue #7 / PR #8; final review and merge remain human decisions.
 - **POINTERS**: `docs/specs/0009-beacon-working-set-radar/SPEC.md`
 
@@ -142,7 +142,7 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Keep dependent local repositories current after merged pull requests without spending GitHub capacity or automating risky Git history changes.
-- **APPROACH**: Compare local and remote default refs through one Go authority, keep Git and dependency-limit network work behind explicit actions, automate only guarded fast-forwards, and share the resulting CLI and macOS behavior alongside an adaptive no-work backsplash, one lossless live Markdown editor, one mutually exclusive dashboard destination, and a recognizable colored menu-bar beacon.
+- **APPROACH**: Compare local and remote default refs through one Go authority, keep Git and dependency-limit network work behind explicit actions, automate only guarded fast-forwards, and share the resulting CLI and macOS behavior alongside an adaptive no-work backsplash, one lossless live Markdown editor, one mutually exclusive dashboard destination, and an adaptive colored menu-bar beacon dome containing the live lane count.
 - **OPEN ITEMS**: No implementation items remain. Repeat-to-Following navigation and its focused route tests join the existing Go, race, CLI, release, 54-test Swift, universal macOS build, Kit, diff-hygiene, and live dependency-limit presentation gates on issue #11, branch `GH-11`, and ready PR #12; final human review and merge remain.
 - **POINTERS**: `docs/specs/0012-repository-sync-ui-refresh/SPEC.md`
 

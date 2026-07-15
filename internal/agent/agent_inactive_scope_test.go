@@ -14,6 +14,56 @@ import (
 	"github.com/jamesonstone/beacon/internal/tracking"
 )
 
+func TestCollectedBatchBackgroundEnrichesInactivePullRequestsForFollowedProjects(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
+	paths := testPaths(root)
+	now := time.Date(2026, 7, 11, 12, 10, 0, 0, time.UTC)
+	cfg := config.Config{
+		Path: paths.Config,
+		Settings: config.Settings{
+			MaxParallel: 1, GitHubAuthor: "@me", GitHubScope: config.GitHubScopeMine,
+			TrackedRefreshInterval: time.Minute, UntrackedProbeInterval: time.Hour,
+		},
+	}
+	repository := config.Repository{Name: "followed", Path: root, GitHub: "owner/followed", Base: "main", Remote: "origin"}
+	record := cachedRecord(repository.GitHub, 1, model.TrackingTracked)
+	record.Snapshot.ConfigPath = cfg.Path
+	record.Snapshot.Projects[0].Name = repository.Name
+	record.Snapshot.Lanes[0].Repository = repository.Name
+	cache := Cache{Directory: paths.Projects}
+	if err := cache.Write(record); err != nil {
+		t.Fatal(err)
+	}
+	tracker := tracking.Manager{Store: tracking.FileStore{}, Now: func() time.Time { return now }}
+	if _, err := tracker.SetSelection(Assemble([]ProjectRecord{record}, cfg.Path, paths.State, now), []string{repository.GitHub}); err != nil {
+		t.Fatal(err)
+	}
+	engine := NewEngine(cfg, paths, cache, func(context.Context) ([]config.Repository, error) {
+		return []config.Repository{repository}, nil
+	}, nil, nil, tracker)
+	engine.Now = func() time.Time { return now }
+	engine.ProbeBatch = func(context.Context, []config.Repository, string, string, int) (map[string]ProbeResult, map[string]error) {
+		return map[string]ProbeResult{}, map[string]error{}
+	}
+	engine.ScanBatch = func(ctx context.Context, values []config.Repository, refresh bool, _ func(string, string)) (map[string]model.Snapshot, error) {
+		if refresh || len(values) != 1 || values[0].GitHub != repository.GitHub {
+			return nil, fmt.Errorf("background repositories=%#v refresh=%v", values, refresh)
+		}
+		if !githubscan.IncludeInactivePullRequestsFor(ctx, repository.GitHub) {
+			return nil, errors.New("followed project did not receive inactive PR enrichment")
+		}
+		return map[string]model.Snapshot{repository.GitHub: record.Snapshot}, nil
+	}
+	if _, err := engine.Refresh(context.Background(), "", false); err != nil {
+		t.Fatal(err)
+	}
+	waitForRefresh(t, engine)
+	if snapshot := engine.Snapshot(); len(snapshot.Errors) != 0 {
+		t.Fatalf("snapshot errors = %#v", snapshot.Errors)
+	}
+}
+
 func TestCollectedBatchForceOnlyEnrichesInactivePullRequestsForFollowedProjects(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
