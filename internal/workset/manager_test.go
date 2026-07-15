@@ -50,6 +50,39 @@ func TestReconcileKeepsOpenPullRequestsInFollowedWorkingSet(t *testing.T) {
 	}
 }
 
+func TestReconcileKeepsOpenIssuesInFollowedWorkingSet(t *testing.T) {
+	manager, now := testManager(t)
+	lane := testLane(
+		"old-issue", "owner/repo", "", model.WorktreeNotLocal,
+		model.PublicationPublished, now.Add(-10*24*time.Hour),
+	)
+	lane.Worktree = nil
+	lane.Issue = &model.Issue{Number: 50, UpdatedAt: now.Add(-10 * 24 * time.Hour)}
+	lane.Signals.Issue = model.IssueOpen
+	snapshot := testSnapshot(now, lane)
+
+	updated, err := manager.Reconcile(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.WorkingSet.Active) != 1 || updated.WorkingSet.Active[0] != lane.ID || len(updated.WorkingSet.Recent) != 0 {
+		t.Fatalf("working set = %#v", updated.WorkingSet)
+	}
+	if updated.Lanes[0].Attention == nil || updated.Lanes[0].Attention.State != model.AttentionActive {
+		t.Fatalf("open issue attention = %#v", updated.Lanes[0].Attention)
+	}
+
+	updated.Lanes[0].Issue = nil
+	updated.Lanes[0].Signals.Issue = model.IssueNone
+	updated, err = manager.Reconcile(updated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.WorkingSet.Active) != 0 || updated.Lanes[0].Attention != nil {
+		t.Fatalf("closed issue remained in working set = %#v", updated.WorkingSet)
+	}
+}
+
 func TestParkedLaneIgnoresUnrelatedChangeAndReactivatesForOwnDelta(t *testing.T) {
 	manager, now := testManager(t)
 	snapshot := testSnapshot(now,
