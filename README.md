@@ -483,10 +483,10 @@ The Beacon wordmark carries a modest neon/pastel color wave. It uses a shared,
 deterministic time phase in the menu and detached window and becomes a static
 neon gradient when Reduce Motion is enabled.
 
-The menu-bar item keeps a colored beacon-light glyph visible in every state.
-An in-progress lane count appears beside it in a separate gold-to-coral badge,
-so the app remains recognizable without burying the count among other status
-items.
+The menu-bar item is one colored beacon dome with the live in-progress lane
+count set directly inside it. Its width and numeral scale adapt through `99+`,
+so the app identity and current workload remain recognizable as one compact
+status item.
 
 Beacon defaults to a 12-point system monospaced design. Settings provides
 System, Rounded, Monospaced, and Serif designs plus 11, 12, 13, 14, and 16-point

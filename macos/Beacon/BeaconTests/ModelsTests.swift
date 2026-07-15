@@ -174,9 +174,18 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(DependencyLimitPresentation.level(percent: 0, hasUsage: false), .unmeasured)
     }
 
-    func testMenuBarBeaconKeepsCountSeparateAndAccessible() {
+    func testMenuBarBeaconDomeAdaptsToLiveCountAndRemainsAccessible() {
+        XCTAssertEqual(BeaconMenuBarPresentation.displayCount(-1), "0")
         XCTAssertEqual(BeaconMenuBarPresentation.displayCount(1), "1")
+        XCTAssertEqual(BeaconMenuBarPresentation.displayCount(30), "30")
         XCTAssertEqual(BeaconMenuBarPresentation.displayCount(120), "99+")
+        XCTAssertEqual(BeaconMenuBarPresentation.domeWidth(1), 14)
+        XCTAssertEqual(BeaconMenuBarPresentation.domeWidth(30), 18)
+        XCTAssertEqual(BeaconMenuBarPresentation.domeWidth(120), 24)
+        XCTAssertGreaterThan(
+            BeaconMenuBarPresentation.countFontSize(1),
+            BeaconMenuBarPresentation.countFontSize(120)
+        )
         XCTAssertEqual(BeaconMenuBarPresentation.accessibilityText(0), "Beacon, no items in progress")
         XCTAssertEqual(BeaconMenuBarPresentation.accessibilityText(3), "Beacon, 3 items in progress")
     }

@@ -506,10 +506,10 @@ copy describes lane state rather than repository-ref freshness.
 The Beacon wordmark may animate a modest horizontally traveling gradient across
 the existing neon/pastel palette. It must remain readable, use no evidence or
 status policy, and render a static gradient when Reduce Motion is enabled.
-The menu-bar label always shows a compact, non-template colored beacon-light
-glyph. The number of lanes across the CLI-provided active, waiting, and
-recently-active groups appears as a separate high-contrast gold-to-coral badge
-when nonzero, rather than replacing the app identity. The menu window may use coordinated
+The menu-bar label always shows a compact, non-template colored beacon dome.
+The number of lanes across the CLI-provided active, waiting, and recently-active
+groups appears inside that dome with adaptive width and type scale through
+`99+`, preserving the app identity and a legible count in one item. The menu window may use coordinated
 pastel and neon accents to distinguish existing CLI-provided groups and signals,
 but color must not introduce readiness or action policy in the Swift client.
 Individual evidence badges may be hidden as reversible local presentation
