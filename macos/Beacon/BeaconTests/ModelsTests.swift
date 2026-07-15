@@ -130,6 +130,13 @@ final class ModelsTests: XCTestCase {
         )
     }
 
+    func testIgnoreActionAppearsOnlyOnFollowingCards() {
+        XCTAssertTrue(DashboardLanePresentation.showsIgnoreAction(in: .following))
+        XCTAssertFalse(DashboardLanePresentation.showsIgnoreAction(in: .parking))
+        XCTAssertFalse(DashboardLanePresentation.showsIgnoreAction(in: .recent))
+        XCTAssertFalse(DashboardLanePresentation.showsIgnoreAction(in: .quiet))
+    }
+
     func testDecodesCompleteSchemaVersionThree() throws {
         let data = Data(Self.snapshotJSON.utf8)
         let snapshot = try JSONDecoder().decode(BeaconSnapshot.self, from: data)

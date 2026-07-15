@@ -164,6 +164,10 @@ enum DashboardLanePresentation {
     static let projectNameSize: CGFloat = 15
     static let laneTitleSize: CGFloat = 13
 
+    static func showsIgnoreAction(in tab: DashboardTab) -> Bool {
+        tab == .following
+    }
+
     static func identity(for lane: WorkLane) -> DashboardLaneIdentity {
         if lane.pullRequest != nil {
             return .pullRequest

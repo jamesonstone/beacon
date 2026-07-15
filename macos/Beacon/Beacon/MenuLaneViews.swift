@@ -67,6 +67,9 @@ extension MenuView {
                 } else if !lane.branch.isEmpty {
                     Text(lane.branch).font(BeaconTypography.medium(9)).foregroundStyle(accent).lineLimit(1)
                 }
+                if DashboardLanePresentation.showsIgnoreAction(in: selectedDashboardTab) {
+                    ignoreButton(lane, compact: compact)
+                }
             }
             Text(actionLabel(lane.nextAction))
                 .font(BeaconTypography.medium(10))
@@ -99,6 +102,30 @@ extension MenuView {
                 .strokeBorder(BeaconPalette.borderGradient(accent), lineWidth: 0.8)
         }
         .shadow(color: accent.opacity(0.09), radius: 4, y: 2)
+    }
+
+    func ignoreButton(_ lane: WorkLane, compact: Bool) -> some View {
+        Button {
+            Task { await state.ignoreLane(lane) }
+        } label: {
+            Group {
+                if compact {
+                    Image(systemName: "pause.circle.fill")
+                } else {
+                    Label("Ignore", systemImage: "pause.circle.fill")
+                }
+            }
+            .font(BeaconTypography.semibold(9))
+            .padding(.horizontal, compact ? 5 : 7)
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(BeaconPalette.lavender)
+        .background(BeaconPalette.softGradient(BeaconPalette.lavender), in: Capsule())
+        .overlay { Capsule().strokeBorder(BeaconPalette.lavender.opacity(0.4), lineWidth: 0.7) }
+        .help("Move to Parking Lot")
+        .accessibilityLabel("Ignore \(workItemTitle(lane))")
+        .accessibilityHint("Moves this lane to the Parking Lot")
     }
 
     func projectGlyph(_ lane: WorkLane, accent: Color) -> some View {

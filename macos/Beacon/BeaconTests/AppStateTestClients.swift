@@ -26,6 +26,37 @@ struct TrackingCall: Equatable {
     let tracked: Bool
 }
 
+struct LaneAttentionCall: Equatable {
+    let id: String
+    let state: String
+}
+
+actor RecordingLaneAttentionAgent: AgentClientProtocol {
+    let mutationEvent: AgentEvent
+    private(set) var calls: [LaneAttentionCall] = []
+
+    init(mutationEvent: AgentEvent) {
+        self.mutationEvent = mutationEvent
+    }
+
+    func snapshot() async throws -> AgentEvent { mutationEvent }
+    func subscribe() async throws -> AsyncThrowingStream<AgentEvent, Error> {
+        AsyncThrowingStream { $0.finish() }
+    }
+    func refresh(project: String?) async throws -> String { "scan" }
+    func setProjectTracked(_ github: String, tracked: Bool) async throws -> AgentEvent { mutationEvent }
+    func status() async throws -> AgentStatusDetails {
+        AgentStatusDetails(
+            running: true, pid: 1, startedAt: nil, refreshing: false,
+            scanID: nil, projectCount: 1, socket: "/socket"
+        )
+    }
+    func setLaneAttention(_ id: String, state: String) async throws -> AgentEvent {
+        calls.append(LaneAttentionCall(id: id, state: state))
+        return mutationEvent
+    }
+}
+
 actor RecordingClient: CLIClientProtocol {
     var results: [Result<BeaconSnapshot, Error>]
     private(set) var trackingCalls: [TrackingCall] = []

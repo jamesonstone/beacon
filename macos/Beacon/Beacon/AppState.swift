@@ -166,6 +166,10 @@ final class AppState: ObservableObject {
         await applyLaneMutation { try await agent.setLaneAttention(lane.id, state: state) }
     }
 
+    func ignoreLane(_ lane: WorkLane) async {
+        await setLaneAttention(lane, state: "parked")
+    }
+
     func setLanePinned(_ lane: WorkLane, pinned: Bool) async {
         await applyLaneMutation { try await agent.setLanePinned(lane.id, pinned: pinned) }
     }

@@ -121,6 +121,38 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(state.quietProjects.map(\.github), ["owner/quiet"])
     }
 
+    func testIgnoreLaneParksThroughSharedAgentAuthority() async throws {
+        var active = TestSnapshots.withIdleInventory
+        active.workingSet = WorkingSetGroups(
+            path: "/Users/test/.local/state/beacon/lanes.json",
+            active: ["active-work"],
+            waiting: [],
+            recent: [],
+            parked: []
+        )
+        var parked = active
+        parked.workingSet = WorkingSetGroups(
+            path: "/Users/test/.local/state/beacon/lanes.json",
+            active: [],
+            waiting: [],
+            recent: [],
+            parked: ["active-work"]
+        )
+        let agent = RecordingLaneAttentionAgent(
+            mutationEvent: TestSnapshots.snapshotEvent(parked)
+        )
+        let state = AppState(agent: agent, installer: nil)
+        state.apply(TestSnapshots.snapshotEvent(active))
+
+        let lane = try XCTUnwrap(active.lanes.first { $0.id == "active-work" })
+        await state.ignoreLane(lane)
+
+        let calls = await agent.calls
+        XCTAssertEqual(calls, [LaneAttentionCall(id: "active-work", state: "parked")])
+        XCTAssertEqual(state.snapshot?.workingSet?.active, [])
+        XCTAssertEqual(state.snapshot?.workingSet?.parked, ["active-work"])
+        XCTAssertNil(state.lastError)
+    }
 
     func testOpenTargetPrefersPullRequestThenIssueThenWorktree() throws {
         let lane = TestSnapshots.lane(
