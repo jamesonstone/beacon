@@ -69,6 +69,14 @@ unmerged, missing-ref, and multi-worktree states must be refused. Repository
 sync never invokes `gh` or the GitHub API and never rebases, hard-resets,
 force-updates, stashes, deletes, commits, pushes, or changes GitHub state.
 
+Read-only merged-checkout advisories are part of evidence collection, not
+Repository Sync. They may use Git to verify that a previously observed pull
+request head branch disappeared, then spend one exact `gh pr view` request to
+confirm the pull request merged. Only followed projects crossing that observed
+open-to-absent transition qualify, at most three may be confirmed per refresh,
+and results must be cached. An advisory never switches, pulls, deletes, or
+otherwise mutates Git or GitHub state.
+
 ### Independent Signals Before Conclusions
 
 Worktree, publication, pull-request, issue, CI, review, merge, and freshness state are

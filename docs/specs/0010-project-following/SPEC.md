@@ -40,7 +40,7 @@ references:
     target: https://github.com/jamesonstone/beacon/issues/31
     relation: supports
     read_policy: must
-    used_for: age-independent followed-issue visibility and lane-card identity
+    used_for: age-independent followed-issue visibility, lane-card identity, and merged-checkout warnings
     status: active
   - id: constitution
     name: Beacon constitution
@@ -143,6 +143,11 @@ make repository membership explicit and show outside activity separately.
     edge. Ignore parks only that lane through the shared Go authority so it
     leaves Following and appears in Parking Lot without changing project
     membership.
+18. When a followed project's previously observed open pull request disappears
+    while its local worktree remains on the same non-default branch, perform at
+    most three exact, cached GitHub confirmations per completed refresh. Expose
+    a read-only warning only when `gh` confirms the pull request merged and Git
+    confirms the remote head branch no longer exists.
 
 ## Assumptions
 
@@ -191,6 +196,10 @@ make repository membership explicit and show outside activity separately.
 - [x] AC14: Ignore is available at the far right of Following cards in every
   macOS layout and moves only the selected lane into Parking Lot through the
   shared attention mutation.
+- [x] AC15: A previously observed merged pull request whose deleted remote head
+  remains checked out locally produces one Go-owned warning in both macOS
+  surfaces; unrelated, unconfirmed, non-followed, and over-budget projects do
+  not produce warnings or broad merged-PR polling.
 
 ## Implementation Plan
 
@@ -206,6 +215,9 @@ make repository membership explicit and show outside activity separately.
    issue #9 / branch `GH-9` / a ready PR targeting `main`.
 7. Add a semantic Ignore-to-park action to the shared macOS card renderer and
    verify the identical behavior in the menu and detachable window.
+8. Persist transition-scoped merged-checkout confirmation, cap exact `gh`
+   requests at three followed candidates per refresh, and render the confirmed
+   advisory through the shared lane card without mutating the repository.
 
 ## Agent Team Plan
 
@@ -231,6 +243,8 @@ make repository membership explicit and show outside activity separately.
 - [x] T8: Run full validation and read-only verification.
 - [x] T9: Commit, push, open the ready PR, and record hosted evidence.
 - [x] T10: Add and test the far-right Following-card Ignore action.
+- [x] T11: Add and test conservative merged-checkout confirmation and the
+  shared read-only macOS warning.
 
 ## Validation Map
 
@@ -243,6 +257,7 @@ make repository membership explicit and show outside activity separately.
 | AC10-AC11 | deterministic seamless animation phase tests, Reduce Motion inspection, agent call-counter regressions, and follow/unfollow fast-cadence gating through the real mutation path |
 | AC12 | complete Go, race, Kit, Swift, Xcode, release, and diff-hygiene gates |
 | AC14 | Swift presentation and AppState parking regressions, Xcode build, and compact/detached visual smoke tests |
+| AC15 | Go transition, budget, persistence, remote-ref, and exact-PR confirmation tests; additive Swift decoding and shared-card presentation tests; live menu/window smoke tests |
 
 ## Reflection Notes
 
@@ -262,6 +277,9 @@ make repository membership explicit and show outside activity separately.
   it.
 - The macOS Ignore label is deliberately lane-scoped: it reuses parking and
   cannot mutate the independent Following membership of the repository.
+- Remembering the exact open PR before it disappears avoids broad merged-PR
+  discovery. Git can reject still-published branches before the scarce GitHub
+  confirmation, while a persisted negative outcome prevents repeated polling.
 
 ## Documentation Updates
 
@@ -282,6 +300,10 @@ multi-focus ready pull request to `main`.
 The followed-issue visibility and distinct lane-card identity follow-up is
 delivered on assigned issue #31 and exact branch `GH-31` as a ready pull request
 targeting `main`.
+
+The bounded merged-checkout warning is added to the same user-approved issue
+#31 / branch `GH-31` / ready PR #32 lane because it extends the shared Following
+card and evidence refresh behavior already under review.
 
 ## Evidence
 
@@ -322,3 +344,8 @@ targeting `main`.
 - All 75 Swift tests and the universal macOS build pass. Live checks at both the
   580-point detached width and 430-point compact width show Ignore at the
   far-right card edge; Parking Lot contains no Ignore actions.
+- Transition, exact-command, three-candidate budget, cache migration,
+  cold-start, non-followed, remote-present, non-merged, failure, and severity
+  tests cover the merged-checkout advisory without broad GitHub discovery.
+- The complete Go/race/release matrix, Linux amd64 build, all 76 Swift tests,
+  universal macOS build, all 15 Kit feature checks, and diff hygiene pass.

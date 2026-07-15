@@ -349,6 +349,14 @@ unmerged, and multi-worktree cases remain manual. This workflow never invokes
 `gh` or the GitHub API and never rebases, resets, stashes, deletes, commits,
 pushes, or changes GitHub state.
 
+For followed projects, Beacon also remembers open pull requests it has already
+observed. If a later scheduled evidence refresh finds that such a PR disappeared
+while its local feature branch remains checked out, Git first verifies that the
+remote head is gone. Beacon then uses one exact, cached `gh pr view` request to
+confirm the PR merged, with a hard limit of three confirmations per refresh.
+Confirmed cases show a read-only warning in both macOS surfaces; the warning
+opens Repository Sync but never checks out, pulls, or deletes anything.
+
 `beacon limits` is an explicit snapshot of the external rate-limited dependency
 Beacon currently uses: authenticated `gh`. One invocation runs one bounded
 `gh api rate_limit` request and shows GraphQL, REST Core, and Search usage,
@@ -497,6 +505,12 @@ Every Following card also places **Ignore** at its far-right edge. Ignore uses
 the same durable parking action as the CLI, so the selected lane leaves
 Following and appears in **Parking Lot** without unfollowing its project or
 deleting any lane state.
+When Beacon confirms that a previously observed PR merged, its remote head was
+deleted, and the same branch remains checked out locally, the card also shows a
+gold warning triangle beside its right-aligned actions. Dirty worktrees or
+commits newer than the recorded PR head use coral. Selecting the warning opens
+Repository Sync; it performs no repository mutation itself, and Ignore remains
+the far-right Following action.
 
 The menu-bar item is one colored beacon dome with the live in-progress lane
 count set directly inside it. Its width and numeral scale adapt through `99+`,
