@@ -61,9 +61,16 @@ final class BeaconApplicationModel {
 @MainActor
 final class DashboardWindowController: NSWindowController {
     static let preferredWidth: CGFloat = 580
+    static let defaultFrameAutosaveName: NSWindow.FrameAutosaveName = "BeaconDashboardWindow"
+    private let frameAutosaveName: NSWindow.FrameAutosaveName
     private var hasPositionedWindow = false
 
-    init(state: AppState, loginItem: LoginItemController) {
+    init(
+        state: AppState,
+        loginItem: LoginItemController,
+        frameAutosaveName: NSWindow.FrameAutosaveName? = nil
+    ) {
+        self.frameAutosaveName = frameAutosaveName ?? Self.defaultFrameAutosaveName
         let dashboard = MenuView(
             state: state,
             loginItem: loginItem,
@@ -88,19 +95,26 @@ final class DashboardWindowController: NSWindowController {
     }
 
     func show(activate: Bool) {
-        guard let window else { return }
-        if !hasPositionedWindow {
-            if let visibleFrame = (window.screen ?? NSScreen.main)?.visibleFrame {
-                window.setFrame(Self.initialFrame(in: visibleFrame), display: false)
-            } else {
-                window.center()
-            }
-            hasPositionedWindow = true
-        }
+        positionWindowIfNeeded()
         showWindow(nil)
-        window.makeKeyAndOrderFront(nil)
+        window?.makeKeyAndOrderFront(nil)
         if activate {
             NSApplication.shared.activate(ignoringOtherApps: true)
+        }
+    }
+
+    func positionWindowIfNeeded() {
+        guard let window else { return }
+        if !hasPositionedWindow {
+            if !window.setFrameUsingName(frameAutosaveName) {
+                if let visibleFrame = (window.screen ?? NSScreen.main)?.visibleFrame {
+                    window.setFrame(Self.initialFrame(in: visibleFrame), display: false)
+                } else {
+                    window.center()
+                }
+            }
+            _ = window.setFrameAutosaveName(frameAutosaveName)
+            hasPositionedWindow = true
         }
     }
 

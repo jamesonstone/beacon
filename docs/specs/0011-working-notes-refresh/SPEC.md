@@ -81,9 +81,9 @@ path.
 - Note edits save automatically three seconds after the most recent edit.
   Superseded saves are cancelled, while the explicit Save and Revert controls
   remain available.
-- The detachable dashboard first opens 580 points wide and fills the usable
-  screen height. User resizing remains authoritative after the first open, and
-  the native 430-by-540 menu-extra size is unchanged.
+- Without a saved frame, the detachable dashboard first opens 580 points wide
+  and fills the usable screen height. Later moves and resizes persist across
+  application relaunches, and the native 430-by-540 menu-extra size is unchanged.
 - The top-right refresh button is always visible, reports in-progress state,
   and coalesces repeated clicks through the existing agent queue.
 - A manual refresh bypasses normal remote-evidence age checks while retaining
@@ -126,9 +126,10 @@ path.
     honors the configured rate-limit reserve.
 12. Preserve scheduled cadence, subscription behavior, cached launch state,
     partial failures, and the read-only observation boundary.
-13. Size the detachable dashboard to a 580-point preferred width and the full
-    usable screen height on first open without changing the menu-extra frame or
-    overriding later user resizing.
+13. Restore the detachable dashboard's last saved position and size across
+    application relaunches. When no saved frame exists, use a 580-point
+    preferred width and the full usable screen height without changing the
+    menu-extra frame.
 
 ## Assumptions
 
@@ -159,9 +160,10 @@ path.
 - [x] AC8: App launch/subscription and scheduled observation remain cache-first
   and do not force GitHub calls.
 - [x] AC9: Go, race, Kit, Swift, Xcode, release, and diff-hygiene gates pass.
-- [x] AC10: The detachable dashboard first opens at the preferred width and
-  full usable screen height, Signal Notes starts expanded, and edits autosave
-  once after three idle seconds while remaining manually collapsible.
+- [x] AC10: The detachable dashboard restores its last saved frame or falls
+  back to the preferred width and full usable screen height, Signal Notes
+  starts expanded, and edits autosave once after three idle seconds while
+  remaining manually collapsible.
 
 ## Implementation Plan
 
@@ -205,7 +207,7 @@ path.
 | AC4-AC5 | Swift AppState/client/presentation tests plus Xcode build and shared-surface inspection |
 | AC6-AC8 | bare dashboard agent/fallback tests, refresh coalescing tests, explicit inactive-PR fixture, and subscription no-refresh regression |
 | AC9 | `make fmt-check vet test test-race build release-test macos-test macos-build`, `kit check --all`, and `git diff --check` |
-| AC10 | Swift frame calculation, default-presentation, and debounced-autosave tests plus Xcode build and shared-surface inspection |
+| AC10 | Swift saved-frame restoration, fallback frame calculation, default-presentation, and debounced-autosave tests plus Xcode build and shared-surface inspection |
 
 ## Reflection Notes
 

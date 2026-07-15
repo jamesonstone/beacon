@@ -123,6 +123,10 @@ make macos-test
 make macos-run
 ```
 
+`make macos-run` rebuilds Beacon, gracefully stops any currently running app
+instance, and then launches the new Debug bundle without creating a duplicate
+menubar item.
+
 Release packaging is validated with:
 
 ```bash
@@ -427,9 +431,10 @@ available, and rolls back only the affected project if a request fails.
 
 Beacon remains in the menu bar and also runs as a regular macOS application,
 so its neon-space icon is available in the Dock and Command-Tab when a camera
-notch or a crowded menu bar hides the menu item. Ordinary launches open one
-dashboard window at a focused 580-point width and the full usable screen
-height. Close the window to keep Beacon running quietly;
+notch or a crowded menu bar hides the menu item. Beacon restores the dashboard's
+last position and size across application relaunches. With no saved frame, it
+opens at a focused 580-point width and the full usable screen height. Close the
+window to keep Beacon running quietly;
 choose **Open Dashboard** in the top-right Settings menu or activate Beacon from the Dock or
 Command-Tab to reopen the same window.
 
