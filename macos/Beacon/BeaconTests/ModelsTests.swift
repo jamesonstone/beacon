@@ -137,6 +137,38 @@ final class ModelsTests: XCTestCase {
         XCTAssertFalse(DashboardLanePresentation.showsIgnoreAction(in: .quiet))
     }
 
+    func testMergedCheckoutWarningUsesConfirmedKindAndSeverity() {
+        var lane = TestSnapshots.lane(worktree: TestSnapshots.worktree)
+        XCTAssertFalse(DashboardLanePresentation.showsCheckoutWarning(for: lane))
+
+        lane.checkoutWarning = CheckoutWarningDetails(
+            kind: "merged_remote_branch_deleted",
+            severity: "warning",
+            pullRequestNumber: 32,
+            pullRequestURL: "https://github.com/owner/repo/pull/32",
+            branch: "GH-31",
+            base: "main",
+            mergedAt: "2026-07-15T15:00:00Z",
+            confirmedAt: "2026-07-15T16:00:00Z",
+            message: "Merged branch remains checked out."
+        )
+        XCTAssertTrue(DashboardLanePresentation.showsCheckoutWarning(for: lane))
+        XCTAssertFalse(DashboardLanePresentation.checkoutWarningIsCritical(for: lane))
+
+        lane.checkoutWarning = CheckoutWarningDetails(
+            kind: "merged_remote_branch_deleted",
+            severity: "critical",
+            pullRequestNumber: 32,
+            pullRequestURL: nil,
+            branch: "GH-31",
+            base: "main",
+            mergedAt: "2026-07-15T15:00:00Z",
+            confirmedAt: "2026-07-15T16:00:00Z",
+            message: "Local commits require review."
+        )
+        XCTAssertTrue(DashboardLanePresentation.checkoutWarningIsCritical(for: lane))
+    }
+
     func testDecodesCompleteSchemaVersionThree() throws {
         let data = Data(Self.snapshotJSON.utf8)
         let snapshot = try JSONDecoder().decode(BeaconSnapshot.self, from: data)
@@ -161,6 +193,8 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(snapshot.workingSet?.active, ["gh:owner/repo#42"])
         XCTAssertEqual(snapshot.lanes.first?.attention?.delta, "CI changed from pending to success")
         XCTAssertEqual(snapshot.lanes.first?.attention?.tags, ["manual test", "release"])
+        XCTAssertEqual(snapshot.lanes.first?.checkoutWarning?.pullRequestNumber, 42)
+        XCTAssertEqual(snapshot.lanes.first?.checkoutWarning?.severity, "warning")
     }
 
     func testDashboardViewModesHaveStablePresentationContracts() {
@@ -515,7 +549,8 @@ final class ModelsTests: XCTestCase {
         "progress": {"source": "kit", "feature_id": "0002", "feature": "Dashboard", "phase": "deliver", "summary": "Ready", "path": "docs/specs/0002/SPEC.md"},
         "signals": {"worktree": "not_local", "publication": "published", "pull_request": "open", "ci": "success", "review": "feedback_pending", "merge": "clean", "freshness": "current", "issue": "open"},
         "review_ready": true, "next_action": "address_review", "reasons": [], "warnings": [], "blockers": [], "updated_at": "2026-07-09T16:00:00Z",
-        "attention": {"state": "active", "pinned": true, "manual": false, "tags": ["manual test", "release"], "note": "test manually", "note_stale": true, "delta": "CI changed from pending to success", "previous": {}, "current": {}}
+        "attention": {"state": "active", "pinned": true, "manual": false, "tags": ["manual test", "release"], "note": "test manually", "note_stale": true, "delta": "CI changed from pending to success", "previous": {}, "current": {}},
+        "checkout_warning": {"kind": "merged_remote_branch_deleted", "severity": "warning", "pull_request_number": 42, "pull_request_url": "https://example.test/pull/42", "branch": "feature", "base": "main", "merged_at": "2026-07-09T15:30:00Z", "confirmed_at": "2026-07-09T16:00:00Z", "message": "Merged branch remains checked out."}
       }],
       "errors": []
     }

@@ -3,9 +3,11 @@ package agent
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/jamesonstone/beacon/internal/checkoutwarn"
 	"github.com/jamesonstone/beacon/internal/model"
 )
 
@@ -77,6 +79,44 @@ func TestCacheLoadUpgradesSchemaTwoSnapshotWithoutQuarantine(t *testing.T) {
 	matches, err := filepath.Glob(filepath.Join(directory, "*.corrupt-*"))
 	if err != nil || len(matches) != 0 {
 		t.Fatalf("legacy cache was quarantined: %v err=%v", matches, err)
+	}
+}
+
+func TestCacheLoadsVersionOneAndPersistsCheckoutConfirmations(t *testing.T) {
+	directory := t.TempDir()
+	cache := Cache{Directory: directory}
+	legacy := cachedRecord("owner/legacy-record", 2, model.TrackingTracked)
+	legacy.Version = 1
+	if err := cache.Write(ProjectRecord{
+		Version: CacheVersion, ProjectID: legacy.ProjectID, Revision: legacy.Revision,
+		Stage: legacy.Stage, UpdatedAt: legacy.UpdatedAt, Snapshot: legacy.Snapshot,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, ProjectFileName(legacy.ProjectID))
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.Replace(string(contents), `"version": 2`, `"version": 1`, 1))
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	records, failures := cache.LoadAll()
+	if len(failures) != 0 || len(records) != 1 || records[0].Version != CacheVersion {
+		t.Fatalf("records=%#v failures=%v", records, failures)
+	}
+
+	records[0].CheckoutConfirmations = []checkoutwarn.Confirmation{{
+		PullRequestNumber: 32, Branch: "GH-31", Base: "main", HeadOID: "head",
+		Status: checkoutwarn.StatusConfirmed,
+	}}
+	if err := cache.Write(records[0]); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, failures := cache.LoadAll()
+	if len(failures) != 0 || len(reloaded) != 1 || len(reloaded[0].CheckoutConfirmations) != 1 {
+		t.Fatalf("records=%#v failures=%v", reloaded, failures)
 	}
 }
 
