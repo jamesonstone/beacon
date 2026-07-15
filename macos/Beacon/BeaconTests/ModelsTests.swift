@@ -62,6 +62,34 @@ final class ModelsTests: XCTestCase {
         ))
     }
 
+    func testSignalNotesEditorEnablesLeanSpellCheckingAndPreservesIndicators() throws {
+        let textView = NSTextView()
+        textView.string = "mispelled note"
+
+        LiveMarkdownEditor.configureEditing(on: textView)
+
+        XCTAssertTrue(textView.isContinuousSpellCheckingEnabled)
+        XCTAssertFalse(textView.isGrammarCheckingEnabled)
+        XCTAssertFalse(textView.isAutomaticSpellingCorrectionEnabled)
+
+        let layoutManager = try XCTUnwrap(textView.layoutManager)
+        let spellingState = NSAttributedString.SpellingState.spelling.rawValue
+        layoutManager.addTemporaryAttribute(
+            .spellingState,
+            value: spellingState,
+            forCharacterRange: NSRange(location: 0, length: 9)
+        )
+
+        LiveMarkdownStyler.apply(to: try XCTUnwrap(textView.textStorage))
+
+        let preservedState = layoutManager.temporaryAttribute(
+            .spellingState,
+            atCharacterIndex: 0,
+            effectiveRange: nil
+        ) as? NSNumber
+        XCTAssertEqual(preservedState?.intValue, spellingState)
+    }
+
     func testUpToDateBacksplashRequiresNoWorkAndNoLoadingProjects() {
         XCTAssertTrue(UpToDatePresentation.shouldShow(inProgressCount: 0, loadingProjectCount: 0))
         XCTAssertFalse(UpToDatePresentation.shouldShow(inProgressCount: 1, loadingProjectCount: 0))

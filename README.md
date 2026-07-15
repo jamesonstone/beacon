@@ -509,7 +509,8 @@ and every macOS delete action requires the same irreversible-action confirmation
 The switcher uses an opaque dark backdrop so commands remain readable over the
 dashboard. The directly editable native editor applies headings, emphasis,
 lists, quotes, inline code, links, and dividers while retaining exact plain-text
-source.
+source. It also uses the user's macOS dictionaries for spelling underlines while
+leaving grammar checking and automatic spelling correction disabled.
 
 Both surfaces share one draft and three-second autosave queue. A switch or close
 flushes dirty content first and stays on the current tab if saving fails. Use
