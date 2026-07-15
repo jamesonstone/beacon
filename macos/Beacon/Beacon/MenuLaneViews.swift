@@ -9,7 +9,7 @@ extension MenuView {
                 ForEach(state.projectGroups(for: lanes)) { project in
                     projectHeader(project, accent: accent)
                     ForEach(project.lanes) { lane in
-                        laneCard(lane, accent: accent)
+                        laneCard(lane)
                     }
                 }
             }
@@ -40,15 +40,16 @@ extension MenuView {
         .padding(.top, 2)
     }
 
-    func laneCard(_ lane: WorkLane, accent: Color, compact: Bool = false) -> some View {
-        laneRow(lane, accent: accent, compact: compact)
+    func laneCard(_ lane: WorkLane, compact: Bool = false) -> some View {
+        laneRow(lane, compact: compact)
             .contentShape(RoundedRectangle(cornerRadius: 9))
             .onTapGesture { state.open(lane) }
             .contextMenu { laneActions(lane) }
     }
 
-    func laneRow(_ lane: WorkLane, accent: Color, compact: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
+    func laneRow(_ lane: WorkLane, compact: Bool = false) -> some View {
+        let accent = DashboardLanePresentation.identity(for: lane).accent.color
+        return VStack(alignment: .leading, spacing: 5) {
             HStack {
                 if compact {
                     projectGlyph(lane, accent: accent)

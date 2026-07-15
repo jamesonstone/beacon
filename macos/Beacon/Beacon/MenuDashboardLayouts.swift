@@ -285,7 +285,7 @@ extension MenuView {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(alignment: .top, spacing: 9) {
                         ForEach(lanes) { lane in
-                            laneCard(lane, accent: accent, compact: true)
+                            laneCard(lane, compact: true)
                                 .frame(width: 248)
                         }
                     }
@@ -301,7 +301,7 @@ extension MenuView {
             ScrollView {
                 LazyVStack(spacing: 8) {
                     ForEach(lanes) { lane in
-                        laneCard(lane, accent: accent, compact: true)
+                        laneCard(lane, compact: true)
                     }
                     if lanes.isEmpty {
                         Text("No lanes")

@@ -112,6 +112,24 @@ final class ModelsTests: XCTestCase {
         )
     }
 
+    func testDashboardLaneIdentitiesUseDistinctPaletteAccents() {
+        let local = TestSnapshots.lane(worktree: TestSnapshots.worktree)
+        let issue = TestSnapshots.lane(issue: TestSnapshots.issue)
+        let pullRequest = TestSnapshots.lane(
+            pullRequest: TestSnapshots.pullRequest,
+            issue: TestSnapshots.issue,
+            worktree: TestSnapshots.worktree
+        )
+
+        XCTAssertEqual(DashboardLanePresentation.identity(for: local), .local)
+        XCTAssertEqual(DashboardLanePresentation.identity(for: issue), .issue)
+        XCTAssertEqual(DashboardLanePresentation.identity(for: pullRequest), .pullRequest)
+        XCTAssertEqual(
+            Set(DashboardLaneIdentity.allCases.map(\.accent)).count,
+            DashboardLaneIdentity.allCases.count
+        )
+    }
+
     func testDecodesCompleteSchemaVersionThree() throws {
         let data = Data(Self.snapshotJSON.utf8)
         let snapshot = try JSONDecoder().decode(BeaconSnapshot.self, from: data)
