@@ -50,6 +50,14 @@ references:
     read_policy: must
     used_for: direct activity-tab follow-up delivery
     status: active
+  - id: issue-27
+    name: Improve Beacon visibility and Signal Notes editing
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/27
+    relation: supports
+    read_policy: must
+    used_for: age-independent followed pull-request visibility follow-up
+    status: active
   - id: pull-request-8
     name: Refine Beacon source structure and dashboard navigation
     type: github-pull-request
@@ -91,7 +99,8 @@ presentation path must become lane-centered and local-first.
 
 ## Clarifications
 
-- Authored open PRs enter the working set only when recently active or pinned.
+- Open PRs allowed by the configured GitHub scope remain in the working set for
+  followed projects regardless of age; explicit parking can still hide a lane.
 - Design, research, and planning work without Git evidence uses a manually
   created lane; no Codex task API is required.
 - GitHub evidence may be 30–60 minutes stale. Local evidence remains
@@ -120,8 +129,9 @@ presentation path must become lane-centered and local-first.
 4. Add manual lanes with stable `manual:<id>` identities and no required Git or
    GitHub fields.
 5. Candidate lanes include dirty/conflicted worktrees, unpublished/diverged
-   branches, recent local commits, recent authored PR activity, pins, and
-   manual lanes. Old inactive authored PRs remain out unless pinned.
+   branches, recent local commits, every open in-scope PR for followed
+   projects, pins, and manual lanes. Open PR lanes remain active regardless of
+   age unless explicitly parked.
 6. Reconcile parked lanes only against their own observation. Material
    lane-specific change may reactivate with an explainable reason; unrelated
    project activity may not.
@@ -140,13 +150,15 @@ presentation path must become lane-centered and local-first.
 13. Frequent scheduled observation must not fetch. Git fetch occurs only for
     explicit refresh or a slow active-lane cadence.
 14. Under `github_scope: mine`, use one global authored-PR search and at most one
-    assigned-issue search, filter to discovered repositories, and enrich only
-    active/recent/pinned PRs. Batch PR enrichment when practical.
+    assigned-issue search, filter to discovered repositories, and enrich every
+    open authored PR in followed projects plus recent/pinned outside work.
+    Batch PR enrichment when practical.
 15. Default remote evidence age is 45 minutes. Exact cache age is exposed;
     existing generous rate reserves remain enforced.
-16. Parked and inactive remote work receives no review-thread/check enrichment
-    in the default path. Full enrichment remains available through explicit
-    diagnostics or one-lane refresh.
+16. Inactive remote work outside Following receives no review-thread/check
+    enrichment in the default path. Open in-scope PRs in followed projects are
+    enriched regardless of age; full outside enrichment remains available
+    through explicit diagnostics or one-lane refresh.
 17. Migrate existing project tracking intent without deleting config or state.
     Existing muted project lanes begin parked; explicit configuration remains
     intact and reversible.
@@ -179,7 +191,9 @@ presentation path must become lane-centered and local-first.
 
 - Strict JSON remains sufficient because Beacon stores only current and
   last-seen observations, not an event history.
-- Six hours is the default automatic recent-activity window. A live 80-project
+- Six hours is the default automatic recent-activity window for local and
+  outside-project evidence, not an expiration for open PRs in followed
+  projects. A live 80-project
   rollout established that seven days admitted 49 lanes and 48 hours still
   admitted 12, while a work-session-sized window meets the three-to-eight lane
   objective. Pins and explicit resume preserve longer-lived attention.
@@ -199,8 +213,8 @@ presentation path must become lane-centered and local-first.
   seen, and park state.
 - [x] AC3: A parked lane ignores unrelated repository activity and resumes only
   for its own material delta or explicit action.
-- [x] AC4: A recent authored PR appears while an inactive authored PR remains
-  absent unless pinned.
+- [x] AC4: Every open in-scope PR in a followed project appears regardless of
+  age until it closes or its lane is explicitly parked.
 - [x] AC5: A manual non-Git lane can be created, noted, parked, resumed, seen,
   and removed from active attention without affecting repositories.
 - [x] AC6: Evidence deltas are concrete and deterministic; notes visibly become
@@ -281,12 +295,13 @@ presentation path must become lane-centered and local-first.
 - Lane attention must override legacy project tracking for scheduler cadence;
   otherwise resuming a lane inside an untracked project inherits the old slow
   project probe interval.
-- Automatic candidate entries are removed when they become inactive so hidden
-  historical work cannot retain the fast cadence. Notes, pins, explicit
-  resume, and parking make attention durable.
-- Pinned inactive remote PRs remain represented from local lane state even when
-  default recent-only GitHub enrichment omits them. Explicit lane refresh can
-  restore current remote detail.
+- Automatic non-PR candidate entries are removed when they become inactive so
+  hidden historical local work cannot retain the fast cadence. Open PRs in
+  followed projects remain active until closed or explicitly parked; notes,
+  pins, explicit resume, and parking keep the remaining attention durable.
+- Pinned remote PRs remain represented from local lane state when enrichment is
+  temporarily unavailable. The normal followed-project path now enriches open
+  PRs regardless of age, so a pin is not required for visibility.
 - Schema upgrades must migrate last-good per-project caches in memory. Rejecting
   schema-v2 cache files as corrupt forced an unnecessary fleet-wide startup
   rebuild and erased the cache-first experience this feature depends on.
@@ -295,10 +310,12 @@ presentation path must become lane-centered and local-first.
   invisible until the scheduled 45-minute cache age expires.
 - The simplest conservative remote policy is constant-cost discovery: the
   default scope always uses two global searches, filters locally, and enriches
-  only recent matches. Explicit diagnostics opt into inactive PR enrichment.
+  every open match in followed projects while retaining the recent cutoff for
+  outside projects. Explicit diagnostics opt into all inactive enrichment.
 - Live rollout evidence reduced the automatic recent window to six hours,
-  excludes clean base branches, and parks stale dirty work. This keeps old
-  unsaved evidence recoverable without presenting it as current focus.
+  excludes clean base branches, and parks stale dirty work. Open PRs in
+  followed projects are the deliberate exception because they remain current
+  work until closed or explicitly parked.
 - A shared gear menu recovers the fixed footer's height without hiding primary
   evidence. A separate persisted mode button keeps layout selection discoverable
   while stacked, horizontal-tile, and kanban views remain policy-free.
@@ -324,6 +341,10 @@ until prerequisite PR #4 lands.
 The later direct activity-tab refinement continues on the explicitly approved
 issue #7 / branch `GH-7` / ready PR #8 lane alongside the source-structure
 cleanup, with a separate focused feature commit and updated delivery evidence.
+
+The July 15 open-PR visibility correction is delivered as a focused bug-fix
+commit on assigned issue #27 and exact branch `GH-27`, within the user-approved
+multi-focus ready pull request to `main`.
 
 ## Evidence
 
@@ -367,3 +388,11 @@ cleanup, with a separate focused feature commit and updated delivery evidence.
 - A live schema-v3 rollout exposed and verified the v2 cache migration path;
   `TestCacheLoadUpgradesSchemaTwoSnapshotWithoutQuarantine` prevents future
   startup rebuild regressions.
+- A July 15 live reproduction confirmed `lsmc-bio/labcore-ui` was followed and
+  PR #31 was open, yet its fourteen-hour age left the working set empty.
+- Regression coverage now verifies background inactive-PR enrichment for
+  followed projects, age-independent Active membership, and removal after the
+  PR closes. The complete Go/race/macOS gate, Linux build, all 15 Kit specs,
+  and diff hygiene pass.
+- Restarting the rebuilt helper and refreshing `labcore-ui` produced one Active
+  lane for PR #31 in the shared agent snapshot and terminal Following output.

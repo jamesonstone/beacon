@@ -338,11 +338,10 @@ state.
   `gh api rate_limit` request and reports GraphQL, REST Core, and Search without
   initiating any additional API operation.
 - Under the default `mine` scope, one due-project batch performs one global
-  authored-PR search and one global assigned-issue search, then enriches only
-  matching authored PRs with recent activity. Explicit diagnostics may enrich
-  all inactive work; forced dashboard refreshes limit inactive-PR enrichment
-  to followed repositories while retaining one batched collection. Quiet
-  projects still share recent batch evidence. The `all` scope
+  authored-PR search and one global assigned-issue search, then enriches every
+  open authored PR in followed projects plus matching recent outside activity.
+  Explicit diagnostics may enrich all inactive work while retaining one
+  batched collection. Quiet projects still share recent batch evidence. The `all` scope
   remains an explicitly more expensive repository-scoped mode.
 - Following mutations use cached complete evidence and never require a
   synchronous GitHub probe. The next scheduled non-followed probe establishes
@@ -477,7 +476,9 @@ separate compact view control offers a persisted stacked list, horizontal tile
 strips, and an experimental state-column kanban board over the same ordered
 lanes. A compact peer tab row presents Following by default, then Parking Lot,
 Recently Updated, and Quiet. Following omits parked lanes; the other tabs render
-their shared Go categories without reimplementing evidence policy. Settings
+their shared Go categories without reimplementing evidence policy. Every open
+in-scope PR for a followed project remains in Following regardless of age until
+it closes or is explicitly parked. Settings
 must not duplicate primary Recently Updated or Quiet navigation. Tab and view
 selection are presentation state only. Dashboard destinations use one mutually
 exclusive presentation state: a destination control opens its page on first

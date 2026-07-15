@@ -245,12 +245,13 @@ stored with user-only permissions under `$HOME/.cache/beacon/github/`.
 
 With the default `github_scope: mine`, every due-project batch uses one global
 authored-PR search and one global assigned-issue search, independent of the
-number of configured repositories. Beacon enriches only matching PRs with
-activity in the last six hours during background collection; explicit scans
-and lane refreshes can inspect older work. Muted projects share that same
-batched evidence instead of polling each repository. `github_scope: all`
-is intentionally more expensive because it must enumerate repository-scoped
-work.
+number of configured repositories. Beacon enriches every open authored PR in a
+followed project during background collection, regardless of age, while the
+six-hour activity cutoff still limits outside-project enrichment. Explicit
+scans and lane refreshes can inspect older outside work. Muted projects share
+that same batched evidence instead of polling each repository.
+`github_scope: all` is intentionally more expensive because it must enumerate
+repository-scoped work.
 
 ## Everyday Use
 
@@ -352,10 +353,10 @@ or on a schedule; JSON output is available for the bundled macOS helper.
 
 The default working-set view groups lanes as **Active**, **Waiting**,
 **Recently Active**, and **Parked**. Dirty or unpublished work, recent local
-commits, recent authored PRs, pinned lanes, and manual lanes can enter the
-working set. Old authored PRs stay out unless pinned. `beacon lanes --parked`
-reveals parked lanes without allowing a large historical inventory to consume
-the primary view.
+commits, open in-scope PRs in followed projects, pinned lanes, and manual lanes
+can enter the working set. Open PRs remain Active regardless of age until they
+close or are explicitly parked. `beacon lanes --parked` reveals parked lanes
+without allowing other historical inventory to consume the primary view.
 
 Lane notes and tags are optional memory cues, never status truth. Beacon stores them
 with attention and last-seen observations in the user-only strict JSON file
@@ -394,6 +395,9 @@ when its project already has active work. JSON remains complete regardless of
 these presentation filters.
 
 Following is an explicit repository-level choice, independent of lane attention.
+Every open PR allowed by `github_scope` for a followed project remains visible
+in Following regardless of its last update time; Park is the explicit way to
+hide that lane without unfollowing its project.
 Use `beacon select` (or the compatible bare `beacon projects`) for a colorful,
 searchable multi-select of every discovered project. Followed projects start
 highlighted; use the arrow keys to scroll, Space to toggle a project, `/` to

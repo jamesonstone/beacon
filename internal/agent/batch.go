@@ -112,14 +112,14 @@ func (e *Engine) runCollectedBatch(
 		return scanRepositories[i].GitHub < scanRepositories[j].GitHub
 	})
 	scanContext := ctx
-	if force {
-		followed := make([]string, 0, len(scanRepositories))
-		for _, repository := range scanRepositories {
-			state := states[repository.GitHub]
-			if state != nil && (!state.muted || len(scanRepositories) == 1) {
-				followed = append(followed, repository.GitHub)
-			}
+	followed := make([]string, 0, len(scanRepositories))
+	for _, repository := range scanRepositories {
+		state := states[repository.GitHub]
+		if state != nil && (!state.muted || force && len(scanRepositories) == 1) {
+			followed = append(followed, repository.GitHub)
 		}
+	}
+	if len(followed) > 0 {
 		scanContext = githubscan.WithInactivePullRequestRepositories(scanContext, followed)
 	}
 	snapshots, err := e.ScanBatch(scanContext, scanRepositories, force, func(projectID, stage string) {

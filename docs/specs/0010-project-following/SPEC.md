@@ -26,6 +26,14 @@ references:
     read_policy: must
     used_for: requirements and delivery lane
     status: active
+  - id: issue-27
+    name: Improve Beacon visibility and Signal Notes editing
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/27
+    relation: supports
+    read_policy: must
+    used_for: age-independent followed pull-request visibility follow-up
+    status: active
   - id: constitution
     name: Beacon constitution
     type: doc
@@ -74,9 +82,9 @@ make repository membership explicit and show outside activity separately.
 - New repositories discovered after state initialization begin Quiet.
 - Existing v1 project-selection state migrates to the explicit model without
   dropping its current followed/unfollowed choices.
-- Lane attention remains independent. Following renders the existing lane
-  working set for followed repositories; outside projects remain repository
-  cards until followed.
+- Lane attention remains independent. Following renders every open in-scope PR
+  lane plus the existing local lane working set for followed repositories;
+  outside projects remain repository cards until followed.
 - The neon wordmark animation is presentation-only and becomes static when the
   user enables Reduce Motion.
 
@@ -104,9 +112,10 @@ make repository membership explicit and show outside activity separately.
    Following.
 9. Replace the macOS dashboard tabs with `Following`, `Recently Updated`, and
    `Quiet`; Following is the default and each tab shows its project count.
-10. Following renders the existing focused lane layouts. Recently Updated and
-    Quiet render searchable project cards with a nonblocking Follow action and
-    visible queued state.
+10. Following renders the existing focused lane layouts and keeps every open
+    in-scope PR for a followed project visible regardless of age unless its lane
+    is explicitly parked. Recently Updated and Quiet render searchable project
+    cards with a nonblocking Follow action and visible queued state.
 11. Keep project-selection management in Settings, relabeled for Following,
     with explicit Follow and Stop Following actions.
 12. Remove auto-reactivation banners and terminology from the current user
@@ -117,7 +126,8 @@ make repository membership explicit and show outside activity separately.
 14. Use the same Go snapshot and mutation authority in the menu surface and
     detachable dashboard. Swift must not infer material activity.
 15. Preserve conservative probe cadence, GitHub request batching, rate-budget
-    reserves, lane policy, and the read-only scanning boundary.
+    reserves, and the read-only scanning boundary while enriching all open
+    in-scope PRs for followed projects.
 16. Reserve `Quiet` for non-followed projects without recent activity. Label
     hidden idle lanes inside followed repositories as `Idle Following Projects`.
 
@@ -149,8 +159,9 @@ make repository membership explicit and show outside activity separately.
   Following, Recently Updated, and Quiet with accurate counts.
 - [x] AC7: Recently Updated and Quiet are searchable, show project identity and
   evidence age, and can Follow a project without navigating elsewhere.
-- [x] AC8: Existing focused lane layouts remain available inside Following and
-  outside project activity does not enter them until followed.
+- [x] AC8: Existing focused lane layouts remain available inside Following,
+  every open in-scope PR for a followed project remains visible regardless of
+  age, and outside project activity does not enter until followed.
 - [x] AC9: `beacon follow` / `unfollow` work and existing `track` / `untrack`
   aliases retain behavior without duplicating authority.
 - [x] AC10: The Beacon wordmark visibly cycles through the existing neon
@@ -160,8 +171,8 @@ make repository membership explicit and show outside activity separately.
 - [x] AC12: Go, race, Kit, Swift, Xcode, migration, output, and release gates
   pass with no schema or cache regression.
 - [x] AC13: Following excludes every non-followed repository lane without
-  deleting durable lane state, and idle followed inventory is never labeled
-  Quiet.
+  deleting durable lane state, keeps followed open PR lanes visible until
+  closed or explicitly parked, and never labels idle followed inventory Quiet.
 
 ## Implementation Plan
 
@@ -223,6 +234,9 @@ make repository membership explicit and show outside activity separately.
 - Keeping tracked/untracked protocol and JSON fields for one compatibility
   generation lets existing clients and scripts upgrade without preserving the
   old user-facing abstraction.
+- Following is durable user intent, so an open PR in a followed project cannot
+  disappear merely because its last GitHub update crossed the recent-activity
+  window. Explicit parking remains the lane-level way to hide it.
 
 ## Documentation Updates
 
@@ -235,6 +249,10 @@ make repository membership explicit and show outside activity separately.
 The user explicitly requested a new issue, branch, and pull request. Issue #9
 is assigned to Jameson Stone. Branch `GH-9` starts exactly at current
 `origin/main`; ready PR #10 targets `main`.
+
+The July 15 open-PR visibility correction is delivered as a focused bug-fix
+commit on assigned issue #27 and exact branch `GH-27`, within the user-approved
+multi-focus ready pull request to `main`.
 
 ## Evidence
 
@@ -257,3 +275,11 @@ is assigned to Jameson Stone. Branch `GH-9` starts exactly at current
   three repair passes, including ten consecutive cadence-regression runs.
 - Ready PR [#10](https://github.com/jamesonstone/beacon/pull/10) is assigned to
   Jameson Stone, closes issue #9, and records the hosted CI evidence.
+- A July 15 live reproduction confirmed `labcore-ui` remained one of 30
+  followed projects while its open PR #31 was absent after crossing the
+  six-hour recent window.
+- Background batch and working-set regression tests now keep followed open PRs
+  visible regardless of age and remove them after closure. The complete
+  Go/race/macOS gate, Linux build, all 15 Kit specs, and diff hygiene pass.
+- A rebuilt-agent refresh then rendered PR #31 as one Active `labcore-ui` lane
+  in the same shared snapshot consumed by the CLI and both macOS surfaces.
