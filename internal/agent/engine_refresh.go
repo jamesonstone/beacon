@@ -155,6 +155,7 @@ func (e *Engine) nextBatch(scanID string, repositories []config.Repository) (map
 		e.active = nil
 		e.scanID = ""
 		e.mutex.Unlock()
+		e.clearCheckoutConfirmationBudget(scanID)
 		e.publish(EventScanCompleted, scanID, "", 0, "ready", "", pointer(e.Snapshot()))
 		return nil, false
 	}

@@ -147,6 +147,18 @@ type PullRequest struct {
 	ClosingIssues  []Issue      `json:"closing_issues"`
 }
 
+type CheckoutWarning struct {
+	Kind              string    `json:"kind"`
+	Severity          string    `json:"severity"`
+	PullRequestNumber int       `json:"pull_request_number"`
+	PullRequestURL    string    `json:"pull_request_url,omitempty"`
+	Branch            string    `json:"branch"`
+	Base              string    `json:"base"`
+	MergedAt          time.Time `json:"merged_at"`
+	ConfirmedAt       time.Time `json:"confirmed_at"`
+	Message           string    `json:"message"`
+}
+
 type Signals struct {
 	Worktree    WorktreeState    `json:"worktree"`
 	Publication PublicationState `json:"publication"`
@@ -159,23 +171,24 @@ type Signals struct {
 }
 
 type Lane struct {
-	ID          string         `json:"id"`
-	Repository  string         `json:"repository"`
-	GitHub      string         `json:"github"`
-	Base        string         `json:"base"`
-	Branch      string         `json:"branch"`
-	Worktree    *Worktree      `json:"worktree,omitempty"`
-	PullRequest *PullRequest   `json:"pull_request,omitempty"`
-	Issue       *Issue         `json:"issue,omitempty"`
-	Progress    *Progress      `json:"progress,omitempty"`
-	Signals     Signals        `json:"signals"`
-	ReviewReady bool           `json:"review_ready"`
-	NextAction  Action         `json:"next_action"`
-	Reasons     []string       `json:"reasons"`
-	Warnings    []string       `json:"warnings"`
-	Blockers    []string       `json:"blockers"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	Attention   *LaneAttention `json:"attention,omitempty"`
+	ID              string           `json:"id"`
+	Repository      string           `json:"repository"`
+	GitHub          string           `json:"github"`
+	Base            string           `json:"base"`
+	Branch          string           `json:"branch"`
+	Worktree        *Worktree        `json:"worktree,omitempty"`
+	PullRequest     *PullRequest     `json:"pull_request,omitempty"`
+	Issue           *Issue           `json:"issue,omitempty"`
+	Progress        *Progress        `json:"progress,omitempty"`
+	Signals         Signals          `json:"signals"`
+	ReviewReady     bool             `json:"review_ready"`
+	NextAction      Action           `json:"next_action"`
+	Reasons         []string         `json:"reasons"`
+	Warnings        []string         `json:"warnings"`
+	Blockers        []string         `json:"blockers"`
+	UpdatedAt       time.Time        `json:"updated_at"`
+	Attention       *LaneAttention   `json:"attention,omitempty"`
+	CheckoutWarning *CheckoutWarning `json:"checkout_warning,omitempty"`
 }
 
 type ScanError struct {

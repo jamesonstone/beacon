@@ -11,21 +11,23 @@ import (
 	"sort"
 	"time"
 
+	"github.com/jamesonstone/beacon/internal/checkoutwarn"
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/scan"
 	"github.com/jamesonstone/beacon/internal/tracking"
 )
 
-const CacheVersion = 1
+const CacheVersion = 2
 
 type ProjectRecord struct {
-	Version     int            `json:"version"`
-	ProjectID   string         `json:"project_id"`
-	Revision    uint64         `json:"revision"`
-	Stage       string         `json:"stage"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	LastProbeAt time.Time      `json:"last_probe_at,omitempty"`
-	Snapshot    model.Snapshot `json:"snapshot"`
+	Version               int                         `json:"version"`
+	ProjectID             string                      `json:"project_id"`
+	Revision              uint64                      `json:"revision"`
+	Stage                 string                      `json:"stage"`
+	UpdatedAt             time.Time                   `json:"updated_at"`
+	LastProbeAt           time.Time                   `json:"last_probe_at,omitempty"`
+	CheckoutConfirmations []checkoutwarn.Confirmation `json:"checkout_confirmations,omitempty"`
+	Snapshot              model.Snapshot              `json:"snapshot"`
 }
 
 type Cache struct {
@@ -128,9 +130,10 @@ func (c Cache) load(path string) (ProjectRecord, error) {
 	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
 		return ProjectRecord{}, fmt.Errorf("decode project cache %s: trailing JSON", path)
 	}
-	if record.Version != CacheVersion || record.ProjectID == "" {
+	if (record.Version != 1 && record.Version != CacheVersion) || record.ProjectID == "" {
 		return ProjectRecord{}, fmt.Errorf("validate project cache %s: unsupported or incomplete record", path)
 	}
+	record.Version = CacheVersion
 	switch record.Snapshot.SchemaVersion {
 	case model.SchemaVersion:
 	case 2:

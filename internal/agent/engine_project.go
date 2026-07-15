@@ -55,5 +55,5 @@ func (e *Engine) refreshProject(ctx context.Context, scanID string, repository c
 		e.failProject(scanID, repository.GitHub, revision, err)
 		return
 	}
-	e.finishScannedProject(scanID, repository, revision, record, cached, muted, entry, changedProbe, snapshot)
+	e.finishScannedProject(ctx, scanID, repository, revision, record, cached, muted, entry, changedProbe, snapshot)
 }

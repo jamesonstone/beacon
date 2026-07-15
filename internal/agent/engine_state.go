@@ -21,6 +21,7 @@ func (e *Engine) completeScan(scanID string) {
 		e.scanID = ""
 	}
 	e.mutex.Unlock()
+	e.clearCheckoutConfirmationBudget(scanID)
 	e.publish(EventScanCompleted, scanID, "", 0, "ready", "", pointer(e.Snapshot()))
 }
 
