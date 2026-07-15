@@ -150,6 +150,7 @@ struct WorkLane: Codable, Equatable, Identifiable {
     let blockers: [String]
     let updatedAt: String
     var attention: LaneAttentionDetails? = nil
+    var checkoutWarning: CheckoutWarningDetails? = nil
 
     enum CodingKeys: String, CodingKey {
         case id, repository, github, base, branch, worktree, issue, progress, signals, reasons, warnings, blockers, attention
@@ -157,6 +158,27 @@ struct WorkLane: Codable, Equatable, Identifiable {
         case reviewReady = "review_ready"
         case nextAction = "next_action"
         case updatedAt = "updated_at"
+        case checkoutWarning = "checkout_warning"
+    }
+}
+
+struct CheckoutWarningDetails: Codable, Equatable {
+    let kind: String
+    let severity: String
+    let pullRequestNumber: Int
+    let pullRequestURL: String?
+    let branch: String
+    let base: String
+    let mergedAt: String
+    let confirmedAt: String
+    let message: String
+
+    enum CodingKeys: String, CodingKey {
+        case kind, severity, branch, base, message
+        case pullRequestNumber = "pull_request_number"
+        case pullRequestURL = "pull_request_url"
+        case mergedAt = "merged_at"
+        case confirmedAt = "confirmed_at"
     }
 }
 

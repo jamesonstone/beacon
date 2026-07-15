@@ -168,6 +168,14 @@ enum DashboardLanePresentation {
         tab == .following
     }
 
+    static func showsCheckoutWarning(for lane: WorkLane) -> Bool {
+        lane.checkoutWarning?.kind == "merged_remote_branch_deleted"
+    }
+
+    static func checkoutWarningIsCritical(for lane: WorkLane) -> Bool {
+        lane.checkoutWarning?.severity == "critical"
+    }
+
     static func identity(for lane: WorkLane) -> DashboardLaneIdentity {
         if lane.pullRequest != nil {
             return .pullRequest

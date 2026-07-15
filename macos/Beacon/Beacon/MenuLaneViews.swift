@@ -67,6 +67,9 @@ extension MenuView {
                 } else if !lane.branch.isEmpty {
                     Text(lane.branch).font(BeaconTypography.medium(9)).foregroundStyle(accent).lineLimit(1)
                 }
+                if DashboardLanePresentation.showsCheckoutWarning(for: lane) {
+                    checkoutWarningButton(lane)
+                }
                 if DashboardLanePresentation.showsIgnoreAction(in: selectedDashboardTab) {
                     ignoreButton(lane, compact: compact)
                 }
@@ -126,6 +129,25 @@ extension MenuView {
         .help("Move to Parking Lot")
         .accessibilityLabel("Ignore \(workItemTitle(lane))")
         .accessibilityHint("Moves this lane to the Parking Lot")
+    }
+
+    func checkoutWarningButton(_ lane: WorkLane) -> some View {
+        let critical = DashboardLanePresentation.checkoutWarningIsCritical(for: lane)
+        let accent = critical ? BeaconPalette.coral : BeaconPalette.gold
+        return Button {
+            showRepositorySync()
+        } label: {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(BeaconTypography.semibold(10))
+                .padding(5)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(accent)
+        .background(BeaconPalette.softGradient(accent), in: Circle())
+        .overlay { Circle().strokeBorder(accent.opacity(0.48), lineWidth: 0.7) }
+        .help(lane.checkoutWarning?.message ?? "Merged branch remains checked out locally")
+        .accessibilityLabel("Merged branch warning for \(workItemTitle(lane))")
+        .accessibilityHint("Opens Repository Sync without changing the repository")
     }
 
     func projectGlyph(_ lane: WorkLane, accent: Color) -> some View {
