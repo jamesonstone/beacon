@@ -202,6 +202,7 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(DependencyLimitPresentation.level(percent: 0, hasUsage: false), .unmeasured)
     }
 
+    @MainActor
     func testMenuBarBeaconDomeAdaptsToLiveCountAndRemainsAccessible() {
         XCTAssertEqual(BeaconMenuBarPresentation.displayCount(-1), "0")
         XCTAssertEqual(BeaconMenuBarPresentation.displayCount(1), "1")
@@ -214,6 +215,12 @@ final class ModelsTests: XCTestCase {
             BeaconMenuBarPresentation.countFontSize(1),
             BeaconMenuBarPresentation.countFontSize(120)
         )
+        let singleDigitImage = BeaconMenuBarIconRenderer.image(count: 4)
+        let doubleDigitImage = BeaconMenuBarIconRenderer.image(count: 30)
+        XCTAssertEqual(singleDigitImage.size, NSSize(width: 20, height: 18))
+        XCTAssertEqual(doubleDigitImage.size, NSSize(width: 24, height: 18))
+        XCTAssertFalse(singleDigitImage.isTemplate)
+        XCTAssertNotNil(singleDigitImage.tiffRepresentation)
         XCTAssertEqual(BeaconMenuBarPresentation.accessibilityText(0), "Beacon, no items in progress")
         XCTAssertEqual(BeaconMenuBarPresentation.accessibilityText(3), "Beacon, 3 items in progress")
     }

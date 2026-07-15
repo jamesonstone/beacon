@@ -38,6 +38,55 @@ final class ApplicationLifecycleTests: XCTestCase {
         XCTAssertEqual(frame.minY, visibleFrame.minY)
     }
 
+    func testDashboardRestoresSavedFrameAndRegistersAutosaveName() throws {
+        let autosaveName: NSWindow.FrameAutosaveName = "BeaconTests.\(UUID().uuidString)"
+        let visibleFrame = try XCTUnwrap(NSScreen.main?.visibleFrame)
+        let savedFrame = NSRect(
+            x: visibleFrame.minX + 60,
+            y: visibleFrame.minY + 70,
+            width: min(540, visibleFrame.width - 120),
+            height: min(680, visibleFrame.height - 140)
+        )
+        let seedWindow = NSWindow(
+            contentRect: savedFrame,
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        let expectedFrame = seedWindow.frame
+        seedWindow.saveFrame(usingName: autosaveName)
+
+        let controller = testDashboardController(frameAutosaveName: autosaveName)
+        defer {
+            _ = controller.window?.setFrameAutosaveName("")
+            NSWindow.removeFrame(usingName: autosaveName)
+        }
+        controller.positionWindowIfNeeded()
+
+        let restoredWindow = try XCTUnwrap(controller.window)
+        XCTAssertEqual(restoredWindow.frame.origin.x, expectedFrame.origin.x, accuracy: 0.5)
+        XCTAssertEqual(restoredWindow.frame.origin.y, expectedFrame.origin.y, accuracy: 0.5)
+        XCTAssertEqual(restoredWindow.frame.width, expectedFrame.width, accuracy: 0.5)
+        XCTAssertEqual(restoredWindow.frame.height, expectedFrame.height, accuracy: 0.5)
+        XCTAssertEqual(restoredWindow.frameAutosaveName, autosaveName)
+    }
+
+    func testDashboardUsesDefaultFrameWhenNoSavedFrameExists() throws {
+        let autosaveName: NSWindow.FrameAutosaveName = "BeaconTests.\(UUID().uuidString)"
+        let visibleFrame = try XCTUnwrap(NSScreen.main?.visibleFrame)
+        let controller = testDashboardController(frameAutosaveName: autosaveName)
+        defer {
+            _ = controller.window?.setFrameAutosaveName("")
+            NSWindow.removeFrame(usingName: autosaveName)
+        }
+
+        controller.positionWindowIfNeeded()
+
+        let window = try XCTUnwrap(controller.window)
+        XCTAssertEqual(window.frame, DashboardWindowController.initialFrame(in: visibleFrame))
+        XCTAssertEqual(window.frameAutosaveName, autosaveName)
+    }
+
     func testNormalLaunchOpensDashboardAndLoginLaunchStaysQuiet() {
         let normal = testApplicationModel()
         normal.handleLaunch(isLoginLaunch: false)
@@ -104,6 +153,16 @@ final class ApplicationLifecycleTests: XCTestCase {
         BeaconApplicationModel(
             state: AppState(client: LifecycleSnapshotClient()),
             loginItem: LoginItemController(service: StubLoginItemService(status: .disabled))
+        )
+    }
+
+    private func testDashboardController(
+        frameAutosaveName: NSWindow.FrameAutosaveName
+    ) -> DashboardWindowController {
+        DashboardWindowController(
+            state: AppState(client: LifecycleSnapshotClient()),
+            loginItem: LoginItemController(service: StubLoginItemService(status: .disabled)),
+            frameAutosaveName: frameAutosaveName
         )
     }
 }

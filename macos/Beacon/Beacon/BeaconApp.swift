@@ -26,91 +26,112 @@ struct BeaconMenuBarLabel: View {
     let inProgressCount: Int
 
     var body: some View {
-        BeaconMenuBarDome(count: inProgressCount)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(BeaconMenuBarPresentation.accessibilityText(inProgressCount))
+        Image(nsImage: BeaconMenuBarIconRenderer.image(count: inProgressCount))
+            .renderingMode(.original)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(BeaconMenuBarPresentation.accessibilityText(inProgressCount))
     }
 }
 
-struct BeaconMenuBarDome: View {
-    let count: Int
+@MainActor
+enum BeaconMenuBarIconRenderer {
+    static let canvasHeight: CGFloat = 18
 
-    private var domeWidth: CGFloat {
-        BeaconMenuBarPresentation.domeWidth(count)
-    }
-
-    var body: some View {
-        ZStack {
-            Capsule()
-                .fill(BeaconPalette.gold)
-                .frame(width: 1.5, height: 4)
-                .offset(y: -7)
-
-            Capsule()
-                .fill(BeaconPalette.cyan)
-                .frame(width: 1.5, height: 4)
-                .rotationEffect(.degrees(-48))
-                .offset(x: -(domeWidth * 0.38), y: -5)
-
-            Capsule()
-                .fill(BeaconPalette.cyan)
-                .frame(width: 1.5, height: 4)
-                .rotationEffect(.degrees(48))
-                .offset(x: domeWidth * 0.38, y: -5)
-
-            BeaconDomeShape()
-                .fill(
-                    LinearGradient(
-                        colors: [BeaconPalette.gold, BeaconPalette.coral],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .frame(width: domeWidth, height: 11)
-                .offset(y: 3)
-
-            Capsule()
-                .fill(BeaconPalette.gold)
-                .frame(width: domeWidth + 2, height: 1.5)
-                .offset(y: 7)
-
-            Text(BeaconMenuBarPresentation.displayCount(count))
-                .font(.system(
-                    size: BeaconMenuBarPresentation.countFontSize(count),
-                    weight: .heavy,
-                    design: .rounded
-                ))
-                .monospacedDigit()
-                .foregroundStyle(Color(red: 0.04, green: 0.03, blue: 0.12))
-                .lineLimit(1)
-                .offset(y: 3)
+    static func image(count: Int) -> NSImage {
+        let domeWidth = BeaconMenuBarPresentation.domeWidth(count)
+        let size = NSSize(width: domeWidth + 6, height: canvasHeight)
+        let image = NSImage(size: size, flipped: false) { rect in
+            drawRays(in: rect, domeWidth: domeWidth)
+            drawDome(in: rect, domeWidth: domeWidth)
+            drawCount(count, in: rect)
+            return true
         }
-        .frame(width: domeWidth + 6, height: 18)
-        .shadow(color: BeaconPalette.cyan.opacity(0.80), radius: 1.5)
-        .shadow(color: BeaconPalette.gold.opacity(0.70), radius: 2.5)
+        image.isTemplate = false
+        return image
     }
-}
 
-struct BeaconDomeShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        let shoulderY = rect.minY + rect.height * 0.58
-        let bottomY = rect.maxY - 0.5
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX + 1, y: bottomY))
-        path.addLine(to: CGPoint(x: rect.minX + 2, y: shoulderY))
-        path.addCurve(
-            to: CGPoint(x: rect.midX, y: rect.minY),
-            control1: CGPoint(x: rect.minX + 2, y: rect.minY + rect.height * 0.16),
-            control2: CGPoint(x: rect.midX - rect.width * 0.22, y: rect.minY)
+    private static func drawRays(in rect: NSRect, domeWidth: CGFloat) {
+        let centerX = rect.midX
+        let domeMinX = centerX - domeWidth / 2
+        let domeMaxX = centerX + domeWidth / 2
+        let rays = NSBezierPath()
+        rays.move(to: NSPoint(x: centerX, y: 14.2))
+        rays.line(to: NSPoint(x: centerX, y: 17))
+        rays.move(to: NSPoint(x: domeMinX + 1.7, y: 13.2))
+        rays.line(to: NSPoint(x: domeMinX - 0.4, y: 15.4))
+        rays.move(to: NSPoint(x: domeMaxX - 1.7, y: 13.2))
+        rays.line(to: NSPoint(x: domeMaxX + 0.4, y: 15.4))
+        rays.lineWidth = 1.5
+        rays.lineCapStyle = .round
+        NSColor(BeaconPalette.cyan).setStroke()
+        rays.stroke()
+
+        let centerRay = NSBezierPath()
+        centerRay.move(to: NSPoint(x: centerX, y: 14.2))
+        centerRay.line(to: NSPoint(x: centerX, y: 17))
+        centerRay.lineWidth = 1.5
+        centerRay.lineCapStyle = .round
+        NSColor(BeaconPalette.gold).setStroke()
+        centerRay.stroke()
+    }
+
+    private static func drawDome(in rect: NSRect, domeWidth: CGFloat) {
+        let centerX = rect.midX
+        let minX = centerX - domeWidth / 2
+        let maxX = centerX + domeWidth / 2
+        let bottomY: CGFloat = 3
+        let shoulderY: CGFloat = 7.4
+        let topY: CGFloat = 13.8
+        let dome = NSBezierPath()
+        dome.move(to: NSPoint(x: minX + 1, y: bottomY))
+        dome.line(to: NSPoint(x: minX + 2, y: shoulderY))
+        dome.curve(
+            to: NSPoint(x: centerX, y: topY),
+            controlPoint1: NSPoint(x: minX + 2, y: topY - 1.6),
+            controlPoint2: NSPoint(x: centerX - domeWidth * 0.22, y: topY)
         )
-        path.addCurve(
-            to: CGPoint(x: rect.maxX - 2, y: shoulderY),
-            control1: CGPoint(x: rect.midX + rect.width * 0.22, y: rect.minY),
-            control2: CGPoint(x: rect.maxX - 2, y: rect.minY + rect.height * 0.16)
+        dome.curve(
+            to: NSPoint(x: maxX - 2, y: shoulderY),
+            controlPoint1: NSPoint(x: centerX + domeWidth * 0.22, y: topY),
+            controlPoint2: NSPoint(x: maxX - 2, y: topY - 1.6)
         )
-        path.addLine(to: CGPoint(x: rect.maxX - 1, y: bottomY))
-        path.closeSubpath()
-        return path
+        dome.line(to: NSPoint(x: maxX - 1, y: bottomY))
+        dome.close()
+
+        NSGraphicsContext.saveGraphicsState()
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor(BeaconPalette.cyan).withAlphaComponent(0.7)
+        shadow.shadowBlurRadius = 2
+        shadow.shadowOffset = .zero
+        shadow.set()
+        NSGradient(colors: [NSColor(BeaconPalette.gold), NSColor(BeaconPalette.coral)])?
+            .draw(in: dome, angle: 90)
+        NSGraphicsContext.restoreGraphicsState()
+
+        let base = NSBezierPath(
+            roundedRect: NSRect(x: minX - 1, y: 1.4, width: domeWidth + 2, height: 1.8),
+            xRadius: 0.9,
+            yRadius: 0.9
+        )
+        NSColor(BeaconPalette.gold).setFill()
+        base.fill()
+    }
+
+    private static func drawCount(_ count: Int, in rect: NSRect) {
+        let displayCount = BeaconMenuBarPresentation.displayCount(count)
+        let font = NSFont.monospacedDigitSystemFont(
+            ofSize: BeaconMenuBarPresentation.countFontSize(count),
+            weight: .heavy
+        )
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor(red: 0.04, green: 0.03, blue: 0.12, alpha: 1),
+        ]
+        let size = displayCount.size(withAttributes: attributes)
+        displayCount.draw(
+            at: NSPoint(x: rect.midX - size.width / 2, y: 3.5),
+            withAttributes: attributes
+        )
     }
 }
 

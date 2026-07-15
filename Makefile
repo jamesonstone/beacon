@@ -54,4 +54,25 @@ macos-test:
 	xcodebuild -project macos/Beacon/Beacon.xcodeproj -scheme Beacon -configuration Debug -destination 'platform=macOS' -derivedDataPath "$(BEACON_DERIVED_DATA)" CODE_SIGNING_ALLOWED=NO test
 
 macos-run: macos-build
-	open -n "$(BEACON_DERIVED_DATA)/Build/Products/Debug/Beacon.app"
+	@if pgrep -x Beacon >/dev/null; then \
+		osascript -e 'tell application id "com.jamesonstone.beacon" to quit' >/dev/null 2>&1 || true; \
+		attempt=0; \
+		while pgrep -x Beacon >/dev/null && [ "$$attempt" -lt 50 ]; do \
+			sleep 0.1; \
+			attempt=$$((attempt + 1)); \
+		done; \
+		if pgrep -x Beacon >/dev/null; then \
+			echo "Beacon did not stop cleanly; forcing termination."; \
+			pkill -TERM -x Beacon 2>/dev/null || true; \
+		fi; \
+		attempt=0; \
+		while pgrep -x Beacon >/dev/null && [ "$$attempt" -lt 20 ]; do \
+			sleep 0.1; \
+			attempt=$$((attempt + 1)); \
+		done; \
+		if pgrep -x Beacon >/dev/null; then \
+			echo "Beacon is still running; refusing to start another instance." >&2; \
+			exit 1; \
+		fi; \
+	fi
+	open "$(BEACON_DERIVED_DATA)/Build/Products/Debug/Beacon.app"
