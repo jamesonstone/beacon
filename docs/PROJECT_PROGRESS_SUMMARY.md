@@ -115,8 +115,8 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Make Beacon a personal memory for the small set of Git, PR, issue, and manual lanes currently competing for attention.
-- **APPROACH**: Persist lane-level attention, pins, notes, tags, last-seen observations, and factual deltas; observe local Git frequently without network work; discover GitHub activity globally, retain every open in-scope PR and issue for followed projects regardless of age, and keep the recent cutoff for outside activity; present lane attention inside the explicit Following repository set while Recently Updated and Quiet hold outside project inventory; use distinct mint, cyan, and pink card identities for local, PR, and issue work across stacked, horizontal-tile, and experimental kanban views.
-- **OPEN ITEMS**: The working-set implementation is complete on issue #5 / PR #6, and the direct activity-tab refinement is complete on issue #7 / PR #8. The followed-issue visibility and distinct lane-card follow-up is delivered on issue #31 / branch `GH-31` in a ready PR targeting `main`; final review and merge remain human decisions.
+- **APPROACH**: Persist lane-level attention, pins, notes, tags, last-seen observations, and factual deltas; observe local Git frequently without network work; discover GitHub activity globally, retain every open in-scope PR and issue for followed projects regardless of age, and keep the recent cutoff for outside activity; present lane attention inside the explicit Following repository set while Recently Updated and Quiet hold outside project inventory; use distinct mint, cyan, and pink card identities for local, PR, and issue work across stacked, horizontal-tile, and experimental kanban views; expose far-right Ignore actions that park individual Following lanes without changing project membership.
+- **OPEN ITEMS**: The working-set implementation is complete on issue #5 / PR #6, and the direct activity-tab refinement is complete on issue #7 / PR #8. The followed-issue visibility, distinct lane-card identity, and far-right Ignore follow-up are delivered on issue #31 / branch `GH-31` in a ready PR targeting `main`; final review and merge remain human decisions.
 - **POINTERS**: `docs/specs/0009-beacon-working-set-radar/SPEC.md`
 
 ### project-following
@@ -124,8 +124,8 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Keep a deliberately selected set of repositories in focus without losing awareness of meaningful activity elsewhere.
-- **APPROACH**: Persist explicit Following membership, preserve non-followed evidence baselines, keep every scoped open PR and issue in followed projects visible regardless of age, categorize outside projects as Recently Updated or Quiet without automatic reactivation, and render the shared categories in CLI and macOS alongside a Reduce Motion-aware neon wordmark.
-- **OPEN ITEMS**: The original implementation is complete on issue #9 / PR #10. The followed-issue visibility and distinct lane-card follow-up is delivered on issue #31 / branch `GH-31` in a ready PR targeting `main`; final human review and merge remain.
+- **APPROACH**: Persist explicit Following membership, preserve non-followed evidence baselines, keep every scoped open PR and issue in followed projects visible regardless of age, categorize outside projects as Recently Updated or Quiet without automatic reactivation, and render the shared categories in CLI and macOS alongside a Reduce Motion-aware neon wordmark and lane-specific Ignore-to-Parking-Lot actions.
+- **OPEN ITEMS**: The original implementation is complete on issue #9 / PR #10. The followed-issue visibility, distinct lane-card identity, and Ignore-to-Parking-Lot follow-up are delivered on issue #31 / branch `GH-31` in a ready PR targeting `main`; final human review and merge remain.
 - **POINTERS**: `docs/specs/0010-project-following/SPEC.md`
 
 ### working-notes-refresh

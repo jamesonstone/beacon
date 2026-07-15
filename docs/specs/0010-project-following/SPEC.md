@@ -139,6 +139,10 @@ make repository membership explicit and show outside activity separately.
     in-scope PRs and issues for followed projects.
 16. Reserve `Quiet` for non-followed projects without recent activity. Label
     hidden idle lanes inside followed repositories as `Idle Following Projects`.
+17. Every macOS Following lane card exposes an `Ignore` action at its far-right
+    edge. Ignore parks only that lane through the shared Go authority so it
+    leaves Following and appears in Parking Lot without changing project
+    membership.
 
 ## Assumptions
 
@@ -184,6 +188,9 @@ make repository membership explicit and show outside activity separately.
   deleting durable lane state, keeps followed open PR and issue lanes visible
   until closed or explicitly parked, and never labels idle followed inventory
   Quiet.
+- [x] AC14: Ignore is available at the far right of Following cards in every
+  macOS layout and moves only the selected lane into Parking Lot through the
+  shared attention mutation.
 
 ## Implementation Plan
 
@@ -197,6 +204,8 @@ make repository membership explicit and show outside activity separately.
    dashboard surface.
 6. Reconcile documentation, validate, independently verify, and deliver on
    issue #9 / branch `GH-9` / a ready PR targeting `main`.
+7. Add a semantic Ignore-to-park action to the shared macOS card renderer and
+   verify the identical behavior in the menu and detachable window.
 
 ## Agent Team Plan
 
@@ -221,6 +230,7 @@ make repository membership explicit and show outside activity separately.
 - [x] T7: Reconcile README, constitution, and progress summary.
 - [x] T8: Run full validation and read-only verification.
 - [x] T9: Commit, push, open the ready PR, and record hosted evidence.
+- [x] T10: Add and test the far-right Following-card Ignore action.
 
 ## Validation Map
 
@@ -232,6 +242,7 @@ make repository membership explicit and show outside activity separately.
 | AC9 | Cobra command/alias tests and terminal golden coverage |
 | AC10-AC11 | deterministic seamless animation phase tests, Reduce Motion inspection, agent call-counter regressions, and follow/unfollow fast-cadence gating through the real mutation path |
 | AC12 | complete Go, race, Kit, Swift, Xcode, release, and diff-hygiene gates |
+| AC14 | Swift presentation and AppState parking regressions, Xcode build, and compact/detached visual smoke tests |
 
 ## Reflection Notes
 
@@ -249,6 +260,8 @@ make repository membership explicit and show outside activity separately.
   project cannot disappear merely because its last GitHub update crossed the
   recent-activity window. Explicit parking remains the lane-level way to hide
   it.
+- The macOS Ignore label is deliberately lane-scoped: it reuses parking and
+  cannot mutate the independent Following membership of the repository.
 
 ## Documentation Updates
 
@@ -303,3 +316,9 @@ targeting `main`.
   snapshot but outside Following after its recent window elapsed. The shared
   working-set candidate rule now retains scoped open issue lanes just like open
   PR lanes, with regression coverage for visibility and closure.
+- Swift presentation and shared-authority regressions verify that Ignore exists
+  only in Following and sends the selected lane ID with state `parked`. The
+  returned snapshot removes the lane from Active and exposes it in Parking Lot.
+- All 75 Swift tests and the universal macOS build pass. Live checks at both the
+  580-point detached width and 430-point compact width show Ignore at the
+  far-right card edge; Parking Lot contains no Ignore actions.

@@ -31,6 +31,8 @@ optional short local note. Notes are memory cues, never canonical progress.
 Beacon reports factual evidence deltas and marks notes stale when evidence
 changes after the note. Parking is lane-specific; unrelated repository
 activity must not reactivate it.
+The macOS Following view names this explicit lane action Ignore; it maps to
+parking only and must never unfollow the repository or delete lane state.
 Lanes may also carry short, deduplicated user tags. Tags and notes are optional
 context only and must not alter evidence, attention, readiness, or next-action
 policy.

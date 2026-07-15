@@ -199,6 +199,10 @@ presentation path must become lane-centered and local-first.
     three distinct palette identities in every dashboard layout. This visual
     identity may style the card, work-item reference, and action text, but must
     not infer or change Go-owned attention or next-action policy.
+26. Put an `Ignore` action at the far-right edge of every macOS Following lane
+    card in stacked, tile, and kanban layouts. The action must use the existing
+    Go-owned parking mutation, move the lane into Parking Lot in both macOS
+    surfaces, and never unfollow its project or delete lane state.
 
 ## Assumptions
 
@@ -258,6 +262,9 @@ presentation path must become lane-centered and local-first.
 - [x] AC19: Local-only, pull-request-backed, and issue-backed lanes use three
   distinct macOS card colors in stacked, tile, and kanban layouts without
   changing shared lane policy.
+- [x] AC20: Every Following card exposes a far-right Ignore action that parks
+  the lane through the shared agent authority, removes it from Following, and
+  makes it available in Parking Lot without changing project membership.
 
 ## Implementation Plan
 
@@ -278,6 +285,8 @@ presentation path must become lane-centered and local-first.
    selector while preserving Settings-based tracked-project management.
 10. Keep scoped open issues in followed projects active regardless of age and
     add one shared macOS work-item identity mapping for distinct lane colors.
+11. Add one semantic macOS Ignore action over the existing parking mutation and
+    render it at the far right of every Following card across all layouts.
 
 ## Task Checklist
 
@@ -293,6 +302,8 @@ presentation path must become lane-centered and local-first.
 - [x] T10: Add Active, Parking Lot, Quiet, and Untracked dashboard tabs.
 - [x] T11: Retain open followed issues, add distinct lane identities, and cover
   the shared Go and macOS presentation behavior with focused regressions.
+- [x] T12: Add the Following-card Ignore action and cover its visibility and
+  shared-authority parking behavior with focused Swift regressions.
 
 ## Validation Map
 
@@ -310,6 +321,7 @@ presentation path must become lane-centered and local-first.
 | AC17 | dismissal-key unit tests, XCTest, Xcode build, and hover/click manual smoke test |
 | AC18 | dashboard-tab unit tests, XCTest, Xcode build, and compact-menu manual smoke test |
 | AC19 | followed-issue lifecycle test, Swift work-item identity test, XCTest, and Xcode build |
+| AC20 | Swift Following-card eligibility and AppState parking tests, XCTest, Xcode build, and compact/detached visual smoke tests |
 
 ## Reflection Notes
 
@@ -346,12 +358,16 @@ presentation path must become lane-centered and local-first.
 - Evidence-badge dismissals use lane, dimension, and exact signal value as the
   presentation key. This keeps the action reversible, avoids hiding changed
   evidence, and leaves the Go snapshot and next-action policy untouched.
+- Naming the macOS parking affordance Ignore makes the immediate focus action
+  plain without adding a second policy path; AppState still sends the existing
+  `parked` mutation and renders the agent's returned snapshot.
 
 ## Documentation Updates
 
 - Update the constitution, README, and project progress summary for lane-level
   attention, optional notes, factual deltas, conservative collection, the
-  explicit diagnostic boundary, and distinct macOS work-item colors.
+  explicit diagnostic boundary, distinct macOS work-item colors, and the
+  Following-card Ignore-to-Parking-Lot action.
 
 ## Delivery Decision
 
@@ -435,3 +451,11 @@ targeting `main`.
   passes with 73 Swift tests and a successful universal macOS build. The Linux
   amd64 cross-build, all 15 Kit specifications, Go formatting, and diff hygiene
   also pass.
+- The Following-card Ignore follow-up adds one shared presentation guard and
+  one semantic AppState wrapper over the existing `parked` mutation. Focused
+  Swift tests verify Following-only visibility and the exact lane/state request,
+  including the returned Active-to-Parking-Lot snapshot transition.
+- The complete repository gate passes with 75 Swift tests, a universal macOS
+  build, the Linux amd64 cross-build, all 15 Kit specifications, and diff
+  hygiene. Live 580-point and 430-point window checks keep the Ignore capsule at
+  the far-right card edge, while Parking Lot exposes no Ignore controls.

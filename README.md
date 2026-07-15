@@ -493,6 +493,10 @@ Lane-card color identifies the kind of work consistently in stacked, tile, and
 kanban views: local-only work is mint, pull-request-backed work is cyan, and
 issue-backed work is pink. Attention groups retain their own header colors;
 the card identity does not change shared Go policy.
+Every Following card also places **Ignore** at its far-right edge. Ignore uses
+the same durable parking action as the CLI, so the selected lane leaves
+Following and appears in **Parking Lot** without unfollowing its project or
+deleting any lane state.
 
 The menu-bar item is one colored beacon dome with the live in-progress lane
 count set directly inside it. Its width and numeral scale adapt through `99+`,
