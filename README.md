@@ -357,10 +357,11 @@ or on a schedule; JSON output is available for the bundled macOS helper.
 
 The default working-set view groups lanes as **Active**, **Waiting**,
 **Recently Active**, and **Parked**. Dirty or unpublished work, recent local
-commits, open in-scope PRs in followed projects, pinned lanes, and manual lanes
-can enter the working set. Open PRs remain Active regardless of age until they
-close or are explicitly parked. `beacon lanes --parked` reveals parked lanes
-without allowing other historical inventory to consume the primary view.
+commits, open in-scope PRs and issues in followed projects, pinned lanes, and
+manual lanes can enter the working set. Open PRs and issues remain Active
+regardless of age until they close or are explicitly parked. `beacon lanes
+--parked` reveals parked lanes without allowing other historical inventory to
+consume the primary view.
 
 Lane notes and tags are optional memory cues, never status truth. Beacon stores them
 with attention and last-seen observations in the user-only strict JSON file
@@ -399,9 +400,9 @@ when its project already has active work. JSON remains complete regardless of
 these presentation filters.
 
 Following is an explicit repository-level choice, independent of lane attention.
-Every open PR allowed by `github_scope` for a followed project remains visible
-in Following regardless of its last update time; Park is the explicit way to
-hide that lane without unfollowing its project.
+Every open PR and issue allowed by `github_scope` for a followed project remains
+visible in Following regardless of its last update time; Park is the explicit
+way to hide that lane without unfollowing its project.
 Use `beacon select` (or the compatible bare `beacon projects`) for a colorful,
 searchable multi-select of every discovered project. Followed projects start
 highlighted; use the arrow keys to scroll, Space to toggle a project, `/` to
@@ -487,6 +488,11 @@ Reduce Motion, and describes lane state without claiming local Git refs are curr
 The Beacon wordmark carries a modest neon/pastel color wave. It uses a shared,
 deterministic time phase in the menu and detached window and becomes a static
 neon gradient when Reduce Motion is enabled.
+
+Lane-card color identifies the kind of work consistently in stacked, tile, and
+kanban views: local-only work is mint, pull-request-backed work is cyan, and
+issue-backed work is pink. Attention groups retain their own header colors;
+the card identity does not change shared Go policy.
 
 The menu-bar item is one colored beacon dome with the live in-progress lane
 count set directly inside it. Its width and numeral scale adapt through `99+`,

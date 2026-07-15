@@ -509,9 +509,12 @@ status policy, and render a static gradient when Reduce Motion is enabled.
 The menu-bar label always shows a compact, non-template colored beacon dome.
 The number of lanes across the CLI-provided active, waiting, and recently-active
 groups appears inside that dome with adaptive width and type scale through
-`99+`, preserving the app identity and a legible count in one item. The menu window may use coordinated
-pastel and neon accents to distinguish existing CLI-provided groups and signals,
-but color must not introduce readiness or action policy in the Swift client.
+`99+`, preserving the app identity and a legible count in one item. The menu
+window may use coordinated pastel and neon accents to distinguish existing
+CLI-provided groups and signals, but color must not introduce readiness or
+action policy in the Swift client. Within every lane layout, local-only cards
+are mint, pull-request-backed cards are cyan, and issue-backed cards are pink.
+This is a work-item identity mapping, not attention or readiness inference.
 Individual evidence badges may be hidden as reversible local presentation
 state. Dismissal is scoped to lane, evidence dimension, and exact value so a
 changed signal reappears; it must never mutate or suppress canonical evidence
@@ -520,6 +523,8 @@ in the Go snapshot.
 Human-facing lane detail remains lane-centered. The CLI groups Active, Waiting,
 Recently Active, and Parked lanes. The macOS dashboard opens on Following,
 which contains the focused working set for explicitly followed repositories.
+Every scoped open pull request and issue in a followed repository remains in
+that working set regardless of age until closure or explicit parking.
 Recently Updated is an inbox for material activity outside Following within the
 configured stale window; Quiet is every remaining discovered non-followed
 project. Top-item actions skip parked and quiet work plus manual lanes without
