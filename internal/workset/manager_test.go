@@ -12,13 +12,15 @@ func TestReconcileKeepsOpenPullRequestsInFollowedWorkingSet(t *testing.T) {
 	snapshot := testSnapshot(now,
 		testLane("dirty", "owner/repo", "feature-a", model.WorktreeDirty, model.PublicationPublished, now.Add(-time.Hour)),
 		testLane("old-pr", "owner/repo", "feature-b", model.WorktreeClean, model.PublicationPublished, now.Add(-10*24*time.Hour)),
+		testLane("stale-dirty-pr", "owner/repo", "feature-c", model.WorktreeDirty, model.PublicationPublished, now.Add(-10*24*time.Hour)),
 	)
 	snapshot.Lanes[1].PullRequest = &model.PullRequest{Number: 2, UpdatedAt: now.Add(-10 * 24 * time.Hour)}
+	snapshot.Lanes[2].PullRequest = &model.PullRequest{Number: 3, UpdatedAt: now.Add(-10 * 24 * time.Hour)}
 	updated, err := manager.Reconcile(snapshot)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.WorkingSet.Active) != 2 || updated.WorkingSet.Active[0] != "dirty" || updated.WorkingSet.Active[1] != "old-pr" || len(updated.WorkingSet.Recent) != 0 {
+	if len(updated.WorkingSet.Active) != 3 || updated.WorkingSet.Active[0] != "dirty" || updated.WorkingSet.Active[1] != "old-pr" || updated.WorkingSet.Active[2] != "stale-dirty-pr" || len(updated.WorkingSet.Recent) != 0 {
 		t.Fatalf("working set = %#v", updated.WorkingSet)
 	}
 	if updated.Lanes[1].Attention == nil || updated.Lanes[1].Attention.State != model.AttentionActive {
@@ -28,14 +30,14 @@ func TestReconcileKeepsOpenPullRequestsInFollowedWorkingSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.WorkingSet.Active) != 2 || updated.Lanes[1].Attention == nil || !updated.Lanes[1].Attention.Pinned {
+	if len(updated.WorkingSet.Active) != 3 || updated.Lanes[1].Attention == nil || !updated.Lanes[1].Attention.Pinned {
 		t.Fatalf("pinned working set = %#v", updated.WorkingSet)
 	}
 	updated, err = manager.SetPinned(updated, "old-pr", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.WorkingSet.Active) != 2 || updated.Lanes[1].Attention == nil || updated.Lanes[1].Attention.Pinned {
+	if len(updated.WorkingSet.Active) != 3 || updated.Lanes[1].Attention == nil || updated.Lanes[1].Attention.Pinned {
 		t.Fatalf("unpinned open PR left working set = %#v", updated.WorkingSet)
 	}
 	updated.Lanes[1].PullRequest = nil
@@ -44,8 +46,49 @@ func TestReconcileKeepsOpenPullRequestsInFollowedWorkingSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.WorkingSet.Active) != 1 || updated.WorkingSet.Active[0] != "dirty" || updated.Lanes[1].Attention != nil {
+	if len(updated.WorkingSet.Active) != 2 || updated.WorkingSet.Active[0] != "dirty" || updated.WorkingSet.Active[1] != "stale-dirty-pr" || updated.Lanes[1].Attention != nil {
 		t.Fatalf("closed PR remained in working set = %#v", updated.WorkingSet)
+	}
+}
+
+func TestReconcileRepairsAutomaticallyParkedOpenPullRequest(t *testing.T) {
+	manager, now := testManager(t)
+	lane := testLane(
+		"stale-dirty-pr", "owner/repo", "feature", model.WorktreeDirty,
+		model.PublicationPublished, now.Add(-10*24*time.Hour),
+	)
+	lane.PullRequest = &model.PullRequest{Number: 2, UpdatedAt: now.Add(-10 * 24 * time.Hour)}
+	observation := observe(lane, now)
+	path, err := ResolvePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := (FileStore{}).Write(path, State{
+		Version: Version, Migrated: true,
+		Entries: []Entry{{
+			ID: lane.ID, Repository: lane.Repository, GitHub: lane.GitHub,
+			Branch: lane.Branch, State: model.AttentionParked,
+			Previous: observation, Current: observation,
+		}},
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	updated, err := manager.Reconcile(testSnapshot(now, lane))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.WorkingSet.Active) != 1 || updated.WorkingSet.Active[0] != lane.ID || len(updated.WorkingSet.Parked) != 0 {
+		t.Fatalf("automatically parked PR was not repaired: %#v", updated.WorkingSet)
+	}
+
+	updated, err = manager.SetAttention(updated, lane.ID, model.AttentionParked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.WorkingSet.Active) != 0 || len(updated.WorkingSet.Parked) != 1 || updated.WorkingSet.Parked[0] != lane.ID {
+		t.Fatalf("explicitly parked PR was reactivated: %#v", updated.WorkingSet)
 	}
 }
 

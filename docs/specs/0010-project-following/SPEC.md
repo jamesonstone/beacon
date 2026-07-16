@@ -93,6 +93,14 @@ make repository membership explicit and show outside activity separately.
 - Lane attention remains independent. Following renders every open in-scope PR
   and issue lane plus the existing local lane working set for followed
   repositories; outside projects remain repository cards until followed.
+- Open PR and issue identity takes precedence over stale local-worktree
+  auto-parking. Reconciliation restores older non-explicit parked records while
+  preserving Parking Lot entries created by an explicit Ignore.
+- Dirty followed work remains visible from its last materially changed durable
+  observation even when HEAD is old; only unchanged dirty state may age into
+  Parking Lot, and the card shows that observation age and freshness rather
+  than commit age. Startup cache snapshots that omit the private status hash do
+  not refresh the durable observation.
 - The neon wordmark animation is presentation-only and becomes static when the
   user enables Reduce Motion.
 
@@ -122,9 +130,13 @@ make repository membership explicit and show outside activity separately.
    `Quiet`; Following is the default and each tab shows its project count.
 10. Following renders the existing focused lane layouts and keeps every open
     in-scope PR and issue for a followed project visible regardless of age
-    unless its lane is explicitly parked. Recently Updated and Quiet render
-    searchable project cards with a nonblocking Follow action and visible
-    queued state.
+    or stale local state unless its lane is explicitly parked. Reconciliation
+    must repair legacy automatic parked state without overriding explicit
+    Ignore. Dirty local lanes use their last materially changed observation for
+    activity age rather than the HEAD commit time, preserving the durable hash
+    when startup cache evidence omits it. Recently Updated and Quiet render
+    searchable project cards with a nonblocking Follow action and visible queued
+    state.
 11. Keep project-selection management in Settings, relabeled for Following,
     with explicit Follow and Stop Following actions.
 12. Remove auto-reactivation banners and terminology from the current user
@@ -179,8 +191,8 @@ make repository membership explicit and show outside activity separately.
   evidence age, and can Follow a project without navigating elsewhere.
 - [x] AC8: Existing focused lane layouts remain available inside Following,
   every open in-scope PR and issue for a followed project remains visible
-  regardless of age, and outside project activity does not enter until
-  followed.
+  regardless of age or stale local state, legacy non-explicit parking is
+  repaired, and outside project activity does not enter until followed.
 - [x] AC9: `beacon follow` / `unfollow` work and existing `track` / `untrack`
   aliases retain behavior without duplicating authority.
 - [x] AC10: The Beacon wordmark visibly cycles through the existing neon
@@ -191,8 +203,9 @@ make repository membership explicit and show outside activity separately.
   pass with no schema or cache regression.
 - [x] AC13: Following excludes every non-followed repository lane without
   deleting durable lane state, keeps followed open PR and issue lanes visible
-  until closed or explicitly parked, and never labels idle followed inventory
-  Quiet.
+  until closed or explicitly parked, keeps freshly changed dirty work visible
+  even on an old HEAD without treating cache-only hash omission as activity,
+  and never labels idle followed inventory Quiet.
 - [x] AC14: Ignore is available at the far right of Following cards in every
   macOS layout and moves only the selected lane into Parking Lot through the
   shared attention mutation.
@@ -275,6 +288,13 @@ make repository membership explicit and show outside activity separately.
   project cannot disappear merely because its last GitHub update crossed the
   recent-activity window. Explicit parking remains the lane-level way to hide
   it.
+- Open remote work must outrank stale-dirty local classification. The persisted
+  `Explicit` flag separates user Ignore intent from automatic parking, allowing
+  reconciliation to repair affected lanes without reopening intentionally
+  parked work.
+- Dirty-work recency belongs to the durable material observation, not the last
+  commit. This keeps current unstaged and untracked changes in Following while
+  retaining bounded automatic parking for unchanged dirty work.
 - The macOS Ignore label is deliberately lane-scoped: it reuses parking and
   cannot mutate the independent Following membership of the repository.
 - Remembering the exact open PR before it disappears avoids broad merged-PR
@@ -304,6 +324,10 @@ targeting `main`.
 The bounded merged-checkout warning is added to the same user-approved issue
 #31 / branch `GH-31` / ready PR #32 lane because it extends the shared Following
 card and evidence refresh behavior already under review.
+
+The July 16 dirty-worktree activity correction is assigned to issue #33 and
+exact branch `GH-33`, created from current `origin/main`, for a ready pull
+request targeting `main`.
 
 ## Evidence
 
@@ -349,3 +373,18 @@ card and evidence refresh behavior already under review.
   tests cover the merged-checkout advisory without broad GitHub discovery.
 - The complete Go/race/release matrix, Linux amd64 build, all 76 Swift tests,
   universal macOS build, all 15 Kit feature checks, and diff hygiene pass.
+- A July 16 live reproduction found six followed `lsmc-bio` PR lanes parked
+  automatically with `explicit: false` because stale dirty local evidence won
+  candidate precedence. The repaired candidate order and reconciliation restore
+  those lanes while retaining explicit Ignore state.
+- The rebuilt helper changes the live working set from 3 Active / 24 Parked to
+  10 Active / 18 Parked, with all six affected PRs present in Active. The full
+  Go/race/release/macOS gate, Linux amd64 build, all 16 Kit specifications, and
+  diff hygiene pass; the macOS suite executes 81 tests with zero failures.
+- The July 16 `terrarium` reproduction confirms a followed dirty base worktree
+  with six unstaged files and one untracked file now appears Active `now` after
+  the rebuilt helper starts. Regression coverage ties its card timestamp and
+  freshness to durable material observation while preserving omitted private
+  status hashes from cached startup snapshots.
+- Issue #33 is assigned to Jameson Stone, and branch `GH-33` starts exactly at
+  the freshly fetched `origin/main` head for ready pull-request delivery.
