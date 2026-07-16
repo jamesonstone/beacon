@@ -19,7 +19,7 @@
 | 0013 | signal-note-tabs | `docs/specs/0013-signal-note-tabs` | deliver | no | 2026-07-14 | Extend Signal Notes into a persistent Go-owned tab workspace shared by the CLI, menu extra, and dashboard, with detail history and native quick switchers. |
 | 0014 | signal-note-deletion | `docs/specs/0014-signal-note-deletion` | deliver | no | 2026-07-14 | Add permanent detail-note deletion through the Go authority with shared macOS confirmation controls and a higher-contrast switcher. |
 | 0015 | notes-agent-lifecycle | `docs/specs/0015-notes-agent-lifecycle` | deliver | no | 2026-07-14 | Restore native Signal Notes input and bind the background agent lifetime to direct CLI or macOS application activation. |
-| 0016 | external-task-activity | `docs/specs/0016-external-task-activity` | implement | no | 2026-07-16 | Add transient Codex and Claude Code hook activity to exact followed projects and lanes without changing Beacon evidence or policy. |
+| 0016 | external-task-activity | `docs/specs/0016-external-task-activity` | deliver | no | 2026-07-16 | Add transient Codex and Claude Code hook activity to exact followed projects and lanes without changing Beacon evidence or policy. |
 
 ## PROJECT INTENT
 
@@ -176,11 +176,11 @@ canonical feature artifact wins whenever this index disagrees with it.
 
 ### external-task-activity
 
-- **STATUS**: implement
+- **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Show transient structured Codex and Claude Code working, latest-attention, and turn-finished context on the exact followed project or lane.
 - **APPROACH**: Normalize and map documented hooks in Go, keep current activity in a separately pruned user-only cache, request only coalesced matched Stop refreshes, and let both macOS surfaces render one shared non-authoritative chip.
-- **OPEN ITEMS**: Complete documentation, full validation, ready-PR evidence, and hosted checks on issue #31, branch `GH-31`, and PR #32; final human review and merge remain.
+- **OPEN ITEMS**: Implementation, documentation, full local validation, ready-PR evidence, and hosted Go/macOS checks are complete on issue #31, branch `GH-31`, and PR #32; final human review and merge remain.
 - **POINTERS**: `docs/specs/0016-external-task-activity/SPEC.md`
 
 ## LAST UPDATED

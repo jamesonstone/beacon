@@ -2,7 +2,7 @@
 kit_metadata_version: 1
 artifact: spec
 workflow_version: 2
-phase: implement
+phase: deliver
 delivery_intent: existing_ready_pull_request
 clarification:
   status: ready
@@ -266,7 +266,7 @@ flag. It contains no activity, session, prompt, or notification content.
 - [x] AC13: README and constitution document the transient product boundary,
   support matrix, commands, health caveats, semantics, storage, and unsupported
   sources.
-- [ ] AC14: Full Go, race, release, macOS, Linux, Kit, diff, and hosted gates
+- [x] AC14: Full Go, race, release, macOS, Linux, Kit, diff, and hosted gates
   pass and PR #32 receives updated evidence without being merged.
 
 ## Implementation Plan
@@ -299,7 +299,7 @@ flag. It contains no activity, session, prompt, or notification content.
   and Settings health.
 - [x] T5: Reconcile README, constitution, progress, and this specification.
 - [x] T6: Complete full validation and self-review.
-- [ ] T7: Commit, push, update PR #32 evidence, and leave it unmerged.
+- [x] T7: Commit, push, update PR #32 evidence, and leave it unmerged.
 
 ## Validation Map
 
@@ -376,4 +376,7 @@ criterion, updates the PR's scope and evidence, and must not merge it.
 - `kit check --all` passed all 16 feature specifications, `git diff --check`
   passed, the secret scan found no credential material, and protocol/model
   diffs are empty.
-- Hosted PR evidence remains pending until the implementation commit is pushed.
+- Hosted CI for implementation head
+  `4c5226527fa304117ca79dbb4c7ca4e0deb07a93` passed Go in 50 seconds and
+  macOS in 1 minute 42 seconds. PR #32 remains open and ready for human review;
+  it was not merged.
