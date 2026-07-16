@@ -70,20 +70,95 @@ func TestPinnedInactiveRemotePullRequestSurvivesDefaultEnrichmentFilter(t *testi
 	}
 }
 
-func TestStaleDirtyLaneStartsParkedAndCleanBaseStaysOut(t *testing.T) {
+func TestDirtyLaneUsesMaterialObservationAgeAndCleanBaseStaysOut(t *testing.T) {
 	manager, now := testManager(t)
-	staleDirty := testLane("stale-dirty", "owner/repo", "old", model.WorktreeDirty, model.PublicationPublished, now.Add(-30*24*time.Hour))
+	staleDirty := testLane("stale-dirty", "owner/repo", "old", model.WorktreeDirty, model.PublicationPublished, now.Add(30*24*time.Hour))
+	staleDirty.Signals.Freshness = model.FreshnessStale
+	staleDirty.Warnings = append(staleDirty.Warnings, staleLaneWarning)
 	cleanBase := testLane("base", "owner/repo", "main", model.WorktreeClean, model.PublicationBase, now.Add(-time.Hour))
 	cleanBase.Base = "main"
 	updated, err := manager.Reconcile(testSnapshot(now, staleDirty, cleanBase))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.WorkingSet.Parked) != 1 || updated.WorkingSet.Parked[0] != staleDirty.ID {
+	if len(updated.WorkingSet.Active) != 1 || updated.WorkingSet.Active[0] != staleDirty.ID || len(updated.WorkingSet.Parked) != 0 {
 		t.Fatalf("working set = %#v", updated.WorkingSet)
+	}
+	if !updated.Lanes[0].UpdatedAt.Equal(now) {
+		t.Fatalf("dirty lane activity time = %s, want %s", updated.Lanes[0].UpdatedAt, now)
+	}
+	if updated.Lanes[0].Signals.Freshness != model.FreshnessCurrent || len(updated.Lanes[0].Warnings) != 0 {
+		t.Fatalf("fresh dirty lane freshness = %q, warnings = %#v", updated.Lanes[0].Signals.Freshness, updated.Lanes[0].Warnings)
 	}
 	if updated.Lanes[1].Attention != nil {
 		t.Fatalf("clean base entered focus: %#v", updated.Lanes[1].Attention)
+	}
+
+	manager.Now = func() time.Time { return now.Add(7 * time.Hour) }
+	updated.Lanes[0].Worktree.StatusHash = ""
+	updated, err = manager.Reconcile(updated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.WorkingSet.Active) != 0 || len(updated.WorkingSet.Parked) != 1 || updated.WorkingSet.Parked[0] != staleDirty.ID {
+		t.Fatalf("unchanged dirty lane did not age into parking: %#v", updated.WorkingSet)
+	}
+	if !updated.Lanes[0].UpdatedAt.Equal(now) {
+		t.Fatalf("unchanged dirty lane activity time = %s, want %s", updated.Lanes[0].UpdatedAt, now)
+	}
+	if updated.Lanes[0].Signals.Freshness != model.FreshnessStale || len(updated.Lanes[0].Warnings) != 1 || updated.Lanes[0].Warnings[0] != staleLaneWarning {
+		t.Fatalf("aged dirty lane freshness = %q, warnings = %#v", updated.Lanes[0].Signals.Freshness, updated.Lanes[0].Warnings)
+	}
+
+	manager.Now = func() time.Time { return now.Add(8 * time.Hour) }
+	updated.Lanes[0].Worktree.StatusHash = "changed-status"
+	updated, err = manager.Reconcile(updated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.WorkingSet.Active) != 1 || updated.WorkingSet.Active[0] != staleDirty.ID || len(updated.WorkingSet.Parked) != 0 {
+		t.Fatalf("fresh dirty change did not reactivate lane: %#v", updated.WorkingSet)
+	}
+	if want := now.Add(8 * time.Hour); !updated.Lanes[0].UpdatedAt.Equal(want) {
+		t.Fatalf("reactivated dirty lane activity time = %s, want %s", updated.Lanes[0].UpdatedAt, want)
+	}
+	if updated.Lanes[0].Signals.Freshness != model.FreshnessCurrent || len(updated.Lanes[0].Warnings) != 0 {
+		t.Fatalf("reactivated dirty lane freshness = %q, warnings = %#v", updated.Lanes[0].Signals.Freshness, updated.Lanes[0].Warnings)
+	}
+}
+
+func TestReconcileRepairsAutomaticallyParkedFreshDirtyLane(t *testing.T) {
+	manager, now := testManager(t)
+	lane := testLane(
+		"fresh-dirty", "owner/repo", "main", model.WorktreeDirty,
+		model.PublicationBase, now.Add(-30*24*time.Hour),
+	)
+	observation := observe(lane, now.Add(-time.Hour))
+	path, err := ResolvePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := (FileStore{}).Write(path, State{
+		Version: Version, Migrated: true,
+		Entries: []Entry{{
+			ID: lane.ID, Repository: lane.Repository, GitHub: lane.GitHub,
+			Branch: lane.Branch, State: model.AttentionParked,
+			Previous: observation, Current: observation,
+		}},
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	updated, err := manager.Reconcile(testSnapshot(now, lane))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.WorkingSet.Active) != 1 || updated.WorkingSet.Active[0] != lane.ID || len(updated.WorkingSet.Parked) != 0 {
+		t.Fatalf("automatically parked fresh dirty lane was not repaired: %#v", updated.WorkingSet)
+	}
+	if !updated.Lanes[0].UpdatedAt.Equal(observation.ObservedAt) {
+		t.Fatalf("repaired dirty lane activity time = %s, want %s", updated.Lanes[0].UpdatedAt, observation.ObservedAt)
 	}
 }
 

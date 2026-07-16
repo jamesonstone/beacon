@@ -17,6 +17,8 @@ type Manager struct {
 
 var stateMutex sync.Mutex
 
+const staleLaneWarning = "lane has not been updated within the stale threshold"
+
 func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 	stateMutex.Lock()
 	defer stateMutex.Unlock()
@@ -60,7 +62,18 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 		}
 		entry, found := entries[lane.ID]
 		observation := observe(*lane, m.now())
-		candidateState, candidate := m.candidate(*lane)
+		if found && observation.StatusHash == "" {
+			observation.StatusHash = entry.Current.StatusHash
+		}
+		observationChangedSinceLast := found && !entry.Current.ObservedAt.IsZero() && observationChanged(entry.Current, observation)
+		materialObservedAt := observation.ObservedAt
+		if found && !entry.Current.ObservedAt.IsZero() && !observationChangedSinceLast {
+			materialObservedAt = entry.Current.ObservedAt
+		}
+		if lane.Signals.Worktree == model.WorktreeDirty || lane.Signals.Worktree == model.WorktreeConflicted {
+			applyMaterialActivity(lane, materialObservedAt, m.now().Add(-m.recentWindow()))
+		}
+		candidateState, candidate := m.candidate(*lane, materialObservedAt)
 		if !found && !candidate {
 			continue
 		}
@@ -76,7 +89,7 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 				entry.Previous = observation
 				entry.Current = observation
 				changed = true
-			} else if observationChanged(entry.Current, observation) {
+			} else if observationChangedSinceLast {
 				entry.Current = observation
 				if entry.State == model.AttentionParked {
 					entry.State = model.AttentionActive
@@ -85,7 +98,7 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 				}
 				changed = true
 			}
-			if entry.State != model.AttentionParked && !entry.Pinned && !entry.Explicit && candidate {
+			if !entry.Pinned && !entry.Explicit && candidate {
 				if entry.State != candidateState {
 					entry.State = candidateState
 					changed = true
@@ -135,6 +148,29 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 		}
 	}
 	return snapshot, nil
+}
+
+func applyMaterialActivity(lane *model.Lane, observedAt, cutoff time.Time) {
+	lane.UpdatedAt = observedAt
+	if observedAt.Before(cutoff) {
+		lane.Signals.Freshness = model.FreshnessStale
+		for _, warning := range lane.Warnings {
+			if warning == staleLaneWarning {
+				return
+			}
+		}
+		lane.Warnings = append(lane.Warnings, staleLaneWarning)
+		return
+	}
+
+	lane.Signals.Freshness = model.FreshnessCurrent
+	warnings := lane.Warnings[:0]
+	for _, warning := range lane.Warnings {
+		if warning != staleLaneWarning {
+			warnings = append(warnings, warning)
+		}
+	}
+	lane.Warnings = warnings
 }
 
 func retainedLane(entry Entry) model.Lane {
@@ -194,21 +230,21 @@ func retainedLane(entry Entry) model.Lane {
 	}
 }
 
-func (m Manager) candidate(lane model.Lane) (model.AttentionState, bool) {
+func (m Manager) candidate(lane model.Lane, materialObservedAt time.Time) (model.AttentionState, bool) {
 	cutoff := m.now().Add(-m.recentWindow())
 	if lane.Signals.CI == model.CIPending || lane.NextAction == model.ActionWaitForCI {
 		return model.AttentionWaiting, true
 	}
+	if lane.PullRequest != nil || lane.Issue != nil {
+		return model.AttentionActive, true
+	}
 	if lane.Signals.Worktree == model.WorktreeDirty || lane.Signals.Worktree == model.WorktreeConflicted {
-		if lane.UpdatedAt.Before(cutoff) {
+		if materialObservedAt.Before(cutoff) {
 			return model.AttentionParked, true
 		}
 		return model.AttentionActive, true
 	}
 	if lane.Signals.Publication == model.PublicationUnpushed || lane.Signals.Publication == model.PublicationNoUpstream || lane.Signals.Publication == model.PublicationDiverged {
-		return model.AttentionActive, true
-	}
-	if lane.PullRequest != nil || lane.Issue != nil {
 		return model.AttentionActive, true
 	}
 	if lane.Worktree != nil && lane.Branch != lane.Base && lane.Worktree.UpdatedAt.After(cutoff) {

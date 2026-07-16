@@ -109,7 +109,16 @@ presentation path must become lane-centered and local-first.
 
 - Open PRs and issues allowed by the configured GitHub scope remain in the
   working set for followed projects regardless of age; explicit parking can
-  still hide a lane.
+  still hide a lane. Remote-work identity takes precedence over automatic
+  stale-dirty parking, and reconciliation repairs non-explicit parked state
+  created by older candidate ordering.
+- Dirty and conflicted local lanes age from the durable observation when their
+  material status last changed, not from the HEAD commit timestamp. Freshly
+  observed or changed dirty work is Active; unchanged dirty work may age into
+  Parking Lot after the recent window. Working-set cards show the same material
+  observation time and freshness so classification and presentation cannot
+  disagree. A cached snapshot that omits the internal status hash preserves the
+  last durable hash and does not count as a worktree change.
 - Design, research, and planning work without Git evidence uses a manually
   created lane; no Codex task API is required.
 - GitHub evidence may be 30–60 minutes stale. Local evidence remains
@@ -140,7 +149,10 @@ presentation path must become lane-centered and local-first.
 5. Candidate lanes include dirty/conflicted worktrees, unpublished/diverged
    branches, recent local commits, every open in-scope PR and issue for
    followed projects, pins, and manual lanes. Open PR and issue lanes remain
-   active regardless of age unless explicitly parked.
+   active regardless of age or stale local state unless explicitly parked.
+   Dirty/conflicted lane age must use the last materially changed durable
+   observation rather than the HEAD commit timestamp, and missing ephemeral
+   cache evidence must not refresh that observation.
 6. Reconcile parked lanes only against their own observation. Material
    lane-specific change may reactivate with an explainable reason; unrelated
    project activity may not.
@@ -231,7 +243,8 @@ presentation path must become lane-centered and local-first.
 - [x] AC3: A parked lane ignores unrelated repository activity and resumes only
   for its own material delta or explicit action.
 - [x] AC4: Every open in-scope PR or issue in a followed project appears
-  regardless of age until it closes or its lane is explicitly parked.
+  regardless of age or stale local state until it closes or its lane is
+  explicitly parked; legacy non-explicit parking is repaired automatically.
 - [x] AC5: A manual non-Git lane can be created, noted, parked, resumed, seen,
   and removed from active attention without affecting repositories.
 - [x] AC6: Evidence deltas are concrete and deterministic; notes visibly become
@@ -265,6 +278,11 @@ presentation path must become lane-centered and local-first.
 - [x] AC20: Every Following card exposes a far-right Ignore action that parks
   the lane through the shared agent authority, removes it from Following, and
   makes it available in Parking Lot without changing project membership.
+- [x] AC21: A dirty followed worktree on an old HEAD remains Active when first
+  observed or materially changed, then ages into Parking Lot only after its
+  durable observation remains unchanged for the recent window; its card age is
+  derived from that same observation, including with a future-dated HEAD or a
+  cached snapshot that omits the internal status hash.
 
 ## Implementation Plan
 
@@ -287,6 +305,8 @@ presentation path must become lane-centered and local-first.
     add one shared macOS work-item identity mapping for distinct lane colors.
 11. Add one semantic macOS Ignore action over the existing parking mutation and
     render it at the far right of every Following card across all layouts.
+12. Age and present dirty local work from its durable material observation so
+    old commit timestamps cannot hide or mislabel fresh worktree changes.
 
 ## Task Checklist
 
@@ -304,6 +324,9 @@ presentation path must become lane-centered and local-first.
   the shared Go and macOS presentation behavior with focused regressions.
 - [x] T12: Add the Following-card Ignore action and cover its visibility and
   shared-authority parking behavior with focused Swift regressions.
+- [x] T13: Correct dirty-lane activity timing and cover activation, aging, and
+  reactivation from a changed status hash without treating cache-only hash
+  omission as activity.
 
 ## Validation Map
 
@@ -322,6 +345,7 @@ presentation path must become lane-centered and local-first.
 | AC18 | dashboard-tab unit tests, XCTest, Xcode build, and compact-menu manual smoke test |
 | AC19 | followed-issue lifecycle test, Swift work-item identity test, XCTest, and Xcode build |
 | AC20 | Swift Following-card eligibility and AppState parking tests, XCTest, Xcode build, and compact/detached visual smoke tests |
+| AC21 | clock-controlled dirty-lane activation, aging, clock-skew presentation, cache-hash omission, and status-change reactivation regression plus live `terrarium` verification |
 
 ## Reflection Notes
 
@@ -349,6 +373,16 @@ presentation path must become lane-centered and local-first.
   excludes clean base branches, and parks stale dirty work. Open PRs in
   followed projects are the deliberate exception because they remain current
   work until closed or explicitly parked.
+- Candidate precedence and persisted attention must agree: an open PR or issue
+  outranks stale-dirty auto-parking, while only `Explicit` parking records the
+  user's Ignore intent. Reconciliation can therefore repair old automatic
+  parked records without undoing an explicit Ignore.
+- Git status contains material state but no change timestamp. The durable
+  observation timestamp already advances only when the status hash, HEAD, or
+  other evidence changes, so it is the correct age authority for dirty work;
+  the HEAD commit timestamp is only evidence of commit recency. Cached project
+  snapshots omit the private status hash, so reconciliation must carry the last
+  durable hash forward rather than inventing activity at helper startup.
 - A shared gear menu recovers the fixed footer's height without hiding primary
   evidence. A separate persisted mode button keeps layout selection discoverable
   while stacked, horizontal-tile, and kanban views remain policy-free.
@@ -386,6 +420,10 @@ multi-focus ready pull request to `main`.
 The followed-issue visibility and distinct lane-card identity follow-up is
 delivered on assigned issue #31 and exact branch `GH-31` as a ready pull request
 targeting `main`.
+
+The July 16 dirty-worktree activity correction is assigned to issue #33 and
+exact branch `GH-33`, created from current `origin/main`, for a ready pull
+request targeting `main`.
 
 ## Evidence
 
@@ -459,3 +497,23 @@ targeting `main`.
   build, the Linux amd64 cross-build, all 15 Kit specifications, and diff
   hygiene. Live 580-point and 430-point window checks keep the Ignore capsule at
   the far-right card edge, while Parking Lot exposes no Ignore controls.
+- A July 16 live snapshot exposed six followed `lsmc-bio` pull requests in
+  Parking Lot with `explicit: false`: stale dirty checkout classification ran
+  before remote-work classification, and reconciliation then preserved the
+  resulting automatic parked state.
+- Candidate-order and persisted-state regressions now cover both a newly seen
+  stale-dirty open PR and a legacy non-explicit parked PR, including preservation
+  of an explicit park. After restarting the rebuilt helper, the live snapshot
+  changed from 3 Active / 24 Parked to 10 Active / 18 Parked and restored all
+  six affected PRs to Active.
+- `make fmt-check vet test test-race build release-test macos-test macos-build`,
+  the Linux amd64 cross-build, all 16 Kit specifications, and diff hygiene pass;
+  the macOS suite executes 81 tests with zero failures.
+- A July 16 live reproduction found followed `lsmc-bio/terrarium` parked with
+  six unstaged files and one untracked file because its dirty lane inherited the
+  older HEAD commit time. After restarting the rebuilt helper, `terrarium/main`
+  is Active `now` with `explicit: false`; clock-controlled regressions also
+  verify aging, status-change reactivation, clock skew, freshness alignment,
+  and startup cache snapshots that omit the private status hash.
+- Issue #33 is assigned to Jameson Stone, and branch `GH-33` starts exactly at
+  the freshly fetched `origin/main` head for ready pull-request delivery.
