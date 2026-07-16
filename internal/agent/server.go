@@ -291,23 +291,3 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 		response(Event{Type: EventProjectFailed, Stage: "failed", Message: "unknown agent request: " + request.Type})
 	}
 }
-
-func (s *Server) notesStore() notes.WorkspaceStore {
-	if s.Notes != nil {
-		return s.Notes
-	}
-	return notes.FileStore{}
-}
-
-func (s *Server) heartbeats(ctx context.Context) {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case now := <-ticker.C:
-			s.Engine.hub.Publish(Event{ProtocolVersion: ProtocolVersion, Type: EventHeartbeat, GeneratedAt: now.UTC()})
-		}
-	}
-}

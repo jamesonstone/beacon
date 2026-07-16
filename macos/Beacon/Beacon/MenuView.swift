@@ -24,10 +24,10 @@ struct MenuView: View {
     @State var switcherSelection = 0
     @State var notePendingDeletion: AgentNoteTab?
     @AppStorage("beacon.dashboard.view-mode") private var viewModeValue = DashboardViewMode.stacked.rawValue
-    @AppStorage("beacon.dismissed-evidence-badges") private var dismissedEvidenceBadgesValue = "[]"
+    @AppStorage("beacon.dismissed-evidence-badges") var dismissedEvidenceBadgesValue = "[]"
     @AppStorage("beacon.signal-notes-expanded") var signalNotesExpanded = SignalNotesPresentation.expandedByDefault
-    @AppStorage(BeaconTypography.familyKey) private var fontFamilyValue = BeaconTypography.defaultFamily.rawValue
-    @AppStorage(BeaconTypography.baseSizeKey) private var fontSizeValue = BeaconTypography.defaultBaseSize
+    @AppStorage(BeaconTypography.familyKey) var fontFamilyValue = BeaconTypography.defaultFamily.rawValue
+    @AppStorage(BeaconTypography.baseSizeKey) var fontSizeValue = BeaconTypography.defaultBaseSize
 
     var viewMode: DashboardViewMode {
         get { DashboardViewMode(rawValue: viewModeValue) ?? .stacked }
@@ -195,150 +195,7 @@ struct MenuView: View {
         .background(BeaconPalette.panelBackground)
     }
 
-    private var header: some View {
-        HStack(alignment: .center, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(BeaconPalette.neonGradient)
-                    .shadow(color: BeaconPalette.cyan.opacity(0.55), radius: 2)
-                NeonWaveWordmark("Beacon")
-                    .font(BeaconTypography.bold(17))
-            }
-            VStack(alignment: .leading, spacing: 1) {
-                Text("\(state.inProgressCount) lanes in focus")
-                    .font(BeaconTypography.medium(10))
-                    .foregroundStyle(BeaconPalette.mint)
-                if let generatedAt = state.snapshot?.generatedAt {
-                    Text("Updated \(timeSinceActivity(generatedAt))")
-                        .font(BeaconTypography.regular(8))
-                        .foregroundStyle(BeaconPalette.lavender.opacity(0.82))
-                }
-            }
-            Spacer()
-            refreshButton
-            repositorySyncButton
-            dependencyLimitsButton
-            viewModeMenu
-            settingsMenu
-        }
-    }
-
-    private var repositorySyncButton: some View {
-        Button {
-            let isOpening = toggleDashboardDestination(.repositorySync)
-            if isOpening, state.repositorySyncReport == nil, !state.isCheckingRepositorySync {
-                Task { await state.checkRepositorySync(refresh: false) }
-            }
-        } label: {
-            Group {
-                if state.isCheckingRepositorySync || state.isApplyingRepositorySync {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(BeaconPalette.gold)
-                } else {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(BeaconPalette.gold)
-                }
-            }
-            .frame(width: 28, height: 28)
-            .background(BeaconPalette.softGradient(BeaconPalette.gold), in: RoundedRectangle(cornerRadius: 8))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(BeaconPalette.gold.opacity(0.42), lineWidth: 0.7)
-            }
-            .overlay(alignment: .topTrailing) {
-                if !state.repositoriesNeedingSync.isEmpty {
-                    Text("\(min(state.repositoriesNeedingSync.count, 99))")
-                        .font(.system(size: 7, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.black)
-                        .padding(3)
-                        .background(BeaconPalette.gold, in: Circle())
-                        .offset(x: 3, y: -3)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .help(dashboardDestination == .repositorySync
-            ? "Return to Following"
-            : "Repository Sync — check and fast-forward local default branches")
-        .accessibilityLabel("Repository Sync, \(state.repositoriesNeedingSync.count) need attention")
-    }
-
-    private var dependencyLimitsButton: some View {
-        let accent = state.dependencyUsageLevel.accentColor
-        return Button {
-            let isOpening = toggleDashboardDestination(.dependencyLimits)
-            if isOpening, state.dependencyLimitsReport == nil, !state.isCheckingDependencyLimits {
-                Task { await state.checkDependencyLimits() }
-            }
-        } label: {
-            Group {
-                if state.isCheckingDependencyLimits {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(accent)
-                } else if state.dependencyLimitsReport?.hasUsage == true {
-                    Text("\(state.dependencyUsagePercent)%")
-                        .font(.system(size: 8, weight: .heavy, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(accent)
-                        .minimumScaleFactor(0.75)
-                } else {
-                    Image(systemName: "gauge.with.dots.needle.50percent")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(accent)
-                }
-            }
-            .frame(width: 28, height: 28)
-            .background(BeaconPalette.softGradient(accent), in: RoundedRectangle(cornerRadius: 8))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(accent.opacity(0.42), lineWidth: 0.7)
-            }
-        }
-        .buttonStyle(.plain)
-        .help(dashboardDestination == .dependencyLimits
-            ? "Return to Following"
-            : "Dependency Limits — check gh allowance explicitly")
-        .accessibilityLabel(dependencyLimitsAccessibilityLabel)
-    }
-
-    private var dependencyLimitsAccessibilityLabel: String {
-        guard state.dependencyLimitsReport != nil else { return "Dependency Limits, not checked" }
-        return "Dependency Limits, highest usage \(state.dependencyUsagePercent) percent"
-    }
-
-    private var refreshButton: some View {
-        Button {
-            Task { await state.scan() }
-        } label: {
-            Group {
-                if state.isScanning {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(BeaconPalette.mint)
-                } else {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(BeaconPalette.mint)
-                }
-            }
-            .frame(width: 28, height: 28)
-            .background(BeaconPalette.softGradient(BeaconPalette.mint), in: RoundedRectangle(cornerRadius: 8))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(BeaconPalette.mint.opacity(0.42), lineWidth: 0.7)
-            }
-        }
-        .buttonStyle(.plain)
-        .disabled(state.isScanning)
-        .help(state.isScanning ? "Scanning Git and GitHub evidence" : "Scan Now — refresh Git and GitHub evidence")
-        .accessibilityLabel(state.isScanning ? "Scan in progress" : "Scan Now")
-    }
-
-    private var viewModeMenu: some View {
+    var viewModeMenu: some View {
         Menu {
             Picker("View mode", selection: Binding(get: { viewMode }, set: { viewMode = $0 })) {
                 ForEach(DashboardViewMode.allCases) { mode in
@@ -362,122 +219,6 @@ struct MenuView: View {
         .help("View mode: \(viewMode.title)")
     }
 
-    private var settingsMenu: some View {
-        Menu {
-            if surface == .menu {
-                Button(action: openDashboard) { Label("Open Dashboard", systemImage: "macwindow") }
-            }
-            Button { state.openTopItem() } label: { Label("Open Top Item", systemImage: "arrow.up.forward.app") }
-                .disabled(state.inProgressCount == 0)
-            Button { manualTitle = ""; showingManualEditor = true } label: { Label("Add Manual Lane", systemImage: "plus.circle") }
-            Divider()
-            Button { showProjects(.following) } label: {
-                Label(
-                    dashboardDestination == .projectInventory ? "Return to Following" : "Manage Following",
-                    systemImage: "star"
-                )
-            }
-            Button { state.openConfig() } label: { Label("Open Config", systemImage: "slider.horizontal.3") }
-            Menu {
-                Picker("Font", selection: $fontFamilyValue) {
-                    ForEach(BeaconFontFamily.allCases) { family in
-                        Text(family.title).tag(family.rawValue)
-                    }
-                }
-            } label: {
-                Label("Font: \(BeaconFontFamily(rawValue: fontFamilyValue)?.title ?? BeaconTypography.defaultFamily.title)", systemImage: "textformat")
-            }
-            Menu {
-                Picker("Font Size", selection: $fontSizeValue) {
-                    ForEach(BeaconFontSize.allCases) { size in
-                        Text(size.title).tag(size.rawValue)
-                    }
-                }
-            } label: {
-                Label("Font Size: \(fontSizeValue) pt", systemImage: "textformat.size")
-            }
-            Button {
-                dismissedEvidenceBadgesValue = "[]"
-            } label: {
-                Label("Restore Hidden Badges", systemImage: "eye")
-            }
-            .disabled(dismissedEvidenceBadges.isEmpty)
-            Menu {
-                integrationHealthRow(provider: "codex", title: "Codex")
-                integrationHealthRow(provider: "claude-code", title: "Claude Code")
-                Divider()
-                Text("Installed means configured; active means Beacon observed the current callback.")
-                Text("Codex may require hook trust. Claude Code may be blocked by managed policy.")
-                Button { Task { await state.refreshIntegrationHealth() } } label: {
-                    Label("Refresh Integration Health", systemImage: "arrow.clockwise")
-                }
-            } label: {
-                Label("Agent Hook Health", systemImage: "bolt.horizontal.circle")
-            }
-            Divider()
-            Toggle(
-                "Open Beacon at Login",
-                isOn: Binding(
-                    get: { loginItem.isEnabled },
-                    set: { loginItem.setEnabled($0) }
-                )
-            )
-            if loginItem.requiresApproval {
-                Button("Approve in Settings") {
-                    loginItem.openSystemSettings()
-                }
-            }
-            if !state.agentAvailable {
-                Button { Task { await state.enableAgent() } } label: {
-                    Label("Enable Background Agent", systemImage: "antenna.radiowaves.left.and.right")
-                }
-            }
-            Divider()
-            Button("Quit Beacon", systemImage: "power") { NSApplication.shared.terminate(nil) }
-        } label: {
-            Image(systemName: "gearshape.fill")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(BeaconPalette.neonGradient)
-                .frame(width: 28, height: 28)
-                .background(BeaconPalette.softGradient(BeaconPalette.lavender), in: RoundedRectangle(cornerRadius: 8))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.lavender), lineWidth: 0.7)
-                }
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help("Settings")
-    }
-
-    @ViewBuilder
-    private func integrationHealthRow(provider: String, title: String) -> some View {
-        if let status = state.integrationHealth[provider] {
-            Label(
-                "\(title): \(integrationHealthLabel(status.state))",
-                systemImage: integrationHealthSymbol(status.state)
-            )
-            .help(status.message ?? status.settingsPath)
-        } else {
-            Label("\(title): unavailable", systemImage: "questionmark.circle")
-        }
-    }
-
-    private func integrationHealthLabel(_ value: String) -> String {
-        value.replacingOccurrences(of: "_", with: " ").capitalized
-    }
-
-    private func integrationHealthSymbol(_ value: String) -> String {
-        switch value {
-        case "active": return "checkmark.circle.fill"
-        case "installed": return "checkmark.circle"
-        case "stale": return "exclamationmark.circle"
-        case "error": return "exclamationmark.triangle.fill"
-        default: return "minus.circle"
-        }
-    }
-
     func showProjects(_ tab: ProjectInventoryTab) {
         projectInventoryTab = tab
         toggleDashboardDestination(.projectInventory)
@@ -488,7 +229,7 @@ struct MenuView: View {
     }
 
     @discardableResult
-    private func toggleDashboardDestination(_ destination: DashboardDestination) -> Bool {
+    func toggleDashboardDestination(_ destination: DashboardDestination) -> Bool {
         let isOpening = dashboardDestination != destination
         dashboardDestination = dashboardDestination.toggled(selecting: destination)
         return isOpening
