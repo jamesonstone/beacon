@@ -30,10 +30,14 @@ type styles struct {
 }
 
 func JSON(writer io.Writer, snapshot model.Snapshot) error {
+	return JSONValue(writer, snapshot)
+}
+
+func JSONValue(writer io.Writer, value any) error {
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "  ")
 	encoder.SetEscapeHTML(false)
-	return encoder.Encode(snapshot)
+	return encoder.Encode(value)
 }
 
 func Terminal(writer io.Writer, snapshot model.Snapshot) error {

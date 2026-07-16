@@ -10,7 +10,10 @@ final class BeaconApplicationModel {
     private var dashboardWindowController: DashboardWindowController?
 
     convenience init() {
-        self.init(state: AppState(), loginItem: LoginItemController())
+        self.init(
+            state: AppState(externalActivityClient: CLIClient()),
+            loginItem: LoginItemController()
+        )
     }
 
     init(state: AppState, loginItem: LoginItemController) {

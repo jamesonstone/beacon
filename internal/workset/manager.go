@@ -208,7 +208,7 @@ func (m Manager) candidate(lane model.Lane) (model.AttentionState, bool) {
 	if lane.Signals.Publication == model.PublicationUnpushed || lane.Signals.Publication == model.PublicationNoUpstream || lane.Signals.Publication == model.PublicationDiverged {
 		return model.AttentionActive, true
 	}
-	if lane.PullRequest != nil {
+	if lane.PullRequest != nil || lane.Issue != nil {
 		return model.AttentionActive, true
 	}
 	if lane.Worktree != nil && lane.Branch != lane.Base && lane.Worktree.UpdatedAt.After(cutoff) {

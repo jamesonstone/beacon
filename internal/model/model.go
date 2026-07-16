@@ -147,6 +147,18 @@ type PullRequest struct {
 	ClosingIssues  []Issue      `json:"closing_issues"`
 }
 
+type CheckoutWarning struct {
+	Kind              string    `json:"kind"`
+	Severity          string    `json:"severity"`
+	PullRequestNumber int       `json:"pull_request_number"`
+	PullRequestURL    string    `json:"pull_request_url,omitempty"`
+	Branch            string    `json:"branch"`
+	Base              string    `json:"base"`
+	MergedAt          time.Time `json:"merged_at"`
+	ConfirmedAt       time.Time `json:"confirmed_at"`
+	Message           string    `json:"message"`
+}
+
 type Signals struct {
 	Worktree    WorktreeState    `json:"worktree"`
 	Publication PublicationState `json:"publication"`
@@ -159,23 +171,24 @@ type Signals struct {
 }
 
 type Lane struct {
-	ID          string         `json:"id"`
-	Repository  string         `json:"repository"`
-	GitHub      string         `json:"github"`
-	Base        string         `json:"base"`
-	Branch      string         `json:"branch"`
-	Worktree    *Worktree      `json:"worktree,omitempty"`
-	PullRequest *PullRequest   `json:"pull_request,omitempty"`
-	Issue       *Issue         `json:"issue,omitempty"`
-	Progress    *Progress      `json:"progress,omitempty"`
-	Signals     Signals        `json:"signals"`
-	ReviewReady bool           `json:"review_ready"`
-	NextAction  Action         `json:"next_action"`
-	Reasons     []string       `json:"reasons"`
-	Warnings    []string       `json:"warnings"`
-	Blockers    []string       `json:"blockers"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	Attention   *LaneAttention `json:"attention,omitempty"`
+	ID              string           `json:"id"`
+	Repository      string           `json:"repository"`
+	GitHub          string           `json:"github"`
+	Base            string           `json:"base"`
+	Branch          string           `json:"branch"`
+	Worktree        *Worktree        `json:"worktree,omitempty"`
+	PullRequest     *PullRequest     `json:"pull_request,omitempty"`
+	Issue           *Issue           `json:"issue,omitempty"`
+	Progress        *Progress        `json:"progress,omitempty"`
+	Signals         Signals          `json:"signals"`
+	ReviewReady     bool             `json:"review_ready"`
+	NextAction      Action           `json:"next_action"`
+	Reasons         []string         `json:"reasons"`
+	Warnings        []string         `json:"warnings"`
+	Blockers        []string         `json:"blockers"`
+	UpdatedAt       time.Time        `json:"updated_at"`
+	Attention       *LaneAttention   `json:"attention,omitempty"`
+	CheckoutWarning *CheckoutWarning `json:"checkout_warning,omitempty"`
 }
 
 type ScanError struct {
@@ -227,68 +240,4 @@ type Project struct {
 	LaneIDs        []string      `json:"lane_ids"`
 	Errors         []ScanError   `json:"errors"`
 	Warnings       []ScanError   `json:"warnings"`
-}
-
-type TrackingState string
-
-const (
-	TrackingTracked   TrackingState = "tracked"
-	TrackingUntracked TrackingState = "untracked"
-)
-
-type FollowState string
-
-const (
-	FollowFollowing FollowState = "following"
-	FollowRecent    FollowState = "recent"
-	FollowQuiet     FollowState = "quiet"
-)
-
-type Tracking struct {
-	Path            string   `json:"path"`
-	AutoReactivated []string `json:"auto_reactivated"`
-}
-
-type RemoteEvidence struct {
-	PullRequests []PullRequest `json:"pull_requests"`
-	Issues       []Issue       `json:"issues"`
-	Errors       []ScanError   `json:"errors"`
-	Warnings     []ScanError   `json:"warnings"`
-}
-
-type RemoteCollection struct {
-	Repositories map[string]RemoteEvidence `json:"repositories"`
-	Errors       []ScanError               `json:"errors"`
-	Warnings     []ScanError               `json:"warnings"`
-}
-
-type Groups struct {
-	Ready     []string `json:"ready"`
-	Action    []string `json:"action"`
-	Waiting   []string `json:"waiting"`
-	Idle      []string `json:"idle"`
-	Untracked []string `json:"untracked"`
-}
-
-type WorkingSet struct {
-	Path    string   `json:"path"`
-	Active  []string `json:"active"`
-	Waiting []string `json:"waiting"`
-	Recent  []string `json:"recent"`
-	Parked  []string `json:"parked"`
-}
-
-type Snapshot struct {
-	SchemaVersion int         `json:"schema_version"`
-	GeneratedAt   time.Time   `json:"generated_at"`
-	ConfigPath    string      `json:"config_path"`
-	Tracking      Tracking    `json:"tracking"`
-	WorkingSet    WorkingSet  `json:"working_set"`
-	Refresh       []Refresh   `json:"refresh"`
-	Summary       Summary     `json:"summary"`
-	Groups        Groups      `json:"groups"`
-	Projects      []Project   `json:"projects"`
-	Lanes         []Lane      `json:"lanes"`
-	Errors        []ScanError `json:"errors"`
-	Warnings      []ScanError `json:"warnings"`
 }

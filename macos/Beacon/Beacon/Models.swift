@@ -1,5 +1,95 @@
 import Foundation
 
+struct ExternalActivitySnapshot: Codable, Equatable {
+    let version: Int
+    let records: [ExternalActivityRecord]
+    let nextExpiry: String?
+
+    enum CodingKeys: String, CodingKey {
+        case version, records
+        case nextExpiry = "next_expiry"
+    }
+
+    static let empty = ExternalActivitySnapshot(version: 1, records: [], nextExpiry: nil)
+}
+struct ExternalActivityRecord: Codable, Equatable {
+    let provider: String
+    let state: String
+    let sessionKey: String
+    let projectID: String
+    let laneID: String?
+    let observedAt: String
+    let expiresAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case provider, state
+        case sessionKey = "session_key"
+        case projectID = "project_id"
+        case laneID = "lane_id"
+        case observedAt = "observed_at"
+        case expiresAt = "expires_at"
+    }
+}
+
+struct IntegrationHealthStatus: Codable, Equatable, Identifiable {
+    var id: String { provider }
+    let provider: String
+    let state: String
+    let settingsPath: String
+    let message: String?
+
+    enum CodingKeys: String, CodingKey {
+        case provider, state, message
+        case settingsPath = "settings_path"
+    }
+}
+
+struct ExternalActivityChip: Equatable {
+    let label: String
+    let state: String
+    let sessionCount: Int
+}
+
+enum ExternalActivityPresentation {
+    static func chip(for records: [ExternalActivityRecord]) -> ExternalActivityChip? {
+        guard !records.isEmpty else { return nil }
+        let state = records.map(\.state).max { priority($0) < priority($1) } ?? "turn_finished"
+        let providers = Set(records.map(\.provider))
+        let provider: String
+        if providers.count > 1 {
+            provider = "Agents"
+        } else if providers.first == "claude-code" {
+            provider = "Claude Code"
+        } else {
+            provider = "Codex"
+        }
+        let stateLabel: String
+        switch state {
+        case "needs_attention": stateLabel = "Needs attention"
+        case "working": stateLabel = "Working"
+        default: stateLabel = "Turn finished"
+        }
+        var components = [provider, stateLabel]
+        if records.count > 1 {
+            components.append(String(records.count))
+        }
+        return ExternalActivityChip(
+            label: components.joined(separator: " · "),
+            state: state,
+            sessionCount: records.count
+        )
+    }
+
+    private static func priority(_ state: String) -> Int {
+        switch state {
+        case "needs_attention": return 3
+        case "working": return 2
+        case "turn_finished": return 1
+        default: return 0
+        }
+    }
+}
+
 struct BeaconSnapshot: Codable, Equatable {
     let schemaVersion: Int
     let generatedAt: String
@@ -150,6 +240,7 @@ struct WorkLane: Codable, Equatable, Identifiable {
     let blockers: [String]
     let updatedAt: String
     var attention: LaneAttentionDetails? = nil
+    var checkoutWarning: CheckoutWarningDetails? = nil
 
     enum CodingKeys: String, CodingKey {
         case id, repository, github, base, branch, worktree, issue, progress, signals, reasons, warnings, blockers, attention
@@ -157,6 +248,27 @@ struct WorkLane: Codable, Equatable, Identifiable {
         case reviewReady = "review_ready"
         case nextAction = "next_action"
         case updatedAt = "updated_at"
+        case checkoutWarning = "checkout_warning"
+    }
+}
+
+struct CheckoutWarningDetails: Codable, Equatable {
+    let kind: String
+    let severity: String
+    let pullRequestNumber: Int
+    let pullRequestURL: String?
+    let branch: String
+    let base: String
+    let mergedAt: String
+    let confirmedAt: String
+    let message: String
+
+    enum CodingKeys: String, CodingKey {
+        case kind, severity, branch, base, message
+        case pullRequestNumber = "pull_request_number"
+        case pullRequestURL = "pull_request_url"
+        case mergedAt = "merged_at"
+        case confirmedAt = "confirmed_at"
     }
 }
 
@@ -179,129 +291,5 @@ struct LaneAttentionDetails: Codable, Equatable {
         case noteStale = "note_stale"
         case lastSeenAt = "last_seen_at"
         case reactivationReason = "reactivation_reason"
-    }
-}
-
-struct WorktreeDetails: Codable, Equatable {
-    let path: String
-    let headOID: String
-    let upstream: String?
-    let staged: Int
-    let unstaged: Int
-    let untracked: Int
-    let conflicted: Int
-    let ahead: Int
-    let behind: Int
-    let aheadBase: Int
-    let behindBase: Int
-    let detached: Bool
-    let locked: Bool
-    let prunable: Bool
-    let updatedAt: String
-
-    enum CodingKeys: String, CodingKey {
-        case path, upstream, staged, unstaged, untracked, conflicted, ahead, behind, detached, locked, prunable
-        case headOID = "head_oid"
-        case aheadBase = "ahead_base"
-        case behindBase = "behind_base"
-        case updatedAt = "updated_at"
-    }
-}
-
-struct PullRequestDetails: Codable, Equatable {
-    let number: Int
-    let title: String
-    let url: String
-    let headRefName: String
-    let headRefOID: String
-    let baseRefName: String
-    let isDraft: Bool
-    let updatedAt: String
-    let reviewDecision: String?
-    let mergeStateStatus: String?
-    let mergeable: String?
-    let ciState: String
-    let checks: CheckSummary
-    let feedback: FeedbackSummary
-    let closingIssues: [IssueDetails]
-
-    enum CodingKeys: String, CodingKey {
-        case number, title, url, mergeable, checks, feedback
-        case headRefName = "head_ref_name"
-        case headRefOID = "head_ref_oid"
-        case baseRefName = "base_ref_name"
-        case isDraft = "is_draft"
-        case updatedAt = "updated_at"
-        case reviewDecision = "review_decision"
-        case mergeStateStatus = "merge_state_status"
-        case ciState = "ci_state"
-        case closingIssues = "closing_issues"
-    }
-}
-
-struct CheckSummary: Codable, Equatable {
-    let total: Int
-    let success: Int
-    let pending: Int
-    let failure: Int
-    let skipped: Int
-    let unknown: Int
-}
-
-struct FeedbackSummary: Codable, Equatable {
-    let comments: Int
-    let reviews: Int
-    let approvals: Int
-    let changesRequested: Int
-    let unresolvedThreads: Int
-
-    enum CodingKeys: String, CodingKey {
-        case comments, reviews, approvals
-        case changesRequested = "changes_requested"
-        case unresolvedThreads = "unresolved_threads"
-    }
-}
-
-struct IssueDetails: Codable, Equatable {
-    let number: Int
-    let title: String
-    let url: String
-    let labels: [String]
-    let assignees: [String]
-    let updatedAt: String
-
-    enum CodingKeys: String, CodingKey {
-        case number, title, url, labels, assignees
-        case updatedAt = "updated_at"
-    }
-}
-
-struct ProgressDetails: Codable, Equatable {
-    let source: String
-    let featureID: String
-    let feature: String
-    let phase: String
-    let summary: String
-    let path: String
-
-    enum CodingKeys: String, CodingKey {
-        case source, feature, phase, summary, path
-        case featureID = "feature_id"
-    }
-}
-
-struct LaneSignals: Codable, Equatable {
-    let worktree: String
-    let publication: String
-    let pullRequest: String
-    let ci: String
-    let review: String
-    let merge: String
-    let freshness: String
-    let issue: String
-
-    enum CodingKeys: String, CodingKey {
-        case worktree, publication, ci, review, merge, freshness, issue
-        case pullRequest = "pull_request"
     }
 }

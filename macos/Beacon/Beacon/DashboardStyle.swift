@@ -132,9 +132,59 @@ enum BeaconTypography {
     }
 }
 
+enum DashboardLaneAccent: String, CaseIterable {
+    case mint
+    case cyan
+    case pink
+
+    var color: Color {
+        switch self {
+        case .mint: BeaconPalette.mint
+        case .cyan: BeaconPalette.cyan
+        case .pink: BeaconPalette.pink
+        }
+    }
+}
+
+enum DashboardLaneIdentity: String, CaseIterable {
+    case local
+    case pullRequest
+    case issue
+
+    var accent: DashboardLaneAccent {
+        switch self {
+        case .local: .mint
+        case .pullRequest: .cyan
+        case .issue: .pink
+        }
+    }
+}
+
 enum DashboardLanePresentation {
     static let projectNameSize: CGFloat = 15
     static let laneTitleSize: CGFloat = 13
+
+    static func showsIgnoreAction(in tab: DashboardTab) -> Bool {
+        tab == .following
+    }
+
+    static func showsCheckoutWarning(for lane: WorkLane) -> Bool {
+        lane.checkoutWarning?.kind == "merged_remote_branch_deleted"
+    }
+
+    static func checkoutWarningIsCritical(for lane: WorkLane) -> Bool {
+        lane.checkoutWarning?.severity == "critical"
+    }
+
+    static func identity(for lane: WorkLane) -> DashboardLaneIdentity {
+        if lane.pullRequest != nil {
+            return .pullRequest
+        }
+        if lane.issue != nil {
+            return .issue
+        }
+        return .local
+    }
 }
 
 enum NeonWave {

@@ -31,6 +31,8 @@ optional short local note. Notes are memory cues, never canonical progress.
 Beacon reports factual evidence deltas and marks notes stale when evidence
 changes after the note. Parking is lane-specific; unrelated repository
 activity must not reactivate it.
+The macOS Following view names this explicit lane action Ignore; it maps to
+parking only and must never unfollow the repository or delete lane state.
 Lanes may also carry short, deduplicated user tags. Tags and notes are optional
 context only and must not alter evidence, attention, readiness, or next-action
 policy.
@@ -38,6 +40,14 @@ policy.
 Beacon also owns one global Markdown signal log for transient working notes
 that span lanes. It is optional local context, never durable evidence or a
 source of inferred progress.
+
+Structured external task activity is also optional context, never evidence.
+Documented local provider hooks may report that a turn is working, that Beacon
+most recently observed an attention request, or that a turn stopped. These
+cues must remain transient and must never change Following membership, lane
+attention, readiness, next action, ordering, policy, or menu-bar lane counts.
+They remain outside the schema-v3 evidence snapshot and are discarded after
+bounded expiry rather than retained as history.
 
 ### One Domain Model, Multiple Surfaces
 
@@ -66,6 +76,22 @@ to the local default branch and fast-forward it. Dirty, detached, diverged,
 unmerged, missing-ref, and multi-worktree states must be refused. Repository
 sync never invokes `gh` or the GitHub API and never rebases, hard-resets,
 force-updates, stashes, deletes, commits, pushes, or changes GitHub state.
+
+Read-only merged-checkout advisories are part of evidence collection, not
+Repository Sync. They may use Git to verify that a previously observed pull
+request head branch disappeared, then spend one exact `gh pr view` request to
+confirm the pull request merged. Only followed projects crossing that observed
+open-to-absent transition qualify, at most three may be confirmed per refresh,
+and results must be cached. An advisory never switches, pulls, deletes, or
+otherwise mutates Git or GitHub state.
+
+Provider-hook installation is another explicit local-settings mutation
+boundary. Beacon may preview and, after confirmation, atomically add or remove
+only its exact version-marked command handlers in supported provider JSON
+files. Existing settings and unrelated hooks must be preserved, malformed
+settings must be refused, and an adjacent user-only backup must precede every
+change to an existing file. Hook execution itself is observational and
+fail-open; it must never mutate a repository or provider task.
 
 ### Independent Signals Before Conclusions
 
@@ -147,6 +173,14 @@ strict versioned YAML configuration
                 versioned Unix socket agent
                        /              \
               terminal / JSON     SwiftUI menu
+
+documented local Codex / Claude Code hooks
+                       |
+        bounded Go normalization + exact cwd mapping
+                       |
+       separate user-only transient activity cache
+                       |
+              shared SwiftUI overlay
 ```
 
 Collection, normalization, correlation, policy, presentation, and platform UI
@@ -189,6 +223,12 @@ must not feed new policy back into the scanner.
 - `internal/agent` owns operational paths, per-project caches, protocol-v1
   transport, scheduling, subscriptions, lifecycle locking, and LaunchAgent
   installation.
+- `internal/activity` owns structured hook decoding, session hashing, exact
+  snapshot-based path mapping, transient state, physical expiry pruning, and
+  project refresh coalescing without changing evidence policy.
+- `internal/integrations` owns supported provider hook settings, exact
+  version-marked handler installation/removal, restrictive backups,
+  fingerprints, and callback-observation health.
 - `internal/output` renders the same snapshot as compact terminal text or JSON.
 
 Package dependencies should follow this flow. In particular, scanners collect
@@ -286,6 +326,15 @@ incomplete collection evidence must never establish or compare a baseline.
 Operational files and directories are user-only and never contain GitHub
 credentials.
 
+Current external task activity lives separately at
+`${XDG_CACHE_HOME:-$HOME/.cache}/beacon/activity.json`. It contains only a
+provider, normalized state, hashed opaque session key, exact project/lane
+target, observation/expiry times, and short refresh-coalescing metadata. Go
+physically removes expired records; no activity history is retained. The
+sibling `integration-health.json` contains only current provider handler
+fingerprints and observed flags. Neither file belongs to schema v3, tracking,
+lane attention, policy, or durable evidence.
+
 The optional global Markdown signal workspace keeps its pinned General document
 at `$XDG_DATA_HOME/beacon/notes.md`, defaulting to
 `$HOME/.local/share/beacon/notes.md`. Stable-ID detail documents and the
@@ -337,6 +386,18 @@ state.
   startup. Each explicit inspection invokes exactly one bounded
   `gh api rate_limit` request and reports GraphQL, REST Core, and Search without
   initiating any additional API operation.
+- Provider hook handlers use a provider timeout of two seconds, a shell-level
+  `>/dev/null 2>&1 || true` guard, a 32 KiB input limit, and an internal Beacon
+  deadline below 500 milliseconds. Malformed input, missing or moved helpers,
+  agent unavailability, lock contention, timeout, and cache errors must return
+  success to the provider. Hook ingestion never starts the Beacon agent and
+  never writes raw payloads to logs.
+- A valid hook asks the existing agent for its current snapshot, maps `cwd` to
+  the unique longest containing followed worktree or otherwise exactly one
+  containing followed repository root, and refuses missing, ambiguous,
+  unmatched, or non-followed paths. Only a mapped turn-stopped event requests
+  the existing targeted project refresh, coalesced for at least ten seconds;
+  presence and attention updates spend no GitHub budget.
 - Under the default `mine` scope, one due-project batch performs one global
   authored-PR search and one global assigned-issue search, then enriches every
   open authored PR in followed projects plus matching recent outside activity.
@@ -386,6 +447,9 @@ beacon untag <lane-id> <tag>
 beacon add --manual <title>
 beacon seen <lane-id>
 beacon refresh [project]
+beacon integrations install <codex|claude-code>
+beacon integrations status <codex|claude-code>
+beacon integrations uninstall <codex|claude-code>
 beacon agent install|start|serve|status|stop|uninstall
 beacon doctor [--json]
 beacon open <lane-id>
@@ -434,6 +498,12 @@ Collections must encode as arrays rather than `null`. Additive changes must be
 safe for existing decoders; incompatible semantic or structural changes
 require a schema-version increment and coordinated client support.
 
+External task activity is deliberately not an additive schema-v3 or
+protocol-v1 field. Hidden helper commands exchange a separate versioned
+normalized cache shape with Swift. An older helper therefore yields no overlay
+without changing mixed-version agent transport or invalidating the last-good
+evidence snapshot.
+
 ### macOS Application Boundary
 
 The macOS application targets macOS 14 or later and combines SwiftUI
@@ -471,6 +541,16 @@ snapshot interpretation. An embedded, signed login-item helper may launch the
 main app quietly with `--login` when the user explicitly enables Open at Login.
 Service Management owns registration and approval, and the helper performs no
 evidence collection itself.
+The shared `AppState` may also watch the separate normalized external-activity
+cache and render one compact chip on the exact project header or lane card.
+State priority is latest attention request, working, then turn finished;
+concurrent sessions collapse to a count and mixed providers use `Agents`.
+Swift must not parse provider payloads, map paths, infer completion/failure, or
+hide expired rows itself. It schedules the next Go-reported expiry and invokes
+the bundled helper to prune every overdue record before rescheduling. Settings
+may show compact Codex and Claude Code integration-health rows, including that
+Codex can require trust and Claude Code can be blocked by managed policy, but
+must not add an inbox, aliases, timeline, or activity-management destination.
 Secondary commands and preferences live in a top-right Settings menu. A
 separate compact view control offers a persisted stacked list, horizontal tile
 strips, and an experimental state-column kanban board over the same ordered
@@ -509,9 +589,12 @@ status policy, and render a static gradient when Reduce Motion is enabled.
 The menu-bar label always shows a compact, non-template colored beacon dome.
 The number of lanes across the CLI-provided active, waiting, and recently-active
 groups appears inside that dome with adaptive width and type scale through
-`99+`, preserving the app identity and a legible count in one item. The menu window may use coordinated
-pastel and neon accents to distinguish existing CLI-provided groups and signals,
-but color must not introduce readiness or action policy in the Swift client.
+`99+`, preserving the app identity and a legible count in one item. The menu
+window may use coordinated pastel and neon accents to distinguish existing
+CLI-provided groups and signals, but color must not introduce readiness or
+action policy in the Swift client. Within every lane layout, local-only cards
+are mint, pull-request-backed cards are cyan, and issue-backed cards are pink.
+This is a work-item identity mapping, not attention or readiness inference.
 Individual evidence badges may be hidden as reversible local presentation
 state. Dismissal is scoped to lane, evidence dimension, and exact value so a
 changed signal reappears; it must never mutate or suppress canonical evidence
@@ -520,6 +603,8 @@ in the Go snapshot.
 Human-facing lane detail remains lane-centered. The CLI groups Active, Waiting,
 Recently Active, and Parked lanes. The macOS dashboard opens on Following,
 which contains the focused working set for explicitly followed repositories.
+Every scoped open pull request and issue in a followed repository remains in
+that working set regardless of age until closure or explicit parking.
 Recently Updated is an inbox for material activity outside Following within the
 configured stale window; Quiet is every remaining discovered non-followed
 project. Top-item actions skip parked and quiet work plus manual lanes without
@@ -771,6 +856,8 @@ specification, threat and compatibility analysis, and user-visible controls.
 - A Kanban board, issue tracker, or general project-management system.
 - Synthetic progress percentages or estimates of how much coding remains.
 - Parsing agent chats or depending on Codex task internals as canonical state.
+- Capturing macOS Notification Center, Accessibility state, unstructured
+  notification text, prompts, transcripts, tool inputs, or assistant content.
 - Automatically editing work, switching branches, committing, pushing,
   creating or updating pull requests, reviewing, or merging.
 - Hiding multiple signals behind an unexplained traffic-light status.
@@ -778,7 +865,8 @@ specification, threat and compatibility analysis, and user-visible controls.
 - Enumerating every unattached local branch in version 1.
 - Supporting non-GitHub forges, multiple users, or hosted collaboration in
   version 1.
-- A history database, web dashboard, notifications, Homebrew distribution,
+- A history database, web dashboard, Beacon-generated user notifications,
+  external-activity history or management UI, Homebrew distribution,
   Developer ID signing, notarization, App Store distribution, automatic
   updates, or an in-app configuration editor.
 
@@ -807,6 +895,9 @@ are not implied by Beacon's long-term vision.
   while unaffected lanes remain available.
 - **Snapshot**: the ordered, schema-versioned result shared by terminal, JSON,
   and macOS surfaces.
+- **External task activity**: a bounded, normalized lifecycle cue from a
+  documented local provider hook; transient context that is neither snapshot
+  evidence nor durable progress.
 - **Canonical artifact**: the repository document that owns detailed truth for
   a workflow, normally a workflow-v2 feature `SPEC.md`.
 - **Highest completed artifact or phase**: the furthest evidence-backed workflow

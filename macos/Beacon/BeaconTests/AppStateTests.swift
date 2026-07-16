@@ -3,6 +3,75 @@ import XCTest
 
 @MainActor
 final class AppStateTests: XCTestCase {
+    func testExternalActivityTargetsLaneAndProjectWithoutChangingCounts() {
+        let state = AppState(client: StubClient(result: .success(TestSnapshots.empty)))
+        let records = [
+            ExternalActivityRecord(
+                provider: "codex", state: "working", sessionKey: "one",
+                projectID: "owner/repo", laneID: "lane-31",
+                observedAt: "2026-07-16T12:00:00Z", expiresAt: "2026-07-16T14:00:00Z"
+            ),
+            ExternalActivityRecord(
+                provider: "claude-code", state: "needs_attention", sessionKey: "two",
+                projectID: "owner/repo", laneID: nil,
+                observedAt: "2026-07-16T12:00:00Z", expiresAt: "2026-07-17T12:00:00Z"
+            ),
+        ]
+        state.applyExternalActivity(ExternalActivitySnapshot(version: 1, records: records, nextExpiry: nil))
+
+        XCTAssertEqual(state.activityChip(projectID: "owner/repo")?.label, "Claude Code · Needs attention")
+        XCTAssertEqual(state.activityChip(projectID: "owner/repo", laneID: "lane-31")?.label, "Codex · Working")
+        XCTAssertEqual(state.inProgressCount, 0)
+        XCTAssertEqual(state.readyCount, 0)
+    }
+
+    func testExternalActivityExpiryInvokesGoPruneInsteadOfFilteringInSwift() async {
+        let record = ExternalActivityRecord(
+            provider: "codex", state: "working", sessionKey: "hashed",
+            projectID: "owner/repo", laneID: nil,
+            observedAt: "2026-07-16T12:00:00Z", expiresAt: "2026-07-16T14:00:00Z"
+        )
+        let client = ExternalActivityClientStub(
+            initial: ExternalActivitySnapshot(
+                version: 1,
+                records: [record],
+                nextExpiry: "2000-01-01T00:00:00Z"
+            )
+        )
+        let state = AppState(
+            agent: ScriptedAgent(events: []), installer: nil,
+            notesFallback: nil, repositorySyncFallback: nil,
+            dependencyLimitsClient: nil, externalActivityClient: client
+        )
+
+        await state.refreshExternalContext()
+        for _ in 0..<20 {
+            if await client.pruneCalls > 0 { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        let pruneCalls = await client.pruneCalls
+        XCTAssertEqual(pruneCalls, 1)
+        XCTAssertEqual(state.externalActivity, .empty)
+    }
+
+    func testActivityCacheWatcherObservesAtomicDirectoryChanges() async throws {
+        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let observed = expectation(description: "cache directory change")
+        observed.assertForOverFulfill = false
+        let watcher = try XCTUnwrap(ActivityCacheWatcher(directory: directory) {
+            observed.fulfill()
+        })
+
+        try Data("{}".utf8).write(to: directory.appendingPathComponent("activity.json"), options: .atomic)
+
+        await fulfillment(of: [observed], timeout: 1)
+        watcher.cancel()
+    }
+
     func testSuccessfulScanStoresSnapshot() async {
         let expected = TestSnapshots.empty
         let state = AppState(client: StubClient(result: .success(expected)))
@@ -121,6 +190,38 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(state.quietProjects.map(\.github), ["owner/quiet"])
     }
 
+    func testIgnoreLaneParksThroughSharedAgentAuthority() async throws {
+        var active = TestSnapshots.withIdleInventory
+        active.workingSet = WorkingSetGroups(
+            path: "/Users/test/.local/state/beacon/lanes.json",
+            active: ["active-work"],
+            waiting: [],
+            recent: [],
+            parked: []
+        )
+        var parked = active
+        parked.workingSet = WorkingSetGroups(
+            path: "/Users/test/.local/state/beacon/lanes.json",
+            active: [],
+            waiting: [],
+            recent: [],
+            parked: ["active-work"]
+        )
+        let agent = RecordingLaneAttentionAgent(
+            mutationEvent: TestSnapshots.snapshotEvent(parked)
+        )
+        let state = AppState(agent: agent, installer: nil)
+        state.apply(TestSnapshots.snapshotEvent(active))
+
+        let lane = try XCTUnwrap(active.lanes.first { $0.id == "active-work" })
+        await state.ignoreLane(lane)
+
+        let calls = await agent.calls
+        XCTAssertEqual(calls, [LaneAttentionCall(id: "active-work", state: "parked")])
+        XCTAssertEqual(state.snapshot?.workingSet?.active, [])
+        XCTAssertEqual(state.snapshot?.workingSet?.parked, ["active-work"])
+        XCTAssertNil(state.lastError)
+    }
 
     func testOpenTargetPrefersPullRequestThenIssueThenWorktree() throws {
         let lane = TestSnapshots.lane(

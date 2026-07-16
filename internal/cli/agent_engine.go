@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jamesonstone/beacon/internal/agent"
+	"github.com/jamesonstone/beacon/internal/checkoutwarn"
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/githubapi"
 	"github.com/jamesonstone/beacon/internal/model"
@@ -71,6 +72,9 @@ func (a App) newAgentEngine(ctx context.Context, path string) (*agent.Engine, ag
 	cache := agent.Cache{Directory: paths.Projects, Now: time.Now}
 	prober := agent.Prober{Runner: githubRunner, Remote: scanner.GitHub}
 	engine := agent.NewEngine(cfg, paths, cache, repositories, projectScanner, prober, tracker)
+	engine.CheckoutConfirmer = checkoutwarn.Service{
+		GitRunner: a.Runner, GitHubRunner: githubRunner, Now: time.Now,
+	}
 	engine.RepositorySync = reposync.Service{Runner: a.Runner, MaxParallel: cfg.Settings.MaxParallel, Now: time.Now}
 	workingSet := workset.Manager{Store: workset.FileStore{}, Now: time.Now}
 	engine.WorkingSet = &workingSet

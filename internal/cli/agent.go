@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/jamesonstone/beacon/internal/agent"
 	"github.com/jamesonstone/beacon/internal/output"
@@ -283,26 +282,4 @@ func (a App) runAgentDashboard(ctx context.Context, configPath, colorMode string
 	return output.TerminalWithOptions(a.Out, *event.Snapshot, output.TerminalOptions{
 		Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle, WorkingSet: !includeIdle,
 	})
-}
-
-func waitForAgentRefresh(ctx context.Context, client agentRequestClient) error {
-	ticker := time.NewTicker(250 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		event, err := client.Request(ctx, agent.Request{Type: agent.RequestGetAgentStatus})
-		if err != nil {
-			return err
-		}
-		if event.Status == nil {
-			return errors.New("agent returned no status during manual refresh")
-		}
-		if !event.Status.Refreshing {
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-		}
-	}
 }

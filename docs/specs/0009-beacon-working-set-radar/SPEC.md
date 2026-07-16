@@ -58,6 +58,14 @@ references:
     read_policy: must
     used_for: age-independent followed pull-request visibility follow-up
     status: active
+  - id: issue-31
+    name: Keep followed issues visible and distinguish lane cards
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/31
+    relation: supports
+    read_policy: must
+    used_for: age-independent followed-issue visibility and lane-card identity
+    status: active
   - id: pull-request-8
     name: Refine Beacon source structure and dashboard navigation
     type: github-pull-request
@@ -99,8 +107,9 @@ presentation path must become lane-centered and local-first.
 
 ## Clarifications
 
-- Open PRs allowed by the configured GitHub scope remain in the working set for
-  followed projects regardless of age; explicit parking can still hide a lane.
+- Open PRs and issues allowed by the configured GitHub scope remain in the
+  working set for followed projects regardless of age; explicit parking can
+  still hide a lane.
 - Design, research, and planning work without Git evidence uses a manually
   created lane; no Codex task API is required.
 - GitHub evidence may be 30–60 minutes stale. Local evidence remains
@@ -129,9 +138,9 @@ presentation path must become lane-centered and local-first.
 4. Add manual lanes with stable `manual:<id>` identities and no required Git or
    GitHub fields.
 5. Candidate lanes include dirty/conflicted worktrees, unpublished/diverged
-   branches, recent local commits, every open in-scope PR for followed
-   projects, pins, and manual lanes. Open PR lanes remain active regardless of
-   age unless explicitly parked.
+   branches, recent local commits, every open in-scope PR and issue for
+   followed projects, pins, and manual lanes. Open PR and issue lanes remain
+   active regardless of age unless explicitly parked.
 6. Reconcile parked lanes only against their own observation. Material
    lane-specific change may reactivate with an explainable reason; unrelated
    project activity may not.
@@ -186,14 +195,22 @@ presentation path must become lane-centered and local-first.
     every new dashboard surface, the tabs expose their current counts, and each
     tab reuses the existing lane/project data and actions without changing
     working-set policy. Tracked-project configuration remains in Settings.
+25. Give local-only, pull-request-backed, and issue-backed macOS lane cards
+    three distinct palette identities in every dashboard layout. This visual
+    identity may style the card, work-item reference, and action text, but must
+    not infer or change Go-owned attention or next-action policy.
+26. Put an `Ignore` action at the far-right edge of every macOS Following lane
+    card in stacked, tile, and kanban layouts. The action must use the existing
+    Go-owned parking mutation, move the lane into Parking Lot in both macOS
+    surfaces, and never unfollow its project or delete lane state.
 
 ## Assumptions
 
 - Strict JSON remains sufficient because Beacon stores only current and
   last-seen observations, not an event history.
 - Six hours is the default automatic recent-activity window for local and
-  outside-project evidence, not an expiration for open PRs in followed
-  projects. A live 80-project
+  outside-project evidence, not an expiration for open PRs or issues in
+  followed projects. A live 80-project
   rollout established that seven days admitted 49 lanes and 48 hours still
   admitted 12, while a work-session-sized window meets the three-to-eight lane
   objective. Pins and explicit resume preserve longer-lived attention.
@@ -213,8 +230,8 @@ presentation path must become lane-centered and local-first.
   seen, and park state.
 - [x] AC3: A parked lane ignores unrelated repository activity and resumes only
   for its own material delta or explicit action.
-- [x] AC4: Every open in-scope PR in a followed project appears regardless of
-  age until it closes or its lane is explicitly parked.
+- [x] AC4: Every open in-scope PR or issue in a followed project appears
+  regardless of age until it closes or its lane is explicitly parked.
 - [x] AC5: A manual non-Git lane can be created, noted, parked, resumed, seen,
   and removed from active attention without affecting repositories.
 - [x] AC6: Evidence deltas are concrete and deterministic; notes visibly become
@@ -242,6 +259,12 @@ presentation path must become lane-centered and local-first.
 - [x] AC18: Active is the default dashboard tab; Parking Lot, Quiet, and
   Untracked are directly selectable peers with counts, and the former stacked
   navigation cards and back-button drill-ins are absent.
+- [x] AC19: Local-only, pull-request-backed, and issue-backed lanes use three
+  distinct macOS card colors in stacked, tile, and kanban layouts without
+  changing shared lane policy.
+- [x] AC20: Every Following card exposes a far-right Ignore action that parks
+  the lane through the shared agent authority, removes it from Following, and
+  makes it available in Parking Lot without changing project membership.
 
 ## Implementation Plan
 
@@ -260,6 +283,10 @@ presentation path must become lane-centered and local-first.
    dimension, and exact signal value.
 9. Replace secondary dashboard drill-ins with a compact four-tab activity
    selector while preserving Settings-based tracked-project management.
+10. Keep scoped open issues in followed projects active regardless of age and
+    add one shared macOS work-item identity mapping for distinct lane colors.
+11. Add one semantic macOS Ignore action over the existing parking mutation and
+    render it at the far right of every Following card across all layouts.
 
 ## Task Checklist
 
@@ -273,6 +300,10 @@ presentation path must become lane-centered and local-first.
 - [x] T8: Add shared tags and the macOS settings/view-mode design pass.
 - [x] T9: Add hover-to-dismiss evidence badges and restore controls.
 - [x] T10: Add Active, Parking Lot, Quiet, and Untracked dashboard tabs.
+- [x] T11: Retain open followed issues, add distinct lane identities, and cover
+  the shared Go and macOS presentation behavior with focused regressions.
+- [x] T12: Add the Following-card Ignore action and cover its visibility and
+  shared-authority parking behavior with focused Swift regressions.
 
 ## Validation Map
 
@@ -289,15 +320,17 @@ presentation path must become lane-centered and local-first.
 | AC15-AC16 | Swift view-model tests, XCTest, Xcode Debug build, and manual app smoke test |
 | AC17 | dismissal-key unit tests, XCTest, Xcode build, and hover/click manual smoke test |
 | AC18 | dashboard-tab unit tests, XCTest, Xcode build, and compact-menu manual smoke test |
+| AC19 | followed-issue lifecycle test, Swift work-item identity test, XCTest, and Xcode build |
+| AC20 | Swift Following-card eligibility and AppState parking tests, XCTest, Xcode build, and compact/detached visual smoke tests |
 
 ## Reflection Notes
 
 - Lane attention must override legacy project tracking for scheduler cadence;
   otherwise resuming a lane inside an untracked project inherits the old slow
   project probe interval.
-- Automatic non-PR candidate entries are removed when they become inactive so
-  hidden historical local work cannot retain the fast cadence. Open PRs in
-  followed projects remain active until closed or explicitly parked; notes,
+- Automatic local-only candidate entries are removed when they become inactive
+  so hidden historical work cannot retain the fast cadence. Open PRs and issues
+  in followed projects remain active until closed or explicitly parked; notes,
   pins, explicit resume, and parking keep the remaining attention durable.
 - Pinned remote PRs remain represented from local lane state when enrichment is
   temporarily unavailable. The normal followed-project path now enriches open
@@ -325,12 +358,16 @@ presentation path must become lane-centered and local-first.
 - Evidence-badge dismissals use lane, dimension, and exact signal value as the
   presentation key. This keeps the action reversible, avoids hiding changed
   evidence, and leaves the Go snapshot and next-action policy untouched.
+- Naming the macOS parking affordance Ignore makes the immediate focus action
+  plain without adding a second policy path; AppState still sends the existing
+  `parked` mutation and renders the agent's returned snapshot.
 
 ## Documentation Updates
 
 - Update the constitution, README, and project progress summary for lane-level
-  attention, optional notes, factual deltas, conservative collection, and the
-  explicit diagnostic boundary.
+  attention, optional notes, factual deltas, conservative collection, the
+  explicit diagnostic boundary, distinct macOS work-item colors, and the
+  Following-card Ignore-to-Parking-Lot action.
 
 ## Delivery Decision
 
@@ -345,6 +382,10 @@ cleanup, with a separate focused feature commit and updated delivery evidence.
 The July 15 open-PR visibility correction is delivered as a focused bug-fix
 commit on assigned issue #27 and exact branch `GH-27`, within the user-approved
 multi-focus ready pull request to `main`.
+
+The followed-issue visibility and distinct lane-card identity follow-up is
+delivered on assigned issue #31 and exact branch `GH-31` as a ready pull request
+targeting `main`.
 
 ## Evidence
 
@@ -396,3 +437,25 @@ multi-focus ready pull request to `main`.
   and diff hygiene pass.
 - Restarting the rebuilt helper and refreshing `labcore-ui` produced one Active
   lane for PR #31 in the shared agent snapshot and terminal Following output.
+- A July 15 live reproduction confirmed `jamesonstone/kit` was followed and
+  assigned issue #50 was present in the explicit diagnostic snapshot but absent
+  from Following because issue-only lanes were not automatic candidates after
+  the six-hour recent window.
+- Issue #31 is assigned to Jameson Stone, and branch `GH-31` starts exactly at
+  the freshly fetched `origin/main` head.
+- `TestReconcileKeepsOpenIssuesInFollowedWorkingSet` now verifies an old scoped
+  issue remains Active until closure, while the Swift lane-identity regression
+  fixes local-only cards to mint, pull-request-backed cards to cyan, and
+  issue-backed cards to pink across all shared layouts.
+- `make fmt-check vet test test-race build release-test macos-test macos-build`
+  passes with 73 Swift tests and a successful universal macOS build. The Linux
+  amd64 cross-build, all 15 Kit specifications, Go formatting, and diff hygiene
+  also pass.
+- The Following-card Ignore follow-up adds one shared presentation guard and
+  one semantic AppState wrapper over the existing `parked` mutation. Focused
+  Swift tests verify Following-only visibility and the exact lane/state request,
+  including the returned Active-to-Parking-Lot snapshot transition.
+- The complete repository gate passes with 75 Swift tests, a universal macOS
+  build, the Linux amd64 cross-build, all 15 Kit specifications, and diff
+  hygiene. Live 580-point and 430-point window checks keep the Ignore capsule at
+  the far-right card edge, while Parking Lot exposes no Ignore controls.

@@ -110,8 +110,10 @@ repository-sync reports and render the same behavior in both surfaces.
 
 - Repository sync uses configured or source-discovered repository `base` and
   `remote` values; `main` and `origin` remain the defaults.
-- Passive macOS detection performs local Git inspection only. It never fetches,
-  invokes `gh`, or calls the GitHub API.
+- Opening either macOS surface remains cache-only. Repository Sync passive
+  inspection remains local-only; the existing scheduled evidence refresh may
+  confirm at most three transition-scoped merged-checkout candidates with exact
+  `gh pr view` requests after Git establishes that their remote heads are absent.
 - `Check for Updates` and interactive `beacon sync` are explicit user actions
   that may run bounded `git fetch --prune --no-tags` commands.
 - A repository needs attention when its checked-out branch is behind the fetched
@@ -210,11 +212,18 @@ repository-sync reports and render the same behavior in both surfaces.
 19. Model shared dashboard navigation as one mutually exclusive destination and
     make repeated selection of any non-Following tab, header panel, or Following
     manager return both macOS surfaces to Following.
+20. Add a read-only merged-checkout advisory that starts only from a followed
+    project's previously observed open pull request, checks the missing remote
+    head with Git before using `gh pr view`, persists positive and negative
+    results, caps confirmation at three candidates per refresh, and renders one
+    warning control that opens Repository Sync without changing repository or
+    GitHub state.
 
 ## Assumptions
 
-- A fetched remote-tracking default branch is sufficient Git evidence; this
-  feature does not need merge-status or pull-request queries.
+- A fetched remote-tracking default branch remains sufficient for Repository
+  Sync safety. The separate read-only advisory uses exact pull-request queries
+  only after a cached open-PR transition and missing-remote-head prefilter.
 - A checked-out branch whose HEAD is an ancestor of the remote default branch is
   already merged for the purpose of a safe return to the default branch.
 - Refusing ambiguous or destructive updates is more useful than attempting to
@@ -242,7 +251,8 @@ repository-sync reports and render the same behavior in both surfaces.
 - [x] AC4: Interactive CLI selection updates one or many repositories, JSON paths
   are deterministic, and non-TTY mutation requires explicit targets and approval.
 - [x] AC5: Agent and direct-helper paths return the same repository-sync report,
-  and no scheduled background GitHub or repository-sync network work is added.
+  and Repository Sync itself adds no scheduled network work; bounded advisory
+  confirmation runs only inside an already scheduled evidence refresh.
 - [x] AC6: The menu extra and detachable dashboard share an equal-sized sync
   button, attention badge, explicit fetch control, multi-select, and update actions.
 - [x] AC7: Signal Notes occupies about half the expanded surface and preserves
@@ -268,6 +278,10 @@ repository-sync reports and render the same behavior in both surfaces.
 - [x] AC16: Every non-Following tab, header panel, and Following-manager
   destination opens on first selection, returns to Following when selected
   again, and switches directly when a different destination is selected.
+- [x] AC17: At most three followed projects per refresh receive exact merged-PR
+  confirmation, confirmed missing-head checkouts expose the same read-only
+  warning in menu and window cards, and opening or clicking the warning performs
+  no checkout, pull, deletion, or GitHub mutation.
 
 ## Implementation Plan
 
@@ -283,6 +297,9 @@ repository-sync reports and render the same behavior in both surfaces.
    the colored beacon menu-bar label, then repeat focused, full, and visual gates.
 8. Replace independent dashboard navigation flags with one tested destination
    state and apply the repeat-to-Following rule to every destination control.
+9. Add transition-scoped, persisted merged-checkout confirmation to the agent
+   cache and expose its advisory through the shared SwiftUI lane card and
+   Repository Sync navigation.
 
 ## Agent Team Plan
 
@@ -308,6 +325,7 @@ repository-sync reports and render the same behavior in both surfaces.
 - [x] T11: Implement and test the Swift limit panel and threshold-aware button.
 - [x] T12: Implement and visually inspect the adaptive colored menu-bar beacon.
 - [x] T13: Implement and test repeat-to-Following dashboard navigation.
+- [x] T14: Implement and test the bounded merged-checkout warning path.
 
 ## Validation Map
 
@@ -324,6 +342,7 @@ repository-sync reports and render the same behavior in both surfaces.
 | AC14 | recorded Go command test, stable JSON decoding tests, Swift state and threshold tests, CLI help, and manual no-startup-query inspection |
 | AC15 | Swift presentation tests, universal Xcode build, and live menu-bar inspection with and without an in-progress count |
 | AC16 | Swift route-transition tests plus macOS test/build validation for tabs, header panels, Following management, and cross-destination selection |
+| AC17 | Go candidate transition, cache, three-request budget, remote-head, exact-PR, and failure tests plus Swift decoding/presentation and live shared-surface inspection |
 
 ## Reflection Notes
 
@@ -359,6 +378,9 @@ repository-sync reports and render the same behavior in both surfaces.
 - One mutually exclusive dashboard destination makes repeat-to-Following behavior
   deterministic across tabs, header panels, and Following management while a
   different selection still navigates directly to its destination.
+- Keeping merged-checkout confirmation separate from Repository Sync preserves
+  the latter's Git-only safety contract. The warning can navigate to the
+  existing local-only report without performing or implying an update.
 
 ## Documentation Updates
 
@@ -382,6 +404,10 @@ configuration changes.
 The adaptive menu-bar dome follow-up is delivered as a focused feature commit
 on assigned issue #27 and exact branch `GH-27`, within the user-approved
 multi-focus ready pull request to `main`.
+
+The merged-checkout advisory extends assigned issue #31 on exact branch
+`GH-31` and ready PR #32. It does not broaden Repository Sync mutation or
+authorize merge, force-push, branch deletion, or configuration changes.
 
 ## Evidence
 
@@ -456,3 +482,12 @@ multi-focus ready pull request to `main`.
   universal macOS Debug build: `make fmt-check vet test test-race build
   release-test macos-test macos-build`, `kit check --all` across all 12 feature
   specifications, and `git diff --check`.
+- The advisory's recorded commands prove Git checks the exact remote head before
+  one exact `gh pr view <number>` call; remote-present candidates issue no GitHub
+  request, and only three candidates may consume the per-refresh budget.
+- Cache migration and agent tests prove that confirmed and negative outcomes
+  persist, cold-start and non-followed projects are excluded, and only exact
+  merged/head/base matches create warnings. Swift decoding and presentation
+  tests cover the shared warning kind and gold/coral severity contract.
+- The final complete gate passed with all 76 Swift tests, the universal macOS
+  build, Linux amd64 cross-build, all 15 Kit specifications, and diff hygiene.

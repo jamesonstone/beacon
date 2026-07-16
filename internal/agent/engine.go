@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jamesonstone/beacon/internal/checkoutwarn"
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/model"
 	"github.com/jamesonstone/beacon/internal/reposync"
@@ -30,32 +31,34 @@ type RepositorySynchronizer interface {
 }
 
 type Engine struct {
-	Config         config.Config
-	Paths          Paths
-	Cache          Cache
-	Repositories   RepositoryProvider
-	ScanProject    ProjectScanner
-	ScanBatch      ProjectBatchScanner
-	Prober         ProjectProber
-	ProbeBatch     ProjectBatchProber
-	RepositorySync RepositorySynchronizer
-	Tracker        tracking.Manager
-	WorkingSet     *workset.Manager
-	Now            func() time.Time
-	StartedAt      time.Time
+	Config            config.Config
+	Paths             Paths
+	Cache             Cache
+	Repositories      RepositoryProvider
+	ScanProject       ProjectScanner
+	ScanBatch         ProjectBatchScanner
+	Prober            ProjectProber
+	ProbeBatch        ProjectBatchProber
+	RepositorySync    RepositorySynchronizer
+	CheckoutConfirmer checkoutwarn.Confirmer
+	Tracker           tracking.Manager
+	WorkingSet        *workset.Manager
+	Now               func() time.Time
+	StartedAt         time.Time
 
-	mutex       sync.RWMutex
-	records     map[string]ProjectRecord
-	revisions   map[string]uint64
-	stages      map[string]string
-	refreshing  bool
-	scanID      string
-	activeAll   bool
-	active      map[string]struct{}
-	pendingAll  bool
-	pending     map[string]struct{}
-	hub         *eventHub
-	cacheErrors []error
+	mutex                 sync.RWMutex
+	records               map[string]ProjectRecord
+	revisions             map[string]uint64
+	stages                map[string]string
+	refreshing            bool
+	scanID                string
+	activeAll             bool
+	active                map[string]struct{}
+	pendingAll            bool
+	pending               map[string]struct{}
+	hub                   *eventHub
+	cacheErrors           []error
+	checkoutConfirmations map[string]int
 }
 
 func NewEngine(cfg config.Config, paths Paths, cache Cache, repositories RepositoryProvider, scanner ProjectScanner, prober ProjectProber, tracker tracking.Manager) *Engine {
@@ -98,7 +101,7 @@ func NewEngine(cfg config.Config, paths Paths, cache Cache, repositories Reposit
 		Config: cfg, Paths: paths, Cache: cache, Repositories: repositories,
 		ScanProject: scanner, Prober: prober, Tracker: tracker, Now: time.Now,
 		StartedAt: time.Now().UTC(), records: byID, revisions: revisions, stages: stages,
-		hub: newEventHub(), cacheErrors: failures,
+		hub: newEventHub(), cacheErrors: failures, checkoutConfirmations: make(map[string]int),
 	}
 }
 

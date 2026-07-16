@@ -13,12 +13,13 @@
 | 0007 | queued-project-tracking | `docs/specs/0007-queued-project-tracking` | deliver | no | 2026-07-12 | Make macOS Track and Untrack selections optimistic and nonblocking through an ordered background queue. |
 | 0008 | github-api-budget | `docs/specs/0008-github-api-budget` | deliver | no | 2026-07-12 | Preserve the user's GitHub API allowance with shared caching, rate-budget circuit breaking, and network-free batch tracking changes. |
 | 0009 | beacon-working-set-radar | `docs/specs/0009-beacon-working-set-radar` | deliver | no | 2026-07-12 | Refocus Beacon on a small lane-level working set with durable attention, factual deltas, conservative enrichment, and direct activity tabs. |
-| 0010 | project-following | `docs/specs/0010-project-following` | deliver | no | 2026-07-13 | Make repository Following explicit, surface outside activity as Recently Updated, retain a complete Quiet inventory, and animate the accessible neon wordmark. |
+| 0010 | project-following | `docs/specs/0010-project-following` | deliver | no | 2026-07-13 | Make repository Following explicit, retain a complete outside inventory, and conservatively warn when a merged PR's deleted branch remains checked out. |
 | 0011 | working-notes-refresh | `docs/specs/0011-working-notes-refresh` | deliver | no | 2026-07-13 | Add one local Markdown signal log plus unmistakable manual refresh controls across the CLI, menu extra, and detachable dashboard. |
-| 0012 | repository-sync-ui-refresh | `docs/specs/0012-repository-sync-ui-refresh` | deliver | no | 2026-07-14 | Add conservative Git-only stale-default detection and fast-forward actions, explicit dependency-limit visibility, repeat-to-Following navigation, a recognizable menu-bar beacon, and the shared dashboard refinements. |
+| 0012 | repository-sync-ui-refresh | `docs/specs/0012-repository-sync-ui-refresh` | deliver | no | 2026-07-14 | Add conservative Git-only sync, explicit dependency limits, shared dashboard refinements, and read-only merged-checkout advisories backed by bounded exact confirmation. |
 | 0013 | signal-note-tabs | `docs/specs/0013-signal-note-tabs` | deliver | no | 2026-07-14 | Extend Signal Notes into a persistent Go-owned tab workspace shared by the CLI, menu extra, and dashboard, with detail history and native quick switchers. |
 | 0014 | signal-note-deletion | `docs/specs/0014-signal-note-deletion` | deliver | no | 2026-07-14 | Add permanent detail-note deletion through the Go authority with shared macOS confirmation controls and a higher-contrast switcher. |
 | 0015 | notes-agent-lifecycle | `docs/specs/0015-notes-agent-lifecycle` | deliver | no | 2026-07-14 | Restore native Signal Notes input and bind the background agent lifetime to direct CLI or macOS application activation. |
+| 0016 | external-task-activity | `docs/specs/0016-external-task-activity` | deliver | no | 2026-07-16 | Add transient Codex and Claude Code hook activity to exact followed projects and lanes without changing Beacon evidence or policy. |
 
 ## PROJECT INTENT
 
@@ -114,9 +115,9 @@ canonical feature artifact wins whenever this index disagrees with it.
 
 - **STATUS**: deliver
 - **PAUSED**: no
-- **INTENT**: Make Beacon a personal memory for the small set of Git, PR, and manual lanes currently competing for attention.
-- **APPROACH**: Persist lane-level attention, pins, notes, tags, last-seen observations, and factual deltas; observe local Git frequently without network work; discover GitHub activity globally, enrich every open in-scope PR for followed projects regardless of age, and retain the recent cutoff for outside activity; present lane attention inside the explicit Following repository set while Recently Updated and Quiet hold outside project inventory; retain stacked, horizontal-tile, experimental kanban, and broad diagnostic views.
-- **OPEN ITEMS**: The working-set implementation is complete on issue #5 / PR #6. The direct activity-tab refinement is validated for delivery on issue #7 / PR #8; final review and merge remain human decisions.
+- **INTENT**: Make Beacon a personal memory for the small set of Git, PR, issue, and manual lanes currently competing for attention.
+- **APPROACH**: Persist lane-level attention, pins, notes, tags, last-seen observations, and factual deltas; observe local Git frequently without network work; discover GitHub activity globally, retain every open in-scope PR and issue for followed projects regardless of age, and keep the recent cutoff for outside activity; present lane attention inside the explicit Following repository set while Recently Updated and Quiet hold outside project inventory; use distinct mint, cyan, and pink card identities for local, PR, and issue work across stacked, horizontal-tile, and experimental kanban views; expose far-right Ignore actions that park individual Following lanes without changing project membership.
+- **OPEN ITEMS**: The working-set implementation is complete on issue #5 / PR #6, and the direct activity-tab refinement is complete on issue #7 / PR #8. The followed-issue visibility, distinct lane-card identity, and far-right Ignore follow-up are delivered on issue #31 / branch `GH-31` in a ready PR targeting `main`; final review and merge remain human decisions.
 - **POINTERS**: `docs/specs/0009-beacon-working-set-radar/SPEC.md`
 
 ### project-following
@@ -124,8 +125,8 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Keep a deliberately selected set of repositories in focus without losing awareness of meaningful activity elsewhere.
-- **APPROACH**: Persist explicit Following membership, preserve non-followed evidence baselines, categorize outside projects as Recently Updated or Quiet without automatic reactivation, and render the shared categories in CLI and macOS alongside a Reduce Motion-aware neon wordmark.
-- **OPEN ITEMS**: Implementation, validation, and independent verification are complete on issue #9, branch `GH-9`, and ready PR #10; final human review and merge remain.
+- **APPROACH**: Persist explicit Following membership, preserve non-followed evidence baselines, keep every scoped open PR and issue in followed projects visible regardless of age, categorize outside projects without automatic reactivation, support lane-specific Ignore-to-Parking-Lot actions, and use a Git-first, exact-PR, three-candidate confirmation budget for read-only merged-checkout warnings.
+- **OPEN ITEMS**: The original implementation is complete on issue #9 / PR #10. The followed-issue visibility, distinct lane-card identity, Ignore-to-Parking-Lot, and bounded merged-checkout warning follow-up are delivered on issue #31 / branch `GH-31` in ready PR #32; final human review and merge remain.
 - **POINTERS**: `docs/specs/0010-project-following/SPEC.md`
 
 ### working-notes-refresh
@@ -142,8 +143,8 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Keep dependent local repositories current after merged pull requests without spending GitHub capacity or automating risky Git history changes.
-- **APPROACH**: Compare local and remote default refs through one Go authority, keep Git and dependency-limit network work behind explicit actions, automate only guarded fast-forwards, and share the resulting CLI and macOS behavior alongside an adaptive no-work backsplash, one lossless live Markdown editor, one mutually exclusive dashboard destination, and an adaptive colored menu-bar beacon dome containing the live lane count.
-- **OPEN ITEMS**: No implementation items remain. Repeat-to-Following navigation and its focused route tests join the existing Go, race, CLI, release, 54-test Swift, universal macOS build, Kit, diff-hygiene, and live dependency-limit presentation gates on issue #11, branch `GH-11`, and ready PR #12; final human review and merge remain.
+- **APPROACH**: Compare local and remote default refs through one Go authority, keep Repository Sync network and mutation behind explicit actions, automate only guarded fast-forwards, and add a separate read-only advisory that confirms at most three previously observed PR transitions per refresh before routing both macOS surfaces to the existing local-only sync report.
+- **OPEN ITEMS**: The original implementation is complete on issue #11 / PR #12. The bounded merged-checkout warning is validated on issue #31 / branch `GH-31` in ready PR #32; final human review and merge remain.
 - **POINTERS**: `docs/specs/0012-repository-sync-ui-refresh/SPEC.md`
 
 ### signal-note-tabs
@@ -173,6 +174,15 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **OPEN ITEMS**: Implementation, the complete local gate, and ready-PR delivery are complete on issue #25 and branch `GH-25`; final human review and merge remain.
 - **POINTERS**: `docs/specs/0015-notes-agent-lifecycle/SPEC.md`
 
+### external-task-activity
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Show transient structured Codex and Claude Code working, latest-attention, and turn-finished context on the exact followed project or lane.
+- **APPROACH**: Normalize and map documented hooks in Go, keep current activity in a separately pruned user-only cache, request only coalesced matched Stop refreshes, and let both macOS surfaces render one shared non-authoritative chip.
+- **OPEN ITEMS**: Implementation, documentation, full local validation, ready-PR evidence, and hosted Go/macOS checks are complete on issue #31, branch `GH-31`, and PR #32; final human review and merge remain.
+- **POINTERS**: `docs/specs/0016-external-task-activity/SPEC.md`
+
 ## LAST UPDATED
 
-2026-07-14 EDT
+2026-07-16 EDT

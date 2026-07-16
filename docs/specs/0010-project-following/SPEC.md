@@ -34,6 +34,14 @@ references:
     read_policy: must
     used_for: age-independent followed pull-request visibility follow-up
     status: active
+  - id: issue-31
+    name: Keep followed issues visible and distinguish lane cards
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/31
+    relation: supports
+    read_policy: must
+    used_for: age-independent followed-issue visibility, lane-card identity, and merged-checkout warnings
+    status: active
   - id: constitution
     name: Beacon constitution
     type: doc
@@ -83,8 +91,8 @@ make repository membership explicit and show outside activity separately.
 - Existing v1 project-selection state migrates to the explicit model without
   dropping its current followed/unfollowed choices.
 - Lane attention remains independent. Following renders every open in-scope PR
-  lane plus the existing local lane working set for followed repositories;
-  outside projects remain repository cards until followed.
+  and issue lane plus the existing local lane working set for followed
+  repositories; outside projects remain repository cards until followed.
 - The neon wordmark animation is presentation-only and becomes static when the
   user enables Reduce Motion.
 
@@ -113,9 +121,10 @@ make repository membership explicit and show outside activity separately.
 9. Replace the macOS dashboard tabs with `Following`, `Recently Updated`, and
    `Quiet`; Following is the default and each tab shows its project count.
 10. Following renders the existing focused lane layouts and keeps every open
-    in-scope PR for a followed project visible regardless of age unless its lane
-    is explicitly parked. Recently Updated and Quiet render searchable project
-    cards with a nonblocking Follow action and visible queued state.
+    in-scope PR and issue for a followed project visible regardless of age
+    unless its lane is explicitly parked. Recently Updated and Quiet render
+    searchable project cards with a nonblocking Follow action and visible
+    queued state.
 11. Keep project-selection management in Settings, relabeled for Following,
     with explicit Follow and Stop Following actions.
 12. Remove auto-reactivation banners and terminology from the current user
@@ -126,10 +135,19 @@ make repository membership explicit and show outside activity separately.
 14. Use the same Go snapshot and mutation authority in the menu surface and
     detachable dashboard. Swift must not infer material activity.
 15. Preserve conservative probe cadence, GitHub request batching, rate-budget
-    reserves, and the read-only scanning boundary while enriching all open
-    in-scope PRs for followed projects.
+    reserves, and the read-only scanning boundary while collecting all open
+    in-scope PRs and issues for followed projects.
 16. Reserve `Quiet` for non-followed projects without recent activity. Label
     hidden idle lanes inside followed repositories as `Idle Following Projects`.
+17. Every macOS Following lane card exposes an `Ignore` action at its far-right
+    edge. Ignore parks only that lane through the shared Go authority so it
+    leaves Following and appears in Parking Lot without changing project
+    membership.
+18. When a followed project's previously observed open pull request disappears
+    while its local worktree remains on the same non-default branch, perform at
+    most three exact, cached GitHub confirmations per completed refresh. Expose
+    a read-only warning only when `gh` confirms the pull request merged and Git
+    confirms the remote head branch no longer exists.
 
 ## Assumptions
 
@@ -160,8 +178,9 @@ make repository membership explicit and show outside activity separately.
 - [x] AC7: Recently Updated and Quiet are searchable, show project identity and
   evidence age, and can Follow a project without navigating elsewhere.
 - [x] AC8: Existing focused lane layouts remain available inside Following,
-  every open in-scope PR for a followed project remains visible regardless of
-  age, and outside project activity does not enter until followed.
+  every open in-scope PR and issue for a followed project remains visible
+  regardless of age, and outside project activity does not enter until
+  followed.
 - [x] AC9: `beacon follow` / `unfollow` work and existing `track` / `untrack`
   aliases retain behavior without duplicating authority.
 - [x] AC10: The Beacon wordmark visibly cycles through the existing neon
@@ -171,8 +190,16 @@ make repository membership explicit and show outside activity separately.
 - [x] AC12: Go, race, Kit, Swift, Xcode, migration, output, and release gates
   pass with no schema or cache regression.
 - [x] AC13: Following excludes every non-followed repository lane without
-  deleting durable lane state, keeps followed open PR lanes visible until
-  closed or explicitly parked, and never labels idle followed inventory Quiet.
+  deleting durable lane state, keeps followed open PR and issue lanes visible
+  until closed or explicitly parked, and never labels idle followed inventory
+  Quiet.
+- [x] AC14: Ignore is available at the far right of Following cards in every
+  macOS layout and moves only the selected lane into Parking Lot through the
+  shared attention mutation.
+- [x] AC15: A previously observed merged pull request whose deleted remote head
+  remains checked out locally produces one Go-owned warning in both macOS
+  surfaces; unrelated, unconfirmed, non-followed, and over-budget projects do
+  not produce warnings or broad merged-PR polling.
 
 ## Implementation Plan
 
@@ -186,6 +213,11 @@ make repository membership explicit and show outside activity separately.
    dashboard surface.
 6. Reconcile documentation, validate, independently verify, and deliver on
    issue #9 / branch `GH-9` / a ready PR targeting `main`.
+7. Add a semantic Ignore-to-park action to the shared macOS card renderer and
+   verify the identical behavior in the menu and detachable window.
+8. Persist transition-scoped merged-checkout confirmation, cap exact `gh`
+   requests at three followed candidates per refresh, and render the confirmed
+   advisory through the shared lane card without mutating the repository.
 
 ## Agent Team Plan
 
@@ -210,6 +242,9 @@ make repository membership explicit and show outside activity separately.
 - [x] T7: Reconcile README, constitution, and progress summary.
 - [x] T8: Run full validation and read-only verification.
 - [x] T9: Commit, push, open the ready PR, and record hosted evidence.
+- [x] T10: Add and test the far-right Following-card Ignore action.
+- [x] T11: Add and test conservative merged-checkout confirmation and the
+  shared read-only macOS warning.
 
 ## Validation Map
 
@@ -221,6 +256,8 @@ make repository membership explicit and show outside activity separately.
 | AC9 | Cobra command/alias tests and terminal golden coverage |
 | AC10-AC11 | deterministic seamless animation phase tests, Reduce Motion inspection, agent call-counter regressions, and follow/unfollow fast-cadence gating through the real mutation path |
 | AC12 | complete Go, race, Kit, Swift, Xcode, release, and diff-hygiene gates |
+| AC14 | Swift presentation and AppState parking regressions, Xcode build, and compact/detached visual smoke tests |
+| AC15 | Go transition, budget, persistence, remote-ref, and exact-PR confirmation tests; additive Swift decoding and shared-card presentation tests; live menu/window smoke tests |
 
 ## Reflection Notes
 
@@ -234,9 +271,15 @@ make repository membership explicit and show outside activity separately.
 - Keeping tracked/untracked protocol and JSON fields for one compatibility
   generation lets existing clients and scripts upgrade without preserving the
   old user-facing abstraction.
-- Following is durable user intent, so an open PR in a followed project cannot
-  disappear merely because its last GitHub update crossed the recent-activity
-  window. Explicit parking remains the lane-level way to hide it.
+- Following is durable user intent, so an open PR or issue in a followed
+  project cannot disappear merely because its last GitHub update crossed the
+  recent-activity window. Explicit parking remains the lane-level way to hide
+  it.
+- The macOS Ignore label is deliberately lane-scoped: it reuses parking and
+  cannot mutate the independent Following membership of the repository.
+- Remembering the exact open PR before it disappears avoids broad merged-PR
+  discovery. Git can reject still-published branches before the scarce GitHub
+  confirmation, while a persisted negative outcome prevents repeated polling.
 
 ## Documentation Updates
 
@@ -253,6 +296,14 @@ is assigned to Jameson Stone. Branch `GH-9` starts exactly at current
 The July 15 open-PR visibility correction is delivered as a focused bug-fix
 commit on assigned issue #27 and exact branch `GH-27`, within the user-approved
 multi-focus ready pull request to `main`.
+
+The followed-issue visibility and distinct lane-card identity follow-up is
+delivered on assigned issue #31 and exact branch `GH-31` as a ready pull request
+targeting `main`.
+
+The bounded merged-checkout warning is added to the same user-approved issue
+#31 / branch `GH-31` / ready PR #32 lane because it extends the shared Following
+card and evidence refresh behavior already under review.
 
 ## Evidence
 
@@ -283,3 +334,18 @@ multi-focus ready pull request to `main`.
   Go/race/macOS gate, Linux build, all 15 Kit specs, and diff hygiene pass.
 - A rebuilt-agent refresh then rendered PR #31 as one Active `labcore-ui` lane
   in the same shared snapshot consumed by the CLI and both macOS surfaces.
+- A later live `kit` reproduction found assigned issue #50 in the diagnostic
+  snapshot but outside Following after its recent window elapsed. The shared
+  working-set candidate rule now retains scoped open issue lanes just like open
+  PR lanes, with regression coverage for visibility and closure.
+- Swift presentation and shared-authority regressions verify that Ignore exists
+  only in Following and sends the selected lane ID with state `parked`. The
+  returned snapshot removes the lane from Active and exposes it in Parking Lot.
+- All 75 Swift tests and the universal macOS build pass. Live checks at both the
+  580-point detached width and 430-point compact width show Ignore at the
+  far-right card edge; Parking Lot contains no Ignore actions.
+- Transition, exact-command, three-candidate budget, cache migration,
+  cold-start, non-followed, remote-present, non-merged, failure, and severity
+  tests cover the merged-checkout advisory without broad GitHub discovery.
+- The complete Go/race/release matrix, Linux amd64 build, all 76 Swift tests,
+  universal macOS build, all 15 Kit feature checks, and diff hygiene pass.

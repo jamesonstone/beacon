@@ -148,7 +148,7 @@ func (e *Engine) runCollectedBatch(
 			continue
 		}
 		e.finishScannedProject(
-			scanID, repository, state.revision, state.record, state.cached,
+			ctx, scanID, repository, state.revision, state.record, state.cached,
 			state.muted, state.entry, state.changedProbe, snapshot,
 		)
 	}
@@ -171,6 +171,7 @@ func (e *Engine) finishUnchangedProbe(scanID string, state *batchProjectState, n
 }
 
 func (e *Engine) finishScannedProject(
+	ctx context.Context,
 	scanID string,
 	repository config.Repository,
 	revision uint64,
@@ -223,9 +224,11 @@ func (e *Engine) finishScannedProject(
 		snapshot.Projects[0].ActivityReason = reason
 		lastProbeAt = now
 	}
+	confirmations := e.enrichCheckoutWarnings(ctx, scanID, repository, record, cached, !muted, &snapshot)
 	updated := ProjectRecord{
 		Version: CacheVersion, ProjectID: repository.GitHub, Revision: revision,
-		Stage: "ready", UpdatedAt: e.now(), LastProbeAt: lastProbeAt, Snapshot: snapshot,
+		Stage: "ready", UpdatedAt: e.now(), LastProbeAt: lastProbeAt,
+		CheckoutConfirmations: confirmations, Snapshot: snapshot,
 	}
 	if err := e.Cache.Write(updated); err != nil {
 		e.failProject(scanID, repository.GitHub, revision, err)

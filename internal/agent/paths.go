@@ -10,17 +10,20 @@ import (
 )
 
 type Paths struct {
-	Config      string
-	State       string
-	Notes       string
-	CacheRoot   string
-	Projects    string
-	Socket      string
-	PID         string
-	LaunchAgent string
-	Logs        string
-	StandardLog string
-	ErrorLog    string
+	Config            string
+	State             string
+	Notes             string
+	CacheRoot         string
+	Projects          string
+	Activity          string
+	ActivityLock      string
+	IntegrationHealth string
+	Socket            string
+	PID               string
+	LaunchAgent       string
+	Logs              string
+	StandardLog       string
+	ErrorLog          string
 }
 
 func ResolvePaths(configPath string) (Paths, error) {
@@ -44,11 +47,16 @@ func ResolvePaths(configPath string) (Paths, error) {
 	logs := filepath.Join(home, "Library", "Logs", "Beacon")
 	return Paths{
 		Config: configPath, State: statePath, Notes: notesPath, CacheRoot: cacheRoot,
-		Projects:    filepath.Join(cacheRoot, "projects"),
-		Socket:      filepath.Join(cacheRoot, "agent.sock"),
-		PID:         filepath.Join(cacheRoot, "agent.pid"),
-		LaunchAgent: filepath.Join(home, "Library", "LaunchAgents", "com.jamesonstone.beacon.agent.plist"),
-		Logs:        logs, StandardLog: filepath.Join(logs, "agent.log"), ErrorLog: filepath.Join(logs, "agent-error.log"),
+		Projects:          filepath.Join(cacheRoot, "projects"),
+		Activity:          filepath.Join(cacheRoot, "activity.json"),
+		ActivityLock:      filepath.Join(cacheRoot, "activity.lock"),
+		IntegrationHealth: filepath.Join(cacheRoot, "integration-health.json"),
+		Socket:            filepath.Join(cacheRoot, "agent.sock"),
+		PID:               filepath.Join(cacheRoot, "agent.pid"),
+		LaunchAgent:       filepath.Join(home, "Library", "LaunchAgents", "com.jamesonstone.beacon.agent.plist"),
+		Logs:              logs,
+		StandardLog:       filepath.Join(logs, "agent.log"),
+		ErrorLog:          filepath.Join(logs, "agent-error.log"),
 	}, nil
 }
 

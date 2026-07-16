@@ -9,7 +9,7 @@ extension MenuView {
                 ForEach(state.projectGroups(for: lanes)) { project in
                     projectHeader(project, accent: accent)
                     ForEach(project.lanes) { lane in
-                        laneCard(lane, accent: accent)
+                        laneCard(lane)
                     }
                 }
             }
@@ -35,20 +35,24 @@ extension MenuView {
                     .font(BeaconTypography.medium(9))
                     .foregroundStyle(BeaconPalette.gold)
             }
+            if let activity = state.activityChip(projectID: project.id) {
+                externalActivityChip(activity)
+            }
             Spacer()
         }
         .padding(.top, 2)
     }
 
-    func laneCard(_ lane: WorkLane, accent: Color, compact: Bool = false) -> some View {
-        laneRow(lane, accent: accent, compact: compact)
+    func laneCard(_ lane: WorkLane, compact: Bool = false) -> some View {
+        laneRow(lane, compact: compact)
             .contentShape(RoundedRectangle(cornerRadius: 9))
             .onTapGesture { state.open(lane) }
             .contextMenu { laneActions(lane) }
     }
 
-    func laneRow(_ lane: WorkLane, accent: Color, compact: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
+    func laneRow(_ lane: WorkLane, compact: Bool = false) -> some View {
+        let accent = DashboardLanePresentation.identity(for: lane).accent.color
+        return VStack(alignment: .leading, spacing: 5) {
             HStack {
                 if compact {
                     projectGlyph(lane, accent: accent)
@@ -66,10 +70,22 @@ extension MenuView {
                 } else if !lane.branch.isEmpty {
                     Text(lane.branch).font(BeaconTypography.medium(9)).foregroundStyle(accent).lineLimit(1)
                 }
+                if DashboardLanePresentation.showsCheckoutWarning(for: lane) {
+                    checkoutWarningButton(lane)
+                }
+                if DashboardLanePresentation.showsIgnoreAction(in: selectedDashboardTab) {
+                    ignoreButton(lane, compact: compact)
+                }
             }
-            Text(actionLabel(lane.nextAction))
-                .font(BeaconTypography.medium(10))
-                .foregroundStyle(accent)
+            HStack {
+                Text(actionLabel(lane.nextAction))
+                    .font(BeaconTypography.medium(10))
+                    .foregroundStyle(accent)
+                Spacer()
+                if let activity = state.activityChip(projectID: lane.github, laneID: lane.id) {
+                    externalActivityChip(activity)
+                }
+            }
             if let attention = lane.attention {
                 Text("\(attention.delta) · \(timeSinceActivity(lane.updatedAt))")
                     .font(BeaconTypography.regular(9))
@@ -98,6 +114,69 @@ extension MenuView {
                 .strokeBorder(BeaconPalette.borderGradient(accent), lineWidth: 0.8)
         }
         .shadow(color: accent.opacity(0.09), radius: 4, y: 2)
+    }
+
+    func externalActivityChip(_ activity: ExternalActivityChip) -> some View {
+        let accent: Color
+        switch activity.state {
+        case "needs_attention": accent = BeaconPalette.gold
+        case "working": accent = BeaconPalette.cyan
+        default: accent = BeaconPalette.lavender
+        }
+        return Text(activity.label)
+            .font(BeaconTypography.semibold(8))
+            .foregroundStyle(accent)
+            .lineLimit(1)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(BeaconPalette.softGradient(accent), in: Capsule())
+            .overlay { Capsule().strokeBorder(accent.opacity(0.42), lineWidth: 0.7) }
+            .help(activity.state == "needs_attention"
+                ? "Latest observed attention request; the provider may not report when it is resolved."
+                : "Transient external agent activity; this does not change Beacon evidence or ordering.")
+    }
+
+    func ignoreButton(_ lane: WorkLane, compact: Bool) -> some View {
+        Button {
+            Task { await state.ignoreLane(lane) }
+        } label: {
+            Group {
+                if compact {
+                    Image(systemName: "pause.circle.fill")
+                } else {
+                    Label("Ignore", systemImage: "pause.circle.fill")
+                }
+            }
+            .font(BeaconTypography.semibold(9))
+            .padding(.horizontal, compact ? 5 : 7)
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(BeaconPalette.lavender)
+        .background(BeaconPalette.softGradient(BeaconPalette.lavender), in: Capsule())
+        .overlay { Capsule().strokeBorder(BeaconPalette.lavender.opacity(0.4), lineWidth: 0.7) }
+        .help("Move to Parking Lot")
+        .accessibilityLabel("Ignore \(workItemTitle(lane))")
+        .accessibilityHint("Moves this lane to the Parking Lot")
+    }
+
+    func checkoutWarningButton(_ lane: WorkLane) -> some View {
+        let critical = DashboardLanePresentation.checkoutWarningIsCritical(for: lane)
+        let accent = critical ? BeaconPalette.coral : BeaconPalette.gold
+        return Button {
+            showRepositorySync()
+        } label: {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(BeaconTypography.semibold(10))
+                .padding(5)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(accent)
+        .background(BeaconPalette.softGradient(accent), in: Circle())
+        .overlay { Circle().strokeBorder(accent.opacity(0.48), lineWidth: 0.7) }
+        .help(lane.checkoutWarning?.message ?? "Merged branch remains checked out locally")
+        .accessibilityLabel("Merged branch warning for \(workItemTitle(lane))")
+        .accessibilityHint("Opens Repository Sync without changing the repository")
     }
 
     func projectGlyph(_ lane: WorkLane, accent: Color) -> some View {
