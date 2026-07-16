@@ -1,5 +1,96 @@
 import Foundation
 
+struct ExternalActivitySnapshot: Codable, Equatable {
+    let version: Int
+    let records: [ExternalActivityRecord]
+    let nextExpiry: String?
+
+    enum CodingKeys: String, CodingKey {
+        case version, records
+        case nextExpiry = "next_expiry"
+    }
+
+    static let empty = ExternalActivitySnapshot(version: 1, records: [], nextExpiry: nil)
+}
+
+struct ExternalActivityRecord: Codable, Equatable {
+    let provider: String
+    let state: String
+    let sessionKey: String
+    let projectID: String
+    let laneID: String?
+    let observedAt: String
+    let expiresAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case provider, state
+        case sessionKey = "session_key"
+        case projectID = "project_id"
+        case laneID = "lane_id"
+        case observedAt = "observed_at"
+        case expiresAt = "expires_at"
+    }
+}
+
+struct IntegrationHealthStatus: Codable, Equatable, Identifiable {
+    var id: String { provider }
+    let provider: String
+    let state: String
+    let settingsPath: String
+    let message: String?
+
+    enum CodingKeys: String, CodingKey {
+        case provider, state, message
+        case settingsPath = "settings_path"
+    }
+}
+
+struct ExternalActivityChip: Equatable {
+    let label: String
+    let state: String
+    let sessionCount: Int
+}
+
+enum ExternalActivityPresentation {
+    static func chip(for records: [ExternalActivityRecord]) -> ExternalActivityChip? {
+        guard !records.isEmpty else { return nil }
+        let state = records.map(\.state).max { priority($0) < priority($1) } ?? "turn_finished"
+        let providers = Set(records.map(\.provider))
+        let provider: String
+        if providers.count > 1 {
+            provider = "Agents"
+        } else if providers.first == "claude-code" {
+            provider = "Claude Code"
+        } else {
+            provider = "Codex"
+        }
+        let stateLabel: String
+        switch state {
+        case "needs_attention": stateLabel = "Needs attention"
+        case "working": stateLabel = "Working"
+        default: stateLabel = "Turn finished"
+        }
+        var components = [provider, stateLabel]
+        if records.count > 1 {
+            components.append(String(records.count))
+        }
+        return ExternalActivityChip(
+            label: components.joined(separator: " · "),
+            state: state,
+            sessionCount: records.count
+        )
+    }
+
+    private static func priority(_ state: String) -> Int {
+        switch state {
+        case "needs_attention": return 3
+        case "working": return 2
+        case "turn_finished": return 1
+        default: return 0
+        }
+    }
+}
+
 struct BeaconSnapshot: Codable, Equatable {
     let schemaVersion: Int
     let generatedAt: String

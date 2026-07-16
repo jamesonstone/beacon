@@ -68,6 +68,7 @@ struct MenuView: View {
         }
         .onAppear {
             loginItem.refresh()
+            Task { await state.refreshIntegrationHealth() }
         }
         .background { keyboardShortcutControls }
         .overlay {
@@ -401,6 +402,18 @@ struct MenuView: View {
                 Label("Restore Hidden Badges", systemImage: "eye")
             }
             .disabled(dismissedEvidenceBadges.isEmpty)
+            Menu {
+                integrationHealthRow(provider: "codex", title: "Codex")
+                integrationHealthRow(provider: "claude-code", title: "Claude Code")
+                Divider()
+                Text("Installed means configured; active means Beacon observed the current callback.")
+                Text("Codex may require hook trust. Claude Code may be blocked by managed policy.")
+                Button { Task { await state.refreshIntegrationHealth() } } label: {
+                    Label("Refresh Integration Health", systemImage: "arrow.clockwise")
+                }
+            } label: {
+                Label("Agent Hook Health", systemImage: "bolt.horizontal.circle")
+            }
             Divider()
             Toggle(
                 "Open Beacon at Login",
@@ -436,6 +449,33 @@ struct MenuView: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .help("Settings")
+    }
+
+    @ViewBuilder
+    private func integrationHealthRow(provider: String, title: String) -> some View {
+        if let status = state.integrationHealth[provider] {
+            Label(
+                "\(title): \(integrationHealthLabel(status.state))",
+                systemImage: integrationHealthSymbol(status.state)
+            )
+            .help(status.message ?? status.settingsPath)
+        } else {
+            Label("\(title): unavailable", systemImage: "questionmark.circle")
+        }
+    }
+
+    private func integrationHealthLabel(_ value: String) -> String {
+        value.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
+    private func integrationHealthSymbol(_ value: String) -> String {
+        switch value {
+        case "active": return "checkmark.circle.fill"
+        case "installed": return "checkmark.circle"
+        case "stale": return "exclamationmark.circle"
+        case "error": return "exclamationmark.triangle.fill"
+        default: return "minus.circle"
+        }
     }
 
     func showProjects(_ tab: ProjectInventoryTab) {

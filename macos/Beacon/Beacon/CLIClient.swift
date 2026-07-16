@@ -15,6 +15,9 @@ protocol CLIClientProtocol {
     func repositorySync(refresh: Bool) async throws -> RepositorySyncReport
     func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport
     func dependencyLimits() async throws -> DependencyLimitReport
+    func externalActivity() async throws -> ExternalActivitySnapshot
+    func pruneExternalActivity() async throws -> ExternalActivitySnapshot
+    func integrationStatus(_ provider: String) async throws -> IntegrationHealthStatus
 }
 
 extension CLIClientProtocol {
@@ -37,6 +40,9 @@ extension CLIClientProtocol {
     func repositorySync(refresh: Bool) async throws -> RepositorySyncReport { throw AgentClientError.command("repository sync is unavailable") }
     func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport { throw AgentClientError.command("repository sync is unavailable") }
     func dependencyLimits() async throws -> DependencyLimitReport { throw AgentClientError.command("dependency limits are unavailable") }
+    func externalActivity() async throws -> ExternalActivitySnapshot { throw AgentClientError.command("external activity is unavailable") }
+    func pruneExternalActivity() async throws -> ExternalActivitySnapshot { throw AgentClientError.command("external activity pruning is unavailable") }
+    func integrationStatus(_ provider: String) async throws -> IntegrationHealthStatus { throw AgentClientError.command("integration health is unavailable") }
 }
 
 protocol AgentInstallerProtocol {
@@ -157,6 +163,27 @@ struct CLIClient: CLIClientProtocol, AgentLifecycleControllerProtocol {
         }
     }
 
+    func externalActivity() async throws -> ExternalActivitySnapshot {
+        try decodeExternalActivity(try await execute(arguments: ["activity", "list", "--json"]))
+    }
+
+    func pruneExternalActivity() async throws -> ExternalActivitySnapshot {
+        try decodeExternalActivity(try await execute(arguments: ["activity", "prune", "--json"]))
+    }
+
+    func integrationStatus(_ provider: String) async throws -> IntegrationHealthStatus {
+        do {
+            return try JSONDecoder().decode(
+                IntegrationHealthStatus.self,
+                from: try await execute(arguments: ["integrations", "status", provider, "--json"])
+            )
+        } catch let error as CLIClientError {
+            throw error
+        } catch {
+            throw CLIClientError.invalidOutput(error.localizedDescription)
+        }
+    }
+
     func installAgent() async throws {
         _ = try await execute(arguments: ["agent", "install"])
     }
@@ -188,6 +215,14 @@ struct CLIClient: CLIClientProtocol, AgentLifecycleControllerProtocol {
     private func decodeRepositorySync(_ data: Data) throws -> RepositorySyncReport {
         do {
             return try JSONDecoder().decode(RepositorySyncReport.self, from: data)
+        } catch {
+            throw CLIClientError.invalidOutput(error.localizedDescription)
+        }
+    }
+
+    private func decodeExternalActivity(_ data: Data) throws -> ExternalActivitySnapshot {
+        do {
+            return try JSONDecoder().decode(ExternalActivitySnapshot.self, from: data)
         } catch {
             throw CLIClientError.invalidOutput(error.localizedDescription)
         }

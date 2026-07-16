@@ -7,6 +7,40 @@ struct StubClient: CLIClientProtocol {
     func setProjectTracked(_ github: String, tracked: Bool) async throws {}
 }
 
+actor ExternalActivityClientStub: CLIClientProtocol {
+    let initial: ExternalActivitySnapshot
+    let pruned: ExternalActivitySnapshot
+    let statuses: [String: IntegrationHealthStatus]
+    private(set) var pruneCalls = 0
+
+    init(
+        initial: ExternalActivitySnapshot,
+        pruned: ExternalActivitySnapshot = .empty,
+        statuses: [String: IntegrationHealthStatus] = [:]
+    ) {
+        self.initial = initial
+        self.pruned = pruned
+        self.statuses = statuses
+    }
+
+    func scan() async throws -> BeaconSnapshot { TestSnapshots.empty }
+    func setProjectTracked(_ github: String, tracked: Bool) async throws {}
+    func externalActivity() async throws -> ExternalActivitySnapshot { initial }
+    func pruneExternalActivity() async throws -> ExternalActivitySnapshot {
+        pruneCalls += 1
+        return pruned
+    }
+    func integrationStatus(_ provider: String) async throws -> IntegrationHealthStatus {
+        if let status = statuses[provider] { return status }
+        return IntegrationHealthStatus(
+            provider: provider,
+            state: "not_installed",
+            settingsPath: "/tmp/settings.json",
+            message: nil
+        )
+    }
+}
+
 actor SequenceClient: CLIClientProtocol {
     var results: [Result<BeaconSnapshot, Error>]
 

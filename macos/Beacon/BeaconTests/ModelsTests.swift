@@ -3,6 +3,34 @@ import XCTest
 @testable import Beacon
 
 final class ModelsTests: XCTestCase {
+    func testExternalActivityChipPrioritizesAttentionAndCountsProviders() {
+        let records = [
+            externalActivityRecord(provider: "codex", state: "working", session: "one"),
+            externalActivityRecord(provider: "claude-code", state: "turn_finished", session: "two"),
+            externalActivityRecord(provider: "claude-code", state: "needs_attention", session: "three"),
+        ]
+
+        let chip = ExternalActivityPresentation.chip(for: records)
+
+        XCTAssertEqual(chip?.label, "Agents · Needs attention · 3")
+        XCTAssertEqual(chip?.state, "needs_attention")
+        XCTAssertEqual(chip?.sessionCount, 3)
+        XCTAssertEqual(
+            ExternalActivityPresentation.chip(for: [records[0]])?.label,
+            "Codex · Working"
+        )
+    }
+
+    func testExternalActivityCacheDecodesOutsideEvidenceSnapshot() throws {
+        let data = Data(#"{"version":1,"records":[{"provider":"codex","state":"turn_finished","session_key":"hashed","project_id":"owner/repo","lane_id":"lane-31","observed_at":"2026-07-16T12:00:00Z","expires_at":"2026-07-16T13:00:00Z"}],"next_expiry":"2026-07-16T13:00:00Z"}"#.utf8)
+
+        let activity = try JSONDecoder().decode(ExternalActivitySnapshot.self, from: data)
+
+        XCTAssertEqual(activity.records.first?.laneID, "lane-31")
+        XCTAssertEqual(activity.records.first?.state, "turn_finished")
+        XCTAssertEqual(activity.nextExpiry, "2026-07-16T13:00:00Z")
+    }
+
     func testSignalNotesSavedLabelIncludesFormattedAge() {
         XCTAssertEqual(
             SignalNotesPresentation.savedLabel(age: "2 minutes ago"),
@@ -555,4 +583,22 @@ final class ModelsTests: XCTestCase {
       "errors": []
     }
     """#
+}
+
+private func externalActivityRecord(
+    provider: String,
+    state: String,
+    session: String,
+    project: String = "owner/repo",
+    lane: String? = "lane-31"
+) -> ExternalActivityRecord {
+    ExternalActivityRecord(
+        provider: provider,
+        state: state,
+        sessionKey: session,
+        projectID: project,
+        laneID: lane,
+        observedAt: "2026-07-16T12:00:00Z",
+        expiresAt: "2026-07-16T13:00:00Z"
+    )
 }

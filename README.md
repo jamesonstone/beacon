@@ -102,6 +102,80 @@ Run `beacon init` without flags for an interactive directory and repository
 selector. The macOS application uses the same configuration and displays the
 same scan snapshot as the CLI.
 
+## Structured Task Activity (macOS)
+
+Beacon can add an optional transient activity chip to the exact followed
+project or worktree lane using documented local lifecycle hooks. This context
+is separate from schema-v3 evidence: it never changes Following, lane
+attention, readiness, next action, ordering, refresh priority, or the menu-bar
+lane count.
+
+### Support matrix
+
+| Source | Version 1 support | Notes |
+| --- | --- | --- |
+| Codex local lifecycle hooks | Supported | `UserPromptSubmit`, `PermissionRequest`, and `Stop`; a local Codex surface must actually execute the installed hooks. |
+| Claude Code | Supported | Structured prompt, permission, selected attention notifications, Stop, StopFailure, and SessionEnd hooks. |
+| ChatGPT | Unsupported | No notification or chat-text approximation. |
+| Ordinary Claude chat / Cowork | Unsupported | Claude Code hooks only. |
+| Warp | Unsupported | Terminal notification text is not parsed. |
+| Generic VS Code activity | Unsupported | A supported provider may run in its terminal, but Beacon has no VS Code extension or editor activity source. |
+| macOS Notification Center or Accessibility | Unsupported | Beacon requests no new macOS permission and uses no private system integration. |
+| Unstructured notifications or remote sessions without local hooks | Unsupported | Beacon does not guess from titles, prompts, transcripts, or free text. |
+
+Install, inspect, or remove one supported integration explicitly:
+
+```bash
+beacon integrations install codex
+beacon integrations status codex
+beacon integrations uninstall codex
+
+beacon integrations install claude-code
+beacon integrations status claude-code
+beacon integrations uninstall claude-code
+```
+
+Install and uninstall preview every exact handler change and adjacent backup
+path, then require confirmation. Use `--yes` only when that preview is already
+an explicit non-interactive choice. Beacon refuses malformed settings,
+preserves unrelated hooks, writes `0600` backups and replacements, and marks
+its own handlers with `beacon-activity-v1` so uninstall removes only those
+handlers. Each installed shell command redirects output and ends with
+`|| true`, so a moved or missing Beacon executable cannot delay or break the
+provider hook.
+
+The chip states have deliberately narrow meanings:
+
+- **Working**: Beacon most recently observed `UserPromptSubmit`.
+- **Needs attention**: Beacon most recently observed a permission request or a
+  documented Claude Code attention notification. Providers do not always emit
+  a resolution event, so the cue remains until another prompt, Stop,
+  SessionEnd, or expiry.
+- **Turn finished**: Beacon observed `Stop`; only the latest turn stopped. This
+  does not mean that the task or project completed.
+
+Working expires after two hours, latest-attention after 24 hours, and
+turn-finished after one hour. Go physically removes expired records from
+`activity.json`; the macOS app schedules the next Go prune and never treats
+Swift filtering as expiry. No activity history is retained. `StopFailure`
+clears current Claude Code activity without inventing a failure badge, and
+`SessionEnd` removes that session immediately.
+
+Integration health distinguishes configuration from observed execution:
+
+- `not_installed`: no exact Beacon handler is present.
+- `installed`: the handler and executable match, but Beacon has not observed a
+  callback for that exact fingerprint.
+- `active`: Beacon observed a well-formed callback for the current fingerprint.
+- `stale`: the command, marker, handler set, or executable no longer matches.
+- `error`: provider settings or health state cannot be inspected safely.
+
+Codex may still require hook trust, and Claude Code hooks may be blocked by
+managed policy. `active` confirms one observed callback since the current
+handler was installed; it cannot prove that provider policy was not changed
+later. Hook callbacks never start the Beacon agent. If the agent is unavailable,
+Beacon records only that the callback ran and drops the activity event.
+
 ## Build From Source
 
 ```bash
@@ -638,6 +712,8 @@ Operational files are user-only:
 ~/.local/state/beacon/tracking.json
 ~/.local/share/beacon/notes.md
 ~/.cache/beacon/projects/*.json
+~/.cache/beacon/activity.json
+~/.cache/beacon/integration-health.json
 ~/.cache/beacon/agent.sock
 ~/.cache/beacon/agent.pid
 ~/Library/Logs/Beacon/agent.log
@@ -650,6 +726,13 @@ records material deltas as recent activity without changing membership.
 Duplicate refreshes
 coalesce, and a project never has overlapping jobs.
 
+The activity cache keeps only current normalized provider/state, a hashed
+opaque session key, exact project/lane target, and expiry/coalescing times. The
+health file keeps only handler fingerprints and observed flags. Raw provider
+payloads, prompts, transcripts, assistant text, tool inputs, notification
+text, and unhashed session IDs are never written to either cache or Beacon
+logs.
+
 ## Read-only boundary
 
 Scanning may run a timeout-bounded `git fetch --prune --no-tags` to refresh
@@ -659,10 +742,16 @@ writes only its own configuration during confirmed `beacon init` operations and
 its own user-scoped following state, Markdown signal notes, cache, PID/socket,
 LaunchAgent, and rotated logs. New evidence may update a non-followed project's activity timestamp but
 never changes whether the user follows it.
+Confirmed `beacon integrations install|uninstall` operations may also update
+only Beacon-marked handlers in supported provider JSON settings after creating
+an adjacent restrictive backup; hook execution itself remains observational.
 
 ## Architecture
 
-- `cmd/beacon` and `internal/` implement config, source discovery, Git/GitHub/Kit evidence collection, lane correlation, managed tracking state, cache/protocol/scheduling, policy, and output.
+- `cmd/beacon` and `internal/` implement config, source discovery,
+  Git/GitHub/Kit evidence collection, lane correlation, managed tracking state,
+  cache/protocol/scheduling, policy, output, structured hook normalization, and
+  provider integration settings.
 - `macos/Beacon` contains the shared SwiftUI menu/dashboard app, embedded login
   item, app icon, and tests.
 - The Xcode build embeds the Go executable as `Contents/MacOS/beacon-cli`; the standalone executable remains `beacon`.
@@ -682,6 +771,13 @@ following choices. To reset only cached evidence, stop the agent, remove
 `~/.cache/beacon/projects/`, and start it again with `beacon agent start`;
 do not remove `tracking.json` unless you intentionally want every discovered
 project to restart in Quiet and rebuild Following manually.
+
+For hook setup, run `beacon integrations status codex` or
+`beacon integrations status claude-code`. `installed` but not `active` usually
+means no callback has run yet, Codex still needs to trust the hook, or Claude
+Code policy blocked it. `stale` means reinstalling will preview replacement of
+only the marked Beacon handlers. `error` means Beacon refused to rewrite the
+settings; repair the malformed provider JSON before retrying.
 
 ## Maintainers
 

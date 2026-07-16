@@ -127,6 +127,8 @@ func (a App) Root() *cobra.Command {
 		a.refreshCommand(&configPath),
 		a.syncCommand(&configPath),
 		a.limitsCommand(),
+		a.integrationsCommand(&configPath),
+		a.activityCommand(&configPath),
 		a.agentCommand(&configPath),
 		a.doctorCommand(&configPath),
 		a.openCommand(&configPath),
@@ -146,7 +148,7 @@ func shouldAutoStartAgent(command *cobra.Command) bool {
 		top = top.Parent()
 	}
 	switch top.Name() {
-	case "agent", "doctor", "init", "version":
+	case "activity", "agent", "doctor", "init", "integrations", "version":
 		return false
 	default:
 		return true

@@ -35,6 +35,9 @@ extension MenuView {
                     .font(BeaconTypography.medium(9))
                     .foregroundStyle(BeaconPalette.gold)
             }
+            if let activity = state.activityChip(projectID: project.id) {
+                externalActivityChip(activity)
+            }
             Spacer()
         }
         .padding(.top, 2)
@@ -74,9 +77,15 @@ extension MenuView {
                     ignoreButton(lane, compact: compact)
                 }
             }
-            Text(actionLabel(lane.nextAction))
-                .font(BeaconTypography.medium(10))
-                .foregroundStyle(accent)
+            HStack {
+                Text(actionLabel(lane.nextAction))
+                    .font(BeaconTypography.medium(10))
+                    .foregroundStyle(accent)
+                Spacer()
+                if let activity = state.activityChip(projectID: lane.github, laneID: lane.id) {
+                    externalActivityChip(activity)
+                }
+            }
             if let attention = lane.attention {
                 Text("\(attention.delta) · \(timeSinceActivity(lane.updatedAt))")
                     .font(BeaconTypography.regular(9))
@@ -105,6 +114,26 @@ extension MenuView {
                 .strokeBorder(BeaconPalette.borderGradient(accent), lineWidth: 0.8)
         }
         .shadow(color: accent.opacity(0.09), radius: 4, y: 2)
+    }
+
+    func externalActivityChip(_ activity: ExternalActivityChip) -> some View {
+        let accent: Color
+        switch activity.state {
+        case "needs_attention": accent = BeaconPalette.gold
+        case "working": accent = BeaconPalette.cyan
+        default: accent = BeaconPalette.lavender
+        }
+        return Text(activity.label)
+            .font(BeaconTypography.semibold(8))
+            .foregroundStyle(accent)
+            .lineLimit(1)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(BeaconPalette.softGradient(accent), in: Capsule())
+            .overlay { Capsule().strokeBorder(accent.opacity(0.42), lineWidth: 0.7) }
+            .help(activity.state == "needs_attention"
+                ? "Latest observed attention request; the provider may not report when it is resolved."
+                : "Transient external agent activity; this does not change Beacon evidence or ordering.")
     }
 
     func ignoreButton(_ lane: WorkLane, compact: Bool) -> some View {
