@@ -78,7 +78,8 @@ final class ModelsTests: XCTestCase {
 
     func testSignalNotesWrappedListContentUsesHangingIndent() throws {
         let source = """
-        - [ ] Verify collection dates and exception retries after the first rendered line wraps
+        [] Verify collection dates and exception retries after the first rendered line wraps
+        - [ ] Confirm standard task behavior
         - Confirm top-level bullet behavior
             - Confirm nested bullet behavior
         [ ] Confirm bare checkbox behavior
@@ -96,12 +97,14 @@ final class ModelsTests: XCTestCase {
         }
 
         let taskStyle = try paragraphStyle(at: "Verify collection")
+        let standardTaskStyle = try paragraphStyle(at: "Confirm standard")
         let bulletStyle = try paragraphStyle(at: "Confirm top-level")
         let nestedStyle = try paragraphStyle(at: "Confirm nested")
         let bareTaskStyle = try paragraphStyle(at: "Confirm bare")
         let numberedStyle = try paragraphStyle(at: "Confirm numbered")
         XCTAssertEqual(taskStyle.firstLineHeadIndent, 0)
         XCTAssertGreaterThan(taskStyle.headIndent, 0)
+        XCTAssertGreaterThan(standardTaskStyle.headIndent, 0)
         XCTAssertGreaterThan(nestedStyle.headIndent, bulletStyle.headIndent)
         XCTAssertGreaterThan(bareTaskStyle.headIndent, 0)
         XCTAssertGreaterThan(numberedStyle.headIndent, 0)

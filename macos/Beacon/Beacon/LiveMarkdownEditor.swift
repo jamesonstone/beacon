@@ -27,7 +27,7 @@ enum LiveMarkdownStyler {
         options: .anchorsMatchLines
     )
     private static let listParagraph = try? NSRegularExpression(
-        pattern: #"^[\t ]*(?:(?:(?:[-+*]|\d+\.)[\t ]+)(?:\[[ xX]\][\t ]+)?|\[[ xX]\][\t ]+)"#,
+        pattern: #"^[\t ]*(?:(?:(?:[-+*]|\d+\.)[\t ]+)(?:\[[ xX]?\][\t ]+)?|\[[ xX]?\][\t ]+)"#,
         options: .anchorsMatchLines
     )
     private static let quote = try? NSRegularExpression(
