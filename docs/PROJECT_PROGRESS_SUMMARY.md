@@ -190,7 +190,7 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **PAUSED**: no
 - **INTENT**: Make Beacon's next useful action immediately visible and turn Notes into a flexible, playful workspace whose important tabs stay where the user puts them.
 - **APPROACH**: Add one deterministic human-output `Next:` cue, persist ordered pinned detail IDs through the existing Go workspace authority, keep pinned tabs left of stable unpinned tabs across both macOS surfaces and the CLI fallback, cycle shared Notes sizing, and use reduced-motion-aware native space animation.
-- **OPEN ITEMS**: Implementation, documentation, full local validation, and visual smoke are complete on issue #35 and branch `GH-35`; commit, ready PR delivery, and hosted checks remain.
+- **OPEN ITEMS**: Implementation, documentation, full local validation, visual smoke, commit, ready PR delivery, and hosted checks are complete on issue #35, branch `GH-35`, and PR #36; final human review and merge remain.
 - **POINTERS**: `docs/specs/0017-beacon-focus-notes/SPEC.md`
 
 ## LAST UPDATED

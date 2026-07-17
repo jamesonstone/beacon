@@ -159,7 +159,7 @@ leaves JSON unchanged.
   and actionable-lane ordering remain unchanged.
 - [x] AC9: README, constitution, project progress, and spec evidence agree with
   the implementation and contain no stale user-facing contract.
-- [ ] AC10: Focused and full Go, race, Linux, Swift, Xcode, Kit, and diff-hygiene
+- [x] AC10: Focused and full Go, race, Linux, Swift, Xcode, Kit, and diff-hygiene
   checks pass, and the ready PR reports hosted checks literally.
 
 ## Implementation Plan
@@ -189,7 +189,7 @@ leaves JSON unchanged.
 - [x] T5: Implement and test macOS pinned interactions and presentation changes.
 - [x] T6: Reconcile README, constitution, and project progress documentation.
 - [x] T7: Run focused and full validation and review the complete diff.
-- [ ] T8: Commit, push, create the assigned ready PR, and record hosted evidence.
+- [x] T8: Commit, push, create the assigned ready PR, and record hosted evidence.
 
 ## Validation Map
 
@@ -250,4 +250,10 @@ leaves JSON unchanged.
   age and plus-only tag placement, empty-state `title`, and the visible 50% to
   80% to minimized to 50% header cycle on the shared detached surface. General
   was restored without creating or editing note content.
-- Pull request, commit, and hosted check evidence are pending.
+- Implementation commit:
+  `736036d64727ae226ba554e4fbbe4219aa27a144`, authored and committed by
+  Jameson Stone.
+- Ready pull request: https://github.com/jamesonstone/beacon/pull/36, targeting
+  `main`, assigned to `jamesonstone`, and closing issue #35.
+- Hosted `go`, `macos`, and `Assign configured maintainers` checks pass on the
+  final pull-request head.
