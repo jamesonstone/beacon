@@ -95,6 +95,33 @@ func renderNarrow(writer io.Writer, lanes []model.Lane, style styles, width int)
 	return nil
 }
 
+func nextActionLine(snapshot model.Snapshot, lanes map[string]model.Lane, style styles) string {
+	lane, found := firstActionLane(snapshot, lanes)
+	if !found {
+		return ""
+	}
+	action := lane.NextAction
+	if action == model.ActionNone && lane.ReviewReady {
+		action = model.ActionReviewPR
+	}
+	return style.heading.Render("Next:") + " " +
+		actionStyle(style, action).Render(actionLabel(action)) +
+		" · " + style.project.Render(lane.Repository) +
+		" · " + workItem(lane)
+}
+
+func firstActionLane(snapshot model.Snapshot, lanes map[string]model.Lane) (model.Lane, bool) {
+	for _, group := range [][]string{snapshot.Groups.Ready, snapshot.Groups.Action} {
+		for _, id := range group {
+			lane, found := lanes[id]
+			if found {
+				return lane, true
+			}
+		}
+	}
+	return model.Lane{}, false
+}
+
 func indentForWidth(width int, preferred string) string {
 	if width <= 1 {
 		return ""

@@ -8,13 +8,21 @@ struct SignalNoteTabStrip: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 5) {
                 ForEach(state.openNoteTabs) { tab in
+                    let pinned = state.pinnedNoteIDs.contains(tab.id)
                     SignalNoteTabButton(
                         tab: tab,
                         title: tab.id == state.activeNoteID ? state.activeNoteTitle : tab.title,
                         selected: tab.id == state.activeNoteID,
+                        pinned: pinned,
                         onSelect: { Task { await state.activateNote(tab.id) } },
-                        onClose: tab.id == "general" ? nil : { Task { await state.closeNote(tab.id) } },
-                        onDelete: tab.id == "general" ? nil : { onDeleteNote(tab) }
+                        onTogglePin: tab.id == "general" || tab.id == "new" ? nil : {
+                            Task<Void, Never> { await state.setNotePinned(tab.id, pinned: !pinned) }
+                        },
+                        onClose: tab.id == "general" || pinned ? nil : { Task { await state.closeNote(tab.id) } },
+                        onDelete: tab.id == "general" || tab.id == "new" ? nil : { onDeleteNote(tab) },
+                        onMovePinned: { source, target in
+                            Task<Void, Never> { await state.movePinnedNote(source, before: target) }
+                        }
                     )
                 }
                 Button {
@@ -28,10 +36,10 @@ struct SignalNoteTabStrip: View {
                 .foregroundStyle(BeaconPalette.cyan)
                 .background(BeaconPalette.softGradient(BeaconPalette.cyan), in: RoundedRectangle(cornerRadius: 6))
                 .help("New Tab")
-                .accessibilityLabel("New Signal Note tab")
+                .accessibilityLabel("New Note tab")
             }
         }
-        .accessibilityLabel("Open Signal Note tabs")
+        .accessibilityLabel("Open Note tabs")
     }
 }
 
@@ -39,26 +47,51 @@ private struct SignalNoteTabButton: View {
     let tab: AgentNoteTab
     let title: String
     let selected: Bool
+    let pinned: Bool
     let onSelect: () -> Void
+    let onTogglePin: (() -> Void)?
     let onClose: (() -> Void)?
     let onDelete: (() -> Void)?
+    let onMovePinned: (String, String) -> Void
     @State private var hovering = false
     @FocusState private var focused: Bool
 
+    @ViewBuilder
     var body: some View {
+        if pinned, tab.id == "general" {
+            tabPill.dropDestination(for: String.self, action: handleDrop)
+        } else if pinned {
+            tabPill
+                .draggable(tab.id)
+                .dropDestination(for: String.self, action: handleDrop)
+        } else {
+            tabPill
+        }
+    }
+
+    private var tabPill: some View {
         HStack(spacing: 3) {
-            Button(action: onSelect) {
-                HStack(spacing: 4) {
-                    if tab.id == "general" {
-                        Image(systemName: "pin.fill")
-                            .font(.system(size: 7, weight: .semibold))
-                    }
-                    Text(title)
-                        .font(BeaconTypography.medium(8))
-                        .lineLimit(1)
-                        .frame(maxWidth: 132)
+            if tab.id == "general" {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 7, weight: .semibold))
+                    .accessibilityLabel("General is permanently pinned")
+            } else if let onTogglePin {
+                Button(action: onTogglePin) {
+                    Image(systemName: pinned ? "pin.fill" : "pin")
+                        .font(.system(size: 7, weight: .semibold))
+                        .frame(width: 13, height: 13)
                 }
-                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+                .help(pinned ? "Unpin \(title)" : "Pin \(title)")
+                .accessibilityLabel(pinned ? "Unpin \(title) note" : "Pin \(title) note")
+            }
+
+            Button(action: onSelect) {
+                Text(title)
+                    .font(BeaconTypography.medium(8))
+                    .lineLimit(1)
+                    .frame(maxWidth: 132)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .focused($focused)
@@ -100,6 +133,12 @@ private struct SignalNoteTabButton: View {
         }
         .onHover { hovering = $0 }
     }
+
+    private func handleDrop(_ noteIDs: [String], _ location: CGPoint) -> Bool {
+        guard let noteID = noteIDs.first, noteID != tab.id else { return false }
+        onMovePinned(noteID, tab.id)
+        return true
+    }
 }
 
 struct SignalNotePicker: View {
@@ -110,7 +149,7 @@ struct SignalNotePicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                TextField("First-line title", text: $title)
+                TextField("title", text: $title)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { create() }
                 Button("Create", action: create)
@@ -135,11 +174,7 @@ struct SignalNotePicker: View {
             }
 
             if state.noteHistory.isEmpty {
-                ContentUnavailableView(
-                    "No detail notes yet",
-                    systemImage: "doc.badge.plus",
-                    description: Text("Create one above or from a line in General.")
-                )
+                EmptyNotesSpaceView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 Text("Previously opened")

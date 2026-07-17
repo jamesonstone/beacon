@@ -95,6 +95,7 @@ struct AgentNotesWorkspace: Codable, Equatable {
     let version: Int
     let activeID: String
     let openIDs: [String]
+    let pinnedIDs: [String]?
     let tabs: [AgentNoteTab]
     let active: AgentNotes?
 
@@ -102,6 +103,7 @@ struct AgentNotesWorkspace: Codable, Equatable {
         case version, tabs, active
         case activeID = "active_id"
         case openIDs = "open_ids"
+        case pinnedIDs = "pinned_ids"
     }
 }
 

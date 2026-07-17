@@ -21,6 +21,7 @@ actor DependencyLimitsClient: CLIClientProtocol {
 actor NotesWorkspaceAgent: AgentClientProtocol {
     private var documents: [String: AgentNotes]
     private var openIDs: [String]
+    private var pinnedIDs = ["general"]
     private var activeID: String
     private let detailOrder: [String]
     private let failSaves: Bool
@@ -28,6 +29,8 @@ actor NotesWorkspaceAgent: AgentClientProtocol {
     private(set) var openedNoteIDs: [String] = []
     private(set) var closedNoteIDs: [String] = []
     private(set) var deletedNoteIDs: [String] = []
+    private(set) var pinChanges: [(String, Bool)] = []
+    private(set) var pinnedReorders: [[String]] = []
 
     init(
         openIDs: [String] = ["general", "detail-1", "detail-2"],
@@ -114,7 +117,7 @@ actor NotesWorkspaceAgent: AgentClientProtocol {
 
     func closeNote(_ noteID: String) async throws -> AgentEvent {
         closedNoteIDs.append(noteID)
-        guard let index = openIDs.firstIndex(of: noteID), noteID != "general" else { throw TestError.failed }
+        guard let index = openIDs.firstIndex(of: noteID), !pinnedIDs.contains(noteID) else { throw TestError.failed }
         openIDs.remove(at: index)
         if activeID == noteID {
             activeID = index > 0 ? openIDs[index - 1] : "general"
@@ -127,10 +130,29 @@ actor NotesWorkspaceAgent: AgentClientProtocol {
         guard noteID != "general", noteID != "new", documents[noteID] != nil else { throw TestError.failed }
         let index = openIDs.firstIndex(of: noteID)
         openIDs.removeAll { $0 == noteID }
+        pinnedIDs.removeAll { $0 == noteID }
         documents[noteID] = nil
         if activeID == noteID {
             activeID = index.flatMap { $0 > 0 && $0 - 1 < openIDs.count ? openIDs[$0 - 1] : nil } ?? "general"
         }
+        return workspaceEvent(type: "notes_workspace_updated")
+    }
+
+    func setNotePinned(_ noteID: String, pinned: Bool) async throws -> AgentEvent {
+        guard noteID != "general", noteID != "new", documents[noteID] != nil else { throw TestError.failed }
+        pinChanges.append((noteID, pinned))
+        pinnedIDs.removeAll { $0 == noteID }
+        if pinned { pinnedIDs.append(noteID) }
+        if !openIDs.contains(noteID) { openIDs.append(noteID) }
+        normalizeOpenIDs()
+        return workspaceEvent(type: "notes_workspace_updated")
+    }
+
+    func reorderPinnedNotes(_ noteIDs: [String]) async throws -> AgentEvent {
+        guard Set(noteIDs) == Set(pinnedIDs.dropFirst()) else { throw TestError.failed }
+        pinnedReorders.append(noteIDs)
+        pinnedIDs = ["general"] + noteIDs
+        normalizeOpenIDs()
         return workspaceEvent(type: "notes_workspace_updated")
     }
 
@@ -158,13 +180,17 @@ actor NotesWorkspaceAgent: AgentClientProtocol {
             return AgentNoteTab(
                 id: id, title: note.title ?? "Untitled", path: note.path,
                 createdAt: note.createdAt, updatedAt: note.updatedAt, openedAt: note.openedAt,
-                isOpen: openSet.contains(id), pinned: nil
+                isOpen: openSet.contains(id), pinned: pinnedIDs.contains(id)
             )
         }
         return AgentNotesWorkspace(
-            version: 1, activeID: activeID, openIDs: openIDs, tabs: tabs,
+            version: 1, activeID: activeID, openIDs: openIDs, pinnedIDs: pinnedIDs, tabs: tabs,
             active: activeID == "new" ? nil : documents[activeID]
         )
+    }
+
+    private func normalizeOpenIDs() {
+        openIDs = pinnedIDs + openIDs.filter { !pinnedIDs.contains($0) }
     }
 
     private func event(

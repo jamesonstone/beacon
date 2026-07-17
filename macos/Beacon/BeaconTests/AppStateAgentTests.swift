@@ -86,6 +86,30 @@ extension AppStateTests {
         XCTAssertFalse(state.notesAreDirty)
     }
 
+    func testNotesPinningKeepsPinnedTabsLeftAndReordersThem() async {
+        let agent = NotesWorkspaceAgent()
+        let state = AppState(agent: agent, installer: nil)
+        await state.loadNotes()
+
+        await state.setNotePinned("detail-2", pinned: true)
+        XCTAssertEqual(state.pinnedNoteIDs, ["general", "detail-2"])
+        XCTAssertEqual(state.openNoteTabs.map(\.id), ["general", "detail-2", "detail-1"])
+
+        await state.setNotePinned("detail-1", pinned: true)
+        await state.movePinnedNote("detail-1", before: "detail-2")
+        XCTAssertEqual(state.pinnedNoteIDs, ["general", "detail-1", "detail-2"])
+        XCTAssertEqual(state.openNoteTabs.map(\.id), ["general", "detail-1", "detail-2"])
+
+        await state.closeNote("detail-2")
+        let closedNoteIDs = await agent.closedNoteIDs
+        XCTAssertTrue(closedNoteIDs.isEmpty)
+        await state.setNotePinned("detail-1", pinned: false)
+        XCTAssertEqual(state.pinnedNoteIDs, ["general", "detail-2"])
+        XCTAssertEqual(state.openNoteTabs.map(\.id), ["general", "detail-2", "detail-1"])
+        let pinnedReorders = await agent.pinnedReorders
+        XCTAssertEqual(pinnedReorders, [["detail-1", "detail-2"]])
+    }
+
     func testSignalNoteLiveTitleDuplicateActivationAndCycling() async {
         let agent = NotesWorkspaceAgent()
         let state = AppState(agent: agent, installer: nil)

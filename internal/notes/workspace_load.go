@@ -48,7 +48,15 @@ func loadWorkspaceState(generalPath string) (Workspace, workspaceManifest, error
 		entries[tab.ID] = entry
 	}
 
-	openIDs := []string{GeneralID}
+	pinnedIDs := []string{GeneralID}
+	manifestPinnedIDs := make([]string, 0, len(manifest.PinnedIDs))
+	for _, id := range manifest.PinnedIDs {
+		if id != GeneralID && id != NewTabID && valid[id] && indexOf(pinnedIDs, id) < 0 {
+			pinnedIDs = append(pinnedIDs, id)
+			manifestPinnedIDs = append(manifestPinnedIDs, id)
+		}
+	}
+	openIDs := append([]string{}, pinnedIDs...)
 	for _, id := range manifest.OpenIDs {
 		if id != GeneralID && valid[id] && indexOf(openIDs, id) < 0 {
 			openIDs = append(openIDs, id)
@@ -64,6 +72,7 @@ func loadWorkspaceState(generalPath string) (Workspace, workspaceManifest, error
 	}
 	for index := range detailTabs {
 		detailTabs[index].Open = openSet[detailTabs[index].ID]
+		detailTabs[index].Pinned = indexOf(pinnedIDs, detailTabs[index].ID) >= 0
 	}
 	sort.Slice(detailTabs, func(i, j int) bool {
 		if !detailTabs[i].OpenedAt.Equal(detailTabs[j].OpenedAt) {
@@ -79,7 +88,10 @@ func loadWorkspaceState(generalPath string) (Workspace, workspaceManifest, error
 		tabs = append(tabs, Tab{ID: NewTabID, Title: "New Tab", Open: true})
 	}
 	tabs = append(tabs, detailTabs...)
-	workspace := Workspace{Version: WorkspaceVersion, ActiveID: activeID, OpenIDs: openIDs, Tabs: tabs}
+	workspace := Workspace{
+		Version: WorkspaceVersion, ActiveID: activeID, OpenIDs: openIDs,
+		PinnedIDs: pinnedIDs, Tabs: tabs,
+	}
 	if activeID != NewTabID {
 		active, loadErr := loadDocument(generalPath, workspace, activeID)
 		if loadErr != nil {
@@ -93,7 +105,10 @@ func loadWorkspaceState(generalPath string) (Workspace, workspaceManifest, error
 		entryList = append(entryList, entry)
 	}
 	sort.Slice(entryList, func(i, j int) bool { return entryList[i].ID < entryList[j].ID })
-	normalized := workspaceManifest{Version: WorkspaceVersion, ActiveID: activeID, OpenIDs: openIDs, Entries: entryList}
+	normalized := workspaceManifest{
+		Version: WorkspaceVersion, ActiveID: activeID, OpenIDs: openIDs,
+		PinnedIDs: manifestPinnedIDs, Entries: entryList,
+	}
 	return workspace, normalized, nil
 }
 

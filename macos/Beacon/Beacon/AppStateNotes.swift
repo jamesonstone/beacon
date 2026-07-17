@@ -39,7 +39,10 @@ extension AppState {
     var openNoteTabs: [AgentNoteTab] {
         let tabs = notesWorkspace?.tabs ?? []
         let byID = Dictionary(uniqueKeysWithValues: tabs.map { ($0.id, $0) })
-        return (notesWorkspace?.openIDs ?? ["general"]).compactMap { id in
+        let openIDs = notesWorkspace?.openIDs ?? ["general"]
+        let pinned = pinnedNoteIDs.filter(openIDs.contains)
+        let ordered = pinned + openIDs.filter { !pinned.contains($0) }
+        return ordered.compactMap { id in
             byID[id] ?? (id == "general" ? AgentNoteTab(
                 id: "general", title: "General", path: notesPath.isEmpty ? nil : notesPath,
                 createdAt: nil, updatedAt: notesUpdatedAt, openedAt: nil, isOpen: true, pinned: true
@@ -115,7 +118,7 @@ extension AppState {
     }
 
     func closeNote(_ noteID: String) async {
-        guard noteID != "general" else { return }
+        guard noteID != "general", !pinnedNoteIDs.contains(noteID) else { return }
         guard await flushNotes() else { return }
         await applyNotesMutation(
             { try await agent.closeNote(noteID) },
@@ -224,7 +227,7 @@ extension AppState {
         }
     }
 
-    private func applyNotesMutation(
+    func applyNotesMutation(
         _ operation: () async throws -> AgentEvent,
         fallback: (CLIClientProtocol) async throws -> AgentNotesWorkspace
     ) async {

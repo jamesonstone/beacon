@@ -74,6 +74,16 @@ actor LegacyNotesAgent: AgentClientProtocol {
         throw AgentClientError.command("unknown agent request: close_note")
     }
 
+    func setNotePinned(_ noteID: String, pinned: Bool) async throws -> AgentEvent {
+        calls.append("pin:\(noteID):\(pinned)")
+        throw AgentClientError.command("unknown agent request: set_note_pinned")
+    }
+
+    func reorderPinnedNotes(_ noteIDs: [String]) async throws -> AgentEvent {
+        calls.append("reorder:\(noteIDs.joined(separator: ","))")
+        throw AgentClientError.command("unknown agent request: reorder_pinned_notes")
+    }
+
     private func event(type: String, notes: AgentNotes?) -> AgentEvent {
         AgentEvent(
             protocolVersion: 1, requestID: nil, type: type, scanID: nil,
@@ -119,6 +129,14 @@ actor ScriptedNotesFallbackClient: CLIClientProtocol {
         try next("delete:\(noteID)")
     }
 
+    func setNotePinned(_ noteID: String, pinned: Bool) async throws -> AgentNotesWorkspace {
+        try next("pin:\(noteID):\(pinned)")
+    }
+
+    func reorderPinnedNotes(_ noteIDs: [String]) async throws -> AgentNotesWorkspace {
+        try next("reorder:\(noteIDs.joined(separator: ","))")
+    }
+
     private func next(_ call: String) throws -> AgentNotesWorkspace {
         calls.append(call)
         guard !workspaces.isEmpty else { throw TestError.failed }
@@ -157,7 +175,7 @@ func legacyFallbackWorkspace(
         ))
     }
     return AgentNotesWorkspace(
-        version: 1, activeID: activeID, openIDs: openIDs,
+        version: 1, activeID: activeID, openIDs: openIDs, pinnedIDs: ["general"],
         tabs: tabs,
         active: activeID == "general" ? general : (includeDetail ? detail : nil)
     )

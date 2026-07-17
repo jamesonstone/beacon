@@ -38,6 +38,24 @@ final class ModelsTests: XCTestCase {
         )
     }
 
+    func testNotesPresentationCyclesAndUsesRequestedFractions() {
+        XCTAssertEqual(SignalNotesSize.half.nextCycled, .eighty)
+        XCTAssertEqual(SignalNotesSize.eighty.nextCycled, .minimized)
+        XCTAssertEqual(SignalNotesSize.minimized.nextCycled, .half)
+        XCTAssertEqual(SignalNotesSize.half.heightFraction, 0.5)
+        XCTAssertEqual(SignalNotesSize.eighty.heightFraction, 0.8)
+        XCTAssertNil(SignalNotesSize.minimized.heightFraction)
+        XCTAssertEqual(SignalNotesPresentation.expandedHeightFraction, 0.5)
+        XCTAssertEqual(SignalNotesPresentation.enlargedHeightFraction, 0.8)
+    }
+
+    func testSpaceMotionProducesStableLoopPhase() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        XCTAssertEqual(BeaconSpaceMotion.phase(at: start, duration: 10), 0)
+        XCTAssertEqual(BeaconSpaceMotion.phase(at: start.addingTimeInterval(2.5), duration: 10), 0.25)
+        XCTAssertEqual(BeaconSpaceMotion.phase(at: start.addingTimeInterval(12.5), duration: 10), 0.25)
+    }
+
     func testSignalNotesLiveMarkdownStylesWithoutChangingSource() {
         let source = "## Plan\n\n**Ship carefully.**\n> Verify `main`.\n[Open](https://example.test)\n---"
         let spans = LiveMarkdownStyler.spans(in: source)
@@ -56,7 +74,6 @@ final class ModelsTests: XCTestCase {
         let bodyLocation = (source as NSString).range(of: "Ship").location
         let bodyFont = storage.attribute(.font, at: bodyLocation, effectiveRange: nil) as? NSFont
         XCTAssertGreaterThan(try XCTUnwrap(headingFont).pointSize, try XCTUnwrap(bodyFont).pointSize)
-        XCTAssertEqual(SignalNotesPresentation.expandedHeightFraction, 0.5)
     }
 
     func testSignalNotesEditorIsWritableAndOnlyResignsAfterFocusTransition() {

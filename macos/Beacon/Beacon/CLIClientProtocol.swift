@@ -12,6 +12,8 @@ protocol CLIClientProtocol {
     func openNote(_ noteID: String) async throws -> AgentNotesWorkspace
     func closeNote(_ noteID: String) async throws -> AgentNotesWorkspace
     func deleteNote(_ noteID: String) async throws -> AgentNotesWorkspace
+    func setNotePinned(_ noteID: String, pinned: Bool) async throws -> AgentNotesWorkspace
+    func reorderPinnedNotes(_ noteIDs: [String]) async throws -> AgentNotesWorkspace
     func repositorySync(refresh: Bool) async throws -> RepositorySyncReport
     func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport
     func dependencyLimits() async throws -> DependencyLimitReport
@@ -21,22 +23,26 @@ protocol CLIClientProtocol {
 }
 
 extension CLIClientProtocol {
-    func notes() async throws -> AgentNotes { throw AgentClientError.command("signal notes are unavailable") }
-    func setNotes(_ content: String) async throws -> AgentNotes { throw AgentClientError.command("signal notes are unavailable") }
-    func notesWorkspace() async throws -> AgentNotesWorkspace { throw AgentClientError.command("signal note tabs are unavailable") }
+    func notes() async throws -> AgentNotes { throw AgentClientError.command("Notes are unavailable") }
+    func setNotes(_ content: String) async throws -> AgentNotes { throw AgentClientError.command("Notes are unavailable") }
+    func notesWorkspace() async throws -> AgentNotesWorkspace { throw AgentClientError.command("Note tabs are unavailable") }
     func notes(noteID: String) async throws -> AgentNotes {
-        guard noteID == "general" else { throw AgentClientError.command("signal note tabs are unavailable") }
+        guard noteID == "general" else { throw AgentClientError.command("Note tabs are unavailable") }
         return try await notes()
     }
     func setNotes(_ content: String, noteID: String) async throws -> AgentNotesWorkspace {
-        guard noteID == "general" else { throw AgentClientError.command("signal note tabs are unavailable") }
+        guard noteID == "general" else { throw AgentClientError.command("Note tabs are unavailable") }
         let note = try await setNotes(content)
-        return AgentNotesWorkspace(version: 1, activeID: "general", openIDs: ["general"], tabs: [], active: note)
+        return AgentNotesWorkspace(
+            version: 1, activeID: "general", openIDs: ["general"], pinnedIDs: ["general"], tabs: [], active: note
+        )
     }
-    func createNote(_ content: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("signal note tabs are unavailable") }
-    func openNote(_ noteID: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("signal note tabs are unavailable") }
-    func closeNote(_ noteID: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("signal note tabs are unavailable") }
-    func deleteNote(_ noteID: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("signal note deletion is unavailable") }
+    func createNote(_ content: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("Note tabs are unavailable") }
+    func openNote(_ noteID: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("Note tabs are unavailable") }
+    func closeNote(_ noteID: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("Note tabs are unavailable") }
+    func deleteNote(_ noteID: String) async throws -> AgentNotesWorkspace { throw AgentClientError.command("Note deletion is unavailable") }
+    func setNotePinned(_ noteID: String, pinned: Bool) async throws -> AgentNotesWorkspace { throw AgentClientError.command("note pinning is unavailable") }
+    func reorderPinnedNotes(_ noteIDs: [String]) async throws -> AgentNotesWorkspace { throw AgentClientError.command("note reordering is unavailable") }
     func repositorySync(refresh: Bool) async throws -> RepositorySyncReport { throw AgentClientError.command("repository sync is unavailable") }
     func syncRepositories(_ projectIDs: [String]) async throws -> RepositorySyncReport { throw AgentClientError.command("repository sync is unavailable") }
     func dependencyLimits() async throws -> DependencyLimitReport { throw AgentClientError.command("dependency limits are unavailable") }

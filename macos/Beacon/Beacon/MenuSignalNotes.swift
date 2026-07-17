@@ -1,9 +1,36 @@
 import Foundation
 import SwiftUI
 
+enum SignalNotesSize: String, Equatable {
+    case half
+    case eighty
+    case minimized
+
+    var isExpanded: Bool { self != .minimized }
+
+    var heightFraction: Double? {
+        switch self {
+        case .half: 0.5
+        case .eighty: 0.8
+        case .minimized: nil
+        }
+    }
+
+    var nextCycled: SignalNotesSize {
+        switch self {
+        case .half: .eighty
+        case .eighty: .minimized
+        case .minimized: .half
+        }
+    }
+}
+
 enum SignalNotesPresentation {
     static let expandedByDefault = true
     static let expandedHeightFraction = 0.5
+    static let enlargedHeightFraction = 0.8
+    static let sizeStorageKey = "beacon.signal-notes-size"
+    static let lastExpandedStorageKey = "beacon.signal-notes-last-expanded-size"
     static let autosaveDelay: Duration = .seconds(3)
     static let createFromGeneralLabel = "Create New Note from Highlighted Text in General"
     static let createFromGeneralSymbol = "doc.badge.plus"
@@ -55,39 +82,7 @@ final class SignalNotesAutosave: ObservableObject {
 extension MenuView {
     var signalNotesPanel: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.18)) {
-                    signalNotesExpanded.toggle()
-                }
-            } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: "pencil.and.scribble")
-                        .foregroundStyle(BeaconPalette.neonGradient)
-                        .shadow(color: BeaconPalette.pink.opacity(0.45), radius: 2)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Signal Notes")
-                            .font(BeaconTypography.semibold(11))
-                            .foregroundStyle(BeaconPalette.borderGradient(BeaconPalette.pink))
-                        Text(signalNotesExpanded ? "Catch the sparks before they drift away." : notesPreview)
-                            .font(BeaconTypography.regular(8))
-                            .foregroundStyle(BeaconPalette.lavender.opacity(0.78))
-                            .lineLimit(1)
-                    }
-                    Spacer()
-                    if state.isSavingNotes {
-                        ProgressView()
-                            .controlSize(.mini)
-                            .tint(BeaconPalette.cyan)
-                    }
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(BeaconPalette.cyan)
-                        .rotationEffect(signalNotesExpanded ? .degrees(180) : .zero)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(signalNotesExpanded ? "Collapse Signal Notes" : "Expand Signal Notes")
+            signalNotesHeader
 
             if signalNotesExpanded {
                 SignalNoteTabStrip(state: state, onDeleteNote: requestNoteDeletion)
@@ -157,6 +152,83 @@ extension MenuView {
         .shadow(color: BeaconPalette.pink.opacity(0.10), radius: 5, y: 2)
     }
 
+    private var signalNotesHeader: some View {
+        HStack(spacing: 7) {
+            NotesSolarSystemMark()
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Notes")
+                    .font(BeaconTypography.semibold(11))
+                    .foregroundStyle(BeaconPalette.borderGradient(BeaconPalette.pink))
+                if !signalNotesExpanded {
+                    Text(notesPreview)
+                        .font(BeaconTypography.regular(8))
+                        .foregroundStyle(BeaconPalette.lavender.opacity(0.78))
+                        .lineLimit(1)
+                }
+            }
+            Spacer()
+            if state.isSavingNotes {
+                ProgressView()
+                    .controlSize(.mini)
+                    .tint(BeaconPalette.cyan)
+            }
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    toggleSignalNotesSize()
+                }
+            } label: {
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(BeaconPalette.cyan)
+                    .rotationEffect(signalNotesExpanded ? .degrees(180) : .zero)
+                    .frame(width: 20, height: 20)
+            }
+            .buttonStyle(.plain)
+            .help(signalNotesExpanded ? "Minimize Notes" : "Restore Notes")
+            .accessibilityLabel(signalNotesExpanded ? "Minimize Notes" : "Restore Notes")
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            withAnimation(.easeInOut(duration: 0.22)) {
+                cycleSignalNotesSize()
+            }
+        }
+        .accessibilityAction(named: "Cycle Notes size") {
+            cycleSignalNotesSize()
+        }
+    }
+
+    var signalNotesSize: SignalNotesSize {
+        SignalNotesSize(rawValue: signalNotesSizeValue) ?? .half
+    }
+
+    var signalNotesExpanded: Bool { signalNotesSize.isExpanded }
+
+    func signalNotesHeight(in availableHeight: CGFloat) -> CGFloat? {
+        guard let fraction = signalNotesSize.heightFraction else { return nil }
+        return max(220, availableHeight * fraction)
+    }
+
+    func toggleSignalNotesSize() {
+        if signalNotesSize == .minimized {
+            let restored = SignalNotesSize(rawValue: signalNotesLastExpandedSizeValue) ?? .half
+            setSignalNotesSize(restored == .minimized ? .half : restored)
+        } else {
+            setSignalNotesSize(.minimized)
+        }
+    }
+
+    func cycleSignalNotesSize() {
+        setSignalNotesSize(signalNotesSize.nextCycled)
+    }
+
+    private func setSignalNotesSize(_ size: SignalNotesSize) {
+        signalNotesSizeValue = size.rawValue
+        if size.isExpanded {
+            signalNotesLastExpandedSizeValue = size.rawValue
+        }
+    }
+
     private var liveMarkdownEditor: some View {
         LiveMarkdownEditor(
             text: Binding(
@@ -168,7 +240,7 @@ extension MenuView {
                 get: { state.notesCurrentLine },
                 set: { state.updateNotesCurrentLine($0) }
             ),
-            accessibilityLabel: "Live Markdown signal notes"
+            accessibilityLabel: "Live Markdown notes"
         )
         .padding(8)
         .frame(minHeight: surface == .menu ? 120 : 180, maxHeight: .infinity)

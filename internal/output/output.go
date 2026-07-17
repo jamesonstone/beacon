@@ -60,26 +60,41 @@ func TerminalWithOptions(writer io.Writer, snapshot model.Snapshot, options Term
 	} else if _, err := fmt.Fprintln(writer, header); err != nil {
 		return err
 	}
+	byID := make(map[string]model.Lane, len(snapshot.Lanes))
+	for _, lane := range snapshot.Lanes {
+		byID[lane.ID] = lane
+	}
 	summary := fmt.Sprintf("%d projects · %d work items · %d ready · %d issues · %d unresolved feedback",
 		snapshot.Summary.TrackedProjects, snapshot.Summary.Total, snapshot.Summary.ReviewReady, snapshot.Summary.OpenIssues, snapshot.Summary.UnresolvedFeedback)
 	visibleWarnings := visibleDiagnostics(snapshot, snapshot.Warnings)
 	if len(visibleWarnings) > 0 {
 		summary += fmt.Sprintf(" · %d warnings", len(visibleWarnings))
 	}
+	next := nextActionLine(snapshot, byID, style)
 	if options.Width < narrowWidth {
 		if err := writeWrapped(writer, "", style.wrap.Width(options.Width).Render(summary)); err != nil {
 			return err
 		}
+		if next != "" {
+			if err := writeWrapped(writer, "", style.wrap.Width(options.Width).Render(next)); err != nil {
+				return err
+			}
+		}
 		if _, err := fmt.Fprintln(writer); err != nil {
 			return err
 		}
-	} else if _, err := fmt.Fprintf(writer, "%s\n\n", summary); err != nil {
-		return err
-	}
-
-	byID := make(map[string]model.Lane, len(snapshot.Lanes))
-	for _, lane := range snapshot.Lanes {
-		byID[lane.ID] = lane
+	} else {
+		if _, err := fmt.Fprintln(writer, summary); err != nil {
+			return err
+		}
+		if next != "" {
+			if _, err := fmt.Fprintln(writer, next); err != nil {
+				return err
+			}
+		}
+		if _, err := fmt.Fprintln(writer); err != nil {
+			return err
+		}
 	}
 	idleIDs, idleProjects := idleFollowingInventory(snapshot)
 	sections := []struct {

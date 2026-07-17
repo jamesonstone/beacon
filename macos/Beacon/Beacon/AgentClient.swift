@@ -63,64 +63,6 @@ actor AgentClient: AgentClientProtocol {
         try await request(type: "add_manual_lane", title: title)
     }
 
-    func notes() async throws -> AgentEvent {
-        try await notes(noteID: "general")
-    }
-
-    func notesWorkspace() async throws -> AgentEvent {
-        let event = try await request(type: "get_notes_workspace")
-        guard event.type != "project_failed", event.notesWorkspace != nil else {
-            throw AgentClientError.command(event.message ?? "load signal note tabs failed")
-        }
-        return event
-    }
-
-    func notes(noteID: String) async throws -> AgentEvent {
-        let event = try await request(payload: Self.noteRequestData(type: "get_notes", noteID: noteID))
-        guard event.type != "project_failed" else {
-            throw AgentClientError.command(event.message ?? "load signal notes failed")
-        }
-        return event
-    }
-
-    func setNotes(_ content: String) async throws -> AgentEvent {
-        try await setNotes(content, noteID: "general")
-    }
-
-    func setNotes(_ content: String, noteID: String) async throws -> AgentEvent {
-        let event = try await request(
-            payload: Self.noteRequestData(type: "set_notes", content: content, noteID: noteID)
-        )
-        guard event.type != "project_failed" else {
-            throw AgentClientError.command(event.message ?? "save signal notes failed")
-        }
-        return event
-    }
-
-    func createNote(_ content: String) async throws -> AgentEvent {
-        try await noteWorkspaceMutation(type: "create_note", content: content)
-    }
-
-    func openNote(_ noteID: String) async throws -> AgentEvent {
-        try await noteWorkspaceMutation(type: "open_note", noteID: noteID)
-    }
-
-    func closeNote(_ noteID: String) async throws -> AgentEvent {
-        try await noteWorkspaceMutation(type: "close_note", noteID: noteID)
-    }
-
-    func deleteNote(_ noteID: String) async throws -> AgentEvent {
-        try await noteWorkspaceMutation(type: "delete_note", noteID: noteID)
-    }
-
-    private func noteWorkspaceMutation(type: String, noteID: String? = nil, content: String? = nil) async throws -> AgentEvent {
-        let event = try await request(type: type, content: content, noteID: noteID)
-        guard event.type != "project_failed", event.notesWorkspace != nil else {
-            throw AgentClientError.command(event.message ?? "update signal note tabs failed")
-        }
-        return event
-    }
-
     func repositorySync(refresh: Bool) async throws -> AgentEvent {
         let event = try await request(type: "get_repository_sync", refresh: refresh)
         guard event.type != "project_failed", event.repositorySync != nil else {
@@ -170,12 +112,12 @@ actor AgentClient: AgentClientProtocol {
         }
     }
 
-    private func request(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, noteID: String? = nil, refresh: Bool? = nil) async throws -> AgentEvent {
-        let payload = try Self.requestData(type: type, projectID: projectID, projectIDs: projectIDs, trackingState: trackingState, laneID: laneID, attentionState: attentionState, pinned: pinned, note: note, tag: tag, title: title, content: content, noteID: noteID, refresh: refresh)
+    func request(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, noteID: String? = nil, noteIDs: [String]? = nil, refresh: Bool? = nil) async throws -> AgentEvent {
+        let payload = try Self.requestData(type: type, projectID: projectID, projectIDs: projectIDs, trackingState: trackingState, laneID: laneID, attentionState: attentionState, pinned: pinned, note: note, tag: tag, title: title, content: content, noteID: noteID, noteIDs: noteIDs, refresh: refresh)
         return try await request(payload: payload)
     }
 
-    private func request(payload: Data) async throws -> AgentEvent {
+    func request(payload: Data) async throws -> AgentEvent {
         let path = socketPath
         return try await Task.detached(priority: .userInitiated) {
             let socket = try UnixSocket(path: path)
@@ -197,7 +139,15 @@ actor AgentClient: AgentClientProtocol {
         )
     }
 
-    private static func requestData(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, noteID: String? = nil, refresh: Bool? = nil) throws -> Data {
+    static func notePinRequestData(noteID: String, pinned: Bool) throws -> Data {
+        try requestData(type: "set_note_pinned", pinned: pinned, noteID: noteID)
+    }
+
+    static func pinnedOrderRequestData(noteIDs: [String]) throws -> Data {
+        try requestData(type: "reorder_pinned_notes", noteIDs: noteIDs)
+    }
+
+    private static func requestData(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, noteID: String? = nil, noteIDs: [String]? = nil, refresh: Bool? = nil) throws -> Data {
         var object: [String: Any] = [
             "protocol_version": 1,
             "request_id": UUID().uuidString.lowercased(),
@@ -214,6 +164,7 @@ actor AgentClient: AgentClientProtocol {
         object["title"] = title
         object["content"] = content
         object["note_id"] = noteID
+        object["note_ids"] = noteIDs
         object["refresh"] = refresh
         var data = try JSONSerialization.data(withJSONObject: object)
         data.append(0x0A)

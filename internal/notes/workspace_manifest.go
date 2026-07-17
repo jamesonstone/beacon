@@ -97,7 +97,10 @@ func syncDirectory(path string) error {
 }
 
 func defaultManifest() workspaceManifest {
-	return workspaceManifest{Version: WorkspaceVersion, ActiveID: GeneralID, OpenIDs: []string{GeneralID}, Entries: []manifestEntry{}}
+	return workspaceManifest{
+		Version: WorkspaceVersion, ActiveID: GeneralID,
+		OpenIDs: []string{GeneralID}, PinnedIDs: []string{}, Entries: []manifestEntry{},
+	}
 }
 
 func detailDirectory(generalPath string) string {

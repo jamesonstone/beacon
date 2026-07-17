@@ -41,6 +41,8 @@ const (
 	RequestOpenNote          = "open_note"
 	RequestCloseNote         = "close_note"
 	RequestDeleteNote        = "delete_note"
+	RequestSetNotePinned     = "set_note_pinned"
+	RequestReorderPinned     = "reorder_pinned_notes"
 	RequestGetRepositorySync = "get_repository_sync"
 	RequestSyncRepositories  = "sync_repositories"
 )
@@ -80,6 +82,7 @@ type Request struct {
 	Title           string   `json:"title,omitempty"`
 	Content         string   `json:"content,omitempty"`
 	NoteID          string   `json:"note_id,omitempty"`
+	NoteIDs         []string `json:"note_ids,omitempty"`
 	Refresh         bool     `json:"refresh,omitempty"`
 }
 
