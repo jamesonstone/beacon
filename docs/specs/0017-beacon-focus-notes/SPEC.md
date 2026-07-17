@@ -255,5 +255,6 @@ leaves JSON unchanged.
   Jameson Stone.
 - Ready pull request: https://github.com/jamesonstone/beacon/pull/36, targeting
   `main`, assigned to `jamesonstone`, and closing issue #35.
-- Hosted `go`, `macos`, and `Assign configured maintainers` checks pass on the
-  final pull-request head.
+- Hosted `go` and `macos` checks pass on the final pull-request head. The
+  pull-request-target `Assign configured maintainers` workflow also completed
+  successfully, and the PR remains assigned to `jamesonstone`.
