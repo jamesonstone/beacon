@@ -26,6 +26,10 @@ enum LiveMarkdownStyler {
         pattern: #"^[\t ]*((?:[-+*])|(?:\d+\.))[\t ]+"#,
         options: .anchorsMatchLines
     )
+    private static let listParagraph = try? NSRegularExpression(
+        pattern: #"^[\t ]*(?:(?:(?:[-+*]|\d+\.)[\t ]+)(?:\[[ xX]\][\t ]+)?|\[[ xX]\][\t ]+)"#,
+        options: .anchorsMatchLines
+    )
     private static let quote = try? NSRegularExpression(
         pattern: #"^[\t ]*(>+)[\t ]?.*$"#,
         options: .anchorsMatchLines
@@ -99,6 +103,12 @@ enum LiveMarkdownStyler {
             .foregroundColor: mint,
             .paragraphStyle: baseParagraph,
         ], range: target)
+
+        applyListParagraphStyles(
+            to: textStorage,
+            range: target,
+            baseParagraph: baseParagraph
+        )
 
         for span in spans(in: textStorage.string, range: target) {
             switch span.role {
@@ -184,6 +194,37 @@ enum LiveMarkdownStyler {
 
     private static func shifted(_ range: NSRange, by offset: Int) -> NSRange {
         NSRange(location: range.location + offset, length: range.length)
+    }
+
+    private static func applyListParagraphStyles(
+        to textStorage: NSTextStorage,
+        range target: NSRange,
+        baseParagraph: NSParagraphStyle
+    ) {
+        let source = textStorage.string as NSString
+        let segment = source.substring(with: target)
+        let segmentRange = NSRange(location: 0, length: (segment as NSString).length)
+        let font = BeaconTypography.appKitFont(10)
+
+        for match in matches(listParagraph, text: segment, range: segmentRange) {
+            let prefix = (segment as NSString).substring(with: match.range)
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.setParagraphStyle(baseParagraph)
+            paragraph.firstLineHeadIndent = 0
+            paragraph.headIndent = renderedWidth(of: prefix, font: font)
+
+            let paragraphRange = (segment as NSString).paragraphRange(for: match.range)
+            textStorage.addAttribute(
+                .paragraphStyle,
+                value: paragraph,
+                range: shifted(paragraphRange, by: target.location)
+            )
+        }
+    }
+
+    private static func renderedWidth(of prefix: String, font: NSFont) -> CGFloat {
+        let normalizedPrefix = prefix.replacingOccurrences(of: "\t", with: "    ")
+        return (normalizedPrefix as NSString).size(withAttributes: [.font: font]).width
     }
 
     private static func convertFont(in storage: NSTextStorage, range: NSRange, trait: NSFontTraitMask) {

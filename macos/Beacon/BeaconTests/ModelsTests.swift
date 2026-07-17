@@ -76,6 +76,61 @@ final class ModelsTests: XCTestCase {
         XCTAssertGreaterThan(try XCTUnwrap(headingFont).pointSize, try XCTUnwrap(bodyFont).pointSize)
     }
 
+    func testSignalNotesWrappedListContentUsesHangingIndent() throws {
+        let source = """
+        - [ ] Verify collection dates and exception retries after the first rendered line wraps
+        - Confirm top-level bullet behavior
+            - Confirm nested bullet behavior
+        [ ] Confirm bare checkbox behavior
+        10. Confirm numbered list behavior
+        """
+        let storage = NSTextStorage(string: source)
+
+        LiveMarkdownStyler.apply(to: storage)
+
+        func paragraphStyle(at text: String) throws -> NSParagraphStyle {
+            let location = (source as NSString).range(of: text).location
+            return try XCTUnwrap(
+                storage.attribute(.paragraphStyle, at: location, effectiveRange: nil) as? NSParagraphStyle
+            )
+        }
+
+        let taskStyle = try paragraphStyle(at: "Verify collection")
+        let bulletStyle = try paragraphStyle(at: "Confirm top-level")
+        let nestedStyle = try paragraphStyle(at: "Confirm nested")
+        let bareTaskStyle = try paragraphStyle(at: "Confirm bare")
+        let numberedStyle = try paragraphStyle(at: "Confirm numbered")
+        XCTAssertEqual(taskStyle.firstLineHeadIndent, 0)
+        XCTAssertGreaterThan(taskStyle.headIndent, 0)
+        XCTAssertGreaterThan(nestedStyle.headIndent, bulletStyle.headIndent)
+        XCTAssertGreaterThan(bareTaskStyle.headIndent, 0)
+        XCTAssertGreaterThan(numberedStyle.headIndent, 0)
+        XCTAssertEqual(storage.string, source)
+
+        let layoutManager = NSLayoutManager()
+        let textContainer = NSTextContainer(
+            size: NSSize(width: 180, height: CGFloat.greatestFiniteMagnitude)
+        )
+        textContainer.lineFragmentPadding = 0
+        layoutManager.addTextContainer(textContainer)
+        storage.addLayoutManager(layoutManager)
+        layoutManager.ensureLayout(for: textContainer)
+
+        var lineOrigins: [CGFloat] = []
+        layoutManager.enumerateLineFragments(
+            forGlyphRange: layoutManager.glyphRange(for: textContainer)
+        ) { _, usedRect, _, _, stop in
+            lineOrigins.append(usedRect.minX)
+            if lineOrigins.count == 2 {
+                stop.pointee = true
+            }
+        }
+
+        XCTAssertGreaterThan(lineOrigins.count, 1)
+        XCTAssertEqual(try XCTUnwrap(lineOrigins.first), 0, accuracy: 0.5)
+        XCTAssertEqual(lineOrigins[1], taskStyle.headIndent, accuracy: 0.5)
+    }
+
     func testSignalNotesEditorIsWritableAndOnlyResignsAfterFocusTransition() {
         let textView = NSTextView()
         let window = NSWindow(
