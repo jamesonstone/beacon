@@ -85,6 +85,8 @@ protocol AgentClientProtocol {
     func openNote(_ noteID: String) async throws -> AgentEvent
     func closeNote(_ noteID: String) async throws -> AgentEvent
     func deleteNote(_ noteID: String) async throws -> AgentEvent
+    func setNotePinned(_ noteID: String, pinned: Bool) async throws -> AgentEvent
+    func reorderPinnedNotes(_ noteIDs: [String]) async throws -> AgentEvent
     func repositorySync(refresh: Bool) async throws -> AgentEvent
     func syncRepositories(_ projectIDs: [String]) async throws -> AgentEvent
 }
@@ -97,21 +99,23 @@ extension AgentClientProtocol {
     func removeLaneTag(_ id: String, tag: String) async throws -> AgentEvent { throw AgentClientError.command("lane tags are unavailable") }
     func markLaneSeen(_ id: String) async throws -> AgentEvent { throw AgentClientError.command("lane acknowledgement is unavailable") }
     func addManualLane(_ title: String) async throws -> AgentEvent { throw AgentClientError.command("manual lanes are unavailable") }
-    func notes() async throws -> AgentEvent { throw AgentClientError.command("signal notes are unavailable") }
-    func setNotes(_ content: String) async throws -> AgentEvent { throw AgentClientError.command("signal notes are unavailable") }
-    func notesWorkspace() async throws -> AgentEvent { throw AgentClientError.command("signal note tabs are unavailable") }
+    func notes() async throws -> AgentEvent { throw AgentClientError.command("Notes are unavailable") }
+    func setNotes(_ content: String) async throws -> AgentEvent { throw AgentClientError.command("Notes are unavailable") }
+    func notesWorkspace() async throws -> AgentEvent { throw AgentClientError.command("Note tabs are unavailable") }
     func notes(noteID: String) async throws -> AgentEvent {
-        guard noteID == "general" else { throw AgentClientError.command("signal note tabs are unavailable") }
+        guard noteID == "general" else { throw AgentClientError.command("Note tabs are unavailable") }
         return try await notes()
     }
     func setNotes(_ content: String, noteID: String) async throws -> AgentEvent {
-        guard noteID == "general" else { throw AgentClientError.command("signal note tabs are unavailable") }
+        guard noteID == "general" else { throw AgentClientError.command("Note tabs are unavailable") }
         return try await setNotes(content)
     }
-    func createNote(_ content: String) async throws -> AgentEvent { throw AgentClientError.command("signal note tabs are unavailable") }
-    func openNote(_ noteID: String) async throws -> AgentEvent { throw AgentClientError.command("signal note tabs are unavailable") }
-    func closeNote(_ noteID: String) async throws -> AgentEvent { throw AgentClientError.command("signal note tabs are unavailable") }
-    func deleteNote(_ noteID: String) async throws -> AgentEvent { throw AgentClientError.command("signal note deletion is unavailable") }
+    func createNote(_ content: String) async throws -> AgentEvent { throw AgentClientError.command("Note tabs are unavailable") }
+    func openNote(_ noteID: String) async throws -> AgentEvent { throw AgentClientError.command("Note tabs are unavailable") }
+    func closeNote(_ noteID: String) async throws -> AgentEvent { throw AgentClientError.command("Note tabs are unavailable") }
+    func deleteNote(_ noteID: String) async throws -> AgentEvent { throw AgentClientError.command("Note deletion is unavailable") }
+    func setNotePinned(_ noteID: String, pinned: Bool) async throws -> AgentEvent { throw AgentClientError.command("note pinning is unavailable") }
+    func reorderPinnedNotes(_ noteIDs: [String]) async throws -> AgentEvent { throw AgentClientError.command("note reordering is unavailable") }
     func repositorySync(refresh: Bool) async throws -> AgentEvent { throw AgentClientError.command("repository sync is unavailable") }
     func syncRepositories(_ projectIDs: [String]) async throws -> AgentEvent { throw AgentClientError.command("repository sync is unavailable") }
 }

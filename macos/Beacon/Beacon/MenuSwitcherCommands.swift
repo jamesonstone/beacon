@@ -5,7 +5,7 @@ extension MenuView {
     var noteSwitcherCommands: [BeaconCommandItem] {
         var items = [
             BeaconCommandItem(
-                id: "note-general", title: "General", detail: "Pinned Signal Note", symbol: "pin.fill", keywords: "notes tab",
+                id: "note-general", title: "General", detail: "Pinned Note", symbol: "pin.fill", keywords: "signal notes tab",
                 action: { Task { await state.activateNote("general") } }
             ),
             BeaconCommandItem(

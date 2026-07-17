@@ -143,7 +143,8 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 		}
 		s.Engine.hub.Publish(event)
 		response(event)
-	case RequestCreateNote, RequestOpenNote, RequestCloseNote, RequestDeleteNote:
+	case RequestCreateNote, RequestOpenNote, RequestCloseNote, RequestDeleteNote,
+		RequestSetNotePinned, RequestReorderPinned:
 		store := s.notesStore()
 		var workspace notes.Workspace
 		var notesErr error
@@ -156,6 +157,10 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 			workspace, notesErr = store.CloseNote(s.Paths.Notes, request.NoteID)
 		case RequestDeleteNote:
 			workspace, notesErr = store.DeleteNote(s.Paths.Notes, request.NoteID)
+		case RequestSetNotePinned:
+			workspace, notesErr = store.SetNotePinned(s.Paths.Notes, request.NoteID, request.Pinned)
+		case RequestReorderPinned:
+			workspace, notesErr = store.ReorderPinnedNotes(s.Paths.Notes, request.NoteIDs)
 		}
 		if notesErr != nil {
 			response(Event{Type: EventProjectFailed, Stage: "notes", Message: notesErr.Error()})

@@ -92,6 +92,10 @@ func (a App) mutateNotesWorkspaceDirect(request agent.Request) (notes.Workspace,
 		return store.CloseNote(path, request.NoteID)
 	case agent.RequestDeleteNote:
 		return store.DeleteNote(path, request.NoteID)
+	case agent.RequestSetNotePinned:
+		return store.SetNotePinned(path, request.NoteID, request.Pinned)
+	case agent.RequestReorderPinned:
+		return store.ReorderPinnedNotes(path, request.NoteIDs)
 	default:
 		return notes.Workspace{}, fmt.Errorf("unsupported notes workspace mutation: %s", request.Type)
 	}

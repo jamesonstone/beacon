@@ -25,7 +25,8 @@ struct MenuView: View {
     @State var notePendingDeletion: AgentNoteTab?
     @AppStorage("beacon.dashboard.view-mode") private var viewModeValue = DashboardViewMode.stacked.rawValue
     @AppStorage("beacon.dismissed-evidence-badges") var dismissedEvidenceBadgesValue = "[]"
-    @AppStorage("beacon.signal-notes-expanded") var signalNotesExpanded = SignalNotesPresentation.expandedByDefault
+    @AppStorage(SignalNotesPresentation.sizeStorageKey) var signalNotesSizeValue = SignalNotesSize.half.rawValue
+    @AppStorage(SignalNotesPresentation.lastExpandedStorageKey) var signalNotesLastExpandedSizeValue = SignalNotesSize.half.rawValue
     @AppStorage(BeaconTypography.familyKey) var fontFamilyValue = BeaconTypography.defaultFamily.rawValue
     @AppStorage(BeaconTypography.baseSizeKey) var fontSizeValue = BeaconTypography.defaultBaseSize
 
@@ -119,16 +120,16 @@ struct MenuView: View {
                 .keyboardShortcut("k", modifiers: .command)
             Button("Tab Search") { showSwitcher(.notes) }
                 .keyboardShortcut("p", modifiers: .command)
-            Button("Next Signal Note") { Task { await state.cycleNotes(direction: 1) } }
+            Button("Next Note") { Task { await state.cycleNotes(direction: 1) } }
                 .keyboardShortcut(.tab, modifiers: .control)
-            Button("Previous Signal Note") { Task { await state.cycleNotes(direction: -1) } }
+            Button("Previous Note") { Task { await state.cycleNotes(direction: -1) } }
                 .keyboardShortcut(.tab, modifiers: [.control, .shift])
-            Button("Next Signal Note Alternate") { Task { await state.cycleNotes(direction: 1) } }
+            Button("Next Note Alternate") { Task { await state.cycleNotes(direction: 1) } }
                 .keyboardShortcut("]", modifiers: [.command, .shift])
-            Button("Previous Signal Note Alternate") { Task { await state.cycleNotes(direction: -1) } }
+            Button("Previous Note Alternate") { Task { await state.cycleNotes(direction: -1) } }
                 .keyboardShortcut("[", modifiers: [.command, .shift])
             ForEach(0..<9, id: \.self) { index in
-                Button("Signal Note \(index + 1)") { Task { await state.activateNote(at: index) } }
+                Button("Note \(index + 1)") { Task { await state.activateNote(at: index) } }
                     .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
             }
         }
@@ -187,7 +188,7 @@ struct MenuView: View {
                         .foregroundStyle(BeaconPalette.cyan, BeaconPalette.lavender)
                 }
                 signalNotesPanel
-                    .frame(height: signalNotesExpanded ? max(220, geometry.size.height * SignalNotesPresentation.expandedHeightFraction) : nil)
+                    .frame(height: signalNotesHeight(in: geometry.size.height))
             }
             .padding(12)
         }

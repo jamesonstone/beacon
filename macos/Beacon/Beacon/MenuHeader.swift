@@ -4,21 +4,20 @@ extension MenuView {
     var header: some View {
         HStack(alignment: .center, spacing: 8) {
             HStack(spacing: 6) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(BeaconPalette.neonGradient)
-                    .shadow(color: BeaconPalette.cyan.opacity(0.55), radius: 2)
+                BeaconRocketMark()
                 NeonWaveWordmark("Beacon")
                     .font(BeaconTypography.bold(17))
             }
-            VStack(alignment: .leading, spacing: 1) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("\(state.inProgressCount) lanes in focus")
                     .font(BeaconTypography.medium(10))
                     .foregroundStyle(BeaconPalette.mint)
+                    .lineLimit(1)
                 if let generatedAt = state.snapshot?.generatedAt {
                     Text("Updated \(timeSinceActivity(generatedAt))")
                         .font(BeaconTypography.regular(8))
                         .foregroundStyle(BeaconPalette.lavender.opacity(0.82))
+                        .lineLimit(1)
                 }
             }
             Spacer()

@@ -20,6 +20,7 @@
 | 0014 | signal-note-deletion | `docs/specs/0014-signal-note-deletion` | deliver | no | 2026-07-14 | Add permanent detail-note deletion through the Go authority with shared macOS confirmation controls and a higher-contrast switcher. |
 | 0015 | notes-agent-lifecycle | `docs/specs/0015-notes-agent-lifecycle` | deliver | no | 2026-07-14 | Restore native Signal Notes input and bind the background agent lifetime to direct CLI or macOS application activation. |
 | 0016 | external-task-activity | `docs/specs/0016-external-task-activity` | deliver | no | 2026-07-16 | Add transient Codex and Claude Code hook activity to exact followed projects and lanes without changing Beacon evidence or policy. |
+| 0017 | beacon-focus-notes | `docs/specs/0017-beacon-focus-notes` | deliver | no | 2026-07-17 | Make the next action explicit and refine Notes with persisted pinned order, flexible sizing, and native space animation. |
 
 ## PROJECT INTENT
 
@@ -183,6 +184,15 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **OPEN ITEMS**: Implementation, documentation, full local validation, ready-PR evidence, and hosted Go/macOS checks are complete on issue #31, branch `GH-31`, and PR #32; final human review and merge remain.
 - **POINTERS**: `docs/specs/0016-external-task-activity/SPEC.md`
 
+### beacon-focus-notes
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Make Beacon's next useful action immediately visible and turn Notes into a flexible, playful workspace whose important tabs stay where the user puts them.
+- **APPROACH**: Add one deterministic human-output `Next:` cue, persist ordered pinned detail IDs through the existing Go workspace authority, keep pinned tabs left of stable unpinned tabs across both macOS surfaces and the CLI fallback, cycle shared Notes sizing, and use reduced-motion-aware native space animation.
+- **OPEN ITEMS**: Implementation, documentation, full local validation, visual smoke, commit, ready PR delivery, and hosted checks are complete on issue #35, branch `GH-35`, and PR #36; final human review and merge remain.
+- **POINTERS**: `docs/specs/0017-beacon-focus-notes/SPEC.md`
+
 ## LAST UPDATED
 
-2026-07-16 EDT
+2026-07-17 EDT

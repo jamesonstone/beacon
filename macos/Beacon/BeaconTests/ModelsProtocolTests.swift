@@ -154,6 +154,7 @@ extension ModelsTests {
             "version": 1,
             "active_id": "detail-1",
             "open_ids": ["general", "detail-1"],
+            "pinned_ids": ["general", "detail-1"],
             "tabs": [
               {"id":"general","title":"General","path":"/notes.md","open":true,"pinned":true},
               {"id":"detail-1","title":"Refactor","path":"/notes/detail-1.md","open":true,"opened_at":"2026-07-14T14:00:00Z"}
@@ -170,6 +171,7 @@ extension ModelsTests {
         let workspace = try XCTUnwrap(event.notesWorkspace)
         XCTAssertEqual(workspace.activeID, "detail-1")
         XCTAssertEqual(workspace.openIDs, ["general", "detail-1"])
+        XCTAssertEqual(workspace.pinnedIDs, ["general", "detail-1"])
         XCTAssertEqual(workspace.tabs.last?.title, "Refactor")
         XCTAssertTrue(workspace.tabs.last?.isOpen == true)
         XCTAssertEqual(workspace.active?.content, "Refactor\nbody")
@@ -218,6 +220,21 @@ extension ModelsTests {
             AgentClient.noteRequestData(type: "get_notes", noteID: "detail-1")
         )
         XCTAssertEqual(detailRequest["note_id"] as? String, "detail-1")
+    }
+
+    func testNotePinRequestsCarryExplicitPinAndOrderFields() throws {
+        let pinRequest = try Self.requestObject(
+            AgentClient.notePinRequestData(noteID: "detail-1", pinned: false)
+        )
+        XCTAssertEqual(pinRequest["type"] as? String, "set_note_pinned")
+        XCTAssertEqual(pinRequest["note_id"] as? String, "detail-1")
+        XCTAssertEqual(pinRequest["pinned"] as? Bool, false)
+
+        let orderRequest = try Self.requestObject(
+            AgentClient.pinnedOrderRequestData(noteIDs: ["detail-2", "detail-1"])
+        )
+        XCTAssertEqual(orderRequest["type"] as? String, "reorder_pinned_notes")
+        XCTAssertEqual(orderRequest["note_ids"] as? [String], ["detail-2", "detail-1"])
     }
 
     private static func requestObject(_ data: Data) throws -> [String: Any] {

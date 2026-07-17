@@ -216,15 +216,16 @@ extension MenuView {
                 Button {
                     beginAddingTag(to: lane)
                 } label: {
-                    Label("Tag", systemImage: "plus")
-                        .font(BeaconTypography.medium(9))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
+                    Image(systemName: "plus")
+                        .font(.system(size: 9, weight: .bold))
+                        .frame(width: 20, height: 18)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(accent)
                 .background(BeaconPalette.softGradient(accent), in: Capsule())
                 .overlay { Capsule().strokeBorder(accent.opacity(0.35), lineWidth: 0.6) }
+                .help("Add Tag")
+                .accessibilityLabel("Add Tag")
             }
         }
     }

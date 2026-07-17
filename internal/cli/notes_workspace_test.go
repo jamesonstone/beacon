@@ -149,6 +149,55 @@ func TestNotesWorkspaceMutationDoesNotHideSupportedAgentFailure(t *testing.T) {
 	}
 }
 
+func TestNotesPinCommandsUseDirectFallbackAndPersistOrder(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", root)
+	path := filepath.Join(root, "beacon", "notes.md")
+	store := notes.FileStore{}
+	first, err := store.CreateNote(path, "First\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := store.CreateNote(path, "Second\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	execute := func(args ...string) notes.Workspace {
+		t.Helper()
+		var output bytes.Buffer
+		app := App{
+			In: bytes.NewBuffer(nil), Out: &output, Err: &bytes.Buffer{}, Runner: &notesRunner{},
+			InputIsTTY: func() bool { return false }, OutputIsTTY: func() bool { return false },
+			agentClientSource: unavailableNotesAgent,
+		}
+		command := app.Root()
+		command.SetArgs(args)
+		if err := command.ExecuteContext(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		var workspace notes.Workspace
+		if err := json.Unmarshal(output.Bytes(), &workspace); err != nil {
+			t.Fatal(err)
+		}
+		return workspace
+	}
+
+	execute("notes", "pin", first.ActiveID, "--json")
+	workspace := execute("notes", "pin", second.ActiveID, "--json")
+	if strings.Join(workspace.PinnedIDs, ",") != strings.Join([]string{notes.GeneralID, first.ActiveID, second.ActiveID}, ",") {
+		t.Fatalf("pinned IDs = %v", workspace.PinnedIDs)
+	}
+	workspace = execute("notes", "reorder-pinned", "Second", "First", "--json")
+	if strings.Join(workspace.PinnedIDs, ",") != strings.Join([]string{notes.GeneralID, second.ActiveID, first.ActiveID}, ",") {
+		t.Fatalf("reordered IDs = %v", workspace.PinnedIDs)
+	}
+	workspace = execute("notes", "unpin", second.ActiveID, "--json")
+	if strings.Join(workspace.PinnedIDs, ",") != strings.Join([]string{notes.GeneralID, first.ActiveID}, ",") {
+		t.Fatalf("unpinned IDs = %v", workspace.PinnedIDs)
+	}
+}
+
 func containsString(values []string, value string) bool {
 	for _, candidate := range values {
 		if candidate == value {

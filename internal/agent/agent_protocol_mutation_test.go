@@ -61,6 +61,32 @@ func TestServerClientCreatesOpensAndClosesSignalNoteTabs(t *testing.T) {
 	}
 	assertWorkspaceEvent(t, events, eventErrors, id)
 
+	pinned, err := client.Request(context.Background(), Request{
+		Type: RequestSetNotePinned, NoteID: id, Pinned: true,
+	})
+	if err != nil || pinned.NotesWorkspace == nil || len(pinned.NotesWorkspace.PinnedIDs) != 2 ||
+		pinned.NotesWorkspace.PinnedIDs[1] != id {
+		t.Fatalf("pinned event=%#v err=%v", pinned, err)
+	}
+	assertWorkspaceEvent(t, events, eventErrors, id)
+
+	blocked, err := client.Request(context.Background(), Request{Type: RequestCloseNote, NoteID: id})
+	if err != nil || blocked.Type != EventProjectFailed {
+		t.Fatalf("close pinned event=%#v err=%v", blocked, err)
+	}
+
+	reordered, err := client.Request(context.Background(), Request{Type: RequestReorderPinned, NoteIDs: []string{id}})
+	if err != nil || reordered.NotesWorkspace == nil || reordered.NotesWorkspace.PinnedIDs[1] != id {
+		t.Fatalf("reordered event=%#v err=%v", reordered, err)
+	}
+	assertWorkspaceEvent(t, events, eventErrors, id)
+
+	unpinned, err := client.Request(context.Background(), Request{Type: RequestSetNotePinned, NoteID: id})
+	if err != nil || unpinned.NotesWorkspace == nil || len(unpinned.NotesWorkspace.PinnedIDs) != 1 {
+		t.Fatalf("unpinned event=%#v err=%v", unpinned, err)
+	}
+	assertWorkspaceEvent(t, events, eventErrors, id)
+
 	loaded, err := client.Request(context.Background(), Request{Type: RequestGetNotesWorkspace})
 	if err != nil || loaded.Type != EventNotesWorkspace || loaded.NotesWorkspace == nil || loaded.NotesWorkspace.ActiveID != id {
 		t.Fatalf("loaded event=%#v err=%v", loaded, err)

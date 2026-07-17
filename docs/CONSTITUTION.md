@@ -338,15 +338,19 @@ lane attention, policy, or durable evidence.
 The optional global Markdown signal workspace keeps its pinned General document
 at `$XDG_DATA_HOME/beacon/notes.md`, defaulting to
 `$HOME/.local/share/beacon/notes.md`. Stable-ID detail documents and the
-versioned open-tab manifest live in the sibling `notes/` directory. Every
+versioned open-tab manifest live in the sibling `notes/` directory. That
+manifest is the single authority for ordered pinned detail IDs as well as open
+tabs: General is permanently pinned first, pinned details remain open in their
+persisted order, and unpinned open details retain their relative order. Every
 document remains independently size-bounded and atomically replaced with
 user-only permissions. Directory locking, same-directory replacement, path
 validation, and symlink rejection apply to the complete workspace, which stays
 separate from repository files, configuration, lane evidence, and lane-specific
-notes. A close operation changes workspace metadata only and never deletes a
-detail document. A distinct permanent delete operation accepts detail notes
-only, removes the selected Markdown file and its workspace metadata under the
-same directory lock, and selects the active note's left neighbor or General.
+notes. A close operation changes workspace metadata only, rejects pinned
+details until they are unpinned, and never deletes a detail document. A distinct
+permanent delete operation accepts detail notes only, removes the selected
+Markdown file and its workspace metadata under the same directory lock, and
+selects the active note's left neighbor or General.
 
 Lane attention is stored separately in strict versioned JSON at
 `$HOME/.local/state/beacon/lanes.json` (or the equivalent `XDG_STATE_HOME`
@@ -566,18 +570,22 @@ selection, selecting that same control again returns to Following, and selecting
 a different destination switches directly to it. Lane tags render as removable
 chips and mutate through the Go background-agent authority. Typography uses selectable
 system designs and base sizes, defaulting to monospaced at 12 points.
-Both surfaces expose one expanded-by-default Signal Notes panel occupying about
-half of the shared dashboard. General remains the pinned Go-owned Markdown
-document; unlimited stable-ID detail documents and their versioned open-state
-manifest remain under the same Go persistence authority. Swift owns no files or
-independent persistence rule. The native editor remains editable and selectable;
+Both surfaces expose one Notes panel at 50% of the available Beacon surface by
+default. A header double-click cycles 50%, 80%, minimized, then 50%, and the
+explicit chevron minimizes or restores the most recent expanded size. General
+remains the first permanently pinned Go-owned Markdown document; user-pinned
+details precede stable-order unpinned tabs and can be reordered through the same
+versioned Go manifest. Swift owns no files or independent persistence rule. The
+native editor remains editable and selectable;
 focus reconciliation may resign first responder only after an explicit focused
 to unfocused transition. Both surfaces share one draft and autosave queue,
 flush before switching or closing, and preserve the active tab when saving
 fails. Closing remains non-destructive. Permanent detail-note delete actions on
 tabs, New Tab history, and Command-K/Command-P results all route through one
 native destructive confirmation alert; General and New Tab expose no delete
-action. The switchers use an opaque dark surface over a dimmed backdrop. Native
+action. The rocket wordmark mark, Notes solar system, and empty-state orbit use
+native animation, carry no evidence semantics, and remain stationary when
+Reduce Motion is enabled. The switchers use an opaque dark surface over a dimmed backdrop. Native
 Command-K and Command-P switchers plus tab-cycle and numeric shortcuts operate
 through the frontmost shared view hierarchy. When Following
 contains no in-progress lanes and no projects are loading,

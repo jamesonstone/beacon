@@ -352,6 +352,9 @@ beacon notes new --from-line 1
 beacon notes list
 beacon notes show --note 20260714T150000.000000000Z-a1b2c3d4
 beacon notes open '[labcore] generate endpoints refactor'
+beacon notes pin '[labcore] generate endpoints refactor'
+beacon notes reorder-pinned 20260714T150000.000000000Z-a1b2c3d4 20260714T151500.000000000Z-e5f6a7b8
+beacon notes unpin 20260714T150000.000000000Z-a1b2c3d4
 beacon notes close 20260714T150000.000000000Z-a1b2c3d4
 beacon notes delete 20260714T150000.000000000Z-a1b2c3d4
 beacon notes edit
@@ -403,9 +406,11 @@ background work without waiting, or `beacon scan` for the complete diagnostic
 inventory.
 
 `beacon scan` remains the explicit, blocking diagnostic path and returns the
-complete repository inventory. `scan --json` remains deterministic, ANSI-free, and
-does not require the agent. `--color=auto|always|never` controls human styling;
-auto requires a TTY and honors `NO_COLOR`.
+complete repository inventory. Human output names the highest-priority Ready or
+Needs Action lane as `Next:` before the full table, while `scan --json` remains
+deterministic, ANSI-free, and does not require the agent.
+`--color=auto|always|never` controls human styling; auto requires a TTY and
+honors `NO_COLOR`.
 
 `beacon sync` is the explicit Git-only path for finding configured repositories
 whose checked-out branch or local default branch is behind its fetched remote
@@ -594,26 +599,34 @@ status item.
 Beacon defaults to a 12-point system monospaced design. Settings provides
 System, Rounded, Monospaced, and Serif designs plus 11, 12, 13, 14, and 16-point
 base sizes; both surfaces share the persisted choice. Lane notation appears as
-compact tag chips: use **Tag** to add context and the chip's close control to remove it.
+compact tag chips: use the trailing **+** to add context and the chip's close
+control to remove it.
 Evidence badges such as **Dirty**, **CI None**, and **Review None** also reveal
 a trailing close control on hover. Hiding a badge is local presentation state:
 it does not change the underlying evidence or next action, and a changed signal
 appears again. Use **Restore Hidden Badges** in Settings to clear all dismissals.
 
-The whimsical **Signal Notes** panel sits at the bottom of both surfaces and is
-expanded by default to roughly half the surface, while a manual collapse choice
-persists. Its horizontally scrolling tab strip pins General first, keeps any
-number of detail notes open, and reveals distinct close and delete controls on
-hover or keyboard focus. New Tab is one persistent picker over all prior detail
-files in most-recently-opened order, with each permanent delete control aligned
-at the row's far right; reopening an already-open note activates it without
-duplication. Detail-note results in Command-K and Command-P also expose delete,
-and every macOS delete action requires the same irreversible-action confirmation.
-The switcher uses an opaque dark backdrop so commands remain readable over the
-dashboard. The directly editable native editor applies headings, emphasis,
-lists, quotes, inline code, links, and dividers while retaining exact plain-text
-source. It also uses the user's macOS dictionaries for spelling underlines while
-leaving grammar checking and automatic spelling correction disabled.
+The playful **Notes** panel sits at the bottom of both surfaces. It opens at 50%
+of the available Beacon surface height; double-clicking its header cycles 50%,
+80%, minimized, then 50%, while its chevron minimizes or restores the most
+recent expanded size. The header's solar system, the empty-state orbit, and the
+slow rocket beside the Beacon wordmark stop moving when Reduce Motion is on.
+
+Its horizontally scrolling tab strip keeps permanently pinned General first,
+then user-pinned details in their persisted drag order, then unpinned open
+details in stable order. A detail's pin control adds or removes it from the
+pinned group; pinned details stay open until unpinned. Distinct close and delete
+controls remain available on hover or keyboard focus. New Tab is one persistent
+picker over all prior detail files in most-recently-opened order, with each
+permanent delete control aligned at the row's far right; reopening an already-open
+note activates it without duplication. Detail-note results in Command-K and
+Command-P also expose delete, and every macOS delete action requires the same
+irreversible-action confirmation. The switcher uses an opaque dark backdrop so
+commands remain readable over the dashboard. The directly editable native
+editor applies headings, emphasis, lists, quotes, inline code, links, and
+dividers while retaining exact plain-text source. It also uses the user's macOS
+dictionaries for spelling underlines while leaving grammar checking and
+automatic spelling correction disabled.
 
 Both surfaces share one draft and three-second autosave queue. A switch or close
 flushes dirty content first and stays on the current tab if saving fails. Use

@@ -27,18 +27,20 @@ type Tab struct {
 }
 
 type Workspace struct {
-	Version  int       `json:"version"`
-	ActiveID string    `json:"active_id"`
-	OpenIDs  []string  `json:"open_ids"`
-	Tabs     []Tab     `json:"tabs"`
-	Active   *Document `json:"active,omitempty"`
+	Version   int       `json:"version"`
+	ActiveID  string    `json:"active_id"`
+	OpenIDs   []string  `json:"open_ids"`
+	PinnedIDs []string  `json:"pinned_ids"`
+	Tabs      []Tab     `json:"tabs"`
+	Active    *Document `json:"active,omitempty"`
 }
 
 type workspaceManifest struct {
-	Version  int             `json:"version"`
-	ActiveID string          `json:"active_id"`
-	OpenIDs  []string        `json:"open_ids"`
-	Entries  []manifestEntry `json:"entries"`
+	Version   int             `json:"version"`
+	ActiveID  string          `json:"active_id"`
+	OpenIDs   []string        `json:"open_ids"`
+	PinnedIDs []string        `json:"pinned_ids,omitempty"`
+	Entries   []manifestEntry `json:"entries"`
 }
 
 type manifestEntry struct {
@@ -204,7 +206,10 @@ func (FileStore) CloseNote(generalPath, selector string) (Workspace, error) {
 			return err
 		}
 		if id == GeneralID {
-			return errors.New("General Signal Notes cannot be closed")
+			return errors.New("General Notes cannot be closed")
+		}
+		if indexOf(current.PinnedIDs, id) >= 0 {
+			return fmt.Errorf("Beacon note is pinned; unpin it before closing: %s", id)
 		}
 		index := indexOf(current.OpenIDs, id)
 		if index < 0 {
@@ -241,7 +246,7 @@ func (FileStore) DeleteNote(generalPath, selector string) (Workspace, error) {
 		}
 		switch id {
 		case GeneralID:
-			return errors.New("General Signal Notes cannot be deleted")
+			return errors.New("General Notes cannot be deleted")
 		case NewTabID:
 			return errors.New("New Tab cannot be deleted")
 		}
@@ -259,6 +264,7 @@ func (FileStore) DeleteNote(generalPath, selector string) (Workspace, error) {
 
 		index := indexOf(current.OpenIDs, id)
 		manifest.OpenIDs = removeID(current.OpenIDs, id)
+		manifest.PinnedIDs = removeID(manifest.PinnedIDs, id)
 		manifest.Entries = removeManifestEntry(manifest.Entries, id)
 		if current.ActiveID == id {
 			manifest.ActiveID = GeneralID

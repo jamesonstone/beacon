@@ -67,6 +67,15 @@ struct CLIClient: CLIClientProtocol, AgentLifecycleControllerProtocol {
         try decodeNotesWorkspace(try await execute(arguments: ["notes", "delete", noteID, "--json"]))
     }
 
+    func setNotePinned(_ noteID: String, pinned: Bool) async throws -> AgentNotesWorkspace {
+        let command = pinned ? "pin" : "unpin"
+        return try decodeNotesWorkspace(try await execute(arguments: ["notes", command, noteID, "--json"]))
+    }
+
+    func reorderPinnedNotes(_ noteIDs: [String]) async throws -> AgentNotesWorkspace {
+        try decodeNotesWorkspace(try await execute(arguments: ["notes", "reorder-pinned"] + noteIDs + ["--json"]))
+    }
+
     func repositorySync(refresh: Bool) async throws -> RepositorySyncReport {
         var arguments = ["sync", "check", "--json"]
         if !refresh {

@@ -41,6 +41,8 @@ type WorkspaceStore interface {
 	OpenNote(string, string) (Workspace, error)
 	CloseNote(string, string) (Workspace, error)
 	DeleteNote(string, string) (Workspace, error)
+	SetNotePinned(string, string, bool) (Workspace, error)
+	ReorderPinnedNotes(string, []string) (Workspace, error)
 }
 
 type FileStore struct{}

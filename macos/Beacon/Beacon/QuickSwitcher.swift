@@ -6,7 +6,7 @@ enum BeaconSwitcherScope {
     case notes
 
     var title: String { self == .all ? "Quick Switcher" : "Tab Search" }
-    var prompt: String { self == .all ? "Search commands, tabs, projects, and lanes" : "Search Signal Notes" }
+    var prompt: String { self == .all ? "Search commands, tabs, projects, and lanes" : "Search Notes" }
 }
 struct BeaconCommandItem: Identifiable {
     let id: String

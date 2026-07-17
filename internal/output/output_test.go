@@ -114,6 +114,63 @@ func TestTerminalGroupsLanes(t *testing.T) {
 	}
 }
 
+func TestTerminalShowsHighestPriorityNextCue(t *testing.T) {
+	snapshot := model.Snapshot{
+		GeneratedAt: time.Now(),
+		Summary:     model.Summary{TrackedProjects: 2, Total: 2, ReviewReady: 1, NeedsAction: 1},
+		Groups: model.Groups{
+			Ready:  []string{"ready"},
+			Action: []string{"action"},
+		},
+		Lanes: []model.Lane{
+			{
+				ID:          "action",
+				Repository:  "action-repo",
+				Branch:      "broken-ci",
+				NextAction:  model.ActionFixCI,
+				Signals:     model.Signals{CI: model.CIFailure},
+				ReviewReady: false,
+			},
+			{
+				ID:          "ready",
+				Repository:  "ready-repo",
+				NextAction:  model.ActionReviewPR,
+				ReviewReady: true,
+				PullRequest: &model.PullRequest{Number: 7, Title: "ready lane"},
+			},
+		},
+	}
+	var buffer bytes.Buffer
+	if err := TerminalWithOptions(&buffer, snapshot, TerminalOptions{Width: 120}); err != nil {
+		t.Fatal(err)
+	}
+	next := "Next: review manually · ready-repo · PR #7 ready lane"
+	if !strings.Contains(buffer.String(), next) {
+		t.Fatalf("terminal output missing next cue %q: %q", next, buffer.String())
+	}
+}
+
+func TestTerminalOmitsNextCueWithoutActionableLanes(t *testing.T) {
+	snapshot := model.Snapshot{
+		GeneratedAt: time.Now(),
+		Summary:     model.Summary{TrackedProjects: 1, Total: 1, Idle: 1},
+		Groups:      model.Groups{Idle: []string{"idle"}},
+		Lanes: []model.Lane{{
+			ID:         "idle",
+			Repository: "quiet",
+			Branch:     "main",
+			NextAction: model.ActionNone,
+		}},
+	}
+	var buffer bytes.Buffer
+	if err := TerminalWithOptions(&buffer, snapshot, TerminalOptions{Width: 120, IncludeIdle: true}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buffer.String(), "Next:") {
+		t.Fatalf("terminal output has misleading next cue: %q", buffer.String())
+	}
+}
+
 func TestTerminalHidesIdleFollowingProjectsUntilRequested(t *testing.T) {
 	snapshot := quietProjectSnapshot()
 

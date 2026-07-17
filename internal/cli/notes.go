@@ -33,6 +33,9 @@ func (a App) notesCommand(configPath *string) *cobra.Command {
 		a.notesOpenCommand(configPath),
 		a.notesCloseCommand(configPath),
 		a.notesDeleteCommand(configPath),
+		a.notesPinCommand(configPath, true),
+		a.notesPinCommand(configPath, false),
+		a.notesReorderPinnedCommand(configPath),
 	)
 	return command
 }
