@@ -2,7 +2,7 @@
 kit_metadata_version: 1
 artifact: spec
 workflow_version: 2
-phase: validate
+phase: deliver
 delivery_intent: ready_pull_request
 clarification:
   status: ready
@@ -31,7 +31,7 @@ references:
     used_for: clarified requirements and ready pull request lane
     status: active
   - id: pr-40
-    name: Improve Following workspace clarity
+    name: Improve Following workspace clarity and themes
     type: github-pr
     target: https://github.com/jamesonstone/beacon/pull/40
     relation: verifies
@@ -318,7 +318,7 @@ collection through the existing GitHub cache and a coordinated additive model.
   four clarified macOS accessibility preferences are applied consistently.
 - [x] AC19: Automated completeness, fallback, persistence, contrast, identity,
   and rendered visual smoke tests pass across all five themes.
-- [ ] AC20: Canonical/user docs, complete local validation, fresh-build visual
+- [x] AC20: Canonical/user docs, complete local validation, fresh-build visual
   smoke, commit/push, PR #40 update, and final hosted checks are complete.
 
 ## Implementation Plan
@@ -377,7 +377,7 @@ collection through the existing GitHub cache and a coordinated additive model.
   accessibility behavior; remove the legacy palette implementation.
 - [x] T12: Add theme completeness, ID/fallback, persistence, WCAG contrast, and
   five-theme rendered visual smoke tests plus user documentation.
-- [ ] T13: Run all local and interaction gates, repair issues, commit/push to PR
+- [x] T13: Run all local and interaction gates, repair issues, commit/push to PR
   #40, update evidence, and require the final hosted checks to pass.
 
 ## Validation Map
@@ -482,3 +482,11 @@ collection through the existing GitHub cache and a coordinated additive model.
   Monokai, and Selenized Dark live across the detached dashboard and AppKit
   editor; the menu extra shared Lobster Nebula, Pampas Moon was readable in its
   light appearance, and Lobster Nebula remained selected after quit/relaunch.
+- Theme implementation commit:
+  `19d118ad63d1331903f1e43072558465fdd3e7c3` by Jameson Stone
+  `<jameson@stone.tc>`, pushed to the existing `GH-39` branch and ready PR #40.
+- PR #40 was updated in place to describe and validate both the completed
+  Following workspace and semantic-theme continuation; it remains ready,
+  targets `main`, is assigned to `jamesonstone`, and closes issue #39.
+- Hosted checks passed on the theme implementation head: `go` in 50 seconds and
+  `macos` in 2 minutes 1 second.
