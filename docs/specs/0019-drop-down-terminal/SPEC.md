@@ -103,7 +103,10 @@ SwiftTerm v1.11.2 is an MIT-licensed Swift package with an AppKit
 native application structure and avoids adding Chromium, Node, private APIs,
 or a second process-hosting service. It is the newest stable release before
 SwiftTerm made its optional Metal renderer a mandatory build resource, so
-Beacon does not require Xcode's separately installed Metal toolchain.
+Beacon does not require Xcode's separately installed Metal toolchain. Its broad
+transitive `swift-argument-parser` requirement is locked to v1.7.2, the latest
+release whose Swift 5.7 package manifest remains compatible with the Xcode 15.4
+and Swift 5.10 toolchain on the `macos-14` CI runner.
 
 ## Clarifications
 
@@ -168,7 +171,9 @@ Beacon does not require Xcode's separately installed Metal toolchain.
 - The dashboard's retained current or restored frame is the terminal container;
   it remains authoritative while the dashboard itself is closed.
 - SwiftTerm remains pinned to v1.11.2 for reproducible builds without an
-  optional Xcode component prerequisite.
+  optional Xcode component prerequisite, and its transitive
+  `swift-argument-parser` dependency remains pinned to v1.7.2 for Xcode 15.4
+  compatibility.
 
 ## Acceptance Criteria
 
@@ -245,9 +250,11 @@ remains external because it has no supported
 embedding or preference-control API. SwiftTerm is pinned to v1.11.2: later
 versions make an optional Metal toolchain a build prerequisite, while v1.11.2
 provides the required local-process terminal without that contributor and CI
-dependency. Generic macOS destinations are used for universal application and
-release builds; XCTest remains active-architecture for deterministic package
-compilation.
+dependency. The tracked SwiftPM graph also pins `swift-argument-parser` to
+v1.7.2 so SwiftTerm's broad transitive requirement cannot drift to a Swift 6
+manifest that the Xcode 15.4 CI toolchain cannot load. Generic macOS
+destinations are used for universal application and release builds; XCTest
+remains active-architecture for deterministic package compilation.
 
 A live application smoke test opened the panel, executed commands from the
 user home, retained the same shell PID across hide and reopen, and applied the
@@ -291,8 +298,13 @@ repository PR template, and literal hosted-check reporting.
   exactly matching refreshed `origin/main` before the first edit.
 - Official Warp documentation and SwiftTerm v1.11.2 package/source were read to
   resolve the supported integration boundary and local-process API.
+- GitHub Actions run 29661321400 failed while resolving
+  `swift-argument-parser` v1.8.2 because its Swift 6 package manifest is newer
+  than the runner's Swift 5.10 toolchain. GitHub's tag manifests confirm v1.7.2
+  uses Swift tools 5.7, so the tracked SwiftPM graph now locks that compatible
+  release instead of relying on SwiftTerm's broad transitive range.
 - Focused terminal/theme XCTest passed with 21 tests and zero failures; the
-  complete XCTest suite passed with 124 tests and zero failures.
+  complete XCTest suite passed with 125 tests and zero failures.
 - `make fmt-check vet test test-race build release-test` passed, as did Linux
   amd64 and arm64 Go builds.
 - Universal `make macos-build` passed and produced both application and helper
