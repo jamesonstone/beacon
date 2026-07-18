@@ -44,11 +44,6 @@ enum LiveMarkdownStyler {
     private static let strikethrough = try? NSRegularExpression(pattern: #"~~(?=\S)(.+?\S)~~"#)
     private static let link = try? NSRegularExpression(pattern: #"\[([^\]\n]+)\]\(([^)\n]+)\)"#)
 
-    private static let mint = NSColor(srgbRed: 0.42, green: 1.0, blue: 0.76, alpha: 1)
-    private static let lavender = NSColor(srgbRed: 0.70, green: 0.58, blue: 1.0, alpha: 1)
-    private static let cyan = NSColor(srgbRed: 0.20, green: 0.91, blue: 1.0, alpha: 1)
-    private static let pink = NSColor(srgbRed: 1.0, green: 0.36, blue: 0.76, alpha: 1)
-
     static func spans(in source: String, range requestedRange: NSRange? = nil) -> [MarkdownStyleSpan] {
         let sourceLength = (source as NSString).length
         let fullRange = NSRange(location: 0, length: sourceLength)
@@ -89,7 +84,11 @@ enum LiveMarkdownStyler {
         return spans
     }
 
-    static func apply(to textStorage: NSTextStorage, range requestedRange: NSRange? = nil) {
+    static func apply(
+        to textStorage: NSTextStorage,
+        range requestedRange: NSRange? = nil,
+        theme: BeaconTheme = BeaconThemePreference.current()
+    ) {
         let fullRange = NSRange(location: 0, length: textStorage.length)
         let target = requestedRange.map { NSIntersectionRange(fullRange, $0) } ?? fullRange
         guard target.length > 0 else { return }
@@ -100,7 +99,7 @@ enum LiveMarkdownStyler {
         textStorage.beginEditing()
         textStorage.setAttributes([
             .font: BeaconTypography.appKitFont(10),
-            .foregroundColor: mint,
+            .foregroundColor: theme.tokens.editorText.nsColor,
             .paragraphStyle: baseParagraph,
         ], range: target)
 
@@ -120,7 +119,7 @@ enum LiveMarkdownStyler {
                 paragraph.paragraphSpacing = 4
                 textStorage.addAttributes([
                     .font: BeaconTypography.appKitFont(10 + offset, weight: .bold),
-                    .foregroundColor: mint,
+                    .foregroundColor: theme.tokens.editorHeading.nsColor,
                     .paragraphStyle: paragraph,
                 ], range: span.range)
             case .strong:
@@ -129,12 +128,9 @@ enum LiveMarkdownStyler {
                 convertFont(in: textStorage, range: span.range, trait: .italicFontMask)
             case .inlineCode:
                 textStorage.addAttributes([
-                    .font: NSFont.monospacedSystemFont(
-                        ofSize: BeaconTypography.resolvedSize(10),
-                        weight: .medium
-                    ),
-                    .foregroundColor: cyan,
-                    .backgroundColor: cyan.withAlphaComponent(0.10),
+                    .font: BeaconTypography.appKitCodeFont(10, weight: .medium),
+                    .foregroundColor: theme.tokens.editorCode.nsColor,
+                    .backgroundColor: theme.tokens.editorCodeBackground.nsColor,
                 ], range: span.range)
             case .strikethrough:
                 textStorage.addAttribute(
@@ -144,31 +140,38 @@ enum LiveMarkdownStyler {
                 )
             case .link:
                 textStorage.addAttributes([
-                    .foregroundColor: cyan,
+                    .foregroundColor: theme.tokens.editorLink.nsColor,
                     .underlineStyle: NSUnderlineStyle.single.rawValue,
                 ], range: span.range)
             case .quote:
                 let paragraph = baseParagraph.mutableCopy() as? NSMutableParagraphStyle ?? baseParagraph
                 paragraph.headIndent = 14
                 textStorage.addAttributes([
-                    .foregroundColor: lavender,
+                    .foregroundColor: theme.tokens.editorQuote.nsColor,
                     .paragraphStyle: paragraph,
                 ], range: span.range)
                 convertFont(in: textStorage, range: span.range, trait: .italicFontMask)
             case .divider:
                 textStorage.addAttributes([
-                    .foregroundColor: pink,
+                    .foregroundColor: theme.tokens.editorHeading.nsColor,
                     .font: BeaconTypography.appKitFont(10, weight: .semibold),
                 ], range: span.range)
             case .syntaxMarker:
-                textStorage.addAttribute(.foregroundColor, value: lavender.withAlphaComponent(0.78), range: span.range)
+                textStorage.addAttribute(
+                    .foregroundColor,
+                    value: theme.tokens.editorSyntax.nsColor,
+                    range: span.range
+                )
             }
         }
         textStorage.endEditing()
     }
 
-    static var typingAttributes: [NSAttributedString.Key: Any] {
-        [.font: BeaconTypography.appKitFont(10), .foregroundColor: mint]
+    static func typingAttributes(theme: BeaconTheme) -> [NSAttributedString.Key: Any] {
+        [
+            .font: BeaconTypography.appKitFont(10),
+            .foregroundColor: theme.tokens.editorText.nsColor,
+        ]
     }
 
     private static func matches(

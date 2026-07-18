@@ -26,14 +26,14 @@ extension MenuView {
             if let progress = project.progress {
                 Text("\(progress.feature) · \(actionLabel(progress.phase))")
                     .font(BeaconTypography.regular(9))
-                    .foregroundStyle(BeaconPalette.lavender.opacity(0.85))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                     .lineLimit(1)
             }
             let stage = state.stage(for: project.id)
             if stage != "ready" && stage != "cached" {
                 Text(stage.replacingOccurrences(of: "_", with: " ").capitalized)
                     .font(BeaconTypography.medium(9))
-                    .foregroundStyle(BeaconPalette.gold)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
             }
             if let activity = state.activityChip(projectID: project.id) {
                 externalActivityChip(activity)
@@ -65,7 +65,8 @@ extension MenuView {
     }
 
     func laneRow(_ lane: WorkLane, density: DashboardDensity) -> some View {
-        let accent = DashboardLanePresentation.identity(for: lane).accent.color
+        let identity = DashboardLanePresentation.identity(for: lane)
+        let accent = identity.accent.color
         return VStack(alignment: .leading, spacing: density.spacing) {
             HStack(spacing: 6) {
                 if density != .comfortable {
@@ -76,11 +77,22 @@ extension MenuView {
                     .lineLimit(density.titleLines)
                 Spacer()
                 if let pullRequest = lane.pullRequest {
-                    Text("PR #\(pullRequest.number)").font(BeaconTypography.medium(10)).foregroundStyle(accent)
+                    Label("PR #\(pullRequest.number)", systemImage: identity.symbol)
+                        .font(BeaconTypography.identifier(10, weight: .medium))
+                        .foregroundStyle(accent)
                 } else if let issue = lane.issue {
-                    Text("Issue #\(issue.number)").font(BeaconTypography.medium(10)).foregroundStyle(accent)
+                    Label("Issue #\(issue.number)", systemImage: identity.symbol)
+                        .font(BeaconTypography.identifier(10, weight: .medium))
+                        .foregroundStyle(accent)
                 } else if !lane.branch.isEmpty {
-                    Text(lane.branch).font(BeaconTypography.medium(9)).foregroundStyle(accent).lineLimit(1)
+                    Label("Local · \(lane.branch)", systemImage: identity.symbol)
+                        .font(BeaconTypography.identifier(9, weight: .medium))
+                        .foregroundStyle(accent)
+                        .lineLimit(1)
+                } else {
+                    Label("Manual", systemImage: "pencil")
+                        .font(BeaconTypography.medium(9))
+                        .foregroundStyle(accent)
                 }
                 if DashboardLanePresentation.showsCheckoutWarning(for: lane) {
                     checkoutWarningButton(lane)
@@ -101,8 +113,8 @@ extension MenuView {
             }
             if density != .dense, let attention = lane.attention {
                 Text("\(attention.delta) · \(timeSinceActivity(lane.updatedAt))")
-                    .font(BeaconTypography.regular(9))
-                    .foregroundStyle(BeaconPalette.cyan)
+                    .font(BeaconTypography.identifier(9))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
                     .lineLimit(1)
                 if density == .comfortable {
                     tagChips(lane, tags: attention.tags ?? [], accent: accent)
@@ -110,23 +122,23 @@ extension MenuView {
                 if density == .comfortable, let note = attention.note, !note.isEmpty {
                     Label("\(note)\(attention.noteStale ? " · evidence changed" : "")", systemImage: "note.text")
                         .font(BeaconTypography.regular(9))
-                        .foregroundStyle(attention.noteStale ? BeaconPalette.gold : BeaconPalette.lavender)
+                        .foregroundStyle(attention.noteStale ? BeaconThemePreference.current().tokens.warning.color : BeaconThemePreference.current().tokens.textSecondary.color)
                         .lineLimit(2)
                 }
             }
             if density == .comfortable, let progress = lane.progress {
                 Text("Kit \(actionLabel(progress.phase)) · \(progress.summary)")
                     .font(BeaconTypography.regular(9))
-                    .foregroundStyle(BeaconPalette.lavender.opacity(0.85))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                     .lineLimit(1)
             }
             evidenceBadges(lane, condensed: density == .dense)
         }
         .padding(density.cardPadding)
-        .background(BeaconPalette.softGradient(accent), in: RoundedRectangle(cornerRadius: 9))
+        .background(BeaconThemePreference.current().tokens.surface.color, in: RoundedRectangle(cornerRadius: 9))
         .overlay {
             RoundedRectangle(cornerRadius: 9)
-                .strokeBorder(BeaconPalette.borderGradient(accent), lineWidth: 0.8)
+                .strokeBorder(interfaceBorderColor, lineWidth: colorSchemeContrast == .increased ? 1.2 : 0.8)
         }
         .shadow(color: accent.opacity(0.09), radius: 4, y: 2)
     }
@@ -134,7 +146,7 @@ extension MenuView {
     func laneDragHandle(_ lane: WorkLane) -> some View {
         Image(systemName: "line.3.horizontal")
             .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(BeaconPalette.lavender.opacity(0.55))
+            .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
             .frame(width: 18, height: 22)
             .contentShape(Rectangle())
             .draggable(lane.id)
@@ -146,9 +158,9 @@ extension MenuView {
     func externalActivityChip(_ activity: ExternalActivityChip) -> some View {
         let accent: Color
         switch activity.state {
-        case "needs_attention": accent = BeaconPalette.gold
-        case "working": accent = BeaconPalette.cyan
-        default: accent = BeaconPalette.lavender
+        case "needs_attention": accent = BeaconThemePreference.current().tokens.warning.color
+        case "working": accent = BeaconThemePreference.current().tokens.info.color
+        default: accent = BeaconThemePreference.current().tokens.textSecondary.color
         }
         return Text(activity.label)
             .font(BeaconTypography.semibold(8))
@@ -156,7 +168,7 @@ extension MenuView {
             .lineLimit(1)
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
-            .background(BeaconPalette.softGradient(accent), in: Capsule())
+            .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: Capsule())
             .overlay { Capsule().strokeBorder(accent.opacity(0.42), lineWidth: 0.7) }
             .help(activity.state == "needs_attention"
                 ? "Latest observed attention request; the provider may not report when it is resolved."
@@ -179,9 +191,9 @@ extension MenuView {
             .padding(.vertical, 4)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(BeaconPalette.lavender)
-        .background(BeaconPalette.softGradient(BeaconPalette.lavender), in: Capsule())
-        .overlay { Capsule().strokeBorder(BeaconPalette.lavender.opacity(0.4), lineWidth: 0.7) }
+        .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
+        .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: Capsule())
+        .overlay { Capsule().strokeBorder(BeaconThemePreference.current().tokens.textSecondary.color.opacity(0.4), lineWidth: 0.7) }
         .help("Move to Parking Lot")
         .accessibilityLabel("Ignore \(workItemTitle(lane))")
         .accessibilityHint("Moves this lane to the Parking Lot")
@@ -189,7 +201,7 @@ extension MenuView {
 
     func checkoutWarningButton(_ lane: WorkLane) -> some View {
         let critical = DashboardLanePresentation.checkoutWarningIsCritical(for: lane)
-        let accent = critical ? BeaconPalette.coral : BeaconPalette.gold
+        let accent = critical ? BeaconThemePreference.current().tokens.danger.color : BeaconThemePreference.current().tokens.warning.color
         return Button {
             showRepositorySync()
         } label: {
@@ -199,7 +211,7 @@ extension MenuView {
         }
         .buttonStyle(.plain)
         .foregroundStyle(accent)
-        .background(BeaconPalette.softGradient(accent), in: Circle())
+        .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: Circle())
         .overlay { Circle().strokeBorder(accent.opacity(0.48), lineWidth: 0.7) }
         .help(lane.checkoutWarning?.message ?? "Merged branch remains checked out locally")
         .accessibilityLabel("Merged branch warning for \(workItemTitle(lane))")
@@ -211,7 +223,7 @@ extension MenuView {
             .font(BeaconTypography.bold(10))
             .foregroundStyle(accent)
             .frame(width: 24, height: 24)
-            .background(BeaconPalette.softGradient(accent), in: RoundedRectangle(cornerRadius: 7))
+            .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 7))
             .overlay {
                 RoundedRectangle(cornerRadius: 7).strokeBorder(accent.opacity(0.45), lineWidth: 0.7)
             }
@@ -224,7 +236,7 @@ extension MenuView {
                 ForEach(tags, id: \.self) { tag in
                     HStack(spacing: 3) {
                         Text("#\(tag)")
-                            .font(BeaconTypography.medium(9))
+                            .font(BeaconTypography.identifier(9, weight: .medium))
                         Button {
                             Task { await state.removeLaneTag(lane, tag: tag) }
                         } label: {
@@ -234,11 +246,11 @@ extension MenuView {
                         .buttonStyle(.plain)
                         .help("Remove \(tag)")
                     }
-                    .foregroundStyle(BeaconPalette.lavender)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(BeaconPalette.softGradient(BeaconPalette.lavender), in: Capsule())
-                    .overlay { Capsule().strokeBorder(BeaconPalette.lavender.opacity(0.38), lineWidth: 0.6) }
+                    .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: Capsule())
+                    .overlay { Capsule().strokeBorder(BeaconThemePreference.current().tokens.textSecondary.color.opacity(0.38), lineWidth: 0.6) }
                 }
                 Button {
                     beginAddingTag(to: lane)
@@ -249,7 +261,7 @@ extension MenuView {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(accent)
-                .background(BeaconPalette.softGradient(accent), in: Capsule())
+                .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: Capsule())
                 .overlay { Capsule().strokeBorder(accent.opacity(0.35), lineWidth: 0.6) }
                 .help("Add Tag")
                 .accessibilityLabel("Add Tag")

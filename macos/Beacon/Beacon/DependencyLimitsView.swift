@@ -20,10 +20,10 @@ struct DependencyLimitsView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Dependency Limits")
                         .font(BeaconTypography.semibold(12))
-                        .foregroundStyle(BeaconPalette.borderGradient(accent))
+                        .foregroundStyle(BeaconThemePreference.current().tokens.textPrimary.color)
                     Text("Explicit check · no background polling")
                         .font(BeaconTypography.regular(8))
-                        .foregroundStyle(BeaconPalette.lavender.opacity(0.78))
+                        .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                         .lineLimit(1)
                 }
                 .layoutPriority(1)
@@ -34,7 +34,7 @@ struct DependencyLimitsView: View {
             if let error = state.dependencyLimitsError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(BeaconTypography.regular(9))
-                    .foregroundStyle(BeaconPalette.coral)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.danger.color)
                     .lineLimit(3)
             }
 
@@ -42,11 +42,20 @@ struct DependencyLimitsView: View {
                 HStack {
                     Label("Highest usage", systemImage: "gauge.with.dots.needle.50percent")
                         .font(BeaconTypography.regular(8))
-                        .foregroundStyle(BeaconPalette.lavender)
+                        .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
                     Spacer()
-                    Text(report.hasUsage ? "\(report.highestUsagePercent)%" : "No usage yet")
-                        .font(BeaconTypography.semibold(10))
+                    if report.hasUsage {
+                        Label(
+                            "\(report.highestUsagePercent)% · \(state.dependencyUsageLevel.title)",
+                            systemImage: state.dependencyUsageLevel.symbol
+                        )
+                        .font(BeaconTypography.counter(10, weight: .semibold))
                         .foregroundStyle(accent)
+                    } else {
+                        Label("No usage yet", systemImage: DependencyUsageLevel.unmeasured.symbol)
+                            .font(BeaconTypography.semibold(10))
+                            .foregroundStyle(accent)
+                    }
                 }
 
                 ScrollView {
@@ -59,12 +68,12 @@ struct DependencyLimitsView: View {
                 }
 
                 Text("Checked \(checkedLabel(report.checkedAt)) with one gh api rate_limit request.")
-                    .font(BeaconTypography.regular(8))
-                    .foregroundStyle(BeaconPalette.lavender.opacity(0.7))
+                    .font(BeaconTypography.identifier(8))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             } else if state.isCheckingDependencyLimits {
                 ProgressView("Asking gh for current limits…")
-                    .tint(BeaconPalette.cyan)
+                    .tint(BeaconThemePreference.current().tokens.info.color)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ContentUnavailableView(
@@ -73,7 +82,7 @@ struct DependencyLimitsView: View {
                     description: Text("Select Check Now to inspect Beacon's dependency allowances once.")
                 )
                 .symbolRenderingMode(.palette)
-                .foregroundStyle(BeaconPalette.gold, BeaconPalette.cyan)
+                .foregroundStyle(BeaconThemePreference.current().tokens.warning.color, BeaconThemePreference.current().tokens.info.color)
             }
         }
     }
@@ -99,18 +108,18 @@ struct DependencyLimitsView: View {
             HStack {
                 Label(dependency.name, systemImage: "terminal.fill")
                     .font(BeaconTypography.semibold(10))
-                    .foregroundStyle(BeaconPalette.cyan)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
                 Spacer()
                 Text("\(dependency.buckets.count) buckets")
-                    .font(BeaconTypography.regular(8))
-                    .foregroundStyle(BeaconPalette.lavender.opacity(0.7))
+                    .font(BeaconTypography.counter(8))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
             }
             ForEach(dependency.buckets) { bucket in
                 bucketRow(bucket)
             }
         }
         .padding(10)
-        .background(BeaconPalette.softGradient(accent), in: RoundedRectangle(cornerRadius: 10))
+        .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(accent.opacity(0.34), lineWidth: 0.7)
@@ -125,14 +134,16 @@ struct DependencyLimitsView: View {
                 Text(bucket.name)
                     .font(BeaconTypography.medium(9))
                 Spacer()
-                Text(bucket.used > 0 ? "\(bucket.usagePercent)%" : "0%")
-                    .font(BeaconTypography.semibold(9))
-                    .monospacedDigit()
-                    .foregroundStyle(rowAccent)
+                Label(
+                    "\(bucket.used > 0 ? bucket.usagePercent : 0)% · \(level.title)",
+                    systemImage: level.symbol
+                )
+                .font(BeaconTypography.counter(9, weight: .semibold))
+                .foregroundStyle(rowAccent)
             }
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(BeaconPalette.lavender.opacity(0.12))
+                    Capsule().fill(BeaconThemePreference.current().tokens.textSecondary.color.opacity(0.12))
                     Capsule()
                         .fill(rowAccent)
                         .frame(width: geometry.size.width * CGFloat(bucket.usagePercent) / 100)
@@ -144,8 +155,8 @@ struct DependencyLimitsView: View {
                 Spacer()
                 Text("Resets \(resetLabel(bucket.resetAt))")
             }
-            .font(BeaconTypography.regular(7))
-            .foregroundStyle(BeaconPalette.lavender.opacity(0.72))
+            .font(BeaconTypography.identifier(7))
+            .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
         }
     }
 
@@ -171,12 +182,30 @@ struct DependencyLimitsView: View {
 }
 
 extension DependencyUsageLevel {
+    var title: String {
+        switch self {
+        case .unmeasured: "Unmeasured"
+        case .healthy: "Healthy"
+        case .warning: "Warning"
+        case .critical: "Critical"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .unmeasured: "questionmark.circle"
+        case .healthy: "checkmark.circle.fill"
+        case .warning: "exclamationmark.circle.fill"
+        case .critical: "exclamationmark.triangle.fill"
+        }
+    }
+
     var accentColor: Color {
         switch self {
-        case .unmeasured: BeaconPalette.cyan
-        case .healthy: BeaconPalette.mint
-        case .warning: BeaconPalette.gold
-        case .critical: BeaconPalette.coral
+        case .unmeasured: BeaconThemePreference.current().tokens.info.color
+        case .healthy: BeaconThemePreference.current().tokens.success.color
+        case .warning: BeaconThemePreference.current().tokens.warning.color
+        case .critical: BeaconThemePreference.current().tokens.danger.color
         }
     }
 }

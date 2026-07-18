@@ -89,42 +89,6 @@ enum DashboardDensity: String, CaseIterable, Identifiable {
     }
 }
 
-enum BeaconFontFamily: String, CaseIterable, Identifiable {
-    case system
-    case rounded
-    case monospaced
-    case serif
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .system: "System"
-        case .rounded: "Rounded"
-        case .monospaced: "Monospaced"
-        case .serif: "Serif"
-        }
-    }
-
-    var design: Font.Design {
-        switch self {
-        case .system: .default
-        case .rounded: .rounded
-        case .monospaced: .monospaced
-        case .serif: .serif
-        }
-    }
-
-    var appKitDesign: NSFontDescriptor.SystemDesign {
-        switch self {
-        case .system: .default
-        case .rounded: .rounded
-        case .monospaced: .monospaced
-        case .serif: .serif
-        }
-    }
-}
-
 enum BeaconFontSize: Int, CaseIterable, Identifiable {
     case compact = 11
     case standard = 12
@@ -137,9 +101,7 @@ enum BeaconFontSize: Int, CaseIterable, Identifiable {
 }
 
 enum BeaconTypography {
-    static let familyKey = "beacon.dashboard.font-family"
     static let baseSizeKey = "beacon.dashboard.font-size"
-    static let defaultFamily = BeaconFontFamily.monospaced
     static let defaultBaseSize = BeaconFontSize.standard.rawValue
 
     static func regular(_ size: CGFloat) -> Font {
@@ -158,17 +120,24 @@ enum BeaconTypography {
         preferred(size: size, weight: .bold)
     }
 
+    static func identifier(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .system(size: resolvedSize(size), weight: weight, design: .monospaced)
+    }
+
+    static func counter(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        .system(size: resolvedSize(size), weight: weight, design: .monospaced)
+    }
+
     static func appKitFont(_ size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
-        let pointSize = resolvedSize(size)
-        let base = NSFont.systemFont(ofSize: pointSize, weight: weight)
-        guard let descriptor = base.fontDescriptor.withDesign(selectedFamily.appKitDesign) else {
-            return base
-        }
-        return NSFont(descriptor: descriptor, size: pointSize) ?? base
+        NSFont.systemFont(ofSize: resolvedSize(size), weight: weight)
+    }
+
+    static func appKitCodeFont(_ size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+        NSFont.monospacedSystemFont(ofSize: resolvedSize(size), weight: weight)
     }
 
     static var selectionSignature: String {
-        "\(selectedFamily.rawValue):\(selectedBaseSize)"
+        "system:\(selectedBaseSize):\(BeaconThemePreference.current().id.rawValue)"
     }
 
     static func resolvedSize(_ size: CGFloat) -> CGFloat {
@@ -176,7 +145,7 @@ enum BeaconTypography {
     }
 
     static func resolvedSize(_ size: CGFloat, baseSize: Int) -> CGFloat {
-        max(8, size + CGFloat(baseSize - 10))
+        max(11, size + CGFloat(baseSize - 10))
     }
 
     private static var selectedBaseSize: Int {
@@ -184,28 +153,21 @@ enum BeaconTypography {
         return BeaconFontSize(rawValue: value)?.rawValue ?? defaultBaseSize
     }
 
-    private static var selectedFamily: BeaconFontFamily {
-        guard let value = UserDefaults.standard.string(forKey: familyKey) else {
-            return defaultFamily
-        }
-        return BeaconFontFamily(rawValue: value) ?? defaultFamily
-    }
-
     private static func preferred(size: CGFloat, weight: Font.Weight) -> Font {
-        .system(size: resolvedSize(size), weight: weight, design: selectedFamily.design)
+        .system(size: resolvedSize(size), weight: weight, design: .default)
     }
 }
 
 enum DashboardLaneAccent: String, CaseIterable {
-    case mint
-    case cyan
-    case pink
+    case local
+    case pullRequest
+    case issue
 
     var color: Color {
         switch self {
-        case .mint: BeaconPalette.mint
-        case .cyan: BeaconPalette.cyan
-        case .pink: BeaconPalette.pink
+        case .local: BeaconThemePreference.current().tokens.identityLocal.color
+        case .pullRequest: BeaconThemePreference.current().tokens.identityPullRequest.color
+        case .issue: BeaconThemePreference.current().tokens.identityIssue.color
         }
     }
 }
@@ -217,9 +179,25 @@ enum DashboardLaneIdentity: String, CaseIterable {
 
     var accent: DashboardLaneAccent {
         switch self {
-        case .local: .mint
-        case .pullRequest: .cyan
-        case .issue: .pink
+        case .local: .local
+        case .pullRequest: .pullRequest
+        case .issue: .issue
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .local: "Local"
+        case .pullRequest: "Pull Request"
+        case .issue: "Issue"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .local: "laptopcomputer"
+        case .pullRequest: "arrow.triangle.pull"
+        case .issue: "smallcircle.filled.circle"
         }
     }
 }
@@ -253,18 +231,7 @@ enum DashboardLanePresentation {
 
 enum NeonWave {
     static let cycle: TimeInterval = 6
-    static let gradient = LinearGradient(
-        colors: [
-            BeaconPalette.cyan,
-            BeaconPalette.mint,
-            BeaconPalette.lavender,
-            BeaconPalette.pink,
-            BeaconPalette.gold,
-            BeaconPalette.cyan,
-        ],
-        startPoint: .leading,
-        endPoint: .trailing
-    )
+    static var gradient: LinearGradient { BeaconThemePreference.current().brandGradient }
 
     static func phase(at date: Date) -> Double {
         let elapsed = date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: cycle)
@@ -289,7 +256,7 @@ struct NeonWaveWordmark: View {
             Text(text)
                 .foregroundStyle(NeonWave.gradient)
                 .hueRotation(reduceMotion ? .zero : NeonWave.rotation(at: context.date))
-                .shadow(color: BeaconPalette.pink.opacity(0.28), radius: 2)
+                .shadow(color: BeaconThemePreference.current().tokens.identityIssue.color.opacity(0.28), radius: 2)
                 .accessibilityLabel(text)
         }
     }

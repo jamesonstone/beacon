@@ -23,6 +23,7 @@ struct BeaconApp: App {
 }
 
 struct BeaconMenuBarLabel: View {
+    @AppStorage(BeaconThemePreference.storageKey) private var themeIDValue = BeaconThemePreference.defaultID.rawValue
     let inProgressCount: Int
 
     var body: some View {
@@ -30,6 +31,7 @@ struct BeaconMenuBarLabel: View {
             .renderingMode(.original)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(BeaconMenuBarPresentation.accessibilityText(inProgressCount))
+            .id(themeIDValue)
     }
 }
 
@@ -63,7 +65,7 @@ enum BeaconMenuBarIconRenderer {
         rays.line(to: NSPoint(x: domeMaxX + 0.4, y: 15.4))
         rays.lineWidth = 1.5
         rays.lineCapStyle = .round
-        NSColor(BeaconPalette.cyan).setStroke()
+        BeaconThemePreference.current().tokens.info.nsColor.setStroke()
         rays.stroke()
 
         let centerRay = NSBezierPath()
@@ -71,7 +73,7 @@ enum BeaconMenuBarIconRenderer {
         centerRay.line(to: NSPoint(x: centerX, y: 17))
         centerRay.lineWidth = 1.5
         centerRay.lineCapStyle = .round
-        NSColor(BeaconPalette.gold).setStroke()
+        BeaconThemePreference.current().tokens.warning.nsColor.setStroke()
         centerRay.stroke()
     }
 
@@ -100,11 +102,14 @@ enum BeaconMenuBarIconRenderer {
 
         NSGraphicsContext.saveGraphicsState()
         let shadow = NSShadow()
-        shadow.shadowColor = NSColor(BeaconPalette.cyan).withAlphaComponent(0.7)
+        shadow.shadowColor = BeaconThemePreference.current().tokens.info.nsColor.withAlphaComponent(0.45)
         shadow.shadowBlurRadius = 2
         shadow.shadowOffset = .zero
         shadow.set()
-        NSGradient(colors: [NSColor(BeaconPalette.gold), NSColor(BeaconPalette.coral)])?
+        NSGradient(colors: [
+            BeaconThemePreference.current().tokens.warning.nsColor,
+            BeaconThemePreference.current().tokens.danger.nsColor,
+        ])?
             .draw(in: dome, angle: 90)
         NSGraphicsContext.restoreGraphicsState()
 
@@ -113,7 +118,7 @@ enum BeaconMenuBarIconRenderer {
             xRadius: 0.9,
             yRadius: 0.9
         )
-        NSColor(BeaconPalette.gold).setFill()
+        BeaconThemePreference.current().tokens.warning.nsColor.setFill()
         base.fill()
     }
 
@@ -125,7 +130,7 @@ enum BeaconMenuBarIconRenderer {
         )
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: NSColor(red: 0.04, green: 0.03, blue: 0.12, alpha: 1),
+            .foregroundColor: BeaconThemePreference.current().tokens.canvas.nsColor,
         ]
         let size = displayCount.size(withAttributes: attributes)
         displayCount.draw(
@@ -161,55 +166,5 @@ enum BeaconMenuBarPresentation {
             return "Beacon, no items in progress"
         }
         return "Beacon, \(count) items in progress"
-    }
-}
-
-enum BeaconPalette {
-    static let cyan = Color(red: 0.20, green: 0.91, blue: 1.0)
-    static let mint = Color(red: 0.42, green: 1.0, blue: 0.76)
-    static let lavender = Color(red: 0.70, green: 0.58, blue: 1.0)
-    static let pink = Color(red: 1.0, green: 0.36, blue: 0.76)
-    static let coral = Color(red: 1.0, green: 0.47, blue: 0.56)
-    static let gold = Color(red: 1.0, green: 0.82, blue: 0.46)
-
-    static let neonGradient = LinearGradient(
-        colors: [cyan, lavender, pink],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
-
-    static let panelBackground = LinearGradient(
-        colors: [
-            cyan.opacity(0.055),
-            lavender.opacity(0.045),
-            pink.opacity(0.035),
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
-
-    static let switcherBackground = LinearGradient(
-        colors: [
-            Color(red: 0.035, green: 0.028, blue: 0.055),
-            Color(red: 0.075, green: 0.045, blue: 0.090),
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
-
-    static func softGradient(_ accent: Color) -> LinearGradient {
-        LinearGradient(
-            colors: [accent.opacity(0.18), lavender.opacity(0.09), cyan.opacity(0.035)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
-
-    static func borderGradient(_ accent: Color) -> LinearGradient {
-        LinearGradient(
-            colors: [accent.opacity(0.8), lavender.opacity(0.38), cyan.opacity(0.18)],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
     }
 }

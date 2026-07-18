@@ -580,8 +580,10 @@ selection are presentation state only. Dashboard destinations use one mutually
 exclusive presentation state: a destination control opens its page on first
 selection, selecting that same control again returns to Following, and selecting
 a different destination switches directly to it. Lane tags render as removable
-chips and mutate through the Go background-agent authority. Typography uses selectable
-system designs and base sizes, defaulting to monospaced at 12 points.
+chips and mutate through the Go background-agent authority. Ordinary interface
+copy uses system UI typography with an 11-point minimum; monospaced typography
+is reserved for code, branches, identifiers, timestamps, percentages, and
+counters. Shared base-size choices may scale these roles without changing them.
 Both surfaces expose one Notes panel at 50% of the available Beacon surface by
 default. A header double-click cycles 50%, 80%, minimized, then 50%, and the
 explicit chevron minimizes or restores the most recent expanded size. General
@@ -597,24 +599,48 @@ tabs, New Tab history, and Command-K/Command-P results all route through one
 native destructive confirmation alert; General and New Tab expose no delete
 action. The rocket wordmark mark, Notes solar system, and empty-state orbit use
 native animation, carry no evidence semantics, and remain stationary when
-Reduce Motion is enabled. The switchers use an opaque dark surface over a dimmed backdrop. Native
+Reduce Motion is enabled. The switchers use an opaque semantic theme surface
+over a theme-aware backdrop. Native
 Command-K and Command-P switchers plus tab-cycle and numeric shortcuts operate
 through the frontmost shared view hierarchy. When Following
 contains no in-progress lanes and no projects are loading,
 both surfaces replace the empty lane body with an adaptive celebratory state whose
 copy describes lane state rather than repository-ref freshness.
-The Beacon wordmark may animate a modest horizontally traveling gradient across
-the existing neon/pastel palette. It must remain readable, use no evidence or
-status policy, and render a static gradient when Reduce Motion is enabled.
+The Beacon wordmark may animate a modest horizontally traveling gradient derived
+from the selected theme. It must remain readable, use no evidence or status
+policy, and render a static gradient when Reduce Motion is enabled.
 The menu-bar label always shows a compact, non-template colored beacon dome.
 The number of lanes across the CLI-provided active, waiting, and recently-active
 groups appears inside that dome with adaptive width and type scale through
 `99+`, preserving the app identity and a legible count in one item. The menu
-window may use coordinated pastel and neon accents to distinguish existing
-CLI-provided groups and signals, but color must not introduce readiness or
-action policy in the Swift client. Within every lane layout, local-only cards
-are mint, pull-request-backed cards are cyan, and issue-backed cards are pink.
-This is a work-item identity mapping, not attention or readiness inference.
+window and detached dashboard must render from one semantic theme catalog, but
+color must not introduce readiness or action policy in the Swift client. Every
+lane explicitly labels and symbolizes Local, Pull Request, Issue, or Manual;
+theme-specific Local, PR, and Issue accents only reinforce that invariant work-
+item identity mapping.
+
+Beacon ships exactly five stable built-in theme IDs: `lobster-nebula`,
+`pampas-moon`, `solarized-dark`, `monokai`, and `selenized-dark`. Lobster Nebula
+is the recommended default dark theme and Pampas Moon is the high-readability
+light theme. One stable AppStorage preference applies live to the menu extra,
+detached dashboard, AppKit Markdown editor, tabs, lanes, controls, switchers,
+dialogs, Notes, and empty/error states; unknown stored IDs fall back to Lobster
+Nebula. Each complete token set owns canvas, layered surfaces, borders,
+primary/secondary/muted text, accent/focus, success/warning/danger/info,
+Local/PR/Issue identities, and editor roles. Ordinary text, cards, controls, and
+borders use solid neutral surfaces and minimal shadows; gradients are reserved
+for the wordmark, beacon/rocket, and occasional illustration. Every built-in
+theme must pass automated token-completeness, stable-ID, persistence, rendered
+smoke, 4.5:1 normal-text contrast, and 3:1 non-text/large-indicator contrast
+checks. Raw classic accents that miss these thresholds require accessible
+semantic aliases.
+
+Both surfaces respect Increase Contrast, Differentiate Without Color, Reduce
+Transparency, and Reduce Motion. Higher contrast strengthens semantic borders;
+differentiate-without-color retains explicit labels and SF Symbols; reduced
+transparency substitutes opaque theme surfaces; reduced motion disables
+decorative and layout animation. These settings never change evidence or saved
+workflow state.
 Individual evidence badges may be hidden as reversible local presentation
 state. Dismissal is scoped to lane, evidence dimension, and exact value so a
 changed signal reappears; it must never mutate or suppress canonical evidence

@@ -31,9 +31,9 @@ struct UpToDateBacksplash: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            BeaconPalette.cyan.opacity(0.10),
-                            BeaconPalette.lavender.opacity(0.055),
-                            BeaconPalette.pink.opacity(0.025),
+                            BeaconThemePreference.current().tokens.info.color.opacity(0.10),
+                            BeaconThemePreference.current().tokens.textSecondary.color.opacity(0.055),
+                            BeaconThemePreference.current().tokens.identityIssue.color.opacity(0.025),
                             Color.clear,
                         ],
                         center: .center,
@@ -44,7 +44,7 @@ struct UpToDateBacksplash: View {
         }
         .overlay {
             RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.cyan), lineWidth: 0.6)
+                .strokeBorder(BeaconThemePreference.current().tokens.borderStrong.color, lineWidth: 0.6)
                 .opacity(0.42)
         }
         .accessibilityElement(children: .ignore)
@@ -57,11 +57,11 @@ struct UpToDateBacksplash: View {
             VStack(spacing: 5) {
                 Text(UpToDatePresentation.title)
                     .font(BeaconTypography.bold(22))
-                    .foregroundStyle(BeaconPalette.neonGradient)
-                    .shadow(color: BeaconPalette.pink.opacity(0.24), radius: 2)
+                    .foregroundStyle(BeaconThemePreference.current().brandGradient)
+                    .shadow(color: BeaconThemePreference.current().tokens.identityIssue.color.opacity(0.24), radius: 2)
                 Text(UpToDatePresentation.detail)
                     .font(BeaconTypography.regular(11))
-                    .foregroundStyle(BeaconPalette.lavender.opacity(0.86))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 430)
             }
@@ -77,11 +77,11 @@ struct UpToDateBacksplash: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(UpToDatePresentation.title)
                     .font(BeaconTypography.bold(15))
-                    .foregroundStyle(BeaconPalette.neonGradient)
-                    .shadow(color: BeaconPalette.pink.opacity(0.20), radius: 2)
+                    .foregroundStyle(BeaconThemePreference.current().brandGradient)
+                    .shadow(color: BeaconThemePreference.current().tokens.identityIssue.color.opacity(0.20), radius: 2)
                 Text("No work in progress—clear skies ahead.")
                     .font(BeaconTypography.regular(9))
-                    .foregroundStyle(BeaconPalette.lavender.opacity(0.82))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                     .lineLimit(2)
                 caughtUpBadge
             }
@@ -93,13 +93,13 @@ struct UpToDateBacksplash: View {
     private var caughtUpBadge: some View {
         Label("Lane radar clear", systemImage: "sparkles")
             .font(BeaconTypography.semibold(9))
-            .foregroundStyle(BeaconPalette.mint)
+            .foregroundStyle(BeaconThemePreference.current().tokens.success.color)
             .padding(.horizontal, 9)
             .padding(.vertical, 4)
-            .background(BeaconPalette.softGradient(BeaconPalette.mint), in: Capsule())
+            .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: Capsule())
             .overlay {
                 Capsule()
-                    .strokeBorder(BeaconPalette.mint.opacity(0.40), lineWidth: 0.7)
+                    .strokeBorder(BeaconThemePreference.current().tokens.success.color.opacity(0.40), lineWidth: 0.7)
             }
     }
 
@@ -114,9 +114,9 @@ struct UpToDateBacksplash: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                BeaconPalette.mint.opacity(0.28),
-                                BeaconPalette.cyan.opacity(0.12),
-                                BeaconPalette.lavender.opacity(0.04),
+                                BeaconThemePreference.current().tokens.success.color.opacity(0.28),
+                                BeaconThemePreference.current().tokens.info.color.opacity(0.12),
+                                BeaconThemePreference.current().tokens.textSecondary.color.opacity(0.04),
                             ],
                             center: .topLeading,
                             startRadius: 2,
@@ -124,36 +124,36 @@ struct UpToDateBacksplash: View {
                         )
                     )
                     .frame(width: size * 0.70, height: size * 0.70)
-                    .shadow(color: BeaconPalette.cyan.opacity(0.28), radius: 14)
+                    .shadow(color: BeaconThemePreference.current().tokens.info.color.opacity(0.28), radius: 14)
 
                 Circle()
-                    .stroke(BeaconPalette.neonGradient, lineWidth: 1.4)
+                    .stroke(BeaconThemePreference.current().brandGradient, lineWidth: 1.4)
                     .frame(width: size * 0.66, height: size * 0.66)
 
                 Image(systemName: "checkmark.seal.fill")
                     .font(.system(size: size * 0.32, weight: .semibold))
-                    .foregroundStyle(BeaconPalette.mint, BeaconPalette.cyan.opacity(0.42))
-                    .shadow(color: BeaconPalette.mint.opacity(0.50), radius: 4)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.success.color, BeaconThemePreference.current().tokens.info.color)
+                    .shadow(color: BeaconThemePreference.current().tokens.success.color.opacity(0.50), radius: 4)
 
                 ZStack {
                     Ellipse()
-                        .stroke(BeaconPalette.borderGradient(BeaconPalette.lavender), lineWidth: 1.2)
+                        .stroke(BeaconThemePreference.current().tokens.borderStrong.color, lineWidth: 1.2)
                         .frame(width: size, height: size * 0.40)
                     Image(systemName: "sparkle")
                         .font(.system(size: size * 0.13, weight: .bold))
-                        .foregroundStyle(BeaconPalette.gold)
-                        .shadow(color: BeaconPalette.gold.opacity(0.65), radius: 3)
+                        .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
+                        .shadow(color: BeaconThemePreference.current().tokens.warning.color.opacity(0.65), radius: 3)
                         .offset(x: size * 0.47)
                 }
                 .rotationEffect(angle)
 
                 Image(systemName: "sparkles")
                     .font(.system(size: size * 0.12, weight: .bold))
-                    .foregroundStyle(BeaconPalette.pink)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.identityIssue.color)
                     .offset(x: -size * 0.42, y: -size * 0.34)
                 Image(systemName: "sparkle")
                     .font(.system(size: size * 0.09, weight: .bold))
-                    .foregroundStyle(BeaconPalette.cyan)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
                     .offset(x: size * 0.34, y: -size * 0.44)
             }
             .frame(width: size, height: size)

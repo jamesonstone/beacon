@@ -527,7 +527,7 @@ available, and rolls back only the affected project if a request fails.
 ## macOS Dashboard
 
 Beacon remains in the menu bar and also runs as a regular macOS application,
-so its neon-space icon is available in the Dock and Command-Tab when a camera
+so its illustrated beacon icon is available in the Dock and Command-Tab when a camera
 notch or a crowded menu bar hides the menu item. Beacon restores the dashboard's
 last position and size across application relaunches. With no saved frame, it
 opens at a focused 580-point width and the full usable screen height. Close the
@@ -549,7 +549,15 @@ In the default stacked view, each project name is a solid, bold heading above
 its lanes so repository context is visible before the pull request or issue
 title.
 
-A dedicated neon refresh button in the top-right of both surfaces performs
+Choose **Settings → Appearance → Theme** to apply one live appearance to both
+surfaces and the native Markdown editor. Beacon includes exactly five themes:
+**Lobster Nebula** (the recommended default dark theme), **Pampas Moon** (the
+high-readability light theme), **Solarized Dark**, **Monokai**, and **Selenized
+Dark**. The stable selection persists across launches. Every theme supplies the
+same semantic canvas, surface, border, text, focus, status, Local/PR/Issue, and
+editor roles, so changing appearance never changes workflow meaning.
+
+A dedicated refresh button in the top-right of both surfaces performs
 **Scan Now**. Use it after merging one or several pull requests to bypass the
 normal evidence cache, run one coalesced batched refresh, and update both views.
 Repeated clicks cannot start overlapping scans.
@@ -564,9 +572,10 @@ to Go and never execute Git or `gh` directly.
 The next **Dependency Limits** button is also explicit-only. Selecting it asks
 the bundled Go helper for one `gh api rate_limit` snapshot and shows the
 GraphQL, REST Core, and Search buckets. After the first check, the button shows
-the highest usage percentage in mint below 50%, gold from 50% through 75%, and
-coral above 75%; zero usage retains the gauge icon. No startup request or
-background polling is added.
+the highest usage percentage as explicitly labeled healthy below 50%, warning
+from 50% through 75%, and critical above 75%; zero usage retains the gauge
+icon. Each state has an SF Symbol and semantic theme color. No startup request
+or background polling is added.
 
 A compact tab row keeps repository attention one click away. **Following** is
 selected whenever a dashboard surface opens and contains Active, Waiting, and
@@ -584,22 +593,24 @@ blank lane area becomes a lightweight **All caught up** backsplash. Its native
 SwiftUI orbit adapts to the compact menu extra and the detached window, respects
 Reduce Motion, and describes lane state without claiming local Git refs are current.
 
-The Beacon wordmark carries a modest neon/pastel color wave. It uses a shared,
-deterministic time phase in the menu and detached window and becomes a static
-neon gradient when Reduce Motion is enabled.
+The Beacon wordmark carries a modest theme-derived color wave. It uses a shared,
+deterministic time phase in the menu and detached window and becomes static
+when Reduce Motion is enabled.
 
-Lane-card color identifies the kind of work consistently in stacked, tile, and
-kanban views: local-only work is mint, pull-request-backed work is cyan, and
-issue-backed work is pink. Attention groups retain their own header colors;
-the card identity does not change shared Go policy.
+Lane cards identify the kind of work consistently in every view with explicit
+**Local**, **PR**, **Issue**, or **Manual** text and a stable SF Symbol. Each
+theme reinforces Local, PR, and Issue with distinct semantic accents, but color
+never carries identity or status alone. Attention groups retain their own
+label-and-symbol grammar; card identity does not change shared Go policy.
 Every Following card also places **Ignore** at its far-right edge. Ignore uses
 the same durable parking action as the CLI, so the selected lane leaves
 Following and appears in **Parking Lot** without unfollowing its project or
 deleting any lane state.
 When Beacon confirms that a previously observed PR merged, its remote head was
-deleted, and the same branch remains checked out locally, the card also shows a
-gold warning triangle beside its right-aligned actions. Dirty worktrees or
-commits newer than the recorded PR head use coral. Selecting the warning opens
+deleted, and the same branch remains checked out locally, the card also shows an
+explicit warning triangle beside its right-aligned actions. Dirty worktrees or
+commits newer than the recorded PR head use explicit warning or danger roles.
+Selecting the warning opens
 Repository Sync; it performs no repository mutation itself, and Ignore remains
 the far-right Following action.
 
@@ -608,9 +619,11 @@ count set directly inside it. Its width and numeral scale adapt through `99+`,
 so the app identity and current workload remain recognizable as one compact
 status item.
 
-Beacon defaults to a 12-point system monospaced design. Settings provides
-System, Rounded, Monospaced, and Serif designs plus 11, 12, 13, 14, and 16-point
-base sizes; both surfaces share the persisted choice. A separate persisted
+Beacon defaults to 12-point system UI typography and keeps essential interface
+copy at least 11 points. Monospaced type is reserved for code, branches,
+identifiers, timestamps, percentages, and counters. Settings provides 11, 12,
+13, 14, and 16-point base sizes; both surfaces share the persisted choice. A
+separate persisted
 **Card Density** setting offers Comfortable, Compact, and Dense without changing
 font size. Comfortable retains the full card, Compact keeps identity, next
 action, age/delta, and exceptions, and Dense keeps identity, next action, and
@@ -626,6 +639,14 @@ request review threads. Hover it for every collected file/line, reviewer,
 Markdown comment, timestamp, and individual GitHub link. A badge's trailing
 close control still provides exact-value local dismissal, so changed evidence
 reappears; **Restore Hidden Badges** clears all dismissals.
+
+Beacon follows macOS **Increase Contrast**, **Differentiate Without Color**,
+**Reduce Transparency**, and **Reduce Motion**. These preferences strengthen
+borders, retain redundant labels and symbols, replace translucent overlays with
+solid theme surfaces, and stop decorative or layout motion without changing
+saved workflow state. Automated checks require at least 4.5:1 contrast for
+normal text and 3:1 for focus, strong borders, and large indicators in every
+built-in theme.
 
 The information button beside View and Settings explains the universal
 hierarchy: work-item identity, lane attention, one next action, evidence
@@ -650,7 +671,7 @@ picker over all prior detail files in most-recently-opened order, with each
 permanent delete control aligned at the row's far right; reopening an already-open
 note activates it without duplication. Detail-note results in Command-K and
 Command-P also expose delete, and every macOS delete action requires the same
-irreversible-action confirmation. The switcher uses an opaque dark backdrop so
+irreversible-action confirmation. The switcher uses an opaque semantic theme surface so
 commands remain readable over the dashboard. The directly editable native
 editor applies headings, emphasis, lists, quotes, inline code, links, and
 dividers while retaining exact plain-text source. It also uses the user's macOS

@@ -6,13 +6,13 @@ extension MenuView {
             LazyVStack(alignment: .leading, spacing: 8) {
                 loadingProjectStrip
                 if let working = snapshot.workingSet {
-                    overviewSection("Active", symbol: "bolt.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: working.active))
-                    overviewSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: working.waiting))
-                    overviewSection("Recently Active", symbol: "sparkles", accent: BeaconPalette.cyan, lanes: state.lanes(for: working.recent))
+                    overviewSection("Active", symbol: "bolt.fill", accent: BeaconThemePreference.current().tokens.success.color, lanes: state.lanes(for: working.active))
+                    overviewSection("Waiting", symbol: "clock.fill", accent: BeaconThemePreference.current().tokens.warning.color, lanes: state.lanes(for: working.waiting))
+                    overviewSection("Recently Active", symbol: "sparkles", accent: BeaconThemePreference.current().tokens.info.color, lanes: state.lanes(for: working.recent))
                 } else {
-                    overviewSection("Ready for Review", symbol: "checkmark.circle.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: snapshot.groups.ready))
-                    overviewSection("Needs Action", symbol: "exclamationmark.triangle.fill", accent: BeaconPalette.coral, lanes: state.lanes(for: snapshot.groups.action))
-                    overviewSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: snapshot.groups.waiting))
+                    overviewSection("Ready for Review", symbol: "checkmark.circle.fill", accent: BeaconThemePreference.current().tokens.success.color, lanes: state.lanes(for: snapshot.groups.ready))
+                    overviewSection("Needs Action", symbol: "exclamationmark.triangle.fill", accent: BeaconThemePreference.current().tokens.danger.color, lanes: state.lanes(for: snapshot.groups.action))
+                    overviewSection("Waiting", symbol: "clock.fill", accent: BeaconThemePreference.current().tokens.warning.color, lanes: state.lanes(for: snapshot.groups.waiting))
                 }
             }
         }
@@ -41,13 +41,13 @@ extension MenuView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 loadingProjectStrip
                 if let working = snapshot.workingSet {
-                    tileSection("Active", symbol: "bolt.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: working.active))
-                    tileSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: working.waiting))
-                    tileSection("Recently Active", symbol: "sparkles", accent: BeaconPalette.cyan, lanes: state.lanes(for: working.recent))
+                    tileSection("Active", symbol: "bolt.fill", accent: BeaconThemePreference.current().tokens.success.color, lanes: state.lanes(for: working.active))
+                    tileSection("Waiting", symbol: "clock.fill", accent: BeaconThemePreference.current().tokens.warning.color, lanes: state.lanes(for: working.waiting))
+                    tileSection("Recently Active", symbol: "sparkles", accent: BeaconThemePreference.current().tokens.info.color, lanes: state.lanes(for: working.recent))
                 } else {
-                    tileSection("Ready for Review", symbol: "checkmark.circle.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: snapshot.groups.ready))
-                    tileSection("Needs Action", symbol: "exclamationmark.triangle.fill", accent: BeaconPalette.coral, lanes: state.lanes(for: snapshot.groups.action))
-                    tileSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: snapshot.groups.waiting))
+                    tileSection("Ready for Review", symbol: "checkmark.circle.fill", accent: BeaconThemePreference.current().tokens.success.color, lanes: state.lanes(for: snapshot.groups.ready))
+                    tileSection("Needs Action", symbol: "exclamationmark.triangle.fill", accent: BeaconThemePreference.current().tokens.danger.color, lanes: state.lanes(for: snapshot.groups.action))
+                    tileSection("Waiting", symbol: "clock.fill", accent: BeaconThemePreference.current().tokens.warning.color, lanes: state.lanes(for: snapshot.groups.waiting))
                 }
             }
         }
@@ -58,13 +58,13 @@ extension MenuView {
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 10) {
                     if let working = snapshot.workingSet {
-                        kanbanColumn("Active", symbol: "bolt.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: working.active), height: geometry.size.height)
-                        kanbanColumn("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: working.waiting), height: geometry.size.height)
-                        kanbanColumn("Recent", symbol: "sparkles", accent: BeaconPalette.cyan, lanes: state.lanes(for: working.recent), height: geometry.size.height)
+                        kanbanColumn("Active", symbol: "bolt.fill", accent: BeaconThemePreference.current().tokens.success.color, lanes: state.lanes(for: working.active), height: geometry.size.height)
+                        kanbanColumn("Waiting", symbol: "clock.fill", accent: BeaconThemePreference.current().tokens.warning.color, lanes: state.lanes(for: working.waiting), height: geometry.size.height)
+                        kanbanColumn("Recent", symbol: "sparkles", accent: BeaconThemePreference.current().tokens.info.color, lanes: state.lanes(for: working.recent), height: geometry.size.height)
                     } else {
-                        kanbanColumn("Ready", symbol: "checkmark.circle.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: snapshot.groups.ready), height: geometry.size.height)
-                        kanbanColumn("Action", symbol: "exclamationmark.triangle.fill", accent: BeaconPalette.coral, lanes: state.lanes(for: snapshot.groups.action), height: geometry.size.height)
-                        kanbanColumn("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: snapshot.groups.waiting), height: geometry.size.height)
+                        kanbanColumn("Ready", symbol: "checkmark.circle.fill", accent: BeaconThemePreference.current().tokens.success.color, lanes: state.lanes(for: snapshot.groups.ready), height: geometry.size.height)
+                        kanbanColumn("Action", symbol: "exclamationmark.triangle.fill", accent: BeaconThemePreference.current().tokens.danger.color, lanes: state.lanes(for: snapshot.groups.action), height: geometry.size.height)
+                        kanbanColumn("Waiting", symbol: "clock.fill", accent: BeaconThemePreference.current().tokens.warning.color, lanes: state.lanes(for: snapshot.groups.waiting), height: geometry.size.height)
                     }
                 }
                 .padding(.bottom, 4)
@@ -79,15 +79,15 @@ extension MenuView {
                 HStack(spacing: 8) {
                     ForEach(state.loadingProjects, id: \.projectID) { project in
                         HStack(spacing: 6) {
-                            ProgressView().controlSize(.mini).tint(BeaconPalette.cyan)
+                            ProgressView().controlSize(.mini).tint(BeaconThemePreference.current().tokens.info.color)
                             Text(project.name).font(BeaconTypography.medium(10))
                             Text(stageLabel(project.stage))
                                 .font(BeaconTypography.regular(9))
-                                .foregroundStyle(BeaconPalette.lavender)
+                                .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
                         }
                         .padding(.horizontal, 9)
                         .padding(.vertical, 6)
-                        .background(BeaconPalette.softGradient(BeaconPalette.cyan), in: Capsule())
+                        .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: Capsule())
                     }
                 }
             }
@@ -123,7 +123,7 @@ extension MenuView {
                     if lanes.isEmpty {
                         Text("No lanes")
                             .font(BeaconTypography.regular(10))
-                            .foregroundStyle(BeaconPalette.lavender.opacity(0.65))
+                            .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                             .frame(maxWidth: .infinity, minHeight: 70)
                     }
                 }
@@ -131,7 +131,7 @@ extension MenuView {
         }
         .padding(9)
         .frame(width: 238, height: height, alignment: .top)
-        .background(BeaconPalette.softGradient(accent), in: RoundedRectangle(cornerRadius: 10))
+        .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(accent.opacity(0.28), lineWidth: 0.7)
@@ -143,7 +143,7 @@ extension MenuView {
             Image(systemName: symbol)
                 .foregroundStyle(accent)
                 .shadow(color: accent.opacity(0.45), radius: 2)
-            Text(title).foregroundStyle(BeaconPalette.borderGradient(accent))
+            Text(title).foregroundStyle(accent)
             Spacer()
             Text("\(count)")
                 .font(BeaconTypography.medium(9))

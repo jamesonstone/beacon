@@ -55,20 +55,24 @@ extension MenuView {
                             .font(BeaconTypography.semibold(9))
                             .lineLimit(1)
                         Text("\(dashboardTabCount(tab))")
-                            .font(BeaconTypography.medium(8))
-                            .foregroundStyle(selected ? accent : BeaconPalette.lavender.opacity(0.72))
+                            .font(BeaconTypography.counter(8))
+                            .foregroundStyle(selected ? accent : BeaconThemePreference.current().tokens.textMuted.color)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 5)
-                    .foregroundStyle(selected ? accent : BeaconPalette.lavender)
+                    .foregroundStyle(selected ? accent : BeaconThemePreference.current().tokens.textSecondary.color)
                     .background(
-                        BeaconPalette.softGradient(selected ? accent : BeaconPalette.lavender)
-                            .opacity(selected ? 1 : 0.35),
+                        selected
+                            ? BeaconThemePreference.current().tokens.surfaceRaised.color
+                            : BeaconThemePreference.current().tokens.surface.color,
                         in: RoundedRectangle(cornerRadius: 8)
                     )
                     .overlay {
                         RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(selected ? accent : BeaconPalette.lavender.opacity(0.18), lineWidth: selected ? 0.9 : 0.6)
+                            .strokeBorder(
+                                selected ? accent : BeaconThemePreference.current().tokens.border.color,
+                                lineWidth: selected ? 1 : 0.7
+                            )
                     }
                 }
                 .buttonStyle(.plain)
@@ -128,10 +132,10 @@ extension MenuView {
 
     func dashboardTabAccent(_ tab: DashboardTab) -> Color {
         switch tab {
-        case .following: BeaconPalette.mint
-        case .parking: BeaconPalette.lavender
-        case .recent: BeaconPalette.pink
-        case .quiet: BeaconPalette.cyan
+        case .following: BeaconThemePreference.current().tokens.success.color
+        case .parking: BeaconThemePreference.current().tokens.textSecondary.color
+        case .recent: BeaconThemePreference.current().tokens.accent.color
+        case .quiet: BeaconThemePreference.current().tokens.info.color
         }
     }
 
@@ -166,28 +170,28 @@ extension MenuView {
         let lanes = state.lanes(for: snapshot.workingSet?.parked ?? [])
         if lanes.isEmpty {
             ContentUnavailableView("Parking Lot is empty", systemImage: "pause.circle")
-                .foregroundStyle(BeaconPalette.lavender)
+                .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
         } else {
             switch viewMode {
             case .stacked:
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
-                        laneSection("Parking Lot", symbol: "pause.circle.fill", accent: BeaconPalette.lavender, lanes: lanes)
+                        laneSection("Parking Lot", symbol: "pause.circle.fill", accent: BeaconThemePreference.current().tokens.textSecondary.color, lanes: lanes)
                     }
                 }
             case .tiles:
                 ScrollView {
-                    tileSection("Parking Lot", symbol: "pause.circle.fill", accent: BeaconPalette.lavender, lanes: lanes)
+                    tileSection("Parking Lot", symbol: "pause.circle.fill", accent: BeaconThemePreference.current().tokens.textSecondary.color, lanes: lanes)
                 }
             case .kanban:
                 GeometryReader { geometry in
-                    kanbanColumn("Parking Lot", symbol: "pause.circle.fill", accent: BeaconPalette.lavender, lanes: lanes, height: geometry.size.height)
+                    kanbanColumn("Parking Lot", symbol: "pause.circle.fill", accent: BeaconThemePreference.current().tokens.textSecondary.color, lanes: lanes, height: geometry.size.height)
                 }
             case .overview:
                 overviewSection(
                     "Parking Lot",
                     symbol: "pause.circle.fill",
-                    accent: BeaconPalette.lavender,
+                    accent: BeaconThemePreference.current().tokens.textSecondary.color,
                     lanes: lanes
                 )
             }
@@ -201,37 +205,37 @@ extension MenuView {
                     VStack(alignment: .leading, spacing: 6) {
                         Label("Loading Projects", systemImage: "antenna.radiowaves.left.and.right")
                             .font(BeaconTypography.semibold(11))
-                            .foregroundStyle(BeaconPalette.borderGradient(BeaconPalette.cyan))
+                            .foregroundStyle(BeaconThemePreference.current().tokens.textPrimary.color)
                         ForEach(state.loadingProjects, id: \.projectID) { project in
                             HStack(spacing: 8) {
                                 ProgressView()
                                     .controlSize(.mini)
-                                    .tint(BeaconPalette.cyan)
+                                    .tint(BeaconThemePreference.current().tokens.info.color)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(project.name)
                                         .font(BeaconTypography.semibold(10))
                                     Text(stageLabel(project.stage))
                                         .font(BeaconTypography.regular(9))
-                                        .foregroundStyle(BeaconPalette.lavender)
+                                        .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
                                 }
                                 Spacer()
                                 Text(project.projectID)
                                     .font(BeaconTypography.regular(9))
-                                    .foregroundStyle(BeaconPalette.cyan.opacity(0.85))
+                                    .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
                             }
                             .padding(8)
-                            .background(BeaconPalette.softGradient(BeaconPalette.cyan), in: RoundedRectangle(cornerRadius: 8))
+                            .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 8))
                         }
                     }
                 }
                 if let working = snapshot.workingSet {
-                    laneSection("Active", symbol: "bolt.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: working.active))
-                    laneSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: working.waiting))
-                    laneSection("Recently Active", symbol: "sparkles", accent: BeaconPalette.cyan, lanes: state.lanes(for: working.recent))
+                    laneSection("Active", symbol: "bolt.fill", accent: BeaconThemePreference.current().tokens.success.color, lanes: state.lanes(for: working.active))
+                    laneSection("Waiting", symbol: "clock.fill", accent: BeaconThemePreference.current().tokens.warning.color, lanes: state.lanes(for: working.waiting))
+                    laneSection("Recently Active", symbol: "sparkles", accent: BeaconThemePreference.current().tokens.info.color, lanes: state.lanes(for: working.recent))
                 } else {
-                    laneSection("Ready for Review", symbol: "checkmark.circle.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: snapshot.groups.ready))
-                    laneSection("Needs Action", symbol: "exclamationmark.triangle.fill", accent: BeaconPalette.coral, lanes: state.lanes(for: snapshot.groups.action))
-                    laneSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: snapshot.groups.waiting))
+                    laneSection("Ready for Review", symbol: "checkmark.circle.fill", accent: BeaconThemePreference.current().tokens.success.color, lanes: state.lanes(for: snapshot.groups.ready))
+                    laneSection("Needs Action", symbol: "exclamationmark.triangle.fill", accent: BeaconThemePreference.current().tokens.danger.color, lanes: state.lanes(for: snapshot.groups.action))
+                    laneSection("Waiting", symbol: "clock.fill", accent: BeaconThemePreference.current().tokens.warning.color, lanes: state.lanes(for: snapshot.groups.waiting))
                 }
             }
         }

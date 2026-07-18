@@ -2,7 +2,7 @@
 kit_metadata_version: 1
 artifact: spec
 workflow_version: 2
-phase: deliver
+phase: validate
 delivery_intent: ready_pull_request
 clarification:
   status: ready
@@ -155,6 +155,37 @@ collection through the existing GitHub cache and a coordinated additive model.
   unresolved threads and 20 comments per thread and makes truncation explicit.
   Details live only in the existing user-only cached evidence path.
 
+### Theme Continuation
+
+- The same issue #39, exact `GH-39` branch, and ready PR #40 continue after the
+  complete Following delivery; no second delivery lane is created.
+- Beacon ships exactly five built-in themes with stable IDs: Lobster Nebula,
+  Pampas Moon, Solarized Dark, Monokai, and Selenized Dark. Lobster Nebula is
+  the recommended default and Pampas Moon is the high-readability light theme.
+- A theme is one complete semantic token set, not a collection of legacy neon
+  color substitutions. Tokens cover canvas, layered surfaces, borders,
+  primary/secondary/muted text, accent/focus, success/warning/danger/info,
+  Local/PR/Issue identities, and every Markdown editor role.
+- Theme selection is a live shared appearance preference for both the menu
+  extra and detached dashboard. It persists through one stable AppStorage key,
+  falls back safely when an unknown value is present, and updates the AppKit
+  editor in the same render cycle.
+- Ordinary text uses system UI typography. Monospaced typography is reserved
+  for code, branches, identifiers, timestamps, percentages, and counters, and
+  essential interface text remains at least 11 points.
+- Ordinary canvas, card, control, tab, dialog, and border presentation uses
+  solid neutral surfaces, restrained borders, and minimal shadow. Beacon keeps
+  its playful gradient treatment only in the wordmark, rocket, and occasional
+  illustration.
+- Status meaning is invariant across themes and is always paired with explicit
+  text and an SF Symbol. Increase Contrast and Differentiate Without Color
+  strengthen borders and redundant cues; Reduce Transparency removes
+  translucent overlays; Reduce Motion disables decorative and layout motion.
+- Contrast tests use each token's declared sRGB value: normal text is at least
+  4.5:1 against its intended surface and non-text or large indicators are at
+  least 3:1. Accessible semantic aliases replace classic palette accents when
+  raw colors cannot meet the role's threshold.
+
 ## Requirements
 
 1. Extend versioned lane state with a normalized global lane order that
@@ -192,6 +223,33 @@ collection through the existing GitHub cache and a coordinated additive model.
     delayed hover, click pinning, pointer traversal, Escape, and keyboard focus.
 12. Reconcile README, constitution, progress summary, and this specification,
     then deliver the complete issue #39 scope in one ready pull request.
+13. Replace `BeaconPalette` and static neon role names with a typed semantic
+    theme catalog containing exactly the five clarified complete token sets.
+14. Give every theme a stable persisted ID, deterministic fallback, display
+    metadata, dark/light appearance, and compact preview swatches; default to
+    Lobster Nebula without rewriting an existing valid choice.
+15. Apply the selected semantic theme live to the menu extra and detached
+    dashboard, including lanes, tabs, controls, quick switcher, dialogs,
+    empty/error states, Signal Notes, and the AppKit Markdown editor.
+16. Add Settings → Appearance → Theme with all five names, a compact semantic
+    color preview, a selected indicator, and an explicit recommended marker on
+    Lobster Nebula and readability marker on Pampas Moon.
+17. Preserve one label-and-symbol status grammar across themes, semantic
+    Local/PR/Issue identities, quiet neutral surfaces, restrained borders,
+    minimal shadows, and no ordinary gradients.
+18. Use system UI type for ordinary copy and monospaced type only for code,
+    branch, identifier, timestamp, percentage, and counter roles; keep essential
+    rendered copy at least 11 points.
+19. Respect Increase Contrast, Differentiate Without Color, Reduce
+    Transparency, and Reduce Motion through native environment values without
+    changing data or persisted workflow state.
+20. Add automated catalog completeness, stable-ID/fallback, preference
+    persistence, WCAG contrast, semantic identity, and rendered five-theme
+    visual smoke coverage.
+21. Update README, constitution, progress summary, this specification, and PR
+    description/evidence for the completed theme continuation.
+22. Commit and push the continuation only to `GH-39` / PR #40, then require the
+    final local and hosted validation gates to pass on its exact head.
 
 ## Assumptions
 
@@ -206,6 +264,11 @@ collection through the existing GitHub cache and a coordinated additive model.
 - Native SwiftUI drag/drop and popover APIs available on macOS 14 are sufficient;
   no dependency or image asset is required.
 - Detail truncation is a visible partial result, not a collection failure.
+- Theme IDs are product protocol and remain independent from display names.
+- `Color`/`NSColor` are render forms derived from declared sRGB token values so
+  automated contrast evidence and AppKit presentation share one source.
+- Native macOS accessibility environment values are available on the minimum
+  supported macOS 14 deployment target.
 
 ## Acceptance Criteria
 
@@ -240,6 +303,23 @@ collection through the existing GitHub cache and a coordinated additive model.
 - [x] AC12: Canonical docs, focused tests, full Go/race/macOS/build/release/Kit
   checks, diff hygiene, and fresh-build visual interaction smoke pass before the
   ready PR is delivered.
+- [x] AC13: The catalog contains exactly five complete stable-ID themes with
+  Lobster Nebula as default/recommended and Pampas Moon as the only light theme.
+- [x] AC14: Selection persists and updates menu, detached dashboard, editor,
+  dialogs, switcher, states, lanes, tabs, controls, and Notes without restart.
+- [x] AC15: Every ordinary surface uses semantic solid tokens with quiet borders
+  and minimal shadow; no `BeaconPalette` or ordinary gradient implementation
+  remains.
+- [x] AC16: Appearance settings expose compact previews, selected state, names,
+  recommendation/readability context, deterministic fallback, and stable IDs.
+- [x] AC17: Status and Local/PR/Issue meaning remain label-and-symbol redundant
+  and invariant under all themes and Differentiate Without Color.
+- [x] AC18: System/monospaced typography roles, 11-point essential text, and the
+  four clarified macOS accessibility preferences are applied consistently.
+- [x] AC19: Automated completeness, fallback, persistence, contrast, identity,
+  and rendered visual smoke tests pass across all five themes.
+- [ ] AC20: Canonical/user docs, complete local validation, fresh-build visual
+  smoke, commit/push, PR #40 update, and final hosted checks are complete.
 
 ## Implementation Plan
 
@@ -255,6 +335,16 @@ collection through the existing GitHub cache and a coordinated additive model.
    interaction smoke, and review the complete diff.
 6. Explicitly stage, commit, push, create the assigned ready PR, observe hosted
    checks literally, and record final evidence.
+7. Extend the delivered feature specification for the explicitly queued theme
+   continuation and reconfirm the same issue, branch, and PR lane.
+8. Introduce the semantic theme catalog, preference resolver, SwiftUI/AppKit
+   render forms, and Settings appearance picker before migrating consumers.
+9. Migrate every shared surface and typography/status role, then implement the
+   native accessibility adaptations and remove the legacy palette API.
+10. Add focused catalog, persistence, contrast, and visual rendering tests;
+    update user/canonical docs and review the complete semantic-role inventory.
+11. Run the full local and fresh-build visual gates, commit/push to PR #40,
+    update delivery evidence, and wait for final hosted checks on the exact head.
 
 ## Agent Team Plan
 
@@ -279,6 +369,16 @@ collection through the existing GitHub cache and a coordinated additive model.
   review; repair every relevant issue.
 - [x] T8: Commit, push, create the assigned ready PR, observe hosted checks, and
   record final evidence.
+- [x] T9: Verify clean same-lane alignment after the Following delivery and add
+  the queued theme contract to this active specification.
+- [x] T10: Implement the complete semantic theme catalog, stable preference,
+  appearance settings, and live shared application.
+- [x] T11: Migrate all SwiftUI/AppKit surfaces, typography, status identity, and
+  accessibility behavior; remove the legacy palette implementation.
+- [x] T12: Add theme completeness, ID/fallback, persistence, WCAG contrast, and
+  five-theme rendered visual smoke tests plus user documentation.
+- [ ] T13: Run all local and interaction gates, repair issues, commit/push to PR
+  #40, update evidence, and require the final hosted checks to pass.
 
 ## Validation Map
 
@@ -292,6 +392,10 @@ collection through the existing GitHub cache and a coordinated additive model.
 | AC10 | runner command-count, cache-hit, protected-budget, partial/truncation, and zero-hover-command tests |
 | AC11 | existing Go, race, CLI, agent, Swift, notes, external-activity, and release suites |
 | AC12 | `make fmt-check vet test test-race build release-test macos-test macos-build`, Linux build, `kit check --all`, `git diff --check`, secret review, and PR checks |
+| AC13-AC16 | theme catalog, stable-ID/fallback/persistence, semantic-role inventory, settings preview, and shared-surface tests plus visual smoke |
+| AC17-AC18 | status identity/label/symbol assertions, typography-role tests, accessibility environment variants, and visual/accessibility smoke |
+| AC19 | token completeness and WCAG math tests plus AppKit-rendered preview smoke for every built-in theme |
+| AC20 | full make gate, Linux builds, Kit/diff/secret review, stable-app interaction smoke, exact branch/PR recon, and hosted checks |
 
 ## Reflection Notes
 
@@ -309,6 +413,13 @@ collection through the existing GitHub cache and a coordinated additive model.
 - The live working set contained twelve active lanes, one more than the supplied
   acceptance fixture; Overview displayed all twelve in one detached frame with
   Notes minimized and no lane-area scrolling.
+- Declared sRGB tokens made contrast defects visible before visual smoke. Testing
+  every interface text and indicator role against canvas, base, raised, and
+  overlay surfaces required quieter elevations for Pampas Moon, Solarized Dark,
+  Monokai, and Selenized Dark while preserving their requested core palettes.
+- One semantic catalog now drives SwiftUI, AppKit Markdown styling, the menu-bar
+  beacon, both dashboard surfaces, and accessibility adaptations; themes cannot
+  drift into separate status or identity grammars.
 
 ## Documentation Updates
 
@@ -354,3 +465,20 @@ collection through the existing GitHub cache and a coordinated additive model.
   and cached issue/PR Markdown detail with direct links and Escape dismissal.
 - Hosted checks passed on the implementation head: `go` in 57 seconds, `macos`
   in 2 minutes 20 seconds, and configured-maintainer assignment in 4 seconds.
+- The Following delivery evidence head
+  `6e19a6d9682096469bdf85432d783f7fa1382583` passed `go` in 55 seconds and
+  `macos` in 2 minutes 4 seconds before the queued theme continuation began.
+- Immediately before theme work, local `GH-39`, `origin/GH-39`, and PR #40 all
+  resolved to `6e19a6d9682096469bdf85432d783f7fa1382583`; the tree was clean, the issue
+  and ready PR were open and assigned to `jamesonstone`, and the base was `main`.
+- Theme validation passed `make fmt-check vet test test-race build release-test
+  macos-test macos-build`; the macOS suite executed 103 tests with zero failures,
+  including exact catalog/ID/core-palette checks, all-surface WCAG matrices, and
+  rendered semantic smoke fixtures for all five themes.
+- Linux amd64/arm64 builds, all 18 Kit feature checks, `git diff --check`,
+  changed-line secret review, legacy-palette/gradient audit, and source-size
+  review passed.
+- Fresh rebuilt-app smoke switched Lobster Nebula, Pampas Moon, Solarized Dark,
+  Monokai, and Selenized Dark live across the detached dashboard and AppKit
+  editor; the menu extra shared Lobster Nebula, Pampas Moon was readable in its
+  light appearance, and Lobster Nebula remained selected after quit/relaunch.

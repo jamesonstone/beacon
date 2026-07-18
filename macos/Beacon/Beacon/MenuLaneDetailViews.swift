@@ -9,7 +9,7 @@ extension MenuView {
                     Label(workItemTitle(lane), systemImage: laneIdentitySymbol(lane))
                         .font(BeaconTypography.semibold(14))
                     Text(laneReference(lane))
-                        .font(BeaconTypography.medium(10))
+                        .font(BeaconTypography.identifier(10, weight: .medium))
                         .foregroundStyle(DashboardLanePresentation.identity(for: lane).accent.color)
                 }
                 Spacer()
@@ -25,8 +25,8 @@ extension MenuView {
             } else if let pullRequest = lane.pullRequest {
                 detailMarkdown(pullRequest.body, empty: "This pull request has no description.", truncated: pullRequest.bodyTruncated == true)
                 Label("\(pullRequest.headRefName) → \(pullRequest.baseRefName)", systemImage: "arrow.triangle.pull")
-                    .font(BeaconTypography.medium(10))
-                    .foregroundStyle(BeaconPalette.cyan)
+                    .font(BeaconTypography.identifier(10, weight: .medium))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
                 if !pullRequest.closingIssues.isEmpty {
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Linked issues").font(BeaconTypography.semibold(11))
@@ -44,8 +44,8 @@ extension MenuView {
                     if !lane.branch.isEmpty { Label(lane.branch, systemImage: "arrow.triangle.branch") }
                     if let path = lane.worktree?.path { Label(path, systemImage: "internaldrive") }
                 }
-                .font(BeaconTypography.medium(10))
-                .foregroundStyle(BeaconPalette.cyan)
+                .font(BeaconTypography.identifier(10, weight: .medium))
+                .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
             }
 
             Divider()
@@ -57,8 +57,8 @@ extension MenuView {
             detailList("Blockers", symbol: "hand.raised.fill", values: lane.blockers)
             if let attention = lane.attention {
                 Text("\(attention.delta) · updated \(timeSinceActivity(lane.updatedAt))")
-                    .font(BeaconTypography.regular(9))
-                    .foregroundStyle(BeaconPalette.lavender)
+                    .font(BeaconTypography.identifier(9))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
                 detailMetadata("Local tags", values: attention.tags ?? [])
             }
         }
@@ -74,19 +74,19 @@ extension MenuView {
                 systemImage: "text.bubble.fill"
             )
             .font(BeaconTypography.semibold(13))
-            .foregroundStyle(BeaconPalette.pink)
+            .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
 
             if feedback.threadsTruncated == true {
                 Label("GitHub returned only the first page of review threads.", systemImage: "ellipsis.circle")
                     .font(BeaconTypography.medium(10))
-                    .foregroundStyle(BeaconPalette.gold)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
             }
 
             let threads = feedback.threads ?? []
             if threads.isEmpty {
                 Text("Detailed comments are unavailable in this cached snapshot. Refresh Beacon to load author, file, body, timestamp, and direct links.")
                     .font(BeaconTypography.regular(10))
-                    .foregroundStyle(BeaconPalette.lavender)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
             } else {
                 ForEach(threads) { thread in
                     VStack(alignment: .leading, spacing: 7) {
@@ -96,7 +96,7 @@ extension MenuView {
                             if thread.outdated {
                                 Text("Outdated")
                                     .font(BeaconTypography.medium(8))
-                                    .foregroundStyle(BeaconPalette.gold)
+                                    .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
                             }
                             Spacer()
                         }
@@ -104,18 +104,18 @@ extension MenuView {
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack {
                                     Text(comment.author.isEmpty ? "Unknown reviewer" : "@\(comment.author)")
-                                        .font(BeaconTypography.semibold(10))
+                                        .font(BeaconTypography.identifier(10, weight: .semibold))
                                     Spacer()
                                     Text(timeSinceActivity(comment.updatedAt))
-                                        .font(BeaconTypography.regular(8))
-                                        .foregroundStyle(BeaconPalette.lavender)
+                                        .font(BeaconTypography.identifier(8))
+                                        .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
                                 }
                                 markdownText(comment.body)
                                     .font(BeaconTypography.regular(10))
                                 HStack {
                                     if comment.bodyTruncated {
                                         Label("Comment truncated", systemImage: "ellipsis.circle")
-                                            .foregroundStyle(BeaconPalette.gold)
+                                            .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
                                     }
                                     Spacer()
                                     if let url = URL(string: comment.url) {
@@ -125,18 +125,18 @@ extension MenuView {
                                 .font(BeaconTypography.medium(9))
                             }
                             .padding(8)
-                            .background(BeaconPalette.softGradient(BeaconPalette.pink), in: RoundedRectangle(cornerRadius: 7))
+                            .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 7))
                         }
                         if thread.commentsTruncated {
                             Label("Additional comments are available on GitHub.", systemImage: "ellipsis.bubble")
                                 .font(BeaconTypography.medium(9))
-                                .foregroundStyle(BeaconPalette.gold)
+                                .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
                         }
                     }
                     .padding(9)
                     .overlay {
                         RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(BeaconPalette.pink.opacity(0.3), lineWidth: 0.7)
+                            .strokeBorder(interfaceBorderColor, lineWidth: colorSchemeContrast == .increased ? 1.1 : 0.7)
                     }
                 }
             }
@@ -150,14 +150,14 @@ extension MenuView {
         let value = body?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         VStack(alignment: .leading, spacing: 5) {
             if value.isEmpty {
-                Text(empty).foregroundStyle(BeaconPalette.lavender)
+                Text(empty).foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
             } else {
                 markdownText(value)
             }
             if truncated {
                 Label("Description truncated; open on GitHub for the complete text.", systemImage: "ellipsis.circle")
                     .font(BeaconTypography.medium(9))
-                    .foregroundStyle(BeaconPalette.gold)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
             }
         }
         .font(BeaconTypography.regular(10))
@@ -173,7 +173,7 @@ extension MenuView {
         if !values.isEmpty {
             Text("\(title): \(values.joined(separator: ", "))")
                 .font(BeaconTypography.regular(9))
-                .foregroundStyle(BeaconPalette.lavender)
+                .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
         }
     }
 

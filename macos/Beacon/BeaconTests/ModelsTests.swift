@@ -199,9 +199,9 @@ final class ModelsTests: XCTestCase {
         XCTAssertFalse(UpToDatePresentation.shouldShow(inProgressCount: 0, loadingProjectCount: 1))
     }
 
-    func testDashboardTypographyUsesSelectableSystemDesignsAndTwelvePointDefault() {
-        XCTAssertEqual(BeaconFontFamily.allCases.map(\.rawValue), ["system", "rounded", "monospaced", "serif"])
+    func testDashboardTypographyUsesSystemCopyAndElevenPointMinimum() {
         XCTAssertEqual(BeaconTypography.defaultBaseSize, 12)
+        XCTAssertEqual(BeaconTypography.resolvedSize(7, baseSize: 11), 11)
         XCTAssertEqual(BeaconTypography.resolvedSize(10, baseSize: 12), 12)
         XCTAssertEqual(BeaconTypography.resolvedSize(17, baseSize: 14), 21)
     }

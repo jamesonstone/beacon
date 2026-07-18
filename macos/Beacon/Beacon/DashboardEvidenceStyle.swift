@@ -38,6 +38,7 @@ enum RichHoverPresentation {
 }
 
 struct DismissibleEvidenceBadge: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let text: String
     let symbol: String
     let accent: Color
@@ -63,14 +64,14 @@ struct DismissibleEvidenceBadge: View {
         .padding(.leading, 6)
         .padding(.trailing, 4)
         .padding(.vertical, 3)
-        .background(BeaconPalette.softGradient(accent), in: Capsule())
+        .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: Capsule())
         .overlay {
             Capsule()
                 .strokeBorder(accent.opacity(emphasized ? 0.8 : 0.34), lineWidth: 0.6)
         }
         .shadow(color: emphasized ? accent.opacity(0.28) : .clear, radius: 2)
         .onHover { isHovered = $0 }
-        .animation(.easeOut(duration: 0.12), value: isHovered)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovered)
     }
 }
 
@@ -131,7 +132,7 @@ struct RichHoverPopover<PopoverContent: View>: ViewModifier {
                 }
                 .padding(12)
                 .frame(width: 520, height: 420)
-                .background(BeaconPalette.panelBackground)
+                .background(BeaconThemePreference.current().tokens.surfaceOverlay.color)
                 .onHover { hovered in
                     popoverHovered = hovered
                     if !hovered { scheduleClose() }

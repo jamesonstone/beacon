@@ -10,13 +10,13 @@ extension MenuView {
             }
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("\(state.inProgressCount) lanes in focus")
-                    .font(BeaconTypography.medium(10))
-                    .foregroundStyle(BeaconPalette.mint)
+                    .font(BeaconTypography.counter(10, weight: .medium))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.success.color)
                     .lineLimit(1)
                 if let generatedAt = state.snapshot?.generatedAt {
                     Text("Updated \(timeSinceActivity(generatedAt))")
-                        .font(BeaconTypography.regular(8))
-                        .foregroundStyle(BeaconPalette.lavender.opacity(0.82))
+                        .font(BeaconTypography.identifier(8))
+                        .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                         .lineLimit(1)
                 }
             }
@@ -41,26 +41,26 @@ extension MenuView {
                 if state.isCheckingRepositorySync || state.isApplyingRepositorySync {
                     ProgressView()
                         .controlSize(.small)
-                        .tint(BeaconPalette.gold)
+                        .tint(BeaconThemePreference.current().tokens.warning.color)
                 } else {
                     Image(systemName: "arrow.triangle.2.circlepath")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(BeaconPalette.gold)
+                        .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
                 }
             }
             .frame(width: 28, height: 28)
-            .background(BeaconPalette.softGradient(BeaconPalette.gold), in: RoundedRectangle(cornerRadius: 8))
+            .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 8))
             .overlay {
                 RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(BeaconPalette.gold.opacity(0.42), lineWidth: 0.7)
+                    .strokeBorder(BeaconThemePreference.current().tokens.warning.color.opacity(0.42), lineWidth: 0.7)
             }
             .overlay(alignment: .topTrailing) {
                 if !state.repositoriesNeedingSync.isEmpty {
                     Text("\(min(state.repositoriesNeedingSync.count, 99))")
-                        .font(.system(size: 7, weight: .bold, design: .rounded))
+                        .font(BeaconTypography.counter(11, weight: .bold))
                         .foregroundStyle(Color.black)
                         .padding(3)
-                        .background(BeaconPalette.gold, in: Circle())
+                        .background(BeaconThemePreference.current().tokens.warning.color, in: Circle())
                         .offset(x: 3, y: -3)
                 }
             }
@@ -86,11 +86,14 @@ extension MenuView {
                         .controlSize(.small)
                         .tint(accent)
                 } else if state.dependencyLimitsReport?.hasUsage == true {
-                    Text("\(state.dependencyUsagePercent)%")
-                        .font(.system(size: 8, weight: .heavy, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(accent)
-                        .minimumScaleFactor(0.75)
+                    VStack(spacing: 0) {
+                        Image(systemName: state.dependencyUsageLevel.symbol)
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundStyle(accent)
+                        Text("\(state.dependencyUsagePercent)%")
+                            .font(BeaconTypography.counter(11, weight: .heavy))
+                            .foregroundStyle(BeaconThemePreference.current().tokens.textPrimary.color)
+                    }
                 } else {
                     Image(systemName: "gauge.with.dots.needle.50percent")
                         .font(.system(size: 13, weight: .bold))
@@ -98,7 +101,7 @@ extension MenuView {
                 }
             }
             .frame(width: 28, height: 28)
-            .background(BeaconPalette.softGradient(accent), in: RoundedRectangle(cornerRadius: 8))
+            .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 8))
             .overlay {
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(accent.opacity(0.42), lineWidth: 0.7)
@@ -113,7 +116,7 @@ extension MenuView {
 
     var dependencyLimitsAccessibilityLabel: String {
         guard state.dependencyLimitsReport != nil else { return "Dependency Limits, not checked" }
-        return "Dependency Limits, highest usage \(state.dependencyUsagePercent) percent"
+        return "Dependency Limits, highest usage \(state.dependencyUsagePercent) percent, \(state.dependencyUsageLevel.title)"
     }
 
     var refreshButton: some View {
@@ -124,18 +127,18 @@ extension MenuView {
                 if state.isScanning {
                     ProgressView()
                         .controlSize(.small)
-                        .tint(BeaconPalette.mint)
+                        .tint(BeaconThemePreference.current().tokens.success.color)
                 } else {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(BeaconPalette.mint)
+                        .foregroundStyle(BeaconThemePreference.current().tokens.success.color)
                 }
             }
             .frame(width: 28, height: 28)
-            .background(BeaconPalette.softGradient(BeaconPalette.mint), in: RoundedRectangle(cornerRadius: 8))
+            .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 8))
             .overlay {
                 RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(BeaconPalette.mint.opacity(0.42), lineWidth: 0.7)
+                    .strokeBorder(BeaconThemePreference.current().tokens.success.color.opacity(0.42), lineWidth: 0.7)
             }
         }
         .buttonStyle(.plain)
@@ -154,12 +157,12 @@ private struct TaxonomyInfoButton: View {
         } label: {
             Image(systemName: "info.circle.fill")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(BeaconPalette.lavender)
+                .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
                 .frame(width: 28, height: 28)
-                .background(BeaconPalette.softGradient(BeaconPalette.lavender), in: RoundedRectangle(cornerRadius: 8))
+                .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 8))
                 .overlay {
                     RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(BeaconPalette.lavender.opacity(0.35), lineWidth: 0.7)
+                        .strokeBorder(BeaconThemePreference.current().tokens.border.color, lineWidth: 0.7)
                 }
         }
         .buttonStyle(.plain)
@@ -170,28 +173,29 @@ private struct TaxonomyInfoButton: View {
                 VStack(alignment: .leading, spacing: 13) {
                     Label("Beacon's universal workflow", systemImage: "point.3.connected.trianglepath.dotted")
                         .font(BeaconTypography.bold(14))
-                        .foregroundStyle(BeaconPalette.mint)
+                        .foregroundStyle(BeaconThemePreference.current().tokens.success.color)
                     Text("Every project and work item uses the same hierarchy. Color reinforces these labels and symbols, but never replaces them.")
                         .font(BeaconTypography.regular(10))
-                    taxonomyRow("Membership", symbol: "star.fill", text: "Following is explicit. Activity can place a non-followed project in Recently Updated; otherwise it remains Quiet.", accent: BeaconPalette.mint)
-                    taxonomyRow("Identity", symbol: "number", text: "Mint means Local work, cyan means Pull Request, and pink means Issue. Identity color is never status.", accent: BeaconPalette.cyan)
-                    taxonomyRow("Attention", symbol: "scope", text: "Active, Waiting, Recently Active, or Parked. Ignore moves only that lane to Parking Lot; Resume returns it to Go-derived attention without changing project membership.", accent: BeaconPalette.mint)
-                    taxonomyRow("Next action", symbol: "arrow.right.circle.fill", text: "One canonical instruction such as Address Review, Fix CI, Push Branch, or Start Issue.", accent: BeaconPalette.gold)
-                    taxonomyRow("Order", symbol: "line.3.horizontal", text: "One persisted lane order is projected into every status and layout. Drag within a status; drop on Following or Parking Lot only to Resume or Ignore.", accent: BeaconPalette.lavender)
-                    taxonomyRow("Evidence exceptions", symbol: "exclamationmark.bubble.fill", text: "Only actionable or uncertain signals appear as badges. Healthy clean, current, approved, and successful values are quiet; Stale means evidence exceeded the configured freshness window.", accent: BeaconPalette.pink)
-                    taxonomyRow("Local context", symbol: "tag.fill", text: "Your tags and notes add context but never change Beacon's inferred status or next action.", accent: BeaconPalette.lavender)
+                    taxonomyRow("Membership", symbol: "star.fill", text: "Following is explicit. Activity can place a non-followed project in Recently Updated; otherwise it remains Quiet.", accent: BeaconThemePreference.current().tokens.success.color)
+                    taxonomyRow("Identity", symbol: "number", text: "Every card explicitly says Local, PR, Issue, or Manual and pairs that label with a stable SF Symbol. Each theme supplies distinct semantic identity accents; identity color is never status.", accent: BeaconThemePreference.current().tokens.info.color)
+                    taxonomyRow("Attention", symbol: "scope", text: "Active, Waiting, Recently Active, or Parked. Ignore moves only that lane to Parking Lot; Resume returns it to Go-derived attention without changing project membership.", accent: BeaconThemePreference.current().tokens.success.color)
+                    taxonomyRow("Next action", symbol: "arrow.right.circle.fill", text: "One canonical instruction such as Address Review, Fix CI, Push Branch, or Start Issue.", accent: BeaconThemePreference.current().tokens.warning.color)
+                    taxonomyRow("Order", symbol: "line.3.horizontal", text: "One persisted lane order is projected into every status and layout. Drag within a status; drop on Following or Parking Lot only to Resume or Ignore.", accent: BeaconThemePreference.current().tokens.textSecondary.color)
+                    taxonomyRow("Evidence exceptions", symbol: "exclamationmark.bubble.fill", text: "Only actionable or uncertain signals appear as badges. Healthy clean, current, approved, and successful values are quiet; Stale means evidence exceeded the configured freshness window.", accent: BeaconThemePreference.current().tokens.warning.color)
+                    taxonomyRow("Local context", symbol: "tag.fill", text: "Your tags and notes add context but never change Beacon's inferred status or next action.", accent: BeaconThemePreference.current().tokens.textSecondary.color)
+                    taxonomyRow("Appearance", symbol: "paintpalette.fill", text: "All five themes preserve the same labels, symbols, status meanings, and Local/PR/Issue identities. Settings → Appearance changes only semantic presentation and persists across both Beacon surfaces.", accent: BeaconThemePreference.current().tokens.accent.color)
                     Divider()
                     Label("PR feedback · N", systemImage: "text.bubble.fill")
                         .font(BeaconTypography.semibold(11))
-                        .foregroundStyle(BeaconPalette.pink)
+                        .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
                     Text("N is the number of unresolved pull request review threads, not issue comments. Hover the badge to see each file, reviewer, Markdown comment, timestamp, and direct GitHub link. Hover any card for its issue, PR, or local-work description.")
                         .font(BeaconTypography.regular(10))
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(width: 420, height: 390)
-            .background(BeaconPalette.panelBackground)
+            .frame(width: 440, height: 430)
+            .background(BeaconThemePreference.current().tokens.surfaceOverlay.color)
         }
     }
 
@@ -202,7 +206,7 @@ private struct TaxonomyInfoButton: View {
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(BeaconTypography.semibold(11))
-                Text(text).font(BeaconTypography.regular(9)).foregroundStyle(BeaconPalette.lavender)
+                Text(text).font(BeaconTypography.regular(9)).foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
             }
         }
     }
