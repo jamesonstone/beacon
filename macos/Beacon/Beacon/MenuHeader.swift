@@ -24,6 +24,7 @@ extension MenuView {
             refreshButton
             repositorySyncButton
             dependencyLimitsButton
+            TaxonomyInfoButton()
             viewModeMenu
             settingsMenu
         }
@@ -141,5 +142,68 @@ extension MenuView {
         .disabled(state.isScanning)
         .help(state.isScanning ? "Scanning Git and GitHub evidence" : "Scan Now — refresh Git and GitHub evidence")
         .accessibilityLabel(state.isScanning ? "Scan in progress" : "Scan Now")
+    }
+}
+
+private struct TaxonomyInfoButton: View {
+    @State private var isPresented = false
+
+    var body: some View {
+        Button {
+            isPresented.toggle()
+        } label: {
+            Image(systemName: "info.circle.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(BeaconPalette.lavender)
+                .frame(width: 28, height: 28)
+                .background(BeaconPalette.softGradient(BeaconPalette.lavender), in: RoundedRectangle(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(BeaconPalette.lavender.opacity(0.35), lineWidth: 0.7)
+                }
+        }
+        .buttonStyle(.plain)
+        .help("How Beacon organizes identity, status, actions, and evidence")
+        .accessibilityLabel("Beacon taxonomy guide")
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 13) {
+                    Label("Beacon's universal workflow", systemImage: "point.3.connected.trianglepath.dotted")
+                        .font(BeaconTypography.bold(14))
+                        .foregroundStyle(BeaconPalette.mint)
+                    Text("Every project and work item uses the same hierarchy. Color reinforces these labels and symbols, but never replaces them.")
+                        .font(BeaconTypography.regular(10))
+                    taxonomyRow("Membership", symbol: "star.fill", text: "Following is explicit. Activity can place a non-followed project in Recently Updated; otherwise it remains Quiet.", accent: BeaconPalette.mint)
+                    taxonomyRow("Identity", symbol: "number", text: "Mint means Local work, cyan means Pull Request, and pink means Issue. Identity color is never status.", accent: BeaconPalette.cyan)
+                    taxonomyRow("Attention", symbol: "scope", text: "Active, Waiting, Recently Active, or Parked. Ignore moves only that lane to Parking Lot; Resume returns it to Go-derived attention without changing project membership.", accent: BeaconPalette.mint)
+                    taxonomyRow("Next action", symbol: "arrow.right.circle.fill", text: "One canonical instruction such as Address Review, Fix CI, Push Branch, or Start Issue.", accent: BeaconPalette.gold)
+                    taxonomyRow("Order", symbol: "line.3.horizontal", text: "One persisted lane order is projected into every status and layout. Drag within a status; drop on Following or Parking Lot only to Resume or Ignore.", accent: BeaconPalette.lavender)
+                    taxonomyRow("Evidence exceptions", symbol: "exclamationmark.bubble.fill", text: "Only actionable or uncertain signals appear as badges. Healthy clean, current, approved, and successful values are quiet; Stale means evidence exceeded the configured freshness window.", accent: BeaconPalette.pink)
+                    taxonomyRow("Local context", symbol: "tag.fill", text: "Your tags and notes add context but never change Beacon's inferred status or next action.", accent: BeaconPalette.lavender)
+                    Divider()
+                    Label("PR feedback · N", systemImage: "text.bubble.fill")
+                        .font(BeaconTypography.semibold(11))
+                        .foregroundStyle(BeaconPalette.pink)
+                    Text("N is the number of unresolved pull request review threads, not issue comments. Hover the badge to see each file, reviewer, Markdown comment, timestamp, and direct GitHub link. Hover any card for its issue, PR, or local-work description.")
+                        .font(BeaconTypography.regular(10))
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(width: 420, height: 390)
+            .background(BeaconPalette.panelBackground)
+        }
+    }
+
+    private func taxonomyRow(_ title: String, symbol: String, text: String, accent: Color) -> some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: symbol)
+                .foregroundStyle(accent)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(BeaconTypography.semibold(11))
+                Text(text).font(BeaconTypography.regular(9)).foregroundStyle(BeaconPalette.lavender)
+            }
+        }
     }
 }

@@ -13,11 +13,29 @@ import (
 
 func Finalize(snapshot *model.Snapshot) {
 	snapshot.Groups = model.Groups{Ready: []string{}, Action: []string{}, Waiting: []string{}, Idle: []string{}, Untracked: []string{}}
-	snapshot.WorkingSet = model.WorkingSet{Active: []string{}, Waiting: []string{}, Recent: []string{}, Parked: []string{}}
+	snapshot.WorkingSet = model.WorkingSet{Order: []string{}, Active: []string{}, Waiting: []string{}, Recent: []string{}, Parked: []string{}}
 	snapshot.Summary = model.Summary{}
+	normalizeRichEvidence(snapshot.Lanes)
 	orderLanes(snapshot.Lanes)
 	orderProjectLanes(snapshot.Projects, snapshot.Lanes)
 	group(snapshot)
+}
+
+func normalizeRichEvidence(lanes []model.Lane) {
+	for laneIndex := range lanes {
+		pullRequest := lanes[laneIndex].PullRequest
+		if pullRequest == nil {
+			continue
+		}
+		if pullRequest.Feedback.Threads == nil {
+			pullRequest.Feedback.Threads = []model.ReviewThread{}
+		}
+		for threadIndex := range pullRequest.Feedback.Threads {
+			if pullRequest.Feedback.Threads[threadIndex].Comments == nil {
+				pullRequest.Feedback.Threads[threadIndex].Comments = []model.ReviewComment{}
+			}
+		}
+	}
 }
 
 func correlateProgress(repository config.Repository, result progress.Result) (*model.Progress, map[int]model.Progress) {

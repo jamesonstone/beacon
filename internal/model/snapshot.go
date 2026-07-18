@@ -45,6 +45,7 @@ type Groups struct {
 
 type WorkingSet struct {
 	Path    string   `json:"path"`
+	Order   []string `json:"order"`
 	Active  []string `json:"active"`
 	Waiting []string `json:"waiting"`
 	Recent  []string `json:"recent"`

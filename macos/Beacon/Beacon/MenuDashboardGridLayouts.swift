@@ -1,6 +1,41 @@
 import SwiftUI
 
 extension MenuView {
+    func overviewDashboard(_ snapshot: BeaconSnapshot) -> some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 8) {
+                loadingProjectStrip
+                if let working = snapshot.workingSet {
+                    overviewSection("Active", symbol: "bolt.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: working.active))
+                    overviewSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: working.waiting))
+                    overviewSection("Recently Active", symbol: "sparkles", accent: BeaconPalette.cyan, lanes: state.lanes(for: working.recent))
+                } else {
+                    overviewSection("Ready for Review", symbol: "checkmark.circle.fill", accent: BeaconPalette.mint, lanes: state.lanes(for: snapshot.groups.ready))
+                    overviewSection("Needs Action", symbol: "exclamationmark.triangle.fill", accent: BeaconPalette.coral, lanes: state.lanes(for: snapshot.groups.action))
+                    overviewSection("Waiting", symbol: "clock.fill", accent: BeaconPalette.gold, lanes: state.lanes(for: snapshot.groups.waiting))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    func overviewSection(_ title: String, symbol: String, accent: Color, lanes: [WorkLane]) -> some View {
+        if !lanes.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                sectionHeader(title, symbol: symbol, accent: accent, count: lanes.count)
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: surface == .menu ? 184 : 200), spacing: 6)],
+                    alignment: .leading,
+                    spacing: 6
+                ) {
+                    ForEach(lanes) { lane in
+                        laneCard(lane, density: .dense)
+                    }
+                }
+            }
+        }
+    }
+
     func tileDashboard(_ snapshot: BeaconSnapshot) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
@@ -67,8 +102,8 @@ extension MenuView {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(alignment: .top, spacing: 9) {
                         ForEach(lanes) { lane in
-                            laneCard(lane, compact: true)
-                                .frame(width: 248)
+                            laneCard(lane, density: density == .comfortable ? .compact : density)
+                                .frame(width: density.tileWidth)
                         }
                     }
                     .padding(.vertical, 2)
@@ -83,7 +118,7 @@ extension MenuView {
             ScrollView {
                 LazyVStack(spacing: 8) {
                     ForEach(lanes) { lane in
-                        laneCard(lane, compact: true)
+                        laneCard(lane, density: density == .comfortable ? .compact : density)
                     }
                     if lanes.isEmpty {
                         Text("No lanes")

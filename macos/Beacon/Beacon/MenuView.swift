@@ -23,7 +23,9 @@ struct MenuView: View {
     @State var switcherQuery = ""
     @State var switcherSelection = 0
     @State var notePendingDeletion: AgentNoteTab?
+    @State var evidenceHoverLaneID: String?
     @AppStorage("beacon.dashboard.view-mode") private var viewModeValue = DashboardViewMode.stacked.rawValue
+    @AppStorage(DashboardDensity.storageKey) var densityValue = DashboardDensity.defaultDensity.rawValue
     @AppStorage("beacon.dismissed-evidence-badges") var dismissedEvidenceBadgesValue = "[]"
     @AppStorage(SignalNotesPresentation.sizeStorageKey) var signalNotesSizeValue = SignalNotesSize.half.rawValue
     @AppStorage(SignalNotesPresentation.lastExpandedStorageKey) var signalNotesLastExpandedSizeValue = SignalNotesSize.half.rawValue
@@ -32,7 +34,25 @@ struct MenuView: View {
 
     var viewMode: DashboardViewMode {
         get { DashboardViewMode(rawValue: viewModeValue) ?? .stacked }
-        nonmutating set { viewModeValue = newValue.rawValue }
+        nonmutating set { setViewMode(newValue) }
+    }
+
+    var density: DashboardDensity {
+        DashboardDensity(rawValue: densityValue) ?? .comfortable
+    }
+
+    func setViewMode(_ mode: DashboardViewMode) {
+        let previous = DashboardViewMode(rawValue: viewModeValue) ?? .stacked
+        guard previous != mode else { return }
+        let transition = DashboardOverviewPresentation.notesTransition(
+            from: previous,
+            to: mode,
+            current: SignalNotesSize(rawValue: signalNotesSizeValue) ?? .half,
+            lastExpanded: SignalNotesSize(rawValue: signalNotesLastExpandedSizeValue) ?? .half
+        )
+        signalNotesSizeValue = transition.current.rawValue
+        signalNotesLastExpandedSizeValue = transition.lastExpanded.rawValue
+        viewModeValue = mode.rawValue
     }
 
     var dismissedEvidenceBadges: Set<String> {
@@ -198,7 +218,7 @@ struct MenuView: View {
 
     var viewModeMenu: some View {
         Menu {
-            Picker("View mode", selection: Binding(get: { viewMode }, set: { viewMode = $0 })) {
+            Picker("View mode", selection: Binding(get: { viewMode }, set: setViewMode)) {
                 ForEach(DashboardViewMode.allCases) { mode in
                     Label(mode.title, systemImage: mode.symbol).tag(mode)
                 }

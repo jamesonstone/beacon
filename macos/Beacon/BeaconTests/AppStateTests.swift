@@ -162,7 +162,8 @@ final class AppStateTests: XCTestCase {
             active: ["active-base", "active-work"],
             waiting: [],
             recent: [],
-            parked: ["quiet-worktree"]
+            parked: ["quiet-worktree"],
+            order: ["active-base", "active-work", "quiet-worktree"]
         )
         let state = AppState(client: StubClient(result: .success(snapshot)))
 
@@ -180,7 +181,8 @@ final class AppStateTests: XCTestCase {
             active: ["quiet-base"],
             waiting: [],
             recent: [],
-            parked: ["quiet-worktree"]
+            parked: ["quiet-worktree"],
+            order: ["quiet-base", "quiet-worktree"]
         )
         let state = AppState(client: StubClient(result: .success(snapshot)))
 
@@ -197,7 +199,8 @@ final class AppStateTests: XCTestCase {
             active: ["active-work"],
             waiting: [],
             recent: [],
-            parked: []
+            parked: [],
+            order: ["active-work"]
         )
         var parked = active
         parked.workingSet = WorkingSetGroups(
@@ -205,7 +208,8 @@ final class AppStateTests: XCTestCase {
             active: [],
             waiting: [],
             recent: [],
-            parked: ["active-work"]
+            parked: ["active-work"],
+            order: ["active-work"]
         )
         let agent = RecordingLaneAttentionAgent(
             mutationEvent: TestSnapshots.snapshotEvent(parked)
@@ -221,6 +225,27 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(state.snapshot?.workingSet?.active, [])
         XCTAssertEqual(state.snapshot?.workingSet?.parked, ["active-work"])
         XCTAssertNil(state.lastError)
+    }
+
+    func testLaneReorderSendsCompleteOrderAndRejectsCrossStatusMove() async {
+        var snapshot = TestSnapshots.withIdleInventory
+        snapshot.workingSet = WorkingSetGroups(
+            path: "/Users/test/.local/state/beacon/lanes.json",
+            active: ["active-base", "active-work"],
+            waiting: [],
+            recent: [],
+            parked: ["quiet-worktree"],
+            order: ["active-base", "active-work", "quiet-worktree"]
+        )
+        let agent = RecordingLaneAttentionAgent(mutationEvent: TestSnapshots.snapshotEvent(snapshot))
+        let state = AppState(agent: agent, installer: nil)
+        state.apply(TestSnapshots.snapshotEvent(snapshot))
+
+        await state.reorderLane("active-work", before: "active-base")
+        await state.reorderLane("active-work", before: "quiet-worktree")
+
+        let calls = await agent.laneOrderCalls
+        XCTAssertEqual(calls, [["active-work", "active-base", "quiet-worktree"]])
     }
 
     func testOpenTargetPrefersPullRequestThenIssueThenWorktree() throws {

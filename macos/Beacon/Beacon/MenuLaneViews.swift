@@ -6,11 +6,11 @@ extension MenuView {
         if !lanes.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 sectionHeader(title, symbol: symbol, accent: accent, count: lanes.count)
-                ForEach(state.projectGroups(for: lanes)) { project in
-                    projectHeader(project, accent: accent)
-                    ForEach(project.lanes) { lane in
-                        laneCard(lane)
+                ForEach(Array(lanes.enumerated()), id: \.element.id) { index, lane in
+                    if index == 0 || lanes[index - 1].github != lane.github {
+                        projectHeader(state.projectGroup(for: lane), accent: accent)
                     }
+                    laneCard(lane)
                 }
             }
         }
@@ -43,25 +43,37 @@ extension MenuView {
         .padding(.top, 2)
     }
 
-    func laneCard(_ lane: WorkLane, compact: Bool = false) -> some View {
-        laneRow(lane, compact: compact)
+    func laneCard(_ lane: WorkLane, density override: DashboardDensity? = nil) -> some View {
+        let cardDensity = override ?? density
+        return laneRow(lane, density: cardDensity)
             .contentShape(RoundedRectangle(cornerRadius: 9))
             .onTapGesture { state.open(lane) }
             .contextMenu { laneActions(lane) }
+            .dropDestination(for: String.self) { laneIDs, _ in
+                guard let draggedID = laneIDs.first else { return false }
+                Task { await state.reorderLane(draggedID, before: lane.id) }
+                return true
+            }
+            .accessibilityAction(named: "Move up") { Task { await state.moveLane(lane.id, by: -1) } }
+            .accessibilityAction(named: "Move down") { Task { await state.moveLane(lane.id, by: 1) } }
+            .richHoverPopover(
+                enabled: RichHoverPresentation.cardDetailEnabled(
+                    evidenceHoverLaneID: evidenceHoverLaneID,
+                    laneID: lane.id
+                )
+            ) { laneDetailPanel(lane) }
     }
 
-    func laneRow(_ lane: WorkLane, compact: Bool = false) -> some View {
+    func laneRow(_ lane: WorkLane, density: DashboardDensity) -> some View {
         let accent = DashboardLanePresentation.identity(for: lane).accent.color
-        return VStack(alignment: .leading, spacing: 5) {
-            HStack {
-                if compact {
+        return VStack(alignment: .leading, spacing: density.spacing) {
+            HStack(spacing: 6) {
+                if density != .comfortable {
                     projectGlyph(lane, accent: accent)
                 }
                 Text(workItemTitle(lane))
-                    .font(BeaconTypography.semibold(
-                        compact ? 11 : DashboardLanePresentation.laneTitleSize
-                    ))
-                    .lineLimit(compact ? 2 : 1)
+                    .font(BeaconTypography.semibold(density.titleSize))
+                    .lineLimit(density.titleLines)
                 Spacer()
                 if let pullRequest = lane.pullRequest {
                     Text("PR #\(pullRequest.number)").font(BeaconTypography.medium(10)).foregroundStyle(accent)
@@ -74,8 +86,9 @@ extension MenuView {
                     checkoutWarningButton(lane)
                 }
                 if DashboardLanePresentation.showsIgnoreAction(in: selectedDashboardTab) {
-                    ignoreButton(lane, compact: compact)
+                    ignoreButton(lane, compact: density != .comfortable)
                 }
+                laneDragHandle(lane)
             }
             HStack {
                 Text(actionLabel(lane.nextAction))
@@ -86,34 +99,48 @@ extension MenuView {
                     externalActivityChip(activity)
                 }
             }
-            if let attention = lane.attention {
+            if density != .dense, let attention = lane.attention {
                 Text("\(attention.delta) · \(timeSinceActivity(lane.updatedAt))")
                     .font(BeaconTypography.regular(9))
                     .foregroundStyle(BeaconPalette.cyan)
                     .lineLimit(1)
-                tagChips(lane, tags: attention.tags ?? [], accent: accent)
-                if let note = attention.note, !note.isEmpty {
+                if density == .comfortable {
+                    tagChips(lane, tags: attention.tags ?? [], accent: accent)
+                }
+                if density == .comfortable, let note = attention.note, !note.isEmpty {
                     Label("\(note)\(attention.noteStale ? " · evidence changed" : "")", systemImage: "note.text")
                         .font(BeaconTypography.regular(9))
                         .foregroundStyle(attention.noteStale ? BeaconPalette.gold : BeaconPalette.lavender)
                         .lineLimit(2)
                 }
             }
-            if !compact, let progress = lane.progress {
+            if density == .comfortable, let progress = lane.progress {
                 Text("Kit \(actionLabel(progress.phase)) · \(progress.summary)")
                     .font(BeaconTypography.regular(9))
                     .foregroundStyle(BeaconPalette.lavender.opacity(0.85))
                     .lineLimit(1)
             }
-            evidenceBadges(lane)
+            evidenceBadges(lane, condensed: density == .dense)
         }
-        .padding(compact ? 9 : 10)
+        .padding(density.cardPadding)
         .background(BeaconPalette.softGradient(accent), in: RoundedRectangle(cornerRadius: 9))
         .overlay {
             RoundedRectangle(cornerRadius: 9)
                 .strokeBorder(BeaconPalette.borderGradient(accent), lineWidth: 0.8)
         }
         .shadow(color: accent.opacity(0.09), radius: 4, y: 2)
+    }
+
+    func laneDragHandle(_ lane: WorkLane) -> some View {
+        Image(systemName: "line.3.horizontal")
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(BeaconPalette.lavender.opacity(0.55))
+            .frame(width: 18, height: 22)
+            .contentShape(Rectangle())
+            .draggable(lane.id)
+            .help("Drag to reorder in this status, or drop on Following or Parking Lot")
+            .accessibilityLabel("Reorder \(workItemTitle(lane))")
+            .accessibilityHint("Use the card actions to move this item with the keyboard")
     }
 
     func externalActivityChip(_ activity: ExternalActivityChip) -> some View {
@@ -232,6 +259,9 @@ extension MenuView {
 
     @ViewBuilder
     func laneActions(_ lane: WorkLane) -> some View {
+        Button("Move Up") { Task { await state.moveLane(lane.id, by: -1) } }
+        Button("Move Down") { Task { await state.moveLane(lane.id, by: 1) } }
+        Divider()
         if lane.attention?.state == "parked" {
             Button("Resume") { Task { await state.setLaneAttention(lane, state: "active") } }
         } else {

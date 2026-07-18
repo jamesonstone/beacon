@@ -36,6 +36,16 @@ extension MenuView {
             } label: {
                 Label("Font Size: \(fontSizeValue) pt", systemImage: "textformat.size")
             }
+            Menu {
+                Picker("Card Density", selection: $densityValue) {
+                    ForEach(DashboardDensity.allCases) { density in
+                        Label(density.title, systemImage: density.symbol).tag(density.rawValue)
+                    }
+                }
+            } label: {
+                let selected = DashboardDensity(rawValue: densityValue) ?? .comfortable
+                Label("Card Density: \(selected.title)", systemImage: selected.symbol)
+            }
             Button {
                 dismissedEvidenceBadgesValue = "[]"
             } label: {

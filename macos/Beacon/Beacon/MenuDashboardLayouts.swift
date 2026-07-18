@@ -73,6 +73,16 @@ extension MenuView {
                 }
                 .buttonStyle(.plain)
                 .help(selected && tab != .following ? "Return to Following" : "Show \(tab.title)")
+                .dropDestination(for: String.self) { laneIDs, _ in
+                    guard (tab == .following || tab == .parking), let laneID = laneIDs.first else {
+                        return false
+                    }
+                    Task { await state.moveLane(laneID, to: tab) }
+                    return true
+                }
+                .accessibilityHint(tab == .following || tab == .parking
+                    ? "Accepts dropped lanes"
+                    : "Shows \(tab.title)")
             }
         }
     }
@@ -145,6 +155,8 @@ extension MenuView {
                 tileDashboard(snapshot)
             case .kanban:
                 kanbanDashboard(snapshot)
+            case .overview:
+                overviewDashboard(snapshot)
             }
         }
     }
@@ -171,6 +183,13 @@ extension MenuView {
                 GeometryReader { geometry in
                     kanbanColumn("Parking Lot", symbol: "pause.circle.fill", accent: BeaconPalette.lavender, lanes: lanes, height: geometry.size.height)
                 }
+            case .overview:
+                overviewSection(
+                    "Parking Lot",
+                    symbol: "pause.circle.fill",
+                    accent: BeaconPalette.lavender,
+                    lanes: lanes
+                )
             }
         }
     }

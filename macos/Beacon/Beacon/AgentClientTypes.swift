@@ -76,6 +76,7 @@ protocol AgentClientProtocol {
     func removeLaneTag(_ id: String, tag: String) async throws -> AgentEvent
     func markLaneSeen(_ id: String) async throws -> AgentEvent
     func addManualLane(_ title: String) async throws -> AgentEvent
+    func reorderLanes(_ ids: [String]) async throws -> AgentEvent
     func notes() async throws -> AgentEvent
     func setNotes(_ content: String) async throws -> AgentEvent
     func notesWorkspace() async throws -> AgentEvent
@@ -99,6 +100,7 @@ extension AgentClientProtocol {
     func removeLaneTag(_ id: String, tag: String) async throws -> AgentEvent { throw AgentClientError.command("lane tags are unavailable") }
     func markLaneSeen(_ id: String) async throws -> AgentEvent { throw AgentClientError.command("lane acknowledgement is unavailable") }
     func addManualLane(_ title: String) async throws -> AgentEvent { throw AgentClientError.command("manual lanes are unavailable") }
+    func reorderLanes(_ ids: [String]) async throws -> AgentEvent { throw AgentClientError.command("lane reordering is unavailable") }
     func notes() async throws -> AgentEvent { throw AgentClientError.command("Notes are unavailable") }
     func setNotes(_ content: String) async throws -> AgentEvent { throw AgentClientError.command("Notes are unavailable") }
     func notesWorkspace() async throws -> AgentEvent { throw AgentClientError.command("Note tabs are unavailable") }

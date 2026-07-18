@@ -5,6 +5,7 @@ enum DashboardViewMode: String, CaseIterable, Identifiable {
     case stacked
     case tiles
     case kanban
+    case overview
 
     var id: String { rawValue }
 
@@ -13,6 +14,7 @@ enum DashboardViewMode: String, CaseIterable, Identifiable {
         case .stacked: "Stacked"
         case .tiles: "Horizontal Tiles"
         case .kanban: "Kanban (Experimental)"
+        case .overview: "Overview (Experimental)"
         }
     }
 
@@ -21,6 +23,68 @@ enum DashboardViewMode: String, CaseIterable, Identifiable {
         case .stacked: "rectangle.stack"
         case .tiles: "rectangle.grid.1x2"
         case .kanban: "rectangle.split.3x1"
+        case .overview: "rectangle.grid.2x2"
+        }
+    }
+}
+
+enum DashboardDensity: String, CaseIterable, Identifiable {
+    case comfortable
+    case compact
+    case dense
+
+    static let storageKey = "beacon.dashboard.density"
+    static let defaultDensity = DashboardDensity.comfortable
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .comfortable: "Comfortable"
+        case .compact: "Compact"
+        case .dense: "Dense"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .comfortable: "rectangle.grid.1x2"
+        case .compact: "rectangle.grid.2x2"
+        case .dense: "rectangle.grid.3x2"
+        }
+    }
+
+    var cardPadding: CGFloat {
+        switch self {
+        case .comfortable: 10
+        case .compact: 8
+        case .dense: 6
+        }
+    }
+
+    var spacing: CGFloat {
+        switch self {
+        case .comfortable: 5
+        case .compact: 4
+        case .dense: 2
+        }
+    }
+
+    var titleSize: CGFloat {
+        switch self {
+        case .comfortable: DashboardLanePresentation.laneTitleSize
+        case .compact: 11
+        case .dense: 10
+        }
+    }
+
+    var titleLines: Int { self == .comfortable ? 1 : 2 }
+
+    var tileWidth: CGFloat {
+        switch self {
+        case .comfortable: 248
+        case .compact: 220
+        case .dense: 184
         }
     }
 }
@@ -228,63 +292,5 @@ struct NeonWaveWordmark: View {
                 .shadow(color: BeaconPalette.pink.opacity(0.28), radius: 2)
                 .accessibilityLabel(text)
         }
-    }
-}
-
-enum EvidenceBadgeDismissals {
-    private static let separator = "\u{1F}"
-
-    static func key(laneID: String, dimension: String, value: String) -> String {
-        [laneID, dimension.lowercased(), value.lowercased()].joined(separator: separator)
-    }
-
-    static func decode(_ value: String) -> Set<String> {
-        guard let data = value.data(using: .utf8),
-              let keys = try? JSONDecoder().decode([String].self, from: data)
-        else { return [] }
-        return Set(keys)
-    }
-
-    static func encode(_ keys: Set<String>) -> String {
-        guard let data = try? JSONEncoder().encode(keys.sorted()),
-              let value = String(data: data, encoding: .utf8)
-        else { return "[]" }
-        return value
-    }
-}
-
-struct DismissibleEvidenceBadge: View {
-    let text: String
-    let accent: Color
-    let emphasized: Bool
-    let onDismiss: () -> Void
-    @State private var isHovered = false
-
-    var body: some View {
-        HStack(spacing: 3) {
-            Text(text)
-                .font(BeaconTypography.medium(9))
-            Button(action: onDismiss) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 7, weight: .bold))
-                    .frame(width: 9, height: 9)
-            }
-            .buttonStyle(.plain)
-            .opacity(isHovered ? 1 : 0)
-            .allowsHitTesting(isHovered)
-            .accessibilityLabel("Hide \(text) badge")
-        }
-        .foregroundStyle(accent)
-        .padding(.leading, 6)
-        .padding(.trailing, 4)
-        .padding(.vertical, 3)
-        .background(BeaconPalette.softGradient(accent), in: Capsule())
-        .overlay {
-            Capsule()
-                .strokeBorder(accent.opacity(emphasized ? 0.8 : 0.34), lineWidth: 0.6)
-        }
-        .shadow(color: emphasized ? accent.opacity(0.28) : .clear, radius: 2)
-        .onHover { isHovered = $0 }
-        .animation(.easeOut(duration: 0.12), value: isHovered)
     }
 }

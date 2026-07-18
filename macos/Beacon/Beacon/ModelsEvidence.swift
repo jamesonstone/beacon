@@ -29,6 +29,8 @@ struct WorktreeDetails: Codable, Equatable {
 struct PullRequestDetails: Codable, Equatable {
     let number: Int
     let title: String
+    let body: String?
+    let bodyTruncated: Bool?
     let url: String
     let headRefName: String
     let headRefOID: String
@@ -44,7 +46,8 @@ struct PullRequestDetails: Codable, Equatable {
     let closingIssues: [IssueDetails]
 
     enum CodingKeys: String, CodingKey {
-        case number, title, url, mergeable, checks, feedback
+        case number, title, body, url, mergeable, checks, feedback
+        case bodyTruncated = "body_truncated"
         case headRefName = "head_ref_name"
         case headRefOID = "head_ref_oid"
         case baseRefName = "base_ref_name"
@@ -72,24 +75,66 @@ struct FeedbackSummary: Codable, Equatable {
     let approvals: Int
     let changesRequested: Int
     let unresolvedThreads: Int
+    let threads: [ReviewThreadDetails]?
+    let threadsTruncated: Bool?
 
     enum CodingKeys: String, CodingKey {
         case comments, reviews, approvals
         case changesRequested = "changes_requested"
         case unresolvedThreads = "unresolved_threads"
+        case threads
+        case threadsTruncated = "threads_truncated"
+    }
+}
+
+struct ReviewThreadDetails: Codable, Equatable, Identifiable {
+    let id: String
+    let path: String
+    let line: Int?
+    let originalLine: Int?
+    let outdated: Bool
+    let comments: [ReviewCommentDetails]
+    let commentsTruncated: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, path, line, outdated, comments
+        case originalLine = "original_line"
+        case commentsTruncated = "comments_truncated"
+    }
+
+    var displayLine: Int? { line ?? originalLine }
+}
+
+struct ReviewCommentDetails: Codable, Equatable, Identifiable {
+    let id: String
+    let author: String
+    let body: String
+    let bodyTruncated: Bool
+    let url: String
+    let createdAt: String
+    let updatedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, author, body, url
+        case bodyTruncated = "body_truncated"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
 }
 
 struct IssueDetails: Codable, Equatable {
     let number: Int
     let title: String
+    let body: String?
+    let bodyTruncated: Bool?
     let url: String
     let labels: [String]
     let assignees: [String]
     let updatedAt: String
 
     enum CodingKeys: String, CodingKey {
-        case number, title, url, labels, assignees
+        case number, title, body, url, labels, assignees
+        case bodyTruncated = "body_truncated"
         case updatedAt = "updated_at"
     }
 }

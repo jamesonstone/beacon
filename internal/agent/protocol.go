@@ -28,6 +28,7 @@ const (
 	RequestShutdown          = "shutdown"
 	RequestSetLaneAttention  = "set_lane_attention"
 	RequestSetLanePinned     = "set_lane_pinned"
+	RequestReorderLanes      = "reorder_lanes"
 	RequestSetLaneNote       = "set_lane_note"
 	RequestAddLaneTag        = "add_lane_tag"
 	RequestRemoveLaneTag     = "remove_lane_tag"
@@ -75,6 +76,7 @@ type Request struct {
 	ProjectIDs      []string `json:"project_ids,omitempty"`
 	TrackingState   string   `json:"tracking_state,omitempty"`
 	LaneID          string   `json:"lane_id,omitempty"`
+	LaneIDs         []string `json:"lane_ids,omitempty"`
 	AttentionState  string   `json:"attention_state,omitempty"`
 	Pinned          bool     `json:"pinned,omitempty"`
 	Note            string   `json:"note,omitempty"`

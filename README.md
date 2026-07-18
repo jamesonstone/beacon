@@ -460,6 +460,15 @@ the CLI and macOS lane cards; they never affect Beacon's attention or action
 policy. Manual lanes support planning or research without requiring Git,
 GitHub, Kit, or a Codex task API.
 
+That same Go-owned file stores one complete user lane order. Drag the handle on
+any macOS card to reorder within Active, Waiting, Recently Active, or Parking
+Lot; the relative priority survives evidence moving the lane to another group
+and is shared by the menu, detached dashboard, agent, and CLI. Drop a card on
+**Parking Lot** to Ignore it or on **Following** to Resume it. Card click still
+opens the work item. Keyboard users can choose **Move Up** or **Move Down** from
+the card menu. `beacon reorder <lane-id>...` exposes the atomic complete-order
+mutation for scripts; use the IDs and current order from `scan --json`.
+
 `beacon notes` is a local tabbed Markdown workspace for real-time thoughts that
 span lanes. The original `$XDG_DATA_HOME/beacon/notes.md` document remains the
 pinned General tab and the target of every command without `--note`. Detail
@@ -532,7 +541,10 @@ Quiet views and never
 start duplicate repository scans. Secondary actions live in the top-right gear
 menu so lane evidence receives the full height. The adjacent view button
 switches between the default stacked list, horizontal state tiles, and an
-experimental kanban board; the selection persists across launches.
+experimental kanban board, plus **Overview (Experimental)**. Overview uses an
+adaptive dense grid, omits empty groups, and temporarily minimizes Notes; the
+prior Notes size returns when leaving Overview. The selection persists across
+launches, and smaller windows scroll safely.
 In the default stacked view, each project name is a solid, bold heading above
 its lanes so repository context is visible before the pull request or issue
 title.
@@ -598,13 +610,30 @@ status item.
 
 Beacon defaults to a 12-point system monospaced design. Settings provides
 System, Rounded, Monospaced, and Serif designs plus 11, 12, 13, 14, and 16-point
-base sizes; both surfaces share the persisted choice. Lane notation appears as
-compact tag chips: use the trailing **+** to add context and the chip's close
-control to remove it.
-Evidence badges such as **Dirty**, **CI None**, and **Review None** also reveal
-a trailing close control on hover. Hiding a badge is local presentation state:
-it does not change the underlying evidence or next action, and a changed signal
-appears again. Use **Restore Hidden Badges** in Settings to clear all dismissals.
+base sizes; both surfaces share the persisted choice. A separate persisted
+**Card Density** setting offers Comfortable, Compact, and Dense without changing
+font size. Comfortable retains the full card, Compact keeps identity, next
+action, age/delta, and exceptions, and Dense keeps identity, next action, and
+one exception summary. Lane notation remains optional local context: use the
+trailing **+** to add a tag and the chip's close control to remove it.
+
+Canonical evidence badges now show exceptions only. Healthy defaults such as
+clean worktrees, successful CI, approved review, and current freshness stay
+quiet. Explicit labels and SF Symbols identify conditions such as **Local
+changes**, **CI pending**, **CI failed**, **Stale**, and **PR feedback · 2**;
+color never carries status alone. The last label means two unresolved pull
+request review threads. Hover it for every collected file/line, reviewer,
+Markdown comment, timestamp, and individual GitHub link. A badge's trailing
+close control still provides exact-value local dismissal, so changed evidence
+reappears; **Restore Hidden Badges** clears all dismissals.
+
+The information button beside View and Settings explains the universal
+hierarchy: work-item identity, lane attention, one next action, evidence
+exceptions, then optional local context. Hover or keyboard-focus any card for a
+traversable detail panel with its bounded issue or PR description, links,
+reasons, warnings, blockers, and local context. The panel is rendered entirely
+from cached scan evidence, can be pinned, and closes with Escape; hovering never
+runs Git or GitHub work.
 
 The playful **Notes** panel sits at the bottom of both surfaces. It opens at 50%
 of the available Beacon surface height; double-clicking its header cycles 50%,
@@ -652,8 +681,9 @@ they do not appear as fatal errors. Full warning detail remains available in
 `beacon scan --json`. The red `Errors` section is reserved for failures that
 prevent Beacon from collecting expected evidence.
 
-`scan --json` emits schema version 3 with projects, ordered lanes, issues,
-checks, feedback, optional Kit progress, lane attention and tags, scoped
+`scan --json` emits schema version 3 with projects, ordered lanes, issue and PR
+descriptions, checks, bounded unresolved review-thread/comment detail, optional
+Kit progress, lane attention and tags, scoped
 warnings, and scoped errors. It
 never emits ANSI or additional stdout logging, making it safe for the macOS app
 and automation.
@@ -670,6 +700,7 @@ Common workflows:
 - Run `beacon sync check --no-fetch` for a network-free stale-branch check.
 - Run `beacon agent status` to inspect the process, socket, cache count, and active refresh.
 - Run `beacon open-next` to open the highest-priority review or action item.
+- Run `beacon reorder <lane-id>...` to atomically persist a complete lane order.
 - Run `beacon scan --repo NAME` to focus on one configured project.
 - Run `beacon scan --json` for scripts or diagnostics.
 - Click a macOS-app lane to open its pull request, issue, or local worktree.

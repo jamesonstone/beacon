@@ -6,11 +6,15 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jamesonstone/beacon/internal/model"
 )
 
-const pullRequestFields = "number,title,url,headRefName,headRefOid,baseRefName,isDraft,updatedAt,reviewDecision,statusCheckRollup,mergeStateStatus,mergeable,comments,reviews,closingIssuesReferences"
+const (
+	pullRequestFields  = "number,title,body,url,headRefName,headRefOid,baseRefName,isDraft,updatedAt,reviewDecision,statusCheckRollup,mergeStateStatus,mergeable,comments,reviews,closingIssuesReferences"
+	maxGitHubBodyBytes = 64 * 1024
+)
 
 type rawActor struct {
 	Login string `json:"login"`
@@ -27,6 +31,7 @@ type rawRepository struct {
 type rawIssue struct {
 	Number     int           `json:"number"`
 	Title      string        `json:"title"`
+	Body       string        `json:"body"`
 	URL        string        `json:"url"`
 	UpdatedAt  time.Time     `json:"updatedAt"`
 	Labels     []rawLabel    `json:"labels"`
@@ -43,6 +48,7 @@ type rawReview struct {
 type rawPullRequest struct {
 	Number                  int               `json:"number"`
 	Title                   string            `json:"title"`
+	Body                    string            `json:"body"`
 	URL                     string            `json:"url"`
 	HeadRefName             string            `json:"headRefName"`
 	HeadRefOID              string            `json:"headRefOid"`
@@ -64,21 +70,6 @@ type rawSearchItem struct {
 	Repository rawRepository `json:"repository"`
 }
 
-type rawThreadResponse struct {
-	Data struct {
-		Repository struct {
-			PullRequest struct {
-				ReviewThreads struct {
-					TotalCount int `json:"totalCount"`
-					Nodes      []struct {
-						IsResolved bool `json:"isResolved"`
-					} `json:"nodes"`
-				} `json:"reviewThreads"`
-			} `json:"pullRequest"`
-		} `json:"repository"`
-	} `json:"data"`
-}
-
 func parsePullRequests(output []byte) ([]model.PullRequest, error) {
 	var raw []rawPullRequest
 	if err := json.Unmarshal(output, &raw); err != nil {
@@ -94,7 +85,10 @@ func parsePullRequests(output []byte) ([]model.PullRequest, error) {
 
 func normalizePullRequest(pullRequest rawPullRequest) model.PullRequest {
 	ci, checks := normalizeChecks(pullRequest.StatusCheckRollup)
-	feedback := model.Feedback{Comments: len(pullRequest.Comments), Reviews: len(pullRequest.Reviews)}
+	feedback := model.Feedback{
+		Comments: len(pullRequest.Comments), Reviews: len(pullRequest.Reviews),
+		Threads: []model.ReviewThread{},
+	}
 	latestReviews := make(map[string]rawReview, len(pullRequest.Reviews))
 	for index, review := range pullRequest.Reviews {
 		key := review.Author.Login
@@ -118,8 +112,10 @@ func normalizePullRequest(pullRequest rawPullRequest) model.PullRequest {
 	for _, issue := range pullRequest.ClosingIssuesReferences {
 		issues = append(issues, normalizeIssue(issue))
 	}
+	body, bodyTruncated := truncateGitHubBody(pullRequest.Body)
 	return model.PullRequest{
 		Number: pullRequest.Number, Title: pullRequest.Title, URL: pullRequest.URL,
+		Body: body, BodyTruncated: bodyTruncated,
 		HeadRefName: pullRequest.HeadRefName, HeadRefOID: pullRequest.HeadRefOID,
 		BaseRefName: pullRequest.BaseRefName, IsDraft: pullRequest.IsDraft,
 		UpdatedAt: pullRequest.UpdatedAt, ReviewDecision: pullRequest.ReviewDecision,
@@ -168,7 +164,22 @@ func normalizeIssue(issue rawIssue) model.Issue {
 		assignees = append(assignees, assignee.Login)
 	}
 	sort.Strings(assignees)
-	return model.Issue{Number: issue.Number, Title: issue.Title, URL: issue.URL, Labels: labels, Assignees: assignees, UpdatedAt: issue.UpdatedAt}
+	body, bodyTruncated := truncateGitHubBody(issue.Body)
+	return model.Issue{
+		Number: issue.Number, Title: issue.Title, Body: body, BodyTruncated: bodyTruncated,
+		URL: issue.URL, Labels: labels, Assignees: assignees, UpdatedAt: issue.UpdatedAt,
+	}
+}
+
+func truncateGitHubBody(value string) (string, bool) {
+	if len(value) <= maxGitHubBodyBytes {
+		return value, false
+	}
+	end := maxGitHubBodyBytes
+	for end > 0 && !utf8.RuneStart(value[end]) {
+		end--
+	}
+	return value[:end], true
 }
 
 func normalizeCI(checks []map[string]any) model.CIState {

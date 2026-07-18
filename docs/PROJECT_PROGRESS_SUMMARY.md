@@ -21,6 +21,7 @@
 | 0015 | notes-agent-lifecycle | `docs/specs/0015-notes-agent-lifecycle` | deliver | no | 2026-07-14 | Restore native Signal Notes input and bind the background agent lifetime to direct CLI or macOS application activation. |
 | 0016 | external-task-activity | `docs/specs/0016-external-task-activity` | deliver | no | 2026-07-16 | Add transient Codex and Claude Code hook activity to exact followed projects and lanes without changing Beacon evidence or policy. |
 | 0017 | beacon-focus-notes | `docs/specs/0017-beacon-focus-notes` | deliver | no | 2026-07-17 | Make the next action explicit and refine Notes with persisted pinned order, flexible sizing, and native space animation. |
+| 0018 | following-workspace | `docs/specs/0018-following-workspace` | validate | no | 2026-07-18 | Make Following reorderable, denser, self-explanatory, and rich in cached issue and PR feedback detail. |
 
 ## PROJECT INTENT
 
@@ -193,6 +194,15 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **OPEN ITEMS**: Implementation, documentation, full local validation, visual smoke, commit, ready PR delivery, and hosted checks are complete on issue #35, branch `GH-35`, and PR #36; final human review and merge remain.
 - **POINTERS**: `docs/specs/0017-beacon-focus-notes/SPEC.md`
 
+### following-workspace
+
+- **STATUS**: validate
+- **PAUSED**: no
+- **INTENT**: Let users prioritize and understand every followed work lane while fitting the current working set into one adaptive view.
+- **APPROACH**: Persist one Go-owned lane order, add shared density and experimental Overview presentation, show only canonical evidence exceptions, explain the hierarchy in-app, and collect bounded rich GitHub detail through the existing budgeted cache.
+- **OPEN ITEMS**: Implementation, documentation, the full local gate, and fresh-build interaction smoke are complete on issue #39 and branch `GH-39`; commit, ready PR delivery, and hosted checks remain.
+- **POINTERS**: `docs/specs/0018-following-workspace/SPEC.md`
+
 ## LAST UPDATED
 
-2026-07-17 EDT
+2026-07-18 EDT

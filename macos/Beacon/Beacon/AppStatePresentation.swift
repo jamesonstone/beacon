@@ -102,6 +102,20 @@ extension AppState {
         return groups
     }
 
+    func projectGroup(for lane: WorkLane) -> ProjectLaneGroup {
+        if let project = snapshot?.projects.first(where: {
+            $0.github == lane.github || $0.laneIDs.contains(lane.id)
+        }) {
+            return ProjectLaneGroup(
+                id: project.github,
+                name: project.name,
+                progress: project.progress,
+                lanes: [lane]
+            )
+        }
+        return ProjectLaneGroup(id: lane.github, name: lane.repository, progress: nil, lanes: [lane])
+    }
+
     func open(_ lane: WorkLane) {
         if let target = Self.openTarget(for: lane) {
             NSWorkspace.shared.open(target)

@@ -85,20 +85,44 @@ type CheckSummary struct {
 }
 
 type Feedback struct {
-	Comments          int `json:"comments"`
-	Reviews           int `json:"reviews"`
-	Approvals         int `json:"approvals"`
-	ChangesRequested  int `json:"changes_requested"`
-	UnresolvedThreads int `json:"unresolved_threads"`
+	Comments          int            `json:"comments"`
+	Reviews           int            `json:"reviews"`
+	Approvals         int            `json:"approvals"`
+	ChangesRequested  int            `json:"changes_requested"`
+	UnresolvedThreads int            `json:"unresolved_threads"`
+	Threads           []ReviewThread `json:"threads"`
+	ThreadsTruncated  bool           `json:"threads_truncated"`
+}
+
+type ReviewThread struct {
+	ID                string          `json:"id"`
+	Path              string          `json:"path"`
+	Line              *int            `json:"line,omitempty"`
+	OriginalLine      *int            `json:"original_line,omitempty"`
+	Outdated          bool            `json:"outdated"`
+	Comments          []ReviewComment `json:"comments"`
+	CommentsTruncated bool            `json:"comments_truncated"`
+}
+
+type ReviewComment struct {
+	ID            string    `json:"id"`
+	Author        string    `json:"author"`
+	Body          string    `json:"body"`
+	BodyTruncated bool      `json:"body_truncated"`
+	URL           string    `json:"url"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type Issue struct {
-	Number    int       `json:"number"`
-	Title     string    `json:"title"`
-	URL       string    `json:"url"`
-	Labels    []string  `json:"labels"`
-	Assignees []string  `json:"assignees"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Number        int       `json:"number"`
+	Title         string    `json:"title"`
+	Body          string    `json:"body"`
+	BodyTruncated bool      `json:"body_truncated"`
+	URL           string    `json:"url"`
+	Labels        []string  `json:"labels"`
+	Assignees     []string  `json:"assignees"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type Progress struct {
@@ -132,6 +156,8 @@ type Worktree struct {
 type PullRequest struct {
 	Number         int          `json:"number"`
 	Title          string       `json:"title"`
+	Body           string       `json:"body"`
+	BodyTruncated  bool         `json:"body_truncated"`
 	URL            string       `json:"url"`
 	HeadRefName    string       `json:"head_ref_name"`
 	HeadRefOID     string       `json:"head_ref_oid"`

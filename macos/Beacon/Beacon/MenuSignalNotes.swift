@@ -40,6 +40,23 @@ enum SignalNotesPresentation {
     }
 }
 
+enum DashboardOverviewPresentation {
+    static func notesTransition(
+        from previous: DashboardViewMode,
+        to next: DashboardViewMode,
+        current: SignalNotesSize,
+        lastExpanded: SignalNotesSize
+    ) -> (current: SignalNotesSize, lastExpanded: SignalNotesSize) {
+        if next == .overview {
+            return (.minimized, current.isExpanded ? current : lastExpanded)
+        }
+        if previous == .overview, current == .minimized {
+            return (lastExpanded.isExpanded ? lastExpanded : .half, lastExpanded)
+        }
+        return (current, lastExpanded)
+    }
+}
+
 @MainActor
 final class SignalNotesAutosave: ObservableObject {
     private let delay: Duration

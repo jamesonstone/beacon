@@ -235,6 +235,13 @@ func (s *Server) handle(ctx context.Context, connection net.Conn) {
 		}
 		snapshot := s.Engine.Snapshot()
 		response(Event{Type: EventWorkingSetChanged, ProjectID: request.LaneID, Stage: "ready", Snapshot: &snapshot})
+	case RequestReorderLanes:
+		if err := s.Engine.ReorderLanes(request.LaneIDs); err != nil {
+			response(Event{Type: EventProjectFailed, Stage: "failed", Message: err.Error()})
+			return
+		}
+		snapshot := s.Engine.Snapshot()
+		response(Event{Type: EventWorkingSetChanged, Stage: "ready", Snapshot: &snapshot})
 	case RequestSetLaneNote:
 		if err := s.Engine.SetLaneNote(request.LaneID, request.Note); err != nil {
 			response(Event{Type: EventProjectFailed, ProjectID: request.LaneID, Stage: "failed", Message: err.Error()})

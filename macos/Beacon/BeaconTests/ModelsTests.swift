@@ -301,10 +301,40 @@ final class ModelsTests: XCTestCase {
     }
 
     func testDashboardViewModesHaveStablePresentationContracts() {
-        XCTAssertEqual(DashboardViewMode.allCases.map(\.rawValue), ["stacked", "tiles", "kanban"])
+        XCTAssertEqual(DashboardViewMode.allCases.map(\.rawValue), ["stacked", "tiles", "kanban", "overview"])
         XCTAssertEqual(DashboardViewMode.stacked.title, "Stacked")
         XCTAssertEqual(DashboardViewMode.tiles.symbol, "rectangle.grid.1x2")
         XCTAssertTrue(DashboardViewMode.kanban.title.contains("Experimental"))
+        XCTAssertTrue(DashboardViewMode.overview.title.contains("Experimental"))
+        XCTAssertEqual(DashboardViewMode.overview.symbol, "rectangle.grid.2x2")
+    }
+
+    func testDashboardDensitiesHaveStablePersistentIdentifiers() {
+        XCTAssertEqual(DashboardDensity.storageKey, "beacon.dashboard.density")
+        XCTAssertEqual(DashboardDensity.defaultDensity, .comfortable)
+        XCTAssertEqual(DashboardDensity.allCases.map(\.rawValue), ["comfortable", "compact", "dense"])
+        XCTAssertLessThan(DashboardDensity.dense.cardPadding, DashboardDensity.compact.cardPadding)
+        XCTAssertLessThan(DashboardDensity.compact.cardPadding, DashboardDensity.comfortable.cardPadding)
+    }
+
+    func testOverviewMinimizesAndRestoresPriorNotesSize() {
+        let entered = DashboardOverviewPresentation.notesTransition(
+            from: .stacked,
+            to: .overview,
+            current: .eighty,
+            lastExpanded: .half
+        )
+        XCTAssertEqual(entered.current, .minimized)
+        XCTAssertEqual(entered.lastExpanded, .eighty)
+
+        let exited = DashboardOverviewPresentation.notesTransition(
+            from: .overview,
+            to: .tiles,
+            current: entered.current,
+            lastExpanded: entered.lastExpanded
+        )
+        XCTAssertEqual(exited.current, .eighty)
+        XCTAssertEqual(exited.lastExpanded, .eighty)
     }
 
     func testDashboardTabsKeepFollowingAsTheStableDefault() {

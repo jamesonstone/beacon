@@ -36,6 +36,11 @@ parking only and must never unfollow the repository or delete lane state.
 Lanes may also carry short, deduplicated user tags. Tags and notes are optional
 context only and must not alter evidence, attention, readiness, or next-action
 policy.
+The working set also owns one complete global user lane order. It is projected
+into evidence-derived attention groups, persists independently from pins, and
+must never let presentation override attention or next-action policy. New lanes
+enter at the front of their derived group; stale identities are removed during
+reconciliation.
 
 Beacon also owns one global Markdown signal log for transient working notes
 that span lanes. It is optional local context, never durable evidence or a
@@ -205,7 +210,8 @@ must not feed new policy back into the scanner.
   reserves, and explicit dependency-limit snapshots.
 - `internal/githubscan` queries scoped open pull requests and issues through
   authenticated `gh` and normalizes checks, comments, reviews, unresolved
-  threads, linked issues, and merge state.
+  threads with bounded comment detail, bounded issue and pull-request bodies,
+  linked issues, and merge state.
 - `internal/progress` parses optional Kit project summaries and exact SPEC
   issue references as non-authoritative progress evidence.
 - `internal/model` owns schema v3 types and typed signal/action enums.
@@ -217,7 +223,8 @@ must not feed new policy back into the scanner.
   fingerprints, migration, and recent/quiet classification without automatic
   reactivation.
 - `internal/workset` owns strict lane attention, pins, notes, tags, last-seen
-  observations, factual deltas, manual lanes, and project-tracking migration.
+  observations, factual deltas, manual lanes, one normalized user order, and
+  project-tracking migration.
 - `internal/notes` owns the atomic, size-bounded, user-only General document,
   stable-ID detail documents, and versioned tab workspace.
 - `internal/agent` owns operational paths, per-project caches, protocol-v1
@@ -440,6 +447,7 @@ beacon track <project>...
 beacon untrack <project>...
 beacon lanes [--parked]
 beacon pin <lane-id> [--off]
+beacon reorder <lane-id>...
 beacon park <lane-id>
 beacon resume <lane-id>
 beacon note <lane-id> [text]
@@ -478,7 +486,7 @@ other intentional paths for current evidence.
 
 Agent protocol version 1 is newline-delimited JSON over a user-only Unix-domain
 socket. It carries scan IDs, per-project revisions, stages, single and batch
-tracking and lane-attention changes, selected Markdown documents, typed note
+tracking, complete lane-order and lane-attention changes, selected Markdown documents, typed note
 workspace/create/open/close updates, explicit repository-sync reports,
 heartbeats, and snapshot-schema-v3 payloads. Protocol evolution is independent
 from the evidence snapshot schema. Clients discard events from a different
@@ -490,7 +498,7 @@ clients. It contains generation/config/refresh/tracking and working-set
 metadata, projects,
 following/recent/quiet counts plus compatibility tracked/untracked counts,
 ordered enriched lanes, grouped lane IDs,
-lane attention, optional notes and tags, previous/current observations, factual deltas,
+lane attention and global order, optional notes and tags, previous/current observations, factual deltas,
 project following and activity evidence, and repository-scoped
 or global warnings and errors. Expected partial conditions—including inaccessible
 source discoveries, prunable worktrees, result truncation, and untrusted
@@ -557,8 +565,12 @@ Codex can require trust and Claude Code can be blocked by managed policy, but
 must not add an inbox, aliases, timeline, or activity-management destination.
 Secondary commands and preferences live in a top-right Settings menu. A
 separate compact view control offers a persisted stacked list, horizontal tile
-strips, and an experimental state-column kanban board over the same ordered
-lanes. A compact peer tab row presents Following by default, then Parking Lot,
+strips, an experimental state-column kanban board, and an adaptive experimental
+Overview over the same ordered lanes. Overview uses the dense shared card,
+collapses empty groups, minimizes Notes while active, and restores its prior
+size on exit. Comfortable, Compact, and Dense are separately persisted shared
+card-density contracts, not alternate policy or font-size settings. A compact
+peer tab row presents Following by default, then Parking Lot,
 Recently Updated, and Quiet. Following omits parked lanes; the other tabs render
 their shared Go categories without reimplementing evidence policy. Every open
 in-scope PR for a followed project remains in Following regardless of age until
@@ -606,7 +618,18 @@ This is a work-item identity mapping, not attention or readiness inference.
 Individual evidence badges may be hidden as reversible local presentation
 state. Dismissal is scoped to lane, evidence dimension, and exact value so a
 changed signal reappears; it must never mutate or suppress canonical evidence
-in the Go snapshot.
+in the Go snapshot. Healthy values remain quiet; only actionable or uncertain
+exceptions appear by default with an explicit label and symbol. `PR feedback ·
+N` is the count of unresolved pull-request review threads, not issue comments.
+The adjacent information control explains the canonical identity, attention,
+next-action, evidence-exception, and optional-context hierarchy.
+
+Card and review-feedback detail is cached evidence presentation, not a refresh
+path. Issue and pull-request bodies are bounded to 64 KiB; unresolved review
+threads and their comments retain deterministic order, direct links, and
+explicit truncation. Hover, keyboard focus, panel pinning, dismissal, and Escape
+must execute no Git or GitHub command. Native Markdown detail and every status
+presentation remain usable without relying on color alone.
 
 Human-facing lane detail remains lane-centered. The CLI groups Active, Waiting,
 Recently Active, and Parked lanes. The macOS dashboard opens on Following,

@@ -68,6 +68,7 @@ struct LaneAttentionCall: Equatable {
 actor RecordingLaneAttentionAgent: AgentClientProtocol {
     let mutationEvent: AgentEvent
     private(set) var calls: [LaneAttentionCall] = []
+    private(set) var laneOrderCalls: [[String]] = []
 
     init(mutationEvent: AgentEvent) {
         self.mutationEvent = mutationEvent
@@ -87,6 +88,10 @@ actor RecordingLaneAttentionAgent: AgentClientProtocol {
     }
     func setLaneAttention(_ id: String, state: String) async throws -> AgentEvent {
         calls.append(LaneAttentionCall(id: id, state: state))
+        return mutationEvent
+    }
+    func reorderLanes(_ ids: [String]) async throws -> AgentEvent {
+        laneOrderCalls.append(ids)
         return mutationEvent
     }
 }
