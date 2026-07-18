@@ -1,0 +1,282 @@
+---
+kit_metadata_version: 1
+artifact: spec
+workflow_version: 2
+phase: deliver
+delivery_intent: ready_pull_request
+clarification:
+  status: ready
+  confidence: 100
+  unresolved_questions: 0
+feature:
+  id: "0019"
+  slug: drop-down-terminal
+  dir: 0019-drop-down-terminal
+relationships:
+  - type: builds_on
+    target: 0006-beacon-detachable-dashboard
+  - type: builds_on
+    target: 0012-repository-sync-ui-refresh
+references:
+  - id: issue-43
+    name: Add drop-down terminal hotkey
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/43
+    relation: implements
+    read_policy: must
+    used_for: original request, scope, acceptance criteria, and delivery lane
+    status: active
+  - id: warp-global-hotkey
+    name: Warp Global Hotkey
+    type: web
+    target: https://docs.warp.dev/terminal/windows/global-hotkey
+    relation: informs
+    read_policy: must
+    used_for: supported Warp dedicated-window behavior and setup guidance
+    status: active
+  - id: warp-uri-scheme
+    name: Warp URI Scheme
+    type: web
+    target: https://docs.warp.dev/terminal/more-features/uri-scheme
+    relation: constrains
+    read_policy: must
+    used_for: public Warp integration boundary
+    status: active
+  - id: swiftterm-1-11-2
+    name: SwiftTerm v1.11.2
+    type: dependency
+    target: https://github.com/migueldeicaza/SwiftTerm/releases/tag/v1.11.2
+    relation: implements
+    read_policy: must
+    used_for: native AppKit terminal rendering and local pseudo-terminal lifecycle
+    status: active
+  - id: constitution
+    name: Beacon constitution
+    type: doc
+    target: docs/CONSTITUTION.md
+    relation: constrains
+    read_policy: must
+    used_for: native macOS boundary, permissions, lifecycle, and validation
+    status: active
+skills:
+  - name: github:github
+    source: codex
+    path: /Users/jamesonstone/.codex/plugins/cache/openai-curated-remote/github/0.1.8-2841cf9749ae/skills/github/SKILL.md
+    trigger: GitHub issue and delivery orientation
+    required: true
+  - name: github:yeet
+    source: codex
+    path: /Users/jamesonstone/.codex/plugins/cache/openai-curated-remote/github/0.1.8-2841cf9749ae/skills/yeet/SKILL.md
+    trigger: user-requested branch, commit, push, and pull request delivery
+    required: true
+---
+
+# Drop-down Terminal
+
+## Thesis
+
+Beacon should make a real local shell available from anywhere on macOS with one
+Command-J toggle. The terminal should retain its session while hidden, animate
+from a persisted top or bottom edge on the display containing the pointer, and
+remain a presentation-only macOS feature that does not alter Beacon evidence,
+agent protocol, or scanner policy.
+
+## Context
+
+Beacon is a native macOS 14 AppKit and SwiftUI application with a retained
+detached-window controller, application-owned lifecycle, user-default-backed
+settings, and no App Sandbox entitlement. It has no global-hotkey controller,
+terminal emulator, or Swift Package Manager dependency today.
+
+Warp provides the requested dedicated global-hotkey window, including edge,
+screen, and size preferences. Its public URI scheme can open a window, tab, or
+launch configuration, but it does not embed Warp or configure and toggle that
+dedicated window from another application. Beacon must not mutate undocumented
+Warp preferences or control Warp windows through Accessibility. A Beacon-owned
+terminal is therefore the supported integrated implementation; Settings can
+acknowledge an installed Warp application and open Warp plus its official setup
+guide as an external alternative.
+
+SwiftTerm v1.11.2 is an MIT-licensed Swift package with an AppKit
+`LocalProcessTerminalView` backed by a Unix pseudo-terminal. It preserves the
+native application structure and avoids adding Chromium, Node, private APIs,
+or a second process-hosting service. It is the newest stable release before
+SwiftTerm made its optional Metal renderer a mandatory build resource, so
+Beacon does not require Xcode's separately installed Metal toolchain.
+
+## Clarifications
+
+- Command-J is fixed for version 1. A configurable key recorder is out of scope.
+- The built-in terminal is the only Beacon-owned provider. Warp remains an
+  explicit external option because no supported API can make it a Beacon view.
+- The panel spans the usable width of the display containing the pointer,
+  falling back to the main display, and respects the menu bar and Dock.
+- Settings offers Top and Bottom edges plus Compact (30%), Balanced (45%), and
+  Spacious (60%) heights. Top and Balanced are the defaults.
+- The second Command-J press hides the panel. Losing focus does not hide it.
+- One shell session is retained while hidden. If the shell exits, the
+  next show starts a fresh session rather than preserving a dead process.
+- The shell uses the executable `SHELL` environment value when it is absolute
+  and executable, otherwise `/bin/zsh`; it starts as a login shell in the user
+  home directory with `TERM=xterm-256color` and `COLORTERM=truecolor`.
+- Beacon never logs or persists terminal input, output, scrollback, or history.
+  Ordinary shell-managed history remains the shell's responsibility.
+- Custom slide animation is 180 milliseconds and is disabled when macOS Reduce
+  Motion is enabled.
+- Application termination sends the terminal child process `SIGTERM` through
+  SwiftTerm and unregisters the global hotkey.
+
+## Requirements
+
+1. Register Command-J as a global hotkey through the public Carbon hotkey API
+   without requesting Accessibility or Input Monitoring permission.
+2. Make registration idempotent, unregister it during shutdown, and expose a
+   specific user-visible error when another application owns the shortcut.
+3. Own one retained terminal window and one local pseudo-terminal session for
+   the application lifetime, restarting only after the child process exits.
+4. Show and hide the terminal on the main actor, focus it for immediate typing,
+   and prevent terminal activation from opening the ordinary dashboard.
+5. Calculate deterministic visible and hidden panel frames for both edges,
+   every supported height, and non-zero display origins.
+6. Persist edge and height selections with stable user-default keys and apply
+   changes to the visible panel immediately.
+7. Render the terminal through SwiftTerm v1.11.2, using Beacon's selected code
+   font and active semantic theme colors when the session is shown.
+8. Resolve the login shell and environment safely without invoking a shell to
+   discover configuration or interpolating command strings.
+9. Expose Show Terminal, Position, Height, hotkey health, and supported Warp
+   guidance through the existing Settings surface.
+10. Keep the Go model, cached evidence, background agent, CLI behavior, and
+    versioned protocol unchanged.
+11. Document behavior, defaults, Warp boundaries, lifecycle, and troubleshooting.
+
+## Assumptions
+
+- Beacon remains outside the App Sandbox, matching the existing target and the
+  SwiftTerm local-process requirement.
+- Command-J is available on most systems; conflict handling is required because
+  global registration cannot preempt an existing owner.
+- A single local shell is sufficient for version 1; tabs, panes, SSH profiles,
+  per-project working directories, and session restoration are non-goals.
+- The pointer display is the most deterministic public approximation of the
+  active display when another application is frontmost.
+- SwiftTerm remains pinned to v1.11.2 for reproducible builds without an
+  optional Xcode component prerequisite.
+
+## Acceptance Criteria
+
+- [x] AC1: From another application, Command-J opens a focused Beacon terminal;
+  pressing it again hides the panel without opening the dashboard.
+- [x] AC2: Top and Bottom plus all three heights persist and produce exact
+  visible and hidden frames on screens with zero and non-zero origins.
+- [x] AC3: Hiding and reopening preserve the same live shell process;
+  an exited shell restarts on the next show, and app termination ends it.
+- [x] AC4: Duplicate start and stop calls are safe, registration conflicts are
+  shown in Settings, and shutdown unregisters the hotkey exactly once.
+- [x] AC5: The shell starts from the safe resolved executable in the user home
+  with a login argument and explicit true-color terminal environment.
+- [x] AC6: The terminal uses the selected Beacon code font and theme colors,
+  respects Reduce Motion, and stays usable on multiple displays and full-screen
+  Spaces.
+- [x] AC7: Settings contains terminal show, edge, height, hotkey status, and
+  installed-Warp guidance without changing Warp preferences or adding a Beacon
+  Accessibility permission.
+- [x] AC8: Documentation, focused XCTest, complete macOS and repository gates,
+  diff/secret review, and a manual application smoke test pass.
+
+## Implementation Plan
+
+1. Add the pinned SwiftTerm package product to the Beacon application target.
+2. Add terminal preference, frame, shell-environment, Warp-detection, and
+   global-hotkey types with deterministic seams for focused tests.
+3. Add the retained AppKit terminal panel and local-process session wrapper.
+4. Integrate terminal ownership with `BeaconApplicationModel`, AppDelegate
+   activation, shutdown, and both shared Settings surfaces.
+5. Add focused unit tests for presentation math, preferences, lifecycle,
+   registration, shell resolution, and Warp availability behavior.
+6. Update README, Constitution, project summary, and this specification.
+7. Run focused and complete validation, perform live smoke checks, reflect on
+   the final diff, then deliver issue #43 on branch `GH-43` as a ready PR.
+
+Rollback removes the Swift package reference, terminal-specific Swift files,
+application lifecycle wiring, Settings entries, and documentation. No Go state,
+protocol migration, or user-data conversion is required.
+
+## Task Checklist
+
+- [x] T1: Record clarified requirements, public integration boundaries, and
+  validation mapping for AC1-AC8.
+- [x] T2: Add SwiftTerm and implement preferences, hotkey, panel, and session
+  ownership for AC1-AC6.
+- [x] T3: Add Settings and Warp guidance for AC4 and AC7.
+- [x] T4: Add focused tests and user/canonical documentation for AC1-AC8.
+- [x] T5: Run full validation and manual smoke checks, repair defects, and
+  record reflection and evidence for AC8.
+- [ ] T6: Explicitly stage, commit, push, open a ready PR closing #43, and verify
+  exact hosted check state.
+
+## Validation Map
+
+| Criterion | Verification |
+| --- | --- |
+| AC1 | hotkey callback/controller tests, live registered status, and terminal toggle smoke |
+| AC2 | frame and preference tests for both edges, three heights, and offset displays |
+| AC3 | singleton/session lifecycle tests plus live shell identity across hide and reopen |
+| AC4 | stub registrar start/stop/conflict tests and Settings inspection |
+| AC5 | shell resolver and normalized environment tests plus live `echo` smoke |
+| AC6 | font/theme assertions, Reduce Motion behavior, frame tests for offset displays, and panel collection-behavior review |
+| AC7 | Settings source assertions, Warp-installed and unavailable tests, permission review |
+| AC8 | focused XCTest, `make fmt-check vet test test-race build release-test macos-test macos-build`, Linux amd64/arm64 builds, `kit check --all`, `git diff --check`, secret scan, and final app smoke |
+
+## Reflection Notes
+
+Beacon now owns one retained SwiftTerm-backed login shell and a public Carbon
+Command-J registration. Warp remains external because it has no supported
+embedding or preference-control API. SwiftTerm is pinned to v1.11.2: later
+versions make an optional Metal toolchain a build prerequisite, while v1.11.2
+provides the required local-process terminal without that contributor and CI
+dependency. Generic macOS destinations are used for universal application and
+release builds; XCTest remains active-architecture for deterministic package
+compilation.
+
+A live application smoke test opened the panel, executed commands from the
+user home, retained the same shell PID across hide and reopen, and applied the
+bottom/compact setting before restoring top/balanced. The available macOS
+automation cannot synthesize global shortcuts, so the physical Command-J path
+is supported by successful Carbon registration in the running app plus focused
+callback tests; one reviewer keypress from another application remains the
+recommended human confirmation.
+
+## Documentation Updates
+
+- [x] README macOS terminal usage, defaults, Warp boundary, and troubleshooting.
+- [x] Constitution native terminal ownership, permission, dependency, and
+  presentation-only boundary.
+- [x] Project progress summary feature row and durable feature summary.
+- [x] This specification reflection, completion state, delivery decision, and evidence.
+
+## Delivery Decision
+
+Deliver as a new ready-for-review pull request from exact branch `GH-43`, based
+on refreshed `origin/main`, assigned to `jamesonstone`, and closing issue #43.
+Use explicit staging, verified Jameson Stone author and committer identity, the
+repository PR template, and literal hosted-check reporting.
+
+## Evidence
+
+- Issue #43 is open and assigned to `jamesonstone`.
+- Branch `GH-43` was created at `b72ae96836d923fce18f5cd6b0d2ee371ccad9bf`,
+  exactly matching refreshed `origin/main` before the first edit.
+- Official Warp documentation and SwiftTerm v1.11.2 package/source were read to
+  resolve the supported integration boundary and local-process API.
+- Focused and complete XCTest passed with 121 tests and zero failures.
+- `make fmt-check vet test test-race build release-test` passed, as did Linux
+  amd64 and arm64 Go builds.
+- Universal `make macos-build` passed and produced both application and helper
+  binaries containing x86_64 and arm64 slices.
+- A complete synthetic release package passed build, helper metadata, ad-hoc
+  signature verification, all four CLI archives, universal app archive, and
+  checksum generation.
+- Live Settings inspection showed the registered Command-J status and detected
+  Warp. The terminal executed from `/Users/jamesonstone`, and shell PID 23827
+  remained identical across hide and reopen.

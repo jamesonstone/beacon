@@ -7,18 +7,25 @@ final class BeaconApplicationModel {
 
     let state: AppState
     let loginItem: LoginItemController
+    let terminal: DropDownTerminalController
     private var dashboardWindowController: DashboardWindowController?
 
     convenience init() {
         self.init(
             state: AppState(externalActivityClient: CLIClient()),
-            loginItem: LoginItemController()
+            loginItem: LoginItemController(),
+            terminal: DropDownTerminalController()
         )
     }
 
-    init(state: AppState, loginItem: LoginItemController) {
+    init(
+        state: AppState,
+        loginItem: LoginItemController,
+        terminal: DropDownTerminalController
+    ) {
         self.state = state
         self.loginItem = loginItem
+        self.terminal = terminal
     }
 
     var isDashboardVisible: Bool {
@@ -29,17 +36,23 @@ final class BeaconApplicationModel {
         dashboardWindowController?.window
     }
 
+    var isTerminalVisible: Bool {
+        terminal.isVisible
+    }
+
     func start() {
         state.start()
+        terminal.start()
     }
 
     func stop() {
+        terminal.stop()
         state.stop()
     }
 
     @discardableResult
     func terminate() -> Error? {
-        state.stop()
+        stop()
         return state.stopAgentSynchronously()
     }
 
@@ -54,7 +67,8 @@ final class BeaconApplicationModel {
         if dashboardWindowController == nil {
             dashboardWindowController = DashboardWindowController(
                 state: state,
-                loginItem: loginItem
+                loginItem: loginItem,
+                terminal: terminal
             )
         }
         dashboardWindowController?.show(activate: activate)
@@ -71,12 +85,14 @@ final class DashboardWindowController: NSWindowController {
     init(
         state: AppState,
         loginItem: LoginItemController,
+        terminal: DropDownTerminalController,
         frameAutosaveName: NSWindow.FrameAutosaveName? = nil
     ) {
         self.frameAutosaveName = frameAutosaveName ?? Self.defaultFrameAutosaveName
         let dashboard = MenuView(
             state: state,
             loginItem: loginItem,
+            terminal: terminal,
             surface: .window,
             openDashboard: {}
         )
@@ -157,7 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        guard finishedLaunching, !model.isDashboardVisible else { return }
+        guard finishedLaunching, !model.isDashboardVisible, !model.isTerminalVisible else { return }
         model.showDashboard()
     }
 

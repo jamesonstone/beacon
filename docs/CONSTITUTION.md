@@ -584,6 +584,20 @@ chips and mutate through the Go background-agent authority. Ordinary interface
 copy uses system UI typography with an 11-point minimum; monospaced typography
 is reserved for code, branches, identifiers, timestamps, percentages, and
 counters. Shared base-size choices may scale these roles without changing them.
+
+The application also owns one retained native drop-down terminal session.
+Command-J registers through the public Carbon hotkey API and toggles a focused
+AppKit panel on the pointer display without Accessibility or Input Monitoring
+permission. Persisted presentation settings choose the top or bottom usable
+display edge and a 30%, 45%, or 60% height; they do not change workflow state.
+The panel runs one local login shell in the user's home directory through a
+pseudo-terminal, inherits a validated absolute `SHELL` or falls back to
+`/bin/zsh`, and terminates the child when Beacon terminates. Beacon does not
+persist terminal output, parse it as evidence, or transfer scanning, Git,
+GitHub, agent, or notes authority into Swift. Warp remains an external
+alternative because it exposes no supported embedding or window-control API;
+Settings may detect and open Warp and its official hotkey guide but must not
+modify Warp preferences or control it through Accessibility.
 Both surfaces expose one Notes panel at 50% of the available Beacon surface by
 default. A header double-click cycles 50%, 80%, minimized, then 50%, and the
 explicit chevron minimizes or restores the most recent expanded size. General
@@ -758,6 +772,7 @@ Dependencies must have a clear job and must not absorb domain policy:
 | Git | Worktree, status, branch, commit, base, and remote evidence | Machine-readable porcelain only |
 | GitHub CLI `gh` | Authenticated pull-request/check/review evidence | GitHub is the only v1 remote provider |
 | SwiftUI, AppKit, Foundation | Native menu UI, URL/path opening, process and JSON support | Presentation and process-client concerns only |
+| SwiftTerm `v1.11.2` | Native terminal rendering and local pseudo-terminal process lifecycle | One presentation-only login shell; no Beacon policy, evidence, or persistence |
 | XCTest | macOS unit tests | No production policy |
 
 Indirect dependencies introduced by Cobra are accepted only as transitive

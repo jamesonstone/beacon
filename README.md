@@ -549,6 +549,30 @@ In the default stacked view, each project name is a solid, bold heading above
 its lanes so repository context is visible before the pull request or issue
 title.
 
+### Drop-down Terminal
+
+Press **Command-J** from any application to show Beacon's native terminal on
+the display containing the pointer. Press **Command-J** again to hide it and
+return focus to the prior application. The terminal retains one login-shell
+session while Beacon is running, starts in the user's home directory, and uses
+the configured `SHELL` when it is an executable absolute path (otherwise
+`/bin/zsh`). Terminal output is not persisted by Beacon.
+
+Choose **Settings → Terminal** to open the panel without the shortcut, place it
+at the top or bottom of the display, and select Compact (30%), Balanced (45%,
+the default), or Spacious (60%) height. The shortcut requires no Accessibility
+or Input Monitoring permission. If another application already owns
+**Command-J**, Settings reports the conflict; change the other application's
+shortcut and relaunch Beacon.
+
+Warp cannot be embedded or controlled through a supported public API. When
+Warp is installed, **Settings → Terminal** can open it and its official
+[`Global Hotkey` guide](https://docs.warp.dev/terminal/windows/global-hotkey)
+as an external alternative. Give Warp a
+different shortcut while Beacon owns **Command-J**. Beacon's structured task
+activity support matrix still lists Warp as unsupported because terminal text
+is never parsed as work-lane evidence.
+
 Choose **Settings → Appearance → Theme** to apply one live appearance to both
 surfaces and the native Markdown editor. Beacon includes exactly five themes:
 **Lobster Nebula** (the recommended default dark theme), **Pampas Moon** (the

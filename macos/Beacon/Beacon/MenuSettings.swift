@@ -86,6 +86,7 @@ extension MenuView {
             } label: {
                 Label("Appearance", systemImage: "circle.lefthalf.filled")
             }
+            terminalSettingsMenu
             Button {
                 dismissedEvidenceBadgesValue = "[]"
             } label: {

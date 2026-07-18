@@ -6,12 +6,14 @@ struct BeaconApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var state = BeaconApplicationModel.shared.state
     @StateObject private var loginItem = BeaconApplicationModel.shared.loginItem
+    @StateObject private var terminal = BeaconApplicationModel.shared.terminal
 
     var body: some Scene {
         MenuBarExtra {
             MenuView(
                 state: state,
                 loginItem: loginItem,
+                terminal: terminal,
                 surface: .menu,
                 openDashboard: { BeaconApplicationModel.shared.showDashboard() }
             )

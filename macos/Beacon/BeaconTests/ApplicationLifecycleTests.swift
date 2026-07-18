@@ -102,6 +102,7 @@ final class ApplicationLifecycleTests: XCTestCase {
 
     func testApplicationStartAndTerminationOwnAgentLifecycle() async {
         let lifecycle = StubAgentLifecycleController()
+        let terminalRegistrar = TestGlobalHotKeyRegistrar()
         let state = AppState(
             agent: ScriptedAgent(events: [TestSnapshots.snapshotEvent(TestSnapshots.empty)]),
             installer: lifecycle,
@@ -111,14 +112,17 @@ final class ApplicationLifecycleTests: XCTestCase {
         )
         let model = BeaconApplicationModel(
             state: state,
-            loginItem: LoginItemController(service: StubLoginItemService(status: .disabled))
+            loginItem: LoginItemController(service: StubLoginItemService(status: .disabled)),
+            terminal: makeTestTerminalController(registrar: terminalRegistrar)
         )
 
         model.start()
         model.start()
         XCTAssertEqual(lifecycle.startCount, 1)
+        XCTAssertEqual(terminalRegistrar.registerCount, 1)
         XCTAssertNil(model.terminate())
         XCTAssertEqual(lifecycle.stopCount, 1)
+        XCTAssertEqual(terminalRegistrar.unregisterCount, 1)
         XCTAssertFalse(state.agentAvailable)
     }
 
@@ -152,7 +156,8 @@ final class ApplicationLifecycleTests: XCTestCase {
     private func testApplicationModel() -> BeaconApplicationModel {
         BeaconApplicationModel(
             state: AppState(client: LifecycleSnapshotClient()),
-            loginItem: LoginItemController(service: StubLoginItemService(status: .disabled))
+            loginItem: LoginItemController(service: StubLoginItemService(status: .disabled)),
+            terminal: makeTestTerminalController()
         )
     }
 
@@ -162,6 +167,7 @@ final class ApplicationLifecycleTests: XCTestCase {
         DashboardWindowController(
             state: AppState(client: LifecycleSnapshotClient()),
             loginItem: LoginItemController(service: StubLoginItemService(status: .disabled)),
+            terminal: makeTestTerminalController(),
             frameAutosaveName: frameAutosaveName
         )
     }
