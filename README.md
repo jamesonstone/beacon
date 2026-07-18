@@ -654,7 +654,12 @@ exceptions, then optional local context. Hover or keyboard-focus any card for a
 traversable detail panel with its bounded issue or PR description, links,
 reasons, warnings, blockers, and local context. The panel is rendered entirely
 from cached scan evidence, can be pinned, and closes with Escape; hovering never
-runs Git or GitHub work.
+runs Git or GitHub work. GitHub descriptions and review comments use one shared,
+theme-aware Markdown document renderer: headings, paragraphs, ordered and
+unordered task lists, quotes, code, dividers, tables, emphasis, and links retain
+their structure instead of being collapsed into continuous text. The same
+renderer is used wherever Beacon presents read-only Markdown; ordinary status
+labels remain explicit interface copy.
 
 The playful **Notes** panel sits at the bottom of both surfaces. It opens at 50%
 of the available Beacon surface height; double-clicking its header cycles 50%,

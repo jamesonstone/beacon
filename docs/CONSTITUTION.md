@@ -655,7 +655,11 @@ path. Issue and pull-request bodies are bounded to 64 KiB; unresolved review
 threads and their comments retain deterministic order, direct links, and
 explicit truncation. Hover, keyboard focus, panel pinning, dismissal, and Escape
 must execute no Git or GitHub command. Native Markdown detail and every status
-presentation remain usable without relying on color alone.
+presentation remain usable without relying on color alone. All read-only
+Markdown evidence must pass through one theme-aware block renderer that
+preserves headings, paragraphs, lists and tasks, quotes, code, dividers, tables,
+inline emphasis, and links. It must not reinterpret ordinary interface labels
+or mutate the cached source body.
 
 Human-facing lane detail remains lane-centered. The CLI groups Active, Waiting,
 Recently Active, and Parked lanes. The macOS dashboard opens on Following,

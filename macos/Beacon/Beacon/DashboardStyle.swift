@@ -124,6 +124,10 @@ enum BeaconTypography {
         .system(size: resolvedSize(size), weight: weight, design: .monospaced)
     }
 
+    static func code(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .system(size: resolvedSize(size), weight: weight, design: .monospaced)
+    }
+
     static func counter(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
         .system(size: resolvedSize(size), weight: weight, design: .monospaced)
     }

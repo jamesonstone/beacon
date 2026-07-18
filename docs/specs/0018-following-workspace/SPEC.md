@@ -2,7 +2,7 @@
 kit_metadata_version: 1
 artifact: spec
 workflow_version: 2
-phase: deliver
+phase: validate
 delivery_intent: ready_pull_request
 clarification:
   status: ready
@@ -151,6 +151,11 @@ collection through the existing GitHub cache and a coordinated additive model.
   action, reason, warning, blocker, note, and tag context.
 - Rich detail opens after hover or keyboard focus, remains open while traversed,
   can be pinned by click, closes with Escape, and never initiates network work.
+- Every read-only Markdown-backed field uses one block-aware renderer. Issue and
+  pull-request descriptions plus review comments preserve headings, paragraphs,
+  ordered/unordered/task lists, quotes, code, dividers, tables, inline emphasis,
+  and links instead of flattening the document into one run of text. Ordinary
+  interface labels and evidence strings remain explicit UI text.
 - Issue and PR bodies are bounded at 64 KiB. A refresh retains at most 100
   unresolved threads and 20 comments per thread and makes truncation explicit.
   Details live only in the existing user-only cached evidence path.
@@ -250,6 +255,10 @@ collection through the existing GitHub cache and a coordinated additive model.
     description/evidence for the completed theme continuation.
 22. Commit and push the continuation only to `GH-39` / PR #40, then require the
     final local and hosted validation gates to pass on its exact head.
+23. Replace the single-`Text` Markdown path with one theme-aware block renderer,
+    route every read-only GitHub Markdown body/comment through it, and verify
+    block separation, inline semantics, tables, task lists, text selection, and
+    all-five-theme rendering without changing cached source text.
 
 ## Assumptions
 
@@ -320,6 +329,9 @@ collection through the existing GitHub cache and a coordinated additive model.
   and rendered visual smoke tests pass across all five themes.
 - [x] AC20: Canonical/user docs, complete local validation, fresh-build visual
   smoke, commit/push, PR #40 update, and final hosted checks are complete.
+- [x] AC21: Every read-only Markdown-backed detail surface preserves block and
+  inline formatting without concatenating text, remains selectable and linked,
+  follows all five themes, and passes focused plus fresh-app visual validation.
 
 ## Implementation Plan
 
@@ -333,17 +345,20 @@ collection through the existing GitHub cache and a coordinated additive model.
    overview, canonical badges/help, rich details, and accessibility tests.
 5. Reconcile documentation, run focused and full validation, perform fresh-build
    interaction smoke, and review the complete diff.
-6. Explicitly stage, commit, push, create the assigned ready PR, observe hosted
+6. Add one reusable block-aware Markdown document renderer, migrate issue, PR,
+   and feedback content to it, and validate representative GitHub Markdown
+   structures across themes before updating the existing delivery lane.
+7. Explicitly stage, commit, push, create the assigned ready PR, observe hosted
    checks literally, and record final evidence.
-7. Extend the delivered feature specification for the explicitly queued theme
+8. Extend the delivered feature specification for the explicitly queued theme
    continuation and reconfirm the same issue, branch, and PR lane.
-8. Introduce the semantic theme catalog, preference resolver, SwiftUI/AppKit
+9. Introduce the semantic theme catalog, preference resolver, SwiftUI/AppKit
    render forms, and Settings appearance picker before migrating consumers.
-9. Migrate every shared surface and typography/status role, then implement the
+10. Migrate every shared surface and typography/status role, then implement the
    native accessibility adaptations and remove the legacy palette API.
-10. Add focused catalog, persistence, contrast, and visual rendering tests;
+11. Add focused catalog, persistence, contrast, and visual rendering tests;
     update user/canonical docs and review the complete semantic-role inventory.
-11. Run the full local and fresh-build visual gates, commit/push to PR #40,
+12. Run the full local and fresh-build visual gates, commit/push to PR #40,
     update delivery evidence, and wait for final hosted checks on the exact head.
 
 ## Agent Team Plan
@@ -379,6 +394,8 @@ collection through the existing GitHub cache and a coordinated additive model.
   five-theme rendered visual smoke tests plus user documentation.
 - [x] T13: Run all local and interaction gates, repair issues, commit/push to PR
   #40, update evidence, and require the final hosted checks to pass.
+- [x] T14: Implement, document, test, and visually verify shared block-aware
+  formatting for every read-only Markdown-backed detail surface.
 
 ## Validation Map
 
@@ -396,6 +413,7 @@ collection through the existing GitHub cache and a coordinated additive model.
 | AC17-AC18 | status identity/label/symbol assertions, typography-role tests, accessibility environment variants, and visual/accessibility smoke |
 | AC19 | token completeness and WCAG math tests plus AppKit-rendered preview smoke for every built-in theme |
 | AC20 | full make gate, Linux builds, Kit/diff/secret review, stable-app interaction smoke, exact branch/PR recon, and hosted checks |
+| AC21 | parser block/inline/table/task fixtures, five-theme render smoke, macOS test/build, and fresh detail-popover visual smoke |
 
 ## Reflection Notes
 
@@ -420,6 +438,11 @@ collection through the existing GitHub cache and a coordinated additive model.
 - One semantic catalog now drives SwiftUI, AppKit Markdown styling, the menu-bar
   beacon, both dashboard surfaces, and accessibility adaptations; themes cannot
   drift into separate status or identity grammars.
+- Foundation's Markdown conversion retains document structure in
+  `PresentationIntent` while its character stream omits the separators between
+  headings, paragraphs, and list items. Rendering one whole attributed string
+  therefore flattened the detail body; a shared block parser now preserves that
+  structure without rewriting or mutating the cached GitHub source.
 
 ## Documentation Updates
 
@@ -490,3 +513,18 @@ collection through the existing GitHub cache and a coordinated additive model.
   targets `main`, is assigned to `jamesonstone`, and closes issue #39.
 - Hosted checks passed on the theme implementation head: `go` in 50 seconds and
   `macos` in 2 minutes 1 second.
+- The Markdown follow-up routes issue descriptions, pull-request descriptions,
+  and review comments through one theme-aware renderer that preserves headings,
+  paragraphs, unordered and ordered lists, task items, quotes, dividers, tables,
+  fenced code, inline emphasis/code/links, text selection, and direct links.
+- Focused parser and five-theme rendering tests pass, and the complete local
+  gate passes `make fmt-check vet test test-race build release-test macos-test
+  macos-build`; the macOS result contains 109 passing, zero failing, and zero
+  skipped tests.
+- Linux amd64/arm64 builds, all 18 Kit feature checks, `git diff --check`,
+  changed-line secret review, Markdown-consumer audit, and source-size review
+  pass for the follow-up.
+- Fresh rebuilt-app smoke against `lsmc-bio/terrarium` issue #105 confirms the
+  supplied body now displays distinct Original ask, Scope boundaries,
+  Acceptance criteria, and Expected verification sections with readable list
+  markers and spacing in the detailed hover panel.

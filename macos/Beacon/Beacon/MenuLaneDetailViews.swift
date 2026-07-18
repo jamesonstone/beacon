@@ -110,8 +110,7 @@ extension MenuView {
                                         .font(BeaconTypography.identifier(8))
                                         .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
                                 }
-                                markdownText(comment.body)
-                                    .font(BeaconTypography.regular(10))
+                                BeaconMarkdownDocument(comment.body)
                                 HStack {
                                     if comment.bodyTruncated {
                                         Label("Comment truncated", systemImage: "ellipsis.circle")
@@ -152,7 +151,7 @@ extension MenuView {
             if value.isEmpty {
                 Text(empty).foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
             } else {
-                markdownText(value)
+                BeaconMarkdownDocument(value)
             }
             if truncated {
                 Label("Description truncated; open on GitHub for the complete text.", systemImage: "ellipsis.circle")
@@ -161,11 +160,6 @@ extension MenuView {
             }
         }
         .font(BeaconTypography.regular(10))
-    }
-
-    func markdownText(_ value: String) -> Text {
-        guard let attributed = try? AttributedString(markdown: value) else { return Text(value) }
-        return Text(attributed)
     }
 
     @ViewBuilder
