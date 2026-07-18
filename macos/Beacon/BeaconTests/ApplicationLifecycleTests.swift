@@ -87,6 +87,29 @@ final class ApplicationLifecycleTests: XCTestCase {
         XCTAssertEqual(window.frameAutosaveName, autosaveName)
     }
 
+    func testDashboardMoveAndResizeRefreshVisibleTerminalFrame() throws {
+        let terminalWindow = TestTerminalWindowController()
+        let terminal = DropDownTerminalController(
+            defaults: terminalTestDefaults(),
+            registrar: TestGlobalHotKeyRegistrar(),
+            makeWindowController: { terminalWindow }
+        )
+        terminal.toggle()
+        let controller = testDashboardController(
+            frameAutosaveName: "BeaconTests.\(UUID().uuidString)",
+            terminal: terminal
+        )
+        let window = try XCTUnwrap(controller.window)
+
+        XCTAssertTrue(window.delegate === controller)
+        controller.windowDidMove(Notification(name: NSWindow.didMoveNotification, object: window))
+        controller.windowDidResize(Notification(name: NSWindow.didResizeNotification, object: window))
+
+        XCTAssertEqual(terminalWindow.updateCount, 2)
+        terminal.stop()
+        window.close()
+    }
+
     func testNormalLaunchOpensDashboardAndLoginLaunchStaysQuiet() {
         let normal = testApplicationModel()
         normal.handleLaunch(isLoginLaunch: false)
@@ -162,12 +185,13 @@ final class ApplicationLifecycleTests: XCTestCase {
     }
 
     private func testDashboardController(
-        frameAutosaveName: NSWindow.FrameAutosaveName
+        frameAutosaveName: NSWindow.FrameAutosaveName,
+        terminal: DropDownTerminalController? = nil
     ) -> DashboardWindowController {
         DashboardWindowController(
             state: AppState(client: LifecycleSnapshotClient()),
             loginItem: LoginItemController(service: StubLoginItemService(status: .disabled)),
-            terminal: makeTestTerminalController(),
+            terminal: terminal ?? makeTestTerminalController(),
             frameAutosaveName: frameAutosaveName
         )
     }

@@ -40,31 +40,43 @@ enum TerminalHeight: String, CaseIterable, Identifiable {
 }
 
 enum DropDownTerminalPresentation {
+    private static let collapsedHeight: CGFloat = 1
+
     static func visibleFrame(
-        in visibleScreenFrame: NSRect,
+        in containerFrame: NSRect,
         edge: TerminalEdge,
         height: TerminalHeight
     ) -> NSRect {
-        let panelHeight = visibleScreenFrame.height * height.fraction
+        let panelHeight = containerFrame.height * height.fraction
         let originY = edge == .top
-            ? visibleScreenFrame.maxY - panelHeight
-            : visibleScreenFrame.minY
+            ? containerFrame.maxY - panelHeight
+            : containerFrame.minY
         return NSRect(
-            x: visibleScreenFrame.minX,
+            x: containerFrame.minX,
             y: originY,
-            width: visibleScreenFrame.width,
+            width: containerFrame.width,
             height: panelHeight
         )
     }
 
     static func hiddenFrame(
-        in visibleScreenFrame: NSRect,
-        edge: TerminalEdge,
-        height: TerminalHeight
+        in containerFrame: NSRect,
+        edge: TerminalEdge
     ) -> NSRect {
-        var frame = visibleFrame(in: visibleScreenFrame, edge: edge, height: height)
-        frame.origin.y = edge == .top ? visibleScreenFrame.maxY : visibleScreenFrame.minY - frame.height
-        return frame
+        NSRect(
+            x: containerFrame.minX,
+            y: edge == .top ? containerFrame.maxY - collapsedHeight : containerFrame.minY,
+            width: containerFrame.width,
+            height: collapsedHeight
+        )
+    }
+
+    static func clippedContainerFrame(_ preferredFrame: NSRect, to visibleScreenFrame: NSRect) -> NSRect? {
+        let clippedFrame = preferredFrame.intersection(visibleScreenFrame)
+        guard !clippedFrame.isNull, clippedFrame.width > 0, clippedFrame.height > 0 else {
+            return nil
+        }
+        return clippedFrame
     }
 }
 

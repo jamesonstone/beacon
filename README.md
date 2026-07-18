@@ -551,19 +551,22 @@ title.
 
 ### Drop-down Terminal
 
-Press **Command-J** from any application to show Beacon's native terminal on
-the display containing the pointer. Press **Command-J** again to hide it and
-return focus to the prior application. The terminal retains one login-shell
-session while Beacon is running, starts in the user's home directory, and uses
-the configured `SHELL` when it is an executable absolute path (otherwise
-`/bin/zsh`). Terminal output is not persisted by Beacon.
+Press **Command-J** from any application to show Beacon's native terminal
+inside the current Beacon dashboard window frame. The terminal tracks the
+dashboard's saved position and size and remains clipped to its visible screen.
+Press **Command-J** again to hide it and return focus to the prior application.
+The terminal retains one login-shell session while Beacon is running, starts in
+the user's home directory, and uses the configured `SHELL` when it is an
+executable absolute path (otherwise `/bin/zsh`). Terminal output is not
+persisted by Beacon.
 
 Choose **Settings → Terminal** to open the panel without the shortcut, place it
-at the top or bottom of the display, and select Compact (30%), Balanced (45%,
-the default), or Spacious (60%) height. The shortcut requires no Accessibility
-or Input Monitoring permission. If another application already owns
-**Command-J**, Settings reports the conflict; change the other application's
-shortcut and relaunch Beacon.
+at the top or bottom of the Beacon window bounds, and select Compact (30%),
+Balanced (45%, the default), or Spacious (60%) height. Moving or resizing the
+dashboard updates a visible terminal immediately. The shortcut requires no
+Accessibility or Input Monitoring permission. If another application already
+owns **Command-J**, Settings reports the conflict; change the other
+application's shortcut and relaunch Beacon.
 
 Warp cannot be embedded or controlled through a supported public API. When
 Warp is installed, **Settings → Terminal** can open it and its official

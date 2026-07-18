@@ -587,9 +587,11 @@ counters. Shared base-size choices may scale these roles without changing them.
 
 The application also owns one retained native drop-down terminal session.
 Command-J registers through the public Carbon hotkey API and toggles a focused
-AppKit panel on the pointer display without Accessibility or Input Monitoring
-permission. Persisted presentation settings choose the top or bottom usable
-display edge and a 30%, 45%, or 60% height; they do not change workflow state.
+AppKit panel inside the current dashboard window frame without Accessibility or
+Input Monitoring permission. The terminal follows dashboard moves and resizes,
+and its frame is clipped to the dashboard's visible screen. Persisted
+presentation settings choose the top or bottom dashboard edge and a 30%, 45%,
+or 60% height; they do not change workflow state.
 The panel runs one local login shell in the user's home directory through a
 pseudo-terminal, inherits a validated absolute `SHELL` or falls back to
 `/bin/zsh`, and terminates the child when Beacon terminates. Beacon does not

@@ -77,9 +77,9 @@ skills:
 
 Beacon should make a real local shell available from anywhere on macOS with one
 Command-J toggle. The terminal should retain its session while hidden, animate
-from a persisted top or bottom edge on the display containing the pointer, and
-remain a presentation-only macOS feature that does not alter Beacon evidence,
-agent protocol, or scanner policy.
+from a persisted top or bottom edge inside the current Beacon dashboard window
+bounds, and remain a presentation-only macOS feature that does not alter Beacon
+evidence, agent protocol, or scanner policy.
 
 ## Context
 
@@ -109,8 +109,10 @@ Beacon does not require Xcode's separately installed Metal toolchain.
 - Command-J is fixed for version 1. A configurable key recorder is out of scope.
 - The built-in terminal is the only Beacon-owned provider. Warp remains an
   explicit external option because no supported API can make it a Beacon view.
-- The panel spans the usable width of the display containing the pointer,
-  falling back to the main display, and respects the menu bar and Dock.
+- The panel stays inside the current Beacon dashboard window frame, follows
+  dashboard moves and resizes, and clips that frame to its visible screen.
+- A quiet login launch may materialize the retained dashboard controller to
+  resolve its saved bounds without showing the dashboard.
 - Settings offers Top and Bottom edges plus Compact (30%), Balanced (45%), and
   Spacious (60%) heights. Top and Balanced are the defaults.
 - The second Command-J press hides the panel. Losing focus does not hide it.
@@ -136,8 +138,8 @@ Beacon does not require Xcode's separately installed Metal toolchain.
    the application lifetime, restarting only after the child process exits.
 4. Show and hide the terminal on the main actor, focus it for immediate typing,
    and prevent terminal activation from opening the ordinary dashboard.
-5. Calculate deterministic visible and hidden panel frames for both edges,
-   every supported height, and non-zero display origins.
+5. Calculate deterministic visible and collapsed panel frames within the
+   dashboard bounds for both edges, every height, and non-zero origins.
 6. Persist edge and height selections with stable user-default keys and apply
    changes to the visible panel immediately.
 7. Render the terminal through SwiftTerm v1.11.2, using Beacon's selected code
@@ -158,17 +160,18 @@ Beacon does not require Xcode's separately installed Metal toolchain.
   global registration cannot preempt an existing owner.
 - A single local shell is sufficient for version 1; tabs, panes, SSH profiles,
   per-project working directories, and session restoration are non-goals.
-- The pointer display is the most deterministic public approximation of the
-  active display when another application is frontmost.
+- The dashboard's retained current or restored frame is the terminal container;
+  it remains authoritative while the dashboard itself is closed.
 - SwiftTerm remains pinned to v1.11.2 for reproducible builds without an
   optional Xcode component prerequisite.
 
 ## Acceptance Criteria
 
-- [x] AC1: From another application, Command-J opens a focused Beacon terminal;
-  pressing it again hides the panel without opening the dashboard.
+- [x] AC1: From another application, Command-J opens a focused Beacon terminal
+  inside the current dashboard bounds; pressing it again hides the panel
+  without opening the dashboard.
 - [x] AC2: Top and Bottom plus all three heights persist and produce exact
-  visible and hidden frames on screens with zero and non-zero origins.
+  visible and collapsed frames inside dashboard bounds with non-zero origins.
 - [x] AC3: Hiding and reopening preserve the same live shell process;
   an exited shell restarts on the next show, and app termination ends it.
 - [x] AC4: Duplicate start and stop calls are safe, registration conflicts are
@@ -220,11 +223,11 @@ protocol migration, or user-data conversion is required.
 | Criterion | Verification |
 | --- | --- |
 | AC1 | hotkey callback/controller tests, live registered status, and terminal toggle smoke |
-| AC2 | frame and preference tests for both edges, three heights, and offset displays |
+| AC2 | frame and preference tests for both edges, three heights, and offset dashboard bounds |
 | AC3 | singleton/session lifecycle tests plus live shell identity across hide and reopen |
 | AC4 | stub registrar start/stop/conflict tests and Settings inspection |
 | AC5 | shell resolver and normalized environment tests plus live `echo` smoke |
-| AC6 | font/theme assertions, Reduce Motion behavior, frame tests for offset displays, and panel collection-behavior review |
+| AC6 | font/theme assertions, Reduce Motion behavior, dashboard move/resize frame refresh, visible-screen clipping, and panel collection-behavior review |
 | AC7 | Settings source assertions, Warp-installed and unavailable tests, permission review |
 | AC8 | focused XCTest, `make fmt-check vet test test-race build release-test macos-test macos-build`, Linux amd64/arm64 builds, `kit check --all`, `git diff --check`, secret scan, and final app smoke |
 
@@ -246,6 +249,11 @@ automation cannot synthesize global shortcuts, so the physical Command-J path
 is supported by successful Carbon registration in the running app plus focused
 callback tests; one reviewer keypress from another application remains the
 recommended human confirmation.
+
+After the dashboard-bounds follow-up, a fresh isolated build showed the
+Balanced terminal at the dashboard's exact width and 45% of its current height.
+The collapsed animation frames remain inside the same bounds, and dashboard
+move and resize notifications refresh a visible terminal immediately.
 
 ## Documentation Updates
 
@@ -280,3 +288,7 @@ repository PR template, and literal hosted-check reporting.
 - Live Settings inspection showed the registered Command-J status and detected
   Warp. The terminal executed from `/Users/jamesonstone`, and shell PID 23827
   remained identical across hide and reopen.
+- Dashboard-bound frame tests cover both edges, all three heights, non-zero
+  origins, collapsed animation frames, and live move/resize refresh. A fresh
+  isolated application smoke confirmed the terminal's width and Balanced 45%
+  height matched the current dashboard bounds.

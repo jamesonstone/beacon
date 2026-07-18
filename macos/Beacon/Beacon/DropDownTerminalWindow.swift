@@ -4,10 +4,12 @@ import SwiftTerm
 @MainActor
 final class DropDownTerminalWindowController: NSWindowController, DropDownTerminalWindowControlling {
     private let terminalView: LocalProcessTerminalView
+    private let containerFrameProvider: () -> NSRect?
     private var previousApplication: NSRunningApplication?
     private var transitionID = 0
 
-    init() {
+    init(containerFrameProvider: @escaping () -> NSRect? = { nil }) {
+        self.containerFrameProvider = containerFrameProvider
         terminalView = LocalProcessTerminalView(frame: .zero)
         let panel = NSPanel(
             contentRect: .zero,
@@ -50,10 +52,10 @@ final class DropDownTerminalWindowController: NSWindowController, DropDownTermin
     }
 
     func update(edge: TerminalEdge, height: TerminalHeight) {
-        guard let window, window.isVisible, let visibleFrame = window.screen?.visibleFrame else { return }
+        guard let window, window.isVisible, let containerFrame = resolvedContainerFrame() else { return }
         transitionID += 1
         window.setFrame(
-            DropDownTerminalPresentation.visibleFrame(in: visibleFrame, edge: edge, height: height),
+            DropDownTerminalPresentation.visibleFrame(in: containerFrame, edge: edge, height: height),
             display: true,
             animate: false
         )
@@ -67,7 +69,7 @@ final class DropDownTerminalWindowController: NSWindowController, DropDownTermin
     }
 
     private func show(edge: TerminalEdge, height: TerminalHeight) {
-        guard let window, let visibleFrame = Self.activeScreen()?.visibleFrame else { return }
+        guard let window, let containerFrame = resolvedContainerFrame() else { return }
         transitionID += 1
         let currentTransition = transitionID
         let currentApplication = NSRunningApplication.current
@@ -79,12 +81,11 @@ final class DropDownTerminalWindowController: NSWindowController, DropDownTermin
         startShellIfNeeded()
 
         let hiddenFrame = DropDownTerminalPresentation.hiddenFrame(
-            in: visibleFrame,
-            edge: edge,
-            height: height
+            in: containerFrame,
+            edge: edge
         )
         let visiblePanelFrame = DropDownTerminalPresentation.visibleFrame(
-            in: visibleFrame,
+            in: containerFrame,
             edge: edge,
             height: height
         )
@@ -100,16 +101,15 @@ final class DropDownTerminalWindowController: NSWindowController, DropDownTermin
     }
 
     private func hide(edge: TerminalEdge, height: TerminalHeight) {
-        guard let window, let visibleFrame = window.screen?.visibleFrame else {
+        guard let window, let containerFrame = resolvedContainerFrame() else {
             window?.orderOut(nil)
             return
         }
         transitionID += 1
         let currentTransition = transitionID
         let hiddenFrame = DropDownTerminalPresentation.hiddenFrame(
-            in: visibleFrame,
-            edge: edge,
-            height: height
+            in: containerFrame,
+            edge: edge
         )
         animate(window: window, to: hiddenFrame) { [weak self] in
             guard self?.transitionID == currentTransition else { return }
@@ -152,6 +152,35 @@ final class DropDownTerminalWindowController: NSWindowController, DropDownTermin
             environment: configuration.environment,
             currentDirectory: configuration.currentDirectory
         )
+    }
+
+    private func resolvedContainerFrame() -> NSRect? {
+        if let preferredFrame = containerFrameProvider(),
+           preferredFrame.width > 0,
+           preferredFrame.height > 0,
+           let screen = Self.screen(containing: preferredFrame) {
+            if let clippedFrame = DropDownTerminalPresentation.clippedContainerFrame(
+                preferredFrame,
+                to: screen.visibleFrame
+            ) {
+                return clippedFrame
+            }
+        }
+        guard let visibleFrame = Self.activeScreen()?.visibleFrame else { return nil }
+        return DashboardWindowController.initialFrame(in: visibleFrame)
+    }
+
+    private static func screen(containing frame: NSRect) -> NSScreen? {
+        NSScreen.screens.max { left, right in
+            intersectionArea(of: frame, with: left.frame)
+                < intersectionArea(of: frame, with: right.frame)
+        }
+    }
+
+    private static func intersectionArea(of left: NSRect, with right: NSRect) -> CGFloat {
+        let intersection = left.intersection(right)
+        guard !intersection.isNull else { return 0 }
+        return intersection.width * intersection.height
     }
 
     private static func activeScreen() -> NSScreen? {

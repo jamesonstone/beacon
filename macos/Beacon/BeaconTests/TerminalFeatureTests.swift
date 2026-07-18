@@ -3,38 +3,65 @@ import XCTest
 
 @MainActor
 final class TerminalFeatureTests: XCTestCase {
-    func testFramesCoverBothEdgesAndOffsetScreens() {
-        let screen = NSRect(x: 1_920, y: 24, width: 1_600, height: 1_000)
+    func testFramesCoverBothEdgesAndStayInsideOffsetDashboardBounds() {
+        let dashboardFrame = NSRect(x: 2_090, y: 80, width: 580, height: 720)
 
         let top = DropDownTerminalPresentation.visibleFrame(
-            in: screen,
+            in: dashboardFrame,
             edge: .top,
             height: .balanced
         )
-        XCTAssertEqual(top, NSRect(x: 1_920, y: 574, width: 1_600, height: 450))
+        XCTAssertEqual(top, NSRect(x: 2_090, y: 476, width: 580, height: 324))
+        XCTAssertTrue(dashboardFrame.contains(top))
         XCTAssertEqual(
-            DropDownTerminalPresentation.hiddenFrame(in: screen, edge: .top, height: .balanced),
-            NSRect(x: 1_920, y: 1_024, width: 1_600, height: 450)
+            DropDownTerminalPresentation.hiddenFrame(
+                in: dashboardFrame,
+                edge: .top
+            ),
+            NSRect(x: 2_090, y: 799, width: 580, height: 1)
         )
 
         let bottom = DropDownTerminalPresentation.visibleFrame(
-            in: screen,
+            in: dashboardFrame,
             edge: .bottom,
             height: .compact
         )
-        XCTAssertEqual(bottom, NSRect(x: 1_920, y: 24, width: 1_600, height: 300))
+        XCTAssertEqual(bottom, NSRect(x: 2_090, y: 80, width: 580, height: 216))
+        XCTAssertTrue(dashboardFrame.contains(bottom))
         XCTAssertEqual(
-            DropDownTerminalPresentation.hiddenFrame(in: screen, edge: .bottom, height: .compact),
-            NSRect(x: 1_920, y: -276, width: 1_600, height: 300)
+            DropDownTerminalPresentation.hiddenFrame(
+                in: dashboardFrame,
+                edge: .bottom
+            ),
+            NSRect(x: 2_090, y: 80, width: 580, height: 1)
+        )
+    }
+
+    func testDashboardBoundsAreClippedToTheirVisibleScreen() {
+        let screen = NSRect(x: 0, y: 24, width: 1_440, height: 876)
+        let partlyOffscreenDashboard = NSRect(x: -80, y: 100, width: 580, height: 700)
+
+        XCTAssertEqual(
+            DropDownTerminalPresentation.clippedContainerFrame(
+                partlyOffscreenDashboard,
+                to: screen
+            ),
+            NSRect(x: 0, y: 100, width: 500, height: 700)
+        )
+        XCTAssertNil(
+            DropDownTerminalPresentation.clippedContainerFrame(
+                NSRect(x: 2_000, y: 100, width: 580, height: 700),
+                to: screen
+            )
         )
     }
 
     func testEveryHeightUsesItsDeclaredFraction() {
-        let screen = NSRect(x: 0, y: 0, width: 1_200, height: 800)
+        let dashboardFrame = NSRect(x: 120, y: 40, width: 580, height: 800)
 
         for height in TerminalHeight.allCases {
             let frame = DropDownTerminalPresentation.visibleFrame(
-                in: screen,
+                in: dashboardFrame,
                 edge: .bottom,
                 height: height
             )
@@ -60,6 +87,8 @@ final class TerminalFeatureTests: XCTestCase {
         controller.height = .spacious
         controller.toggle()
         XCTAssertTrue(controller.isVisible)
+        controller.refreshFrame()
+        XCTAssertEqual(window.updateCount, 1)
         controller.toggle()
         XCTAssertFalse(controller.isVisible)
 

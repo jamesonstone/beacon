@@ -34,7 +34,8 @@ final class DropDownTerminalController: ObservableObject {
 
     private let defaults: UserDefaults
     private let registrar: GlobalHotKeyRegistering
-    private let makeWindowController: () -> DropDownTerminalWindowControlling
+    private let makeWindowController: (() -> DropDownTerminalWindowControlling)?
+    private var containerFrameProvider: () -> NSRect? = { nil }
     private var windowController: DropDownTerminalWindowControlling?
     private var started = false
 
@@ -45,9 +46,7 @@ final class DropDownTerminalController: ObservableObject {
     ) {
         self.defaults = defaults
         self.registrar = registrar
-        self.makeWindowController = makeWindowController ?? {
-            DropDownTerminalWindowController()
-        }
+        self.makeWindowController = makeWindowController
         edge = TerminalEdge(rawValue: defaults.string(forKey: TerminalEdge.storageKey) ?? "")
             ?? .defaultEdge
         height = TerminalHeight(rawValue: defaults.string(forKey: TerminalHeight.storageKey) ?? "")
@@ -79,9 +78,22 @@ final class DropDownTerminalController: ObservableObject {
         hotKeyStatus = .inactive
     }
 
+    func setContainerFrameProvider(_ provider: @escaping () -> NSRect?) {
+        containerFrameProvider = provider
+        refreshFrame()
+    }
+
+    func refreshFrame() {
+        windowController?.update(edge: edge, height: height)
+    }
+
     func toggle() {
         if windowController == nil {
-            windowController = makeWindowController()
+            windowController = makeWindowController?() ?? DropDownTerminalWindowController(
+                containerFrameProvider: { [weak self] in
+                    self?.containerFrameProvider()
+                }
+            )
         }
         isVisible = !(windowController?.isVisible == true)
         windowController?.toggle(edge: edge, height: height)
