@@ -143,7 +143,10 @@ Beacon does not require Xcode's separately installed Metal toolchain.
 6. Persist edge and height selections with stable user-default keys and apply
    changes to the visible panel immediately.
 7. Render the terminal through SwiftTerm v1.11.2, using Beacon's selected code
-   font and active semantic theme colors when the session is shown.
+   font plus a complete semantic default, cursor, selection, ANSI-16, and
+   derived 256-color palette. Apply theme changes to a visible session and keep
+   default input, the cursor, and every foreground-capable ANSI-16 entry at
+   4.5:1 or better against the terminal canvas.
 8. Resolve the login shell and environment safely without invoking a shell to
    discover configuration or interpolating command strings.
 9. Expose Show Terminal, Position, Height, hotkey health, and supported Warp
@@ -178,9 +181,9 @@ Beacon does not require Xcode's separately installed Metal toolchain.
   shown in Settings, and shutdown unregisters the hotkey exactly once.
 - [x] AC5: The shell starts from the safe resolved executable in the user home
   with a login argument and explicit true-color terminal environment.
-- [x] AC6: The terminal uses the selected Beacon code font and theme colors,
-  respects Reduce Motion, and stays usable on multiple displays and full-screen
-  Spaces.
+- [x] AC6: The terminal uses the selected Beacon code font and complete readable
+  theme palette, updates a visible session when the theme changes, respects
+  Reduce Motion, and stays usable on multiple displays and full-screen Spaces.
 - [x] AC7: Settings contains terminal show, edge, height, hotkey status, and
   installed-Warp guidance without changing Warp preferences or adding a Beacon
   Accessibility permission.
@@ -215,7 +218,7 @@ protocol migration, or user-data conversion is required.
 - [x] T4: Add focused tests and user/canonical documentation for AC1-AC8.
 - [x] T5: Run full validation and manual smoke checks, repair defects, and
   record reflection and evidence for AC8.
-- [ ] T6: Explicitly stage, commit, push, open a ready PR closing #43, and verify
+- [x] T6: Explicitly stage, commit, push, open a ready PR closing #43, and verify
   exact hosted check state.
 
 ## Validation Map
@@ -227,7 +230,7 @@ protocol migration, or user-data conversion is required.
 | AC3 | singleton/session lifecycle tests plus live shell identity across hide and reopen |
 | AC4 | stub registrar start/stop/conflict tests and Settings inspection |
 | AC5 | shell resolver and normalized environment tests plus live `echo` smoke |
-| AC6 | font/theme assertions, Reduce Motion behavior, dashboard move/resize frame refresh, visible-screen clipping, and panel collection-behavior review |
+| AC6 | complete ANSI palette and 4.5:1 contrast assertions across all five themes, live theme refresh, Reduce Motion behavior, dashboard move/resize frame refresh, visible-screen clipping, and panel collection-behavior review |
 | AC7 | Settings source assertions, Warp-installed and unavailable tests, permission review |
 | AC8 | focused XCTest, `make fmt-check vet test test-race build release-test macos-test macos-build`, Linux amd64/arm64 builds, `kit check --all`, `git diff --check`, secret scan, and final app smoke |
 
@@ -255,6 +258,12 @@ Balanced terminal at the dashboard's exact width and 45% of its current height.
 The collapsed animation frames remain inside the same bounds, and dashboard
 move and resize notifications refresh a visible terminal immediately.
 
+The terminal now installs all 16 ANSI entries before deriving its 256-color
+palette instead of inheriting SwiftTerm's unrelated defaults. Default text,
+ANSI-16 foreground colors, and the cursor meet 4.5:1 against every theme
+canvas, including Selenized Dark, and a Settings theme change refreshes an
+already-visible panel.
+
 ## Documentation Updates
 
 - [x] README macOS terminal usage, defaults, Warp boundary, and troubleshooting.
@@ -277,7 +286,8 @@ repository PR template, and literal hosted-check reporting.
   exactly matching refreshed `origin/main` before the first edit.
 - Official Warp documentation and SwiftTerm v1.11.2 package/source were read to
   resolve the supported integration boundary and local-process API.
-- Focused and complete XCTest passed with 121 tests and zero failures.
+- Focused terminal/theme XCTest passed with 21 tests and zero failures; the
+  complete XCTest suite passed with 124 tests and zero failures.
 - `make fmt-check vet test test-race build release-test` passed, as did Linux
   amd64 and arm64 Go builds.
 - Universal `make macos-build` passed and produced both application and helper
@@ -292,3 +302,6 @@ repository PR template, and literal hosted-check reporting.
   origins, collapsed animation frames, and live move/resize refresh. A fresh
   isolated application smoke confirmed the terminal's width and Balanced 45%
   height matched the current dashboard bounds.
+- A live retained-shell smoke changed through all five themes and confirmed
+  that typed command text and the cursor remained visible while the open
+  terminal adopted each new canvas and palette without restarting its shell.

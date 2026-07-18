@@ -89,6 +89,8 @@ final class TerminalFeatureTests: XCTestCase {
         XCTAssertTrue(controller.isVisible)
         controller.refreshFrame()
         XCTAssertEqual(window.updateCount, 1)
+        controller.refreshAppearance()
+        XCTAssertEqual(window.appearanceUpdateCount, 1)
         controller.toggle()
         XCTAssertFalse(controller.isVisible)
 
@@ -212,6 +214,7 @@ final class TestTerminalWindowController: DropDownTerminalWindowControlling {
     var isVisible = false
     private(set) var toggleCount = 0
     private(set) var updateCount = 0
+    private(set) var appearanceUpdateCount = 0
     private(set) var terminateCount = 0
     private(set) var lastEdge: TerminalEdge?
     private(set) var lastHeight: TerminalHeight?
@@ -227,6 +230,10 @@ final class TestTerminalWindowController: DropDownTerminalWindowControlling {
         updateCount += 1
         lastEdge = edge
         lastHeight = height
+    }
+
+    func updateAppearance() {
+        appearanceUpdateCount += 1
     }
 
     func terminate() {

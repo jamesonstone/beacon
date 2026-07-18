@@ -558,7 +558,10 @@ Press **Command-J** again to hide it and return focus to the prior application.
 The terminal retains one login-shell session while Beacon is running, starts in
 the user's home directory, and uses the configured `SHELL` when it is an
 executable absolute path (otherwise `/bin/zsh`). Terminal output is not
-persisted by Beacon.
+persisted by Beacon. The selected Beacon theme also supplies the terminal's
+default text, cursor, selection, and complete 16-color ANSI palette. Default
+command input and ANSI-16 prompt colors remain readable against the terminal
+canvas, and changing the theme updates an open terminal immediately.
 
 Choose **Settings → Terminal** to open the panel without the shortcut, place it
 at the top or bottom of the Beacon window bounds, and select Compact (30%),
@@ -582,7 +585,8 @@ surfaces and the native Markdown editor. Beacon includes exactly five themes:
 high-readability light theme), **Solarized Dark**, **Monokai**, and **Selenized
 Dark**. The stable selection persists across launches. Every theme supplies the
 same semantic canvas, surface, border, text, focus, status, Local/PR/Issue, and
-editor roles, so changing appearance never changes workflow meaning.
+editor and terminal roles, so changing appearance never changes workflow
+meaning.
 
 A dedicated refresh button in the top-right of both surfaces performs
 **Scan Now**. Use it after merging one or several pull requests to bypass the

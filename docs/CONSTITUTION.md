@@ -594,7 +594,12 @@ presentation settings choose the top or bottom dashboard edge and a 30%, 45%,
 or 60% height; they do not change workflow state.
 The panel runs one local login shell in the user's home directory through a
 pseudo-terminal, inherits a validated absolute `SHELL` or falls back to
-`/bin/zsh`, and terminates the child when Beacon terminates. Beacon does not
+`/bin/zsh`, and terminates the child when Beacon terminates. Its default text,
+cursor, selection, and complete 16-color ANSI palette derive from the active
+Beacon theme and refresh live. Foreground-capable terminal colors must meet the
+same 4.5:1 contrast floor as normal interface text against the terminal canvas
+for default input, the cursor, and ANSI-16 entries; ANSI black remains the
+structural canvas/background entry. Beacon does not
 persist terminal output, parse it as evidence, or transfer scanning, Git,
 GitHub, agent, or notes authority into Swift. Warp remains an external
 alternative because it exposes no supported embedding or window-control API;
@@ -643,13 +648,14 @@ detached dashboard, AppKit Markdown editor, tabs, lanes, controls, switchers,
 dialogs, Notes, and empty/error states; unknown stored IDs fall back to Lobster
 Nebula. Each complete token set owns canvas, layered surfaces, borders,
 primary/secondary/muted text, accent/focus, success/warning/danger/info,
-Local/PR/Issue identities, and editor roles. Ordinary text, cards, controls, and
-borders use solid neutral surfaces and minimal shadows; gradients are reserved
-for the wordmark, beacon/rocket, and occasional illustration. Every built-in
-theme must pass automated token-completeness, stable-ID, persistence, rendered
-smoke, 4.5:1 normal-text contrast, and 3:1 non-text/large-indicator contrast
-checks. Raw classic accents that miss these thresholds require accessible
-semantic aliases.
+Local/PR/Issue identities, editor roles, and a derived terminal palette.
+Ordinary text, cards, controls, and borders use solid neutral surfaces and
+minimal shadows; gradients are reserved for the wordmark, beacon/rocket, and
+occasional illustration. Every built-in theme must pass automated token-
+completeness, stable-ID, persistence, rendered smoke, 4.5:1 normal-text and
+terminal-foreground contrast, and 3:1 non-text/large-indicator contrast checks.
+Raw classic accents that miss these thresholds require accessible semantic
+aliases.
 
 Both surfaces respect Increase Contrast, Differentiate Without Color, Reduce
 Transparency, and Reduce Motion. Higher contrast strengthens semantic borders;

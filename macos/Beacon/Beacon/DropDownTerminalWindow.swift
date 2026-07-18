@@ -61,6 +61,11 @@ final class DropDownTerminalWindowController: NSWindowController, DropDownTermin
         )
     }
 
+    func updateAppearance() {
+        guard isVisible else { return }
+        configureAppearance()
+    }
+
     func terminate() {
         transitionID += 1
         terminalView.terminate()
@@ -137,9 +142,15 @@ final class DropDownTerminalWindowController: NSWindowController, DropDownTermin
 
     private func configureAppearance() {
         let theme = BeaconThemePreference.current()
+        let palette = theme.terminalPalette
         terminalView.font = BeaconTypography.appKitCodeFont(10)
-        terminalView.nativeBackgroundColor = theme.tokens.canvas.nsColor
-        terminalView.nativeForegroundColor = theme.tokens.textPrimary.nsColor
+        terminalView.nativeBackgroundColor = palette.background.nsColor
+        terminalView.nativeForegroundColor = palette.foreground.nsColor
+        terminalView.terminal.ansi256PaletteStrategy = .base16Lab
+        terminalView.installColors(palette.ansiColors.map(\.swiftTermColor))
+        terminalView.caretColor = palette.cursor.nsColor
+        terminalView.caretTextColor = palette.background.nsColor
+        terminalView.selectedTextBackgroundColor = palette.selection.nsColor.withAlphaComponent(0.32)
         terminalView.needsDisplay = true
     }
 
@@ -187,5 +198,15 @@ final class DropDownTerminalWindowController: NSWindowController, DropDownTermin
         let pointer = NSEvent.mouseLocation
         return NSScreen.screens.first { NSMouseInRect(pointer, $0.frame, false) }
             ?? NSScreen.main
+    }
+}
+
+private extension BeaconSRGB {
+    var swiftTermColor: SwiftTerm.Color {
+        SwiftTerm.Color(
+            red: UInt16((red * 65_535).rounded()),
+            green: UInt16((green * 65_535).rounded()),
+            blue: UInt16((blue * 65_535).rounded())
+        )
     }
 }

@@ -12,6 +12,7 @@ protocol DropDownTerminalWindowControlling: AnyObject {
     var isVisible: Bool { get }
     func toggle(edge: TerminalEdge, height: TerminalHeight)
     func update(edge: TerminalEdge, height: TerminalHeight)
+    func updateAppearance()
     func terminate()
 }
 
@@ -85,6 +86,10 @@ final class DropDownTerminalController: ObservableObject {
 
     func refreshFrame() {
         windowController?.update(edge: edge, height: height)
+    }
+
+    func refreshAppearance() {
+        windowController?.updateAppearance()
     }
 
     func toggle() {

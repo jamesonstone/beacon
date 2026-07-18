@@ -136,6 +136,53 @@ struct BeaconThemeTokens: Equatable {
     }
 }
 
+struct BeaconTerminalPalette: Equatable {
+    let background: BeaconSRGB
+    let foreground: BeaconSRGB
+    let cursor: BeaconSRGB
+    let selection: BeaconSRGB
+    let ansiColors: [BeaconSRGB]
+
+    init(tokens: BeaconThemeTokens) {
+        background = tokens.canvas
+        foreground = tokens.textPrimary
+        cursor = tokens.focus
+        selection = tokens.editorSelection
+        ansiColors = [
+            tokens.canvas,
+            tokens.danger,
+            tokens.success,
+            tokens.warning,
+            tokens.info,
+            tokens.identityIssue,
+            tokens.accent,
+            tokens.textSecondary,
+            tokens.textMuted,
+            tokens.danger,
+            tokens.success,
+            tokens.warning,
+            tokens.focus,
+            tokens.identityIssue,
+            tokens.accent,
+            tokens.textPrimary,
+        ]
+    }
+
+    var readableTextPairs: [(name: String, foreground: BeaconSRGB, background: BeaconSRGB)] {
+        let names = [
+            "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+            "bright black", "bright red", "bright green", "bright yellow",
+            "bright blue", "bright magenta", "bright cyan", "bright white",
+        ]
+        return zip(names, ansiColors.dropFirst()).map { name, color in
+            ("ANSI \(name)", color, background)
+        } + [
+            ("default foreground", foreground, background),
+            ("cursor", cursor, background),
+        ]
+    }
+}
+
 enum BeaconThemeID: String, CaseIterable, Identifiable {
     case lobsterNebula = "lobster-nebula"
     case pampasMoon = "pampas-moon"
@@ -163,6 +210,10 @@ struct BeaconTheme: Identifiable, Equatable {
     let signatureAccent: BeaconSRGB
     let isRecommended: Bool
     let tokens: BeaconThemeTokens
+
+    var terminalPalette: BeaconTerminalPalette {
+        BeaconTerminalPalette(tokens: tokens)
+    }
 
     var accessibilityName: String {
         if isRecommended { return "\(name), recommended" }
