@@ -586,8 +586,10 @@ is reserved for code, branches, identifiers, timestamps, percentages, and
 counters. Shared base-size choices may scale these roles without changing them.
 
 The application also owns one retained native drop-down terminal session.
-Command-J registers through the public Carbon hotkey API and toggles a focused
-AppKit panel inside the current dashboard window frame without Accessibility or
+Command-J is handled by an application-local AppKit event monitor and toggles a
+focused panel inside the current dashboard window frame only while Beacon is
+active. Beacon must not reserve the shortcut system-wide, so other applications
+retain their own Command-J behavior. The shortcut needs no Accessibility or
 Input Monitoring permission. The terminal follows dashboard moves and resizes,
 and its frame is clipped to the dashboard's visible screen. Persisted
 presentation settings choose the top or bottom dashboard edge and a 30%, 45%,

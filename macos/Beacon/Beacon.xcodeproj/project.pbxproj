@@ -74,7 +74,7 @@
 		100000000000000000000042 /* BeaconTypographyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000046 /* BeaconTypographyTests.swift */; };
 		100000000000000000000043 /* DropDownTerminalController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000047 /* DropDownTerminalController.swift */; };
 		100000000000000000000044 /* DropDownTerminalWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000048 /* DropDownTerminalWindow.swift */; };
-		100000000000000000000045 /* GlobalHotKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000049 /* GlobalHotKey.swift */; };
+		100000000000000000000045 /* TerminalShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000049 /* TerminalShortcut.swift */; };
 		100000000000000000000046 /* MenuTerminalSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000004A /* MenuTerminalSettings.swift */; };
 		100000000000000000000047 /* TerminalPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000004B /* TerminalPreferences.swift */; };
 		100000000000000000000048 /* TerminalFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20000000000000000000004C /* TerminalFeatureTests.swift */; };
@@ -183,7 +183,7 @@
 		200000000000000000000046 /* BeaconTypographyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconTypographyTests.swift; sourceTree = "<group>"; };
 		200000000000000000000047 /* DropDownTerminalController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropDownTerminalController.swift; sourceTree = "<group>"; };
 		200000000000000000000048 /* DropDownTerminalWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropDownTerminalWindow.swift; sourceTree = "<group>"; };
-		200000000000000000000049 /* GlobalHotKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalHotKey.swift; sourceTree = "<group>"; };
+		200000000000000000000049 /* TerminalShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalShortcut.swift; sourceTree = "<group>"; };
 		20000000000000000000004A /* MenuTerminalSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuTerminalSettings.swift; sourceTree = "<group>"; };
 		20000000000000000000004B /* TerminalPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPreferences.swift; sourceTree = "<group>"; };
 		20000000000000000000004C /* TerminalFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalFeatureTests.swift; sourceTree = "<group>"; };
@@ -235,7 +235,7 @@
 				200000000000000000000045 /* BeaconTypography.swift */,
 				200000000000000000000047 /* DropDownTerminalController.swift */,
 				200000000000000000000048 /* DropDownTerminalWindow.swift */,
-				200000000000000000000049 /* GlobalHotKey.swift */,
+				200000000000000000000049 /* TerminalShortcut.swift */,
 				20000000000000000000004A /* MenuTerminalSettings.swift */,
 				20000000000000000000004B /* TerminalPreferences.swift */,
 				200000000000000000000014 /* DashboardStyle.swift */,

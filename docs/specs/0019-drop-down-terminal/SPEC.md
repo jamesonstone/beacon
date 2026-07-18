@@ -75,8 +75,9 @@ skills:
 
 ## Thesis
 
-Beacon should make a real local shell available from anywhere on macOS with one
-Command-J toggle. The terminal should retain its session while hidden, animate
+Beacon should make a real local shell available with one Command-J toggle while
+Beacon is active, without intercepting Command-J in any other application. The
+terminal should retain its session while hidden, animate
 from a persisted top or bottom edge inside the current Beacon dashboard window
 bounds, and remain a presentation-only macOS feature that does not alter Beacon
 evidence, agent protocol, or scanner policy.
@@ -85,8 +86,8 @@ evidence, agent protocol, or scanner policy.
 
 Beacon is a native macOS 14 AppKit and SwiftUI application with a retained
 detached-window controller, application-owned lifecycle, user-default-backed
-settings, and no App Sandbox entitlement. It has no global-hotkey controller,
-terminal emulator, or Swift Package Manager dependency today.
+settings, and no App Sandbox entitlement. Before this feature it had no
+terminal emulator or Swift Package Manager dependency.
 
 Warp provides the requested dedicated global-hotkey window, including edge,
 screen, and size preferences. Its public URI scheme can open a window, tab, or
@@ -126,14 +127,15 @@ Beacon does not require Xcode's separately installed Metal toolchain.
 - Custom slide animation is 180 milliseconds and is disabled when macOS Reduce
   Motion is enabled.
 - Application termination sends the terminal child process `SIGTERM` through
-  SwiftTerm and unregisters the global hotkey.
+  SwiftTerm and removes the application-local event monitor.
 
 ## Requirements
 
-1. Register Command-J as a global hotkey through the public Carbon hotkey API
-   without requesting Accessibility or Input Monitoring permission.
-2. Make registration idempotent, unregister it during shutdown, and expose a
-   specific user-visible error when another application owns the shortcut.
+1. Handle Command-J through an application-local AppKit event monitor without
+   requesting Accessibility or Input Monitoring permission or reserving the
+   shortcut system-wide.
+2. Install the monitor idempotently, remove it during shutdown, consume an exact
+   Command-J only inside Beacon, and pass every other key event through.
 3. Own one retained terminal window and one local pseudo-terminal session for
    the application lifetime, restarting only after the child process exits.
 4. Show and hide the terminal on the main actor, focus it for immediate typing,
@@ -149,7 +151,7 @@ Beacon does not require Xcode's separately installed Metal toolchain.
    4.5:1 or better against the terminal canvas.
 8. Resolve the login shell and environment safely without invoking a shell to
    discover configuration or interpolating command strings.
-9. Expose Show Terminal, Position, Height, hotkey health, and supported Warp
+9. Expose Show Terminal, Position, Height, shortcut health, and supported Warp
    guidance through the existing Settings surface.
 10. Keep the Go model, cached evidence, background agent, CLI behavior, and
     versioned protocol unchanged.
@@ -159,8 +161,8 @@ Beacon does not require Xcode's separately installed Metal toolchain.
 
 - Beacon remains outside the App Sandbox, matching the existing target and the
   SwiftTerm local-process requirement.
-- Command-J is available on most systems; conflict handling is required because
-  global registration cannot preempt an existing owner.
+- Command-J remains available to the active application; Beacon receives it
+  only while Beacon or its terminal panel is active.
 - A single local shell is sufficient for version 1; tabs, panes, SSH profiles,
   per-project working directories, and session restoration are non-goals.
 - The dashboard's retained current or restored frame is the terminal container;
@@ -170,15 +172,15 @@ Beacon does not require Xcode's separately installed Metal toolchain.
 
 ## Acceptance Criteria
 
-- [x] AC1: From another application, Command-J opens a focused Beacon terminal
-  inside the current dashboard bounds; pressing it again hides the panel
-  without opening the dashboard.
+- [x] AC1: While Beacon is active, Command-J opens a focused terminal inside the
+  current dashboard bounds and a second press hides it; while another app is
+  active, that app receives Command-J normally.
 - [x] AC2: Top and Bottom plus all three heights persist and produce exact
   visible and collapsed frames inside dashboard bounds with non-zero origins.
 - [x] AC3: Hiding and reopening preserve the same live shell process;
   an exited shell restarts on the next show, and app termination ends it.
-- [x] AC4: Duplicate start and stop calls are safe, registration conflicts are
-  shown in Settings, and shutdown unregisters the hotkey exactly once.
+- [x] AC4: Duplicate start and stop calls are safe, Settings reports shortcut
+  health, and shutdown removes the local monitor exactly once.
 - [x] AC5: The shell starts from the safe resolved executable in the user home
   with a login argument and explicit true-color terminal environment.
 - [x] AC6: The terminal uses the selected Beacon code font and complete readable
@@ -194,7 +196,7 @@ Beacon does not require Xcode's separately installed Metal toolchain.
 
 1. Add the pinned SwiftTerm package product to the Beacon application target.
 2. Add terminal preference, frame, shell-environment, Warp-detection, and
-   global-hotkey types with deterministic seams for focused tests.
+   application-local shortcut types with deterministic seams for focused tests.
 3. Add the retained AppKit terminal panel and local-process session wrapper.
 4. Integrate terminal ownership with `BeaconApplicationModel`, AppDelegate
    activation, shutdown, and both shared Settings surfaces.
@@ -212,7 +214,7 @@ protocol migration, or user-data conversion is required.
 
 - [x] T1: Record clarified requirements, public integration boundaries, and
   validation mapping for AC1-AC8.
-- [x] T2: Add SwiftTerm and implement preferences, hotkey, panel, and session
+- [x] T2: Add SwiftTerm and implement preferences, shortcut, panel, and session
   ownership for AC1-AC6.
 - [x] T3: Add Settings and Warp guidance for AC4 and AC7.
 - [x] T4: Add focused tests and user/canonical documentation for AC1-AC8.
@@ -225,10 +227,10 @@ protocol migration, or user-data conversion is required.
 
 | Criterion | Verification |
 | --- | --- |
-| AC1 | hotkey callback/controller tests, live registered status, and terminal toggle smoke |
+| AC1 | exact shortcut matcher/controller tests plus live Beacon and cross-application Command-J smoke |
 | AC2 | frame and preference tests for both edges, three heights, and offset dashboard bounds |
 | AC3 | singleton/session lifecycle tests plus live shell identity across hide and reopen |
-| AC4 | stub registrar start/stop/conflict tests and Settings inspection |
+| AC4 | stub registrar start/stop/failure tests and Settings inspection |
 | AC5 | shell resolver and normalized environment tests plus live `echo` smoke |
 | AC6 | complete ANSI palette and 4.5:1 contrast assertions across all five themes, live theme refresh, Reduce Motion behavior, dashboard move/resize frame refresh, visible-screen clipping, and panel collection-behavior review |
 | AC7 | Settings source assertions, Warp-installed and unavailable tests, permission review |
@@ -236,8 +238,10 @@ protocol migration, or user-data conversion is required.
 
 ## Reflection Notes
 
-Beacon now owns one retained SwiftTerm-backed login shell and a public Carbon
-Command-J registration. Warp remains external because it has no supported
+Beacon now owns one retained SwiftTerm-backed login shell and an
+application-local Command-J event monitor. Other applications retain their own
+Command-J behavior because Beacon never registers the chord system-wide. Warp
+remains external because it has no supported
 embedding or preference-control API. SwiftTerm is pinned to v1.11.2: later
 versions make an optional Metal toolchain a build prerequisite, while v1.11.2
 provides the required local-process terminal without that contributor and CI
@@ -248,10 +252,11 @@ compilation.
 A live application smoke test opened the panel, executed commands from the
 user home, retained the same shell PID across hide and reopen, and applied the
 bottom/compact setting before restoring top/balanced. The available macOS
-automation cannot synthesize global shortcuts, so the physical Command-J path
-is supported by successful Carbon registration in the running app plus focused
-callback tests; one reviewer keypress from another application remains the
-recommended human confirmation.
+automation can target Command-J to Beacon and another active application because
+the shortcut is application-local. A fresh build opened and hid Beacon's panel
+with the chord, while the same chord targeted to another frontmost app left the
+Beacon panel closed. Focused callback and exact-modifier tests cover the
+controller seam.
 
 After the dashboard-bounds follow-up, a fresh isolated build showed the
 Balanced terminal at the dashboard's exact width and 45% of its current height.
@@ -295,9 +300,13 @@ repository PR template, and literal hosted-check reporting.
 - A complete synthetic release package passed build, helper metadata, ad-hoc
   signature verification, all four CLI archives, universal app archive, and
   checksum generation.
-- Live Settings inspection showed the registered Command-J status and detected
-  Warp. The terminal executed from `/Users/jamesonstone`, and shell PID 23827
-  remained identical across hide and reopen.
+- Live Settings inspection showed the application-local Command-J status and
+  detected Warp. The terminal executed from `/Users/jamesonstone`, and shell
+  PID 23827 remained identical across hide and reopen.
+- A fresh isolated build opened and hid the Beacon terminal through targeted
+  Command-J input. Targeting Command-J to another frontmost application left
+  Beacon's terminal closed, confirming that Beacon no longer intercepts the
+  chord outside its own process.
 - Dashboard-bound frame tests cover both edges, all three heights, non-zero
   origins, collapsed animation frames, and live move/resize refresh. A fresh
   isolated application smoke confirmed the terminal's width and Balanced 45%

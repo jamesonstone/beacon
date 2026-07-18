@@ -1,7 +1,7 @@
 import AppKit
 import Combine
 
-enum TerminalHotKeyStatus: Equatable {
+enum TerminalShortcutStatus: Equatable {
     case inactive
     case registered
     case failed(String)
@@ -18,7 +18,7 @@ protocol DropDownTerminalWindowControlling: AnyObject {
 
 @MainActor
 final class DropDownTerminalController: ObservableObject {
-    @Published private(set) var hotKeyStatus = TerminalHotKeyStatus.inactive
+    @Published private(set) var shortcutStatus = TerminalShortcutStatus.inactive
     @Published private(set) var isVisible = false
     @Published var edge: TerminalEdge {
         didSet {
@@ -34,7 +34,7 @@ final class DropDownTerminalController: ObservableObject {
     }
 
     private let defaults: UserDefaults
-    private let registrar: GlobalHotKeyRegistering
+    private let registrar: TerminalShortcutRegistering
     private let makeWindowController: (() -> DropDownTerminalWindowControlling)?
     private var containerFrameProvider: () -> NSRect? = { nil }
     private var windowController: DropDownTerminalWindowControlling?
@@ -42,7 +42,7 @@ final class DropDownTerminalController: ObservableObject {
 
     init(
         defaults: UserDefaults = .standard,
-        registrar: GlobalHotKeyRegistering = CarbonGlobalHotKeyRegistrar(),
+        registrar: TerminalShortcutRegistering = AppLocalTerminalShortcutRegistrar(),
         makeWindowController: (() -> DropDownTerminalWindowControlling)? = nil
     ) {
         self.defaults = defaults
@@ -63,9 +63,9 @@ final class DropDownTerminalController: ObservableObject {
                     self?.toggle()
                 }
             }
-            hotKeyStatus = .registered
+            shortcutStatus = .registered
         } catch {
-            hotKeyStatus = .failed(error.localizedDescription)
+            shortcutStatus = .failed(error.localizedDescription)
         }
     }
 
@@ -76,7 +76,7 @@ final class DropDownTerminalController: ObservableObject {
         windowController = nil
         isVisible = false
         started = false
-        hotKeyStatus = .inactive
+        shortcutStatus = .inactive
     }
 
     func setContainerFrameProvider(_ provider: @escaping () -> NSRect?) {

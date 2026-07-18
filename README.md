@@ -551,10 +551,12 @@ title.
 
 ### Drop-down Terminal
 
-Press **Command-J** from any application to show Beacon's native terminal
-inside the current Beacon dashboard window frame. The terminal tracks the
-dashboard's saved position and size and remains clipped to its visible screen.
-Press **Command-J** again to hide it and return focus to the prior application.
+With Beacon active, press **Command-J** to show its native terminal inside the
+current Beacon dashboard window frame. The terminal tracks the dashboard's
+saved position and size and remains clipped to its visible screen. Press
+**Command-J** again to hide it. Beacon handles this shortcut only while Beacon
+or its terminal panel is active, so other applications keep their own
+**Command-J** behavior.
 The terminal retains one login-shell session while Beacon is running, starts in
 the user's home directory, and uses the configured `SHELL` when it is an
 executable absolute path (otherwise `/bin/zsh`). Terminal output is not
@@ -566,16 +568,15 @@ canvas, and changing the theme updates an open terminal immediately.
 Choose **Settings → Terminal** to open the panel without the shortcut, place it
 at the top or bottom of the Beacon window bounds, and select Compact (30%),
 Balanced (45%, the default), or Spacious (60%) height. Moving or resizing the
-dashboard updates a visible terminal immediately. The shortcut requires no
-Accessibility or Input Monitoring permission. If another application already
-owns **Command-J**, Settings reports the conflict; change the other
-application's shortcut and relaunch Beacon.
+dashboard updates a visible terminal immediately. The application-local
+shortcut requires no Accessibility or Input Monitoring permission and does not
+reserve **Command-J** system-wide.
 
 Warp cannot be embedded or controlled through a supported public API. When
 Warp is installed, **Settings → Terminal** can open it and its official
 [`Global Hotkey` guide](https://docs.warp.dev/terminal/windows/global-hotkey)
-as an external alternative. Give Warp a
-different shortcut while Beacon owns **Command-J**. Beacon's structured task
+as an external alternative. Warp can keep its own shortcut because Beacon does
+not receive **Command-J** while Warp is active. Beacon's structured task
 activity support matrix still lists Warp as unsupported because terminal text
 is never parsed as work-lane evidence.
 

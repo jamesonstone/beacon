@@ -22,7 +22,7 @@
 | 0016 | external-task-activity | `docs/specs/0016-external-task-activity` | deliver | no | 2026-07-16 | Add transient Codex and Claude Code hook activity to exact followed projects and lanes without changing Beacon evidence or policy. |
 | 0017 | beacon-focus-notes | `docs/specs/0017-beacon-focus-notes` | deliver | no | 2026-07-17 | Make the next action explicit and refine Notes with persisted pinned order, flexible sizing, and native space animation. |
 | 0018 | following-workspace | `docs/specs/0018-following-workspace` | deliver | no | 2026-07-18 | Make Following reorderable, denser, self-explanatory, rich in cached evidence, and readable through five semantic themes. |
-| 0019 | drop-down-terminal | `docs/specs/0019-drop-down-terminal` | deliver | no | 2026-07-18 | Add a retained native terminal that toggles globally with Command-J inside the current Beacon dashboard bounds. |
+| 0019 | drop-down-terminal | `docs/specs/0019-drop-down-terminal` | deliver | no | 2026-07-18 | Add a retained native terminal that toggles with Command-J inside the current Beacon dashboard bounds while Beacon is active. |
 
 ## PROJECT INTENT
 
@@ -208,9 +208,9 @@ canonical feature artifact wins whenever this index disagrees with it.
 
 - **STATUS**: deliver
 - **PAUSED**: no
-- **INTENT**: Make one real local shell available anywhere on macOS through a global Command-J toggle.
-- **APPROACH**: Retain one SwiftTerm-backed pseudo-terminal in an AppKit panel bounded by the current dashboard frame, register the shortcut through the public Carbon hotkey API, persist edge and height settings, and keep Warp as a documented external dedicated-window option rather than automating private preferences.
-- **OPEN ITEMS**: Terminal ownership, Settings, focused tests, documentation, universal build and release packaging, and live shell-retention smoke are complete on issue #43 and branch `GH-43`; ready PR delivery, hosted-check verification, one physical cross-application Command-J confirmation, human review, and merge remain.
+- **INTENT**: Make one real local shell available through Command-J while Beacon is active without taking the shortcut from other macOS applications.
+- **APPROACH**: Retain one SwiftTerm-backed pseudo-terminal in an AppKit panel bounded by the current dashboard frame, handle the shortcut with an application-local AppKit event monitor, persist edge and height settings, and keep Warp as a documented external dedicated-window option rather than automating private preferences.
+- **OPEN ITEMS**: Terminal ownership, Settings, focused tests, documentation, universal build and release packaging, live shell-retention smoke, and application-local shortcut scoping are complete on issue #43, branch `GH-43`, and ready PR #44; hosted-check verification, human review, and merge remain.
 - **POINTERS**: `docs/specs/0019-drop-down-terminal/SPEC.md`
 
 ## LAST UPDATED

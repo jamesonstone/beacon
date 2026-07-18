@@ -91,7 +91,7 @@ final class ApplicationLifecycleTests: XCTestCase {
         let terminalWindow = TestTerminalWindowController()
         let terminal = DropDownTerminalController(
             defaults: terminalTestDefaults(),
-            registrar: TestGlobalHotKeyRegistrar(),
+            registrar: TestTerminalShortcutRegistrar(),
             makeWindowController: { terminalWindow }
         )
         terminal.toggle()
@@ -125,7 +125,7 @@ final class ApplicationLifecycleTests: XCTestCase {
 
     func testApplicationStartAndTerminationOwnAgentLifecycle() async {
         let lifecycle = StubAgentLifecycleController()
-        let terminalRegistrar = TestGlobalHotKeyRegistrar()
+        let terminalRegistrar = TestTerminalShortcutRegistrar()
         let state = AppState(
             agent: ScriptedAgent(events: [TestSnapshots.snapshotEvent(TestSnapshots.empty)]),
             installer: lifecycle,

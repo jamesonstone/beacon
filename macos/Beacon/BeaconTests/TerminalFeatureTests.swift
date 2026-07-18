@@ -71,7 +71,7 @@ final class TerminalFeatureTests: XCTestCase {
 
     func testControllerPersistsPreferencesAndRetainsOneWindow() {
         let defaults = terminalTestDefaults()
-        let registrar = TestGlobalHotKeyRegistrar()
+        let registrar = TestTerminalShortcutRegistrar()
         let window = TestTerminalWindowController()
         var factoryCount = 0
         let controller = DropDownTerminalController(
@@ -103,15 +103,15 @@ final class TerminalFeatureTests: XCTestCase {
 
         let restored = DropDownTerminalController(
             defaults: defaults,
-            registrar: TestGlobalHotKeyRegistrar(),
+            registrar: TestTerminalShortcutRegistrar(),
             makeWindowController: { TestTerminalWindowController() }
         )
         XCTAssertEqual(restored.edge, .bottom)
         XCTAssertEqual(restored.height, .spacious)
     }
 
-    func testControllerStartStopAndHotKeyCallbackAreIdempotent() async {
-        let registrar = TestGlobalHotKeyRegistrar()
+    func testControllerStartStopAndShortcutCallbackAreIdempotent() async {
+        let registrar = TestTerminalShortcutRegistrar()
         let window = TestTerminalWindowController()
         let controller = DropDownTerminalController(
             defaults: terminalTestDefaults(),
@@ -122,7 +122,7 @@ final class TerminalFeatureTests: XCTestCase {
         controller.start()
         controller.start()
         XCTAssertEqual(registrar.registerCount, 1)
-        XCTAssertEqual(controller.hotKeyStatus, .registered)
+        XCTAssertEqual(controller.shortcutStatus, .registered)
 
         registrar.handler?()
         await Task.yield()
@@ -132,11 +132,11 @@ final class TerminalFeatureTests: XCTestCase {
         controller.stop()
         XCTAssertEqual(registrar.unregisterCount, 1)
         XCTAssertEqual(window.terminateCount, 1)
-        XCTAssertEqual(controller.hotKeyStatus, .inactive)
+        XCTAssertEqual(controller.shortcutStatus, .inactive)
     }
 
     func testControllerSurfacesRegistrationFailure() {
-        let registrar = TestGlobalHotKeyRegistrar()
+        let registrar = TestTerminalShortcutRegistrar()
         registrar.registrationError = TestTerminalError.registration
         let controller = DropDownTerminalController(
             defaults: terminalTestDefaults(),
@@ -146,10 +146,18 @@ final class TerminalFeatureTests: XCTestCase {
 
         controller.start()
 
-        guard case .failed(let message) = controller.hotKeyStatus else {
-            return XCTFail("Expected failed hotkey status")
+        guard case .failed(let message) = controller.shortcutStatus else {
+            return XCTFail("Expected failed shortcut status")
         }
         XCTAssertTrue(message.contains("registration"))
+    }
+
+    func testCommandJMatcherRequiresExactModifiers() throws {
+        XCTAssertTrue(TerminalShortcut.matches(try terminalKeyEvent()))
+        XCTAssertTrue(TerminalShortcut.matches(try terminalKeyEvent(modifiers: [.command, .capsLock])))
+        XCTAssertFalse(TerminalShortcut.matches(try terminalKeyEvent(modifiers: [])))
+        XCTAssertFalse(TerminalShortcut.matches(try terminalKeyEvent(modifiers: [.command, .shift])))
+        XCTAssertFalse(TerminalShortcut.matches(try terminalKeyEvent(characters: "k")))
     }
 
     func testShellConfigurationUsesExecutableLoginShellAndTrueColorEnvironment() {
@@ -191,7 +199,7 @@ final class TerminalFeatureTests: XCTestCase {
     }
 }
 
-final class TestGlobalHotKeyRegistrar: GlobalHotKeyRegistering {
+final class TestTerminalShortcutRegistrar: TerminalShortcutRegistering {
     var registrationError: Error?
     private(set) var registerCount = 0
     private(set) var unregisterCount = 0
@@ -244,13 +252,31 @@ final class TestTerminalWindowController: DropDownTerminalWindowControlling {
 
 @MainActor
 func makeTestTerminalController(
-    registrar: TestGlobalHotKeyRegistrar = TestGlobalHotKeyRegistrar()
+    registrar: TestTerminalShortcutRegistrar = TestTerminalShortcutRegistrar()
 ) -> DropDownTerminalController {
     DropDownTerminalController(
         defaults: terminalTestDefaults(),
         registrar: registrar,
         makeWindowController: { TestTerminalWindowController() }
     )
+}
+
+func terminalKeyEvent(
+    characters: String = "j",
+    modifiers: NSEvent.ModifierFlags = .command
+) throws -> NSEvent {
+    try XCTUnwrap(NSEvent.keyEvent(
+        with: .keyDown,
+        location: .zero,
+        modifierFlags: modifiers,
+        timestamp: 0,
+        windowNumber: 0,
+        context: nil,
+        characters: characters,
+        charactersIgnoringModifiers: characters,
+        isARepeat: false,
+        keyCode: 38
+    ))
 }
 
 func terminalTestDefaults() -> UserDefaults {

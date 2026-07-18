@@ -28,11 +28,11 @@ extension MenuView {
             }
 
             Divider()
-            hotKeyStatusRow
+            shortcutStatusRow
             Divider()
 
             if WarpTerminalIntegration.isInstalled {
-                Text("Warp cannot be embedded; use its own hotkey window with a different shortcut.")
+                Text("Warp cannot be embedded; use its own terminal window while Warp is active.")
                 Button("Open Warp", systemImage: "terminal.fill") {
                     WarpTerminalIntegration.openApplication()
                 }
@@ -51,12 +51,13 @@ extension MenuView {
     }
 
     @ViewBuilder
-    private var hotKeyStatusRow: some View {
-        switch terminal.hotKeyStatus {
+    private var shortcutStatusRow: some View {
+        switch terminal.shortcutStatus {
         case .inactive:
             Label("Shortcut inactive", systemImage: "minus.circle")
         case .registered:
-            Label("Global Shortcut: ⌘J", systemImage: "checkmark.circle")
+            Label("App Shortcut: ⌘J", systemImage: "checkmark.circle")
+            Text("Available only while Beacon is active.")
         case .failed(let message):
             Label("Shortcut unavailable", systemImage: "exclamationmark.triangle.fill")
                 .help(message)
@@ -65,7 +66,7 @@ extension MenuView {
     }
 
     private var terminalSettingsSymbol: String {
-        if case .failed = terminal.hotKeyStatus {
+        if case .failed = terminal.shortcutStatus {
             return "exclamationmark.terminal"
         }
         return "terminal"
