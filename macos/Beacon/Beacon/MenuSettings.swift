@@ -23,6 +23,7 @@ extension MenuView {
                     ForEach(BeaconThemeCatalog.all) { candidate in
                         Button {
                             themeIDValue = candidate.id.rawValue
+                            terminal.refreshAppearance()
                         } label: {
                             HStack(spacing: 7) {
                                 BeaconThemePreview(
@@ -86,6 +87,7 @@ extension MenuView {
             } label: {
                 Label("Appearance", systemImage: "circle.lefthalf.filled")
             }
+            terminalSettingsMenu
             Button {
                 dismissedEvidenceBadgesValue = "[]"
             } label: {

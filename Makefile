@@ -48,10 +48,10 @@ agent-uninstall:
 	go run ./cmd/beacon agent uninstall
 
 macos-build:
-	xcodebuild -project macos/Beacon/Beacon.xcodeproj -scheme Beacon -configuration Debug -derivedDataPath "$(BEACON_DERIVED_DATA)" CODE_SIGNING_ALLOWED=NO build
+	xcodebuild -project macos/Beacon/Beacon.xcodeproj -scheme Beacon -configuration Debug -destination 'generic/platform=macOS' -derivedDataPath "$(BEACON_DERIVED_DATA)" CODE_SIGNING_ALLOWED=NO build
 
 macos-test:
-	xcodebuild -project macos/Beacon/Beacon.xcodeproj -scheme Beacon -configuration Debug -destination 'platform=macOS' -derivedDataPath "$(BEACON_DERIVED_DATA)" CODE_SIGNING_ALLOWED=NO test
+	xcodebuild -project macos/Beacon/Beacon.xcodeproj -scheme Beacon -configuration Debug -destination 'platform=macOS' -derivedDataPath "$(BEACON_DERIVED_DATA)" CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES test
 
 macos-run: macos-build
 	@if pgrep -x Beacon >/dev/null; then \

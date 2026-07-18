@@ -1,0 +1,106 @@
+import AppKit
+import Combine
+
+enum TerminalShortcutStatus: Equatable {
+    case inactive
+    case registered
+    case failed(String)
+}
+
+@MainActor
+protocol DropDownTerminalWindowControlling: AnyObject {
+    var isVisible: Bool { get }
+    func toggle(edge: TerminalEdge, height: TerminalHeight)
+    func update(edge: TerminalEdge, height: TerminalHeight)
+    func updateAppearance()
+    func terminate()
+}
+
+@MainActor
+final class DropDownTerminalController: ObservableObject {
+    @Published private(set) var shortcutStatus = TerminalShortcutStatus.inactive
+    @Published private(set) var isVisible = false
+    @Published var edge: TerminalEdge {
+        didSet {
+            defaults.set(edge.rawValue, forKey: TerminalEdge.storageKey)
+            windowController?.update(edge: edge, height: height)
+        }
+    }
+    @Published var height: TerminalHeight {
+        didSet {
+            defaults.set(height.rawValue, forKey: TerminalHeight.storageKey)
+            windowController?.update(edge: edge, height: height)
+        }
+    }
+
+    private let defaults: UserDefaults
+    private let registrar: TerminalShortcutRegistering
+    private let makeWindowController: (() -> DropDownTerminalWindowControlling)?
+    private var containerFrameProvider: () -> NSRect? = { nil }
+    private var windowController: DropDownTerminalWindowControlling?
+    private var started = false
+
+    init(
+        defaults: UserDefaults = .standard,
+        registrar: TerminalShortcutRegistering = AppLocalTerminalShortcutRegistrar(),
+        makeWindowController: (() -> DropDownTerminalWindowControlling)? = nil
+    ) {
+        self.defaults = defaults
+        self.registrar = registrar
+        self.makeWindowController = makeWindowController
+        edge = TerminalEdge(rawValue: defaults.string(forKey: TerminalEdge.storageKey) ?? "")
+            ?? .defaultEdge
+        height = TerminalHeight(rawValue: defaults.string(forKey: TerminalHeight.storageKey) ?? "")
+            ?? .defaultHeight
+    }
+
+    func start() {
+        guard !started else { return }
+        started = true
+        do {
+            try registrar.register { [weak self] in
+                Task { @MainActor in
+                    self?.toggle()
+                }
+            }
+            shortcutStatus = .registered
+        } catch {
+            shortcutStatus = .failed(error.localizedDescription)
+        }
+    }
+
+    func stop() {
+        guard started || windowController != nil else { return }
+        registrar.unregister()
+        windowController?.terminate()
+        windowController = nil
+        isVisible = false
+        started = false
+        shortcutStatus = .inactive
+    }
+
+    func setContainerFrameProvider(_ provider: @escaping () -> NSRect?) {
+        containerFrameProvider = provider
+        refreshFrame()
+    }
+
+    func refreshFrame() {
+        windowController?.update(edge: edge, height: height)
+    }
+
+    func refreshAppearance() {
+        windowController?.updateAppearance()
+    }
+
+    func toggle() {
+        if windowController == nil {
+            windowController = makeWindowController?() ?? DropDownTerminalWindowController(
+                containerFrameProvider: { [weak self] in
+                    self?.containerFrameProvider()
+                }
+            )
+        }
+        isVisible = !(windowController?.isVisible == true)
+        windowController?.toggle(edge: edge, height: height)
+    }
+}

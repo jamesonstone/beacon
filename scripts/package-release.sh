@@ -52,6 +52,7 @@ xcodebuild \
   -project "$repository_root/macos/Beacon/Beacon.xcodeproj" \
   -scheme Beacon \
   -configuration Release \
+  -destination 'generic/platform=macOS' \
   -derivedDataPath "$derived_data" \
   CODE_SIGNING_ALLOWED=NO \
   MARKETING_VERSION="$version" \

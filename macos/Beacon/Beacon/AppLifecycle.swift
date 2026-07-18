@@ -7,18 +7,28 @@ final class BeaconApplicationModel {
 
     let state: AppState
     let loginItem: LoginItemController
+    let terminal: DropDownTerminalController
     private var dashboardWindowController: DashboardWindowController?
 
     convenience init() {
         self.init(
             state: AppState(externalActivityClient: CLIClient()),
-            loginItem: LoginItemController()
+            loginItem: LoginItemController(),
+            terminal: DropDownTerminalController()
         )
     }
 
-    init(state: AppState, loginItem: LoginItemController) {
+    init(
+        state: AppState,
+        loginItem: LoginItemController,
+        terminal: DropDownTerminalController
+    ) {
         self.state = state
         self.loginItem = loginItem
+        self.terminal = terminal
+        terminal.setContainerFrameProvider { [weak self] in
+            self?.dashboardFrameForTerminal()
+        }
     }
 
     var isDashboardVisible: Bool {
@@ -29,17 +39,23 @@ final class BeaconApplicationModel {
         dashboardWindowController?.window
     }
 
+    var isTerminalVisible: Bool {
+        terminal.isVisible
+    }
+
     func start() {
         state.start()
+        terminal.start()
     }
 
     func stop() {
+        terminal.stop()
         state.stop()
     }
 
     @discardableResult
     func terminate() -> Error? {
-        state.stop()
+        stop()
         return state.stopAgentSynchronously()
     }
 
@@ -51,32 +67,49 @@ final class BeaconApplicationModel {
     }
 
     func showDashboard(activate: Bool = true) {
-        if dashboardWindowController == nil {
-            dashboardWindowController = DashboardWindowController(
-                state: state,
-                loginItem: loginItem
-            )
+        dashboardController().show(activate: activate)
+    }
+
+    private func dashboardFrameForTerminal() -> NSRect? {
+        let controller = dashboardController()
+        controller.positionWindowIfNeeded()
+        return controller.window?.frame
+    }
+
+    private func dashboardController() -> DashboardWindowController {
+        if let dashboardWindowController {
+            return dashboardWindowController
         }
-        dashboardWindowController?.show(activate: activate)
+        let controller = DashboardWindowController(
+            state: state,
+            loginItem: loginItem,
+            terminal: terminal
+        )
+        dashboardWindowController = controller
+        return controller
     }
 }
 
 @MainActor
-final class DashboardWindowController: NSWindowController {
+final class DashboardWindowController: NSWindowController, NSWindowDelegate {
     static let preferredWidth: CGFloat = 580
     static let defaultFrameAutosaveName: NSWindow.FrameAutosaveName = "BeaconDashboardWindow"
     private let frameAutosaveName: NSWindow.FrameAutosaveName
+    private let terminal: DropDownTerminalController
     private var hasPositionedWindow = false
 
     init(
         state: AppState,
         loginItem: LoginItemController,
+        terminal: DropDownTerminalController,
         frameAutosaveName: NSWindow.FrameAutosaveName? = nil
     ) {
         self.frameAutosaveName = frameAutosaveName ?? Self.defaultFrameAutosaveName
+        self.terminal = terminal
         let dashboard = MenuView(
             state: state,
             loginItem: loginItem,
+            terminal: terminal,
             surface: .window,
             openDashboard: {}
         )
@@ -90,6 +123,7 @@ final class DashboardWindowController: NSWindowController {
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.participatesInCycle]
         super.init(window: window)
+        window.delegate = self
     }
 
     @available(*, unavailable)
@@ -130,6 +164,14 @@ final class DashboardWindowController: NSWindowController {
             height: visibleFrame.height
         )
     }
+
+    func windowDidMove(_ notification: Notification) {
+        terminal.refreshFrame()
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        terminal.refreshFrame()
+    }
 }
 
 @MainActor
@@ -157,7 +199,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        guard finishedLaunching, !model.isDashboardVisible else { return }
+        guard finishedLaunching, !model.isDashboardVisible, !model.isTerminalVisible else { return }
         model.showDashboard()
     }
 

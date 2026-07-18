@@ -13,6 +13,7 @@ struct MenuView: View {
     @Environment(\.colorSchemeContrast) var colorSchemeContrast
     @ObservedObject var state: AppState
     @ObservedObject var loginItem: LoginItemController
+    @ObservedObject var terminal: DropDownTerminalController
     let surface: DashboardSurface
     let openDashboard: () -> Void
     @State var dashboardDestination = DashboardDestination.following

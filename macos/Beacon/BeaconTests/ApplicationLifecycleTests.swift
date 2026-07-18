@@ -87,6 +87,29 @@ final class ApplicationLifecycleTests: XCTestCase {
         XCTAssertEqual(window.frameAutosaveName, autosaveName)
     }
 
+    func testDashboardMoveAndResizeRefreshVisibleTerminalFrame() throws {
+        let terminalWindow = TestTerminalWindowController()
+        let terminal = DropDownTerminalController(
+            defaults: terminalTestDefaults(),
+            registrar: TestTerminalShortcutRegistrar(),
+            makeWindowController: { terminalWindow }
+        )
+        terminal.toggle()
+        let controller = testDashboardController(
+            frameAutosaveName: "BeaconTests.\(UUID().uuidString)",
+            terminal: terminal
+        )
+        let window = try XCTUnwrap(controller.window)
+
+        XCTAssertTrue(window.delegate === controller)
+        controller.windowDidMove(Notification(name: NSWindow.didMoveNotification, object: window))
+        controller.windowDidResize(Notification(name: NSWindow.didResizeNotification, object: window))
+
+        XCTAssertEqual(terminalWindow.updateCount, 2)
+        terminal.stop()
+        window.close()
+    }
+
     func testNormalLaunchOpensDashboardAndLoginLaunchStaysQuiet() {
         let normal = testApplicationModel()
         normal.handleLaunch(isLoginLaunch: false)
@@ -102,6 +125,7 @@ final class ApplicationLifecycleTests: XCTestCase {
 
     func testApplicationStartAndTerminationOwnAgentLifecycle() async {
         let lifecycle = StubAgentLifecycleController()
+        let terminalRegistrar = TestTerminalShortcutRegistrar()
         let state = AppState(
             agent: ScriptedAgent(events: [TestSnapshots.snapshotEvent(TestSnapshots.empty)]),
             installer: lifecycle,
@@ -111,14 +135,17 @@ final class ApplicationLifecycleTests: XCTestCase {
         )
         let model = BeaconApplicationModel(
             state: state,
-            loginItem: LoginItemController(service: StubLoginItemService(status: .disabled))
+            loginItem: LoginItemController(service: StubLoginItemService(status: .disabled)),
+            terminal: makeTestTerminalController(registrar: terminalRegistrar)
         )
 
         model.start()
         model.start()
         XCTAssertEqual(lifecycle.startCount, 1)
+        XCTAssertEqual(terminalRegistrar.registerCount, 1)
         XCTAssertNil(model.terminate())
         XCTAssertEqual(lifecycle.stopCount, 1)
+        XCTAssertEqual(terminalRegistrar.unregisterCount, 1)
         XCTAssertFalse(state.agentAvailable)
     }
 
@@ -152,16 +179,19 @@ final class ApplicationLifecycleTests: XCTestCase {
     private func testApplicationModel() -> BeaconApplicationModel {
         BeaconApplicationModel(
             state: AppState(client: LifecycleSnapshotClient()),
-            loginItem: LoginItemController(service: StubLoginItemService(status: .disabled))
+            loginItem: LoginItemController(service: StubLoginItemService(status: .disabled)),
+            terminal: makeTestTerminalController()
         )
     }
 
     private func testDashboardController(
-        frameAutosaveName: NSWindow.FrameAutosaveName
+        frameAutosaveName: NSWindow.FrameAutosaveName,
+        terminal: DropDownTerminalController? = nil
     ) -> DashboardWindowController {
         DashboardWindowController(
             state: AppState(client: LifecycleSnapshotClient()),
             loginItem: LoginItemController(service: StubLoginItemService(status: .disabled)),
+            terminal: terminal ?? makeTestTerminalController(),
             frameAutosaveName: frameAutosaveName
         )
     }

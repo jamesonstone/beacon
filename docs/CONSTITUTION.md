@@ -584,6 +584,29 @@ chips and mutate through the Go background-agent authority. Ordinary interface
 copy uses system UI typography with an 11-point minimum; monospaced typography
 is reserved for code, branches, identifiers, timestamps, percentages, and
 counters. Shared base-size choices may scale these roles without changing them.
+
+The application also owns one retained native drop-down terminal session.
+Command-J is handled by an application-local AppKit event monitor and toggles a
+focused panel inside the current dashboard window frame only while Beacon is
+active. Beacon must not reserve the shortcut system-wide, so other applications
+retain their own Command-J behavior. The shortcut needs no Accessibility or
+Input Monitoring permission. The terminal follows dashboard moves and resizes,
+and its frame is clipped to the dashboard's visible screen. Persisted
+presentation settings choose the top or bottom dashboard edge and a 30%, 45%,
+or 60% height; they do not change workflow state.
+The panel runs one local login shell in the user's home directory through a
+pseudo-terminal, inherits a validated absolute `SHELL` or falls back to
+`/bin/zsh`, and terminates the child when Beacon terminates. Its default text,
+cursor, selection, and complete 16-color ANSI palette derive from the active
+Beacon theme and refresh live. Foreground-capable terminal colors must meet the
+same 4.5:1 contrast floor as normal interface text against the terminal canvas
+for default input, the cursor, and ANSI-16 entries; ANSI black remains the
+structural canvas/background entry. Beacon does not
+persist terminal output, parse it as evidence, or transfer scanning, Git,
+GitHub, agent, or notes authority into Swift. Warp remains an external
+alternative because it exposes no supported embedding or window-control API;
+Settings may detect and open Warp and its official hotkey guide but must not
+modify Warp preferences or control it through Accessibility.
 Both surfaces expose one Notes panel at 50% of the available Beacon surface by
 default. A header double-click cycles 50%, 80%, minimized, then 50%, and the
 explicit chevron minimizes or restores the most recent expanded size. General
@@ -627,13 +650,14 @@ detached dashboard, AppKit Markdown editor, tabs, lanes, controls, switchers,
 dialogs, Notes, and empty/error states; unknown stored IDs fall back to Lobster
 Nebula. Each complete token set owns canvas, layered surfaces, borders,
 primary/secondary/muted text, accent/focus, success/warning/danger/info,
-Local/PR/Issue identities, and editor roles. Ordinary text, cards, controls, and
-borders use solid neutral surfaces and minimal shadows; gradients are reserved
-for the wordmark, beacon/rocket, and occasional illustration. Every built-in
-theme must pass automated token-completeness, stable-ID, persistence, rendered
-smoke, 4.5:1 normal-text contrast, and 3:1 non-text/large-indicator contrast
-checks. Raw classic accents that miss these thresholds require accessible
-semantic aliases.
+Local/PR/Issue identities, editor roles, and a derived terminal palette.
+Ordinary text, cards, controls, and borders use solid neutral surfaces and
+minimal shadows; gradients are reserved for the wordmark, beacon/rocket, and
+occasional illustration. Every built-in theme must pass automated token-
+completeness, stable-ID, persistence, rendered smoke, 4.5:1 normal-text and
+terminal-foreground contrast, and 3:1 non-text/large-indicator contrast checks.
+Raw classic accents that miss these thresholds require accessible semantic
+aliases.
 
 Both surfaces respect Increase Contrast, Differentiate Without Color, Reduce
 Transparency, and Reduce Motion. Higher contrast strengthens semantic borders;
@@ -758,6 +782,7 @@ Dependencies must have a clear job and must not absorb domain policy:
 | Git | Worktree, status, branch, commit, base, and remote evidence | Machine-readable porcelain only |
 | GitHub CLI `gh` | Authenticated pull-request/check/review evidence | GitHub is the only v1 remote provider |
 | SwiftUI, AppKit, Foundation | Native menu UI, URL/path opening, process and JSON support | Presentation and process-client concerns only |
+| SwiftTerm `v1.11.2` | Native terminal rendering and local pseudo-terminal process lifecycle | One presentation-only login shell; no Beacon policy, evidence, or persistence |
 | XCTest | macOS unit tests | No production policy |
 
 Indirect dependencies introduced by Cobra are accepted only as transitive

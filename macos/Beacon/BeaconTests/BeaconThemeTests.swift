@@ -94,6 +94,22 @@ final class BeaconThemeTests: XCTestCase {
         }
     }
 
+    func testTerminalPalettesAreCompleteAndReadableAcrossThemes() {
+        for theme in BeaconThemeCatalog.all {
+            let palette = theme.terminalPalette
+            XCTAssertEqual(palette.ansiColors.count, 16, theme.name)
+            XCTAssertEqual(palette.ansiColors.first, palette.background, theme.name)
+
+            for pair in palette.readableTextPairs {
+                XCTAssertGreaterThanOrEqual(
+                    pair.foreground.contrastRatio(with: pair.background),
+                    4.5,
+                    "\(theme.name) \(pair.name) must meet 4.5:1"
+                )
+            }
+        }
+    }
+
     func testClassicRawAccentsUseAccessibleSemanticAliasesWhenNeeded() {
         let solarized = BeaconThemeCatalog.solarizedDark
         let selenized = BeaconThemeCatalog.selenizedDark
