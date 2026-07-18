@@ -7,6 +7,10 @@ enum DashboardSurface {
 }
 
 struct MenuView: View {
+    @Environment(\.accessibilityDifferentiateWithoutColor) var differentiateWithoutColor
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) var reduceTransparency
+    @Environment(\.colorSchemeContrast) var colorSchemeContrast
     @ObservedObject var state: AppState
     @ObservedObject var loginItem: LoginItemController
     let surface: DashboardSurface
@@ -23,16 +27,46 @@ struct MenuView: View {
     @State var switcherQuery = ""
     @State var switcherSelection = 0
     @State var notePendingDeletion: AgentNoteTab?
+    @State var evidenceHoverLaneID: String?
     @AppStorage("beacon.dashboard.view-mode") private var viewModeValue = DashboardViewMode.stacked.rawValue
+    @AppStorage(DashboardDensity.storageKey) var densityValue = DashboardDensity.defaultDensity.rawValue
     @AppStorage("beacon.dismissed-evidence-badges") var dismissedEvidenceBadgesValue = "[]"
     @AppStorage(SignalNotesPresentation.sizeStorageKey) var signalNotesSizeValue = SignalNotesSize.half.rawValue
     @AppStorage(SignalNotesPresentation.lastExpandedStorageKey) var signalNotesLastExpandedSizeValue = SignalNotesSize.half.rawValue
-    @AppStorage(BeaconTypography.familyKey) var fontFamilyValue = BeaconTypography.defaultFamily.rawValue
     @AppStorage(BeaconTypography.baseSizeKey) var fontSizeValue = BeaconTypography.defaultBaseSize
+    @AppStorage(BeaconThemePreference.storageKey) var themeIDValue = BeaconThemePreference.defaultID.rawValue
+
+    var theme: BeaconTheme {
+        BeaconThemeCatalog.theme(forStoredID: themeIDValue)
+    }
+
+    var interfaceBorderColor: Color {
+        colorSchemeContrast == .increased
+            ? theme.tokens.borderStrong.color
+            : theme.tokens.border.color
+    }
 
     var viewMode: DashboardViewMode {
         get { DashboardViewMode(rawValue: viewModeValue) ?? .stacked }
-        nonmutating set { viewModeValue = newValue.rawValue }
+        nonmutating set { setViewMode(newValue) }
+    }
+
+    var density: DashboardDensity {
+        DashboardDensity(rawValue: densityValue) ?? .comfortable
+    }
+
+    func setViewMode(_ mode: DashboardViewMode) {
+        let previous = DashboardViewMode(rawValue: viewModeValue) ?? .stacked
+        guard previous != mode else { return }
+        let transition = DashboardOverviewPresentation.notesTransition(
+            from: previous,
+            to: mode,
+            current: SignalNotesSize(rawValue: signalNotesSizeValue) ?? .half,
+            lastExpanded: SignalNotesSize(rawValue: signalNotesLastExpandedSizeValue) ?? .half
+        )
+        signalNotesSizeValue = transition.current.rawValue
+        signalNotesLastExpandedSizeValue = transition.lastExpanded.rawValue
+        viewModeValue = mode.rawValue
     }
 
     var dismissedEvidenceBadges: Set<String> {
@@ -75,7 +109,7 @@ struct MenuView: View {
         .overlay {
             if let switcherScope {
                 ZStack {
-                    Color.black.opacity(0.52)
+                    (reduceTransparency ? theme.tokens.canvas.color : Color.black.opacity(0.42))
                         .contentShape(Rectangle())
                         .onTapGesture { self.switcherScope = nil }
                     BeaconQuickSwitcher(
@@ -111,6 +145,22 @@ struct MenuView: View {
                 },
                 secondaryButton: .cancel()
             )
+        }
+        .environment(\.beaconTheme, theme)
+        .preferredColorScheme(theme.appearance.colorScheme)
+        .tint(theme.tokens.accent.color)
+        .foregroundStyle(theme.tokens.textPrimary.color)
+        .symbolRenderingMode(differentiateWithoutColor ? .monochrome : .hierarchical)
+        .overlay {
+            if colorSchemeContrast == .increased {
+                Rectangle()
+                    .strokeBorder(theme.tokens.borderStrong.color, lineWidth: 1)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+        .transaction { transaction in
+            if reduceMotion { transaction.animation = nil }
         }
     }
 
@@ -180,12 +230,12 @@ struct MenuView: View {
                     }
                 } else if state.isScanning {
                     ProgressView("Scanning repositories…")
-                        .tint(BeaconPalette.cyan)
+                        .tint(BeaconThemePreference.current().tokens.info.color)
                         .frame(maxWidth: .infinity, minHeight: 180)
                 } else {
                     ContentUnavailableView("No scan available", systemImage: "dot.radiowaves.left.and.right")
                         .symbolRenderingMode(.palette)
-                        .foregroundStyle(BeaconPalette.cyan, BeaconPalette.lavender)
+                        .foregroundStyle(BeaconThemePreference.current().tokens.info.color, BeaconThemePreference.current().tokens.textSecondary.color)
                 }
                 signalNotesPanel
                     .frame(height: signalNotesHeight(in: geometry.size.height))
@@ -193,12 +243,12 @@ struct MenuView: View {
             .padding(12)
         }
         .font(BeaconTypography.regular(12))
-        .background(BeaconPalette.panelBackground)
+        .background(theme.tokens.canvas.color)
     }
 
     var viewModeMenu: some View {
         Menu {
-            Picker("View mode", selection: Binding(get: { viewMode }, set: { viewMode = $0 })) {
+            Picker("View mode", selection: Binding(get: { viewMode }, set: setViewMode)) {
                 ForEach(DashboardViewMode.allCases) { mode in
                     Label(mode.title, systemImage: mode.symbol).tag(mode)
                 }
@@ -206,12 +256,12 @@ struct MenuView: View {
         } label: {
             Image(systemName: viewMode.symbol)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(BeaconPalette.cyan)
+                .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
                 .frame(width: 28, height: 28)
-                .background(BeaconPalette.softGradient(BeaconPalette.cyan), in: RoundedRectangle(cornerRadius: 8))
+                .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 8))
                 .overlay {
                     RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(BeaconPalette.cyan.opacity(0.35), lineWidth: 0.7)
+                        .strokeBorder(interfaceBorderColor, lineWidth: colorSchemeContrast == .increased ? 1.1 : 0.7)
                 }
         }
         .menuStyle(.borderlessButton)
@@ -244,13 +294,13 @@ struct MenuView: View {
         HStack {
             Label("Background agent unavailable", systemImage: "antenna.radiowaves.left.and.right.slash")
                 .font(BeaconTypography.regular(10))
-                .foregroundStyle(BeaconPalette.gold)
+                .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
             Spacer()
             Button("Enable") { Task { await state.enableAgent() } }
                 .buttonStyle(.bordered)
-                .tint(BeaconPalette.cyan)
+                .tint(BeaconThemePreference.current().tokens.info.color)
         }
         .padding(8)
-        .background(BeaconPalette.softGradient(BeaconPalette.gold), in: RoundedRectangle(cornerRadius: 8))
+        .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 8))
     }
 }

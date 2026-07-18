@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct LiveMarkdownEditor: NSViewRepresentable {
+    @Environment(\.beaconTheme) private var theme
     @Binding var text: String
     @Binding var isFocused: Bool
     @Binding var currentLine: String
@@ -21,7 +22,8 @@ struct LiveMarkdownEditor: NSViewRepresentable {
 
         textView.delegate = context.coordinator
         Self.configureEditing(on: textView)
-        textView.drawsBackground = false
+        textView.drawsBackground = true
+        textView.backgroundColor = theme.tokens.editorBackground.nsColor
         textView.isRichText = false
         textView.importsGraphics = false
         textView.allowsUndo = true
@@ -38,7 +40,11 @@ struct LiveMarkdownEditor: NSViewRepresentable {
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
-        textView.insertionPointColor = NSColor(srgbRed: 0.20, green: 0.91, blue: 1.0, alpha: 1)
+        textView.insertionPointColor = theme.tokens.focus.nsColor
+        textView.selectedTextAttributes = [
+            .backgroundColor: theme.tokens.editorSelection.nsColor.withAlphaComponent(0.32),
+            .foregroundColor: theme.tokens.editorText.nsColor,
+        ]
         textView.setAccessibilityLabel(accessibilityLabel)
         textView.string = text
         context.coordinator.applyFullStyle(to: textView)
@@ -55,7 +61,7 @@ struct LiveMarkdownEditor: NSViewRepresentable {
             textView.setSelectedRange(clamped(selection, length: textView.string.utf16.count))
             needsFullStyle = true
         }
-        if context.coordinator.styleSignature != BeaconTypography.selectionSignature {
+        if context.coordinator.styleSignature != styleSignature {
             needsFullStyle = true
         }
         if needsFullStyle {
@@ -81,6 +87,10 @@ struct LiveMarkdownEditor: NSViewRepresentable {
     private func clamped(_ range: NSRange, length: Int) -> NSRange {
         let location = min(range.location, length)
         return NSRange(location: location, length: min(range.length, length - location))
+    }
+
+    private var styleSignature: String {
+        "\(BeaconTypography.selectionSignature):\(theme.id.rawValue)"
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
@@ -155,11 +165,17 @@ struct LiveMarkdownEditor: NSViewRepresentable {
             guard let storage = textView.textStorage else { return }
             let selection = textView.selectedRange()
             textView.undoManager?.disableUndoRegistration()
-            LiveMarkdownStyler.apply(to: storage, range: range)
-            textView.typingAttributes = LiveMarkdownStyler.typingAttributes
+            textView.backgroundColor = parent.theme.tokens.editorBackground.nsColor
+            textView.insertionPointColor = parent.theme.tokens.focus.nsColor
+            textView.selectedTextAttributes = [
+                .backgroundColor: parent.theme.tokens.editorSelection.nsColor.withAlphaComponent(0.32),
+                .foregroundColor: parent.theme.tokens.editorText.nsColor,
+            ]
+            LiveMarkdownStyler.apply(to: storage, range: range, theme: parent.theme)
+            textView.typingAttributes = LiveMarkdownStyler.typingAttributes(theme: parent.theme)
             textView.setSelectedRange(selection)
             textView.undoManager?.enableUndoRegistration()
-            styleSignature = BeaconTypography.selectionSignature
+            styleSignature = parent.styleSignature
         }
 
         private func editedParagraphRange(in textView: NSTextView, editedRange: NSRange?) -> NSRange? {

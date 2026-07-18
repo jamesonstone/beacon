@@ -210,16 +210,25 @@ func TestServerClientMutatesWorkingSetThroughSharedAuthority(t *testing.T) {
 		t.Fatalf("add event=%#v err=%v", added, err)
 	}
 	laneID := added.Snapshot.WorkingSet.Active[0]
+	second, err := client.Request(context.Background(), Request{Type: RequestAddManualLane, Title: "Review migration"})
+	if err != nil || second.Snapshot == nil || len(second.Snapshot.WorkingSet.Order) != 2 {
+		t.Fatalf("second add event=%#v err=%v", second, err)
+	}
+	secondID := second.Snapshot.WorkingSet.Order[0]
+	reordered, err := client.Request(context.Background(), Request{Type: RequestReorderLanes, LaneIDs: []string{laneID, secondID}})
+	if err != nil || reordered.Snapshot == nil || reordered.Snapshot.WorkingSet.Order[0] != laneID {
+		t.Fatalf("reorder event=%#v err=%v", reordered, err)
+	}
 	noted, err := client.Request(context.Background(), Request{Type: RequestSetLaneNote, LaneID: laneID, Note: "compare storage contracts"})
-	if err != nil || noted.Snapshot == nil || noted.Snapshot.Lanes[0].Attention.Note != "compare storage contracts" {
+	if err != nil || noted.Snapshot == nil || snapshotLane(noted.Snapshot, laneID).Attention.Note != "compare storage contracts" {
 		t.Fatalf("note event=%#v err=%v", noted, err)
 	}
 	tagged, err := client.Request(context.Background(), Request{Type: RequestAddLaneTag, LaneID: laneID, Tag: "manual test"})
-	if err != nil || tagged.Snapshot == nil || len(tagged.Snapshot.Lanes[0].Attention.Tags) != 1 {
+	if err != nil || tagged.Snapshot == nil || len(snapshotLane(tagged.Snapshot, laneID).Attention.Tags) != 1 {
 		t.Fatalf("tag event=%#v err=%v", tagged, err)
 	}
 	untagged, err := client.Request(context.Background(), Request{Type: RequestRemoveLaneTag, LaneID: laneID, Tag: "manual test"})
-	if err != nil || untagged.Snapshot == nil || len(untagged.Snapshot.Lanes[0].Attention.Tags) != 0 {
+	if err != nil || untagged.Snapshot == nil || len(snapshotLane(untagged.Snapshot, laneID).Attention.Tags) != 0 {
 		t.Fatalf("untag event=%#v err=%v", untagged, err)
 	}
 	parked, err := client.Request(context.Background(), Request{Type: RequestSetLaneAttention, LaneID: laneID, AttentionState: string(model.AttentionParked)})
@@ -233,4 +242,13 @@ func TestServerClientMutatesWorkingSetThroughSharedAuthority(t *testing.T) {
 	if err := <-serverDone; err != nil {
 		t.Fatal(err)
 	}
+}
+
+func snapshotLane(snapshot *model.Snapshot, id string) model.Lane {
+	for _, lane := range snapshot.Lanes {
+		if lane.ID == id {
+			return lane
+		}
+	}
+	return model.Lane{}
 }

@@ -40,6 +40,63 @@ func (m Manager) SetPinned(snapshot model.Snapshot, id string, pinned bool) (mod
 	return m.Reconcile(snapshot)
 }
 
+func (m Manager) Reorder(snapshot model.Snapshot, ids []string) (model.Snapshot, error) {
+	current, err := m.Reconcile(snapshot)
+	if err != nil {
+		return model.Snapshot{}, err
+	}
+	if err := validateCompleteOrder(current.WorkingSet.Order, ids); err != nil {
+		return model.Snapshot{}, err
+	}
+	path, err := ResolvePath()
+	if err != nil {
+		return model.Snapshot{}, err
+	}
+	stateMutex.Lock()
+	state, err := m.store().Load(path)
+	if err == nil {
+		visible := make(map[string]struct{}, len(ids))
+		for _, id := range ids {
+			visible[id] = struct{}{}
+		}
+		hidden := make([]string, 0, len(state.Order)-len(ids))
+		for _, id := range state.Order {
+			if _, found := visible[id]; !found {
+				hidden = append(hidden, id)
+			}
+		}
+		state.Order = append(append([]string{}, ids...), hidden...)
+		state.UpdatedAt = m.now()
+		err = m.store().Write(path, state)
+	}
+	stateMutex.Unlock()
+	if err != nil {
+		return model.Snapshot{}, err
+	}
+	return m.Reconcile(current)
+}
+
+func validateCompleteOrder(expected, actual []string) error {
+	if len(actual) != len(expected) {
+		return fmt.Errorf("lane reorder must include every working-set lane exactly once: got %d of %d", len(actual), len(expected))
+	}
+	wanted := make(map[string]struct{}, len(expected))
+	for _, id := range expected {
+		wanted[id] = struct{}{}
+	}
+	seen := make(map[string]struct{}, len(actual))
+	for _, id := range actual {
+		if _, found := wanted[id]; !found {
+			return fmt.Errorf("lane reorder contains unknown lane %q", id)
+		}
+		if _, found := seen[id]; found {
+			return fmt.Errorf("lane reorder contains duplicate lane %q", id)
+		}
+		seen[id] = struct{}{}
+	}
+	return nil
+}
+
 func (m Manager) SetNote(snapshot model.Snapshot, id, note string) (model.Snapshot, error) {
 	if _, err := m.Reconcile(snapshot); err != nil {
 		return model.Snapshot{}, err
@@ -148,6 +205,7 @@ func (m Manager) AddManual(snapshot model.Snapshot, title string) (model.Snapsho
 	if err == nil {
 		observation := model.LaneObservation{ObservedAt: now}
 		state.Entries = append(state.Entries, Entry{ID: id, Title: title, State: model.AttentionActive, Manual: true, Previous: observation, Current: observation})
+		state.Order = append([]string{id}, state.Order...)
 		state.UpdatedAt = now
 		err = m.store().Write(path, state)
 	}
@@ -208,6 +266,7 @@ func (m Manager) ensure(snapshot model.Snapshot, id string) error {
 	}
 	observation := observe(*lane, m.now())
 	state.Entries = append(state.Entries, Entry{ID: id, Repository: lane.Repository, GitHub: lane.GitHub, Branch: lane.Branch, State: model.AttentionActive, Previous: observation, Current: observation})
+	state.Order = append([]string{id}, state.Order...)
 	state.UpdatedAt = m.now()
 	return m.store().Write(path, state)
 }

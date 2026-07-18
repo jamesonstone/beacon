@@ -38,6 +38,7 @@ type Entry struct {
 type State struct {
 	Version   int       `json:"version"`
 	Migrated  bool      `json:"project_tracking_migrated"`
+	Order     []string  `json:"order,omitempty"`
 	Entries   []Entry   `json:"lanes"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -161,6 +162,9 @@ func validate(state *State) error {
 	if state.Entries == nil {
 		state.Entries = []Entry{}
 	}
+	if state.Order == nil {
+		state.Order = []string{}
+	}
 	seen := make(map[string]struct{}, len(state.Entries))
 	for index := range state.Entries {
 		entry := &state.Entries[index]
@@ -185,6 +189,21 @@ func validate(state *State) error {
 		}
 		entry.Tags = tags
 	}
+	orderSeen := make(map[string]struct{}, len(state.Order))
+	normalizedOrder := make([]string, 0, len(state.Order))
+	for _, id := range state.Order {
+		if strings.TrimSpace(id) == "" {
+			return errors.New("lane order id is required")
+		}
+		if _, found := orderSeen[id]; found {
+			return fmt.Errorf("duplicate lane order id %q", id)
+		}
+		orderSeen[id] = struct{}{}
+		if _, found := seen[id]; found {
+			normalizedOrder = append(normalizedOrder, id)
+		}
+	}
+	state.Order = normalizedOrder
 	return nil
 }
 

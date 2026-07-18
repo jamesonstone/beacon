@@ -19,22 +19,54 @@ extension MenuView {
             }
             Button { state.openConfig() } label: { Label("Open Config", systemImage: "slider.horizontal.3") }
             Menu {
-                Picker("Font", selection: $fontFamilyValue) {
-                    ForEach(BeaconFontFamily.allCases) { family in
-                        Text(family.title).tag(family.rawValue)
+                Menu {
+                    ForEach(BeaconThemeCatalog.all) { candidate in
+                        Button {
+                            themeIDValue = candidate.id.rawValue
+                        } label: {
+                            HStack(spacing: 7) {
+                                BeaconThemePreview(
+                                    theme: candidate,
+                                    isSelected: theme.id == candidate.id
+                                )
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(candidate.name)
+                                    Text(candidate.detail)
+                                        .foregroundStyle(candidate.tokens.textMuted.color)
+                                }
+                                Spacer()
+                                if theme.id == candidate.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                }
+                            }
+                        }
+                        .accessibilityLabel(candidate.accessibilityName)
+                        .help(candidate.detail)
                     }
+                } label: {
+                    Label("Theme: \(theme.name)", systemImage: "paintpalette")
+                }
+                Menu {
+                    Picker("Font Size", selection: $fontSizeValue) {
+                        ForEach(BeaconFontSize.allCases) { size in
+                            Text(size.title).tag(size.rawValue)
+                        }
+                    }
+                } label: {
+                    Label("Text Size: \(fontSizeValue) pt", systemImage: "textformat.size")
+                }
+                Menu {
+                    Picker("Card Density", selection: $densityValue) {
+                        ForEach(DashboardDensity.allCases) { density in
+                            Label(density.title, systemImage: density.symbol).tag(density.rawValue)
+                        }
+                    }
+                } label: {
+                    let selected = DashboardDensity(rawValue: densityValue) ?? .comfortable
+                    Label("Card Density: \(selected.title)", systemImage: selected.symbol)
                 }
             } label: {
-                Label("Font: \(BeaconFontFamily(rawValue: fontFamilyValue)?.title ?? BeaconTypography.defaultFamily.title)", systemImage: "textformat")
-            }
-            Menu {
-                Picker("Font Size", selection: $fontSizeValue) {
-                    ForEach(BeaconFontSize.allCases) { size in
-                        Text(size.title).tag(size.rawValue)
-                    }
-                }
-            } label: {
-                Label("Font Size: \(fontSizeValue) pt", systemImage: "textformat.size")
+                Label("Appearance", systemImage: "circle.lefthalf.filled")
             }
             Button {
                 dismissedEvidenceBadgesValue = "[]"
@@ -77,12 +109,12 @@ extension MenuView {
         } label: {
             Image(systemName: "gearshape.fill")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(BeaconPalette.neonGradient)
+                .foregroundStyle(theme.tokens.accent.color)
                 .frame(width: 28, height: 28)
-                .background(BeaconPalette.softGradient(BeaconPalette.lavender), in: RoundedRectangle(cornerRadius: 8))
+                .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 8))
                 .overlay {
                     RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.lavender), lineWidth: 0.7)
+                        .strokeBorder(interfaceBorderColor, lineWidth: colorSchemeContrast == .increased ? 1.1 : 0.7)
                 }
         }
         .menuStyle(.borderlessButton)

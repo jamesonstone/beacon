@@ -30,6 +30,18 @@ func (e *Engine) SetLanePinned(id string, pinned bool) error {
 	return nil
 }
 
+func (e *Engine) ReorderLanes(ids []string) error {
+	if e.WorkingSet == nil {
+		return errors.New("working-set authority is unavailable")
+	}
+	snapshot, err := e.WorkingSet.Reorder(e.Snapshot(), ids)
+	if err != nil {
+		return err
+	}
+	e.publish(EventWorkingSetChanged, "", "", 0, "ready", "lanes reordered", &snapshot)
+	return nil
+}
+
 func (e *Engine) SetLaneNote(id, note string) error {
 	if e.WorkingSet == nil {
 		return errors.New("working-set authority is unavailable")

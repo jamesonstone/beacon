@@ -2,7 +2,6 @@ package workset
 
 import (
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -50,9 +49,10 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 		changed = true
 	}
 
-	working := model.WorkingSet{Path: path, Active: []string{}, Waiting: []string{}, Recent: []string{}, Parked: []string{}}
+	working := model.WorkingSet{Path: path, Order: []string{}, Active: []string{}, Waiting: []string{}, Recent: []string{}, Parked: []string{}}
 	following := followingProjects(snapshot.Projects)
 	seenLanes := make(map[string]struct{}, len(snapshot.Lanes))
+	newLaneIDs := make([]string, 0)
 	for index := range snapshot.Lanes {
 		lane := &snapshot.Lanes[index]
 		lane.Attention = nil
@@ -83,6 +83,7 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 				Branch: lane.Branch, State: candidateState,
 				Previous: observation, Current: observation,
 			}
+			newLaneIDs = append(newLaneIDs, lane.ID)
 			changed = true
 		} else {
 			if entry.Current.ObservedAt.IsZero() {
@@ -135,7 +136,13 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 		snapshot.Lanes = append(snapshot.Lanes, lane)
 		appendGroup(&working, entry.ID, entry.State)
 	}
-	sortWorking(&working)
+	order := normalizeLaneOrder(state.Order, entries, newLaneIDs)
+	if !equalStrings(order, state.Order) {
+		state.Order = order
+		changed = true
+	}
+	sortWorking(&working, order)
+	working.Order = visibleLaneOrder(order, working)
 	snapshot.WorkingSet = working
 	snapshot.Summary.ActiveLanes = len(working.Active) + len(working.Waiting)
 	snapshot.Summary.RecentLanes = len(working.Recent)
@@ -211,7 +218,9 @@ func retainedLane(entry Entry) model.Lane {
 			Number: entry.Current.PullRequest, Title: fmt.Sprintf("PR #%d", entry.Current.PullRequest),
 			URL:         fmt.Sprintf("https://github.com/%s/pull/%d", entry.GitHub, entry.Current.PullRequest),
 			HeadRefName: branch, HeadRefOID: entry.Current.HeadOID, UpdatedAt: entry.Current.RemoteUpdatedAt,
-			CI: ci, Checks: model.CheckSummary{}, Feedback: model.Feedback{UnresolvedThreads: entry.Current.Unresolved}, ClosingIssues: []model.Issue{},
+			CI: ci, Checks: model.CheckSummary{},
+			Feedback:      model.Feedback{UnresolvedThreads: entry.Current.Unresolved, Threads: []model.ReviewThread{}},
+			ClosingIssues: []model.Issue{},
 		}
 		warnings = append(warnings, "remote evidence was not enriched in the current snapshot")
 	}
@@ -264,22 +273,6 @@ func appendGroup(groups *model.WorkingSet, id string, state model.AttentionState
 	case model.AttentionParked:
 		groups.Parked = append(groups.Parked, id)
 	}
-}
-
-func sortWorking(groups *model.WorkingSet) {
-	sort.Strings(groups.Active)
-	sort.Strings(groups.Waiting)
-	sort.Strings(groups.Recent)
-	sort.Strings(groups.Parked)
-}
-
-func entrySlice(values map[string]Entry) []Entry {
-	result := make([]Entry, 0, len(values))
-	for _, value := range values {
-		result = append(result, value)
-	}
-	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
-	return result
 }
 
 func (m Manager) store() Store {

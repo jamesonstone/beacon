@@ -36,6 +36,11 @@ parking only and must never unfollow the repository or delete lane state.
 Lanes may also carry short, deduplicated user tags. Tags and notes are optional
 context only and must not alter evidence, attention, readiness, or next-action
 policy.
+The working set also owns one complete global user lane order. It is projected
+into evidence-derived attention groups, persists independently from pins, and
+must never let presentation override attention or next-action policy. New lanes
+enter at the front of their derived group; stale identities are removed during
+reconciliation.
 
 Beacon also owns one global Markdown signal log for transient working notes
 that span lanes. It is optional local context, never durable evidence or a
@@ -205,7 +210,8 @@ must not feed new policy back into the scanner.
   reserves, and explicit dependency-limit snapshots.
 - `internal/githubscan` queries scoped open pull requests and issues through
   authenticated `gh` and normalizes checks, comments, reviews, unresolved
-  threads, linked issues, and merge state.
+  threads with bounded comment detail, bounded issue and pull-request bodies,
+  linked issues, and merge state.
 - `internal/progress` parses optional Kit project summaries and exact SPEC
   issue references as non-authoritative progress evidence.
 - `internal/model` owns schema v3 types and typed signal/action enums.
@@ -217,7 +223,8 @@ must not feed new policy back into the scanner.
   fingerprints, migration, and recent/quiet classification without automatic
   reactivation.
 - `internal/workset` owns strict lane attention, pins, notes, tags, last-seen
-  observations, factual deltas, manual lanes, and project-tracking migration.
+  observations, factual deltas, manual lanes, one normalized user order, and
+  project-tracking migration.
 - `internal/notes` owns the atomic, size-bounded, user-only General document,
   stable-ID detail documents, and versioned tab workspace.
 - `internal/agent` owns operational paths, per-project caches, protocol-v1
@@ -440,6 +447,7 @@ beacon track <project>...
 beacon untrack <project>...
 beacon lanes [--parked]
 beacon pin <lane-id> [--off]
+beacon reorder <lane-id>...
 beacon park <lane-id>
 beacon resume <lane-id>
 beacon note <lane-id> [text]
@@ -478,7 +486,7 @@ other intentional paths for current evidence.
 
 Agent protocol version 1 is newline-delimited JSON over a user-only Unix-domain
 socket. It carries scan IDs, per-project revisions, stages, single and batch
-tracking and lane-attention changes, selected Markdown documents, typed note
+tracking, complete lane-order and lane-attention changes, selected Markdown documents, typed note
 workspace/create/open/close updates, explicit repository-sync reports,
 heartbeats, and snapshot-schema-v3 payloads. Protocol evolution is independent
 from the evidence snapshot schema. Clients discard events from a different
@@ -490,7 +498,7 @@ clients. It contains generation/config/refresh/tracking and working-set
 metadata, projects,
 following/recent/quiet counts plus compatibility tracked/untracked counts,
 ordered enriched lanes, grouped lane IDs,
-lane attention, optional notes and tags, previous/current observations, factual deltas,
+lane attention and global order, optional notes and tags, previous/current observations, factual deltas,
 project following and activity evidence, and repository-scoped
 or global warnings and errors. Expected partial conditions—including inaccessible
 source discoveries, prunable worktrees, result truncation, and untrusted
@@ -557,8 +565,12 @@ Codex can require trust and Claude Code can be blocked by managed policy, but
 must not add an inbox, aliases, timeline, or activity-management destination.
 Secondary commands and preferences live in a top-right Settings menu. A
 separate compact view control offers a persisted stacked list, horizontal tile
-strips, and an experimental state-column kanban board over the same ordered
-lanes. A compact peer tab row presents Following by default, then Parking Lot,
+strips, an experimental state-column kanban board, and an adaptive experimental
+Overview over the same ordered lanes. Overview uses the dense shared card,
+collapses empty groups, minimizes Notes while active, and restores its prior
+size on exit. Comfortable, Compact, and Dense are separately persisted shared
+card-density contracts, not alternate policy or font-size settings. A compact
+peer tab row presents Following by default, then Parking Lot,
 Recently Updated, and Quiet. Following omits parked lanes; the other tabs render
 their shared Go categories without reimplementing evidence policy. Every open
 in-scope PR for a followed project remains in Following regardless of age until
@@ -568,8 +580,10 @@ selection are presentation state only. Dashboard destinations use one mutually
 exclusive presentation state: a destination control opens its page on first
 selection, selecting that same control again returns to Following, and selecting
 a different destination switches directly to it. Lane tags render as removable
-chips and mutate through the Go background-agent authority. Typography uses selectable
-system designs and base sizes, defaulting to monospaced at 12 points.
+chips and mutate through the Go background-agent authority. Ordinary interface
+copy uses system UI typography with an 11-point minimum; monospaced typography
+is reserved for code, branches, identifiers, timestamps, percentages, and
+counters. Shared base-size choices may scale these roles without changing them.
 Both surfaces expose one Notes panel at 50% of the available Beacon surface by
 default. A header double-click cycles 50%, 80%, minimized, then 50%, and the
 explicit chevron minimizes or restores the most recent expanded size. General
@@ -585,28 +599,67 @@ tabs, New Tab history, and Command-K/Command-P results all route through one
 native destructive confirmation alert; General and New Tab expose no delete
 action. The rocket wordmark mark, Notes solar system, and empty-state orbit use
 native animation, carry no evidence semantics, and remain stationary when
-Reduce Motion is enabled. The switchers use an opaque dark surface over a dimmed backdrop. Native
+Reduce Motion is enabled. The switchers use an opaque semantic theme surface
+over a theme-aware backdrop. Native
 Command-K and Command-P switchers plus tab-cycle and numeric shortcuts operate
 through the frontmost shared view hierarchy. When Following
 contains no in-progress lanes and no projects are loading,
 both surfaces replace the empty lane body with an adaptive celebratory state whose
 copy describes lane state rather than repository-ref freshness.
-The Beacon wordmark may animate a modest horizontally traveling gradient across
-the existing neon/pastel palette. It must remain readable, use no evidence or
-status policy, and render a static gradient when Reduce Motion is enabled.
+The Beacon wordmark may animate a modest horizontally traveling gradient derived
+from the selected theme. It must remain readable, use no evidence or status
+policy, and render a static gradient when Reduce Motion is enabled.
 The menu-bar label always shows a compact, non-template colored beacon dome.
 The number of lanes across the CLI-provided active, waiting, and recently-active
 groups appears inside that dome with adaptive width and type scale through
 `99+`, preserving the app identity and a legible count in one item. The menu
-window may use coordinated pastel and neon accents to distinguish existing
-CLI-provided groups and signals, but color must not introduce readiness or
-action policy in the Swift client. Within every lane layout, local-only cards
-are mint, pull-request-backed cards are cyan, and issue-backed cards are pink.
-This is a work-item identity mapping, not attention or readiness inference.
+window and detached dashboard must render from one semantic theme catalog, but
+color must not introduce readiness or action policy in the Swift client. Every
+lane explicitly labels and symbolizes Local, Pull Request, Issue, or Manual;
+theme-specific Local, PR, and Issue accents only reinforce that invariant work-
+item identity mapping.
+
+Beacon ships exactly five stable built-in theme IDs: `lobster-nebula`,
+`pampas-moon`, `solarized-dark`, `monokai`, and `selenized-dark`. Lobster Nebula
+is the recommended default dark theme and Pampas Moon is the high-readability
+light theme. One stable AppStorage preference applies live to the menu extra,
+detached dashboard, AppKit Markdown editor, tabs, lanes, controls, switchers,
+dialogs, Notes, and empty/error states; unknown stored IDs fall back to Lobster
+Nebula. Each complete token set owns canvas, layered surfaces, borders,
+primary/secondary/muted text, accent/focus, success/warning/danger/info,
+Local/PR/Issue identities, and editor roles. Ordinary text, cards, controls, and
+borders use solid neutral surfaces and minimal shadows; gradients are reserved
+for the wordmark, beacon/rocket, and occasional illustration. Every built-in
+theme must pass automated token-completeness, stable-ID, persistence, rendered
+smoke, 4.5:1 normal-text contrast, and 3:1 non-text/large-indicator contrast
+checks. Raw classic accents that miss these thresholds require accessible
+semantic aliases.
+
+Both surfaces respect Increase Contrast, Differentiate Without Color, Reduce
+Transparency, and Reduce Motion. Higher contrast strengthens semantic borders;
+differentiate-without-color retains explicit labels and SF Symbols; reduced
+transparency substitutes opaque theme surfaces; reduced motion disables
+decorative and layout animation. These settings never change evidence or saved
+workflow state.
 Individual evidence badges may be hidden as reversible local presentation
 state. Dismissal is scoped to lane, evidence dimension, and exact value so a
 changed signal reappears; it must never mutate or suppress canonical evidence
-in the Go snapshot.
+in the Go snapshot. Healthy values remain quiet; only actionable or uncertain
+exceptions appear by default with an explicit label and symbol. `PR feedback ·
+N` is the count of unresolved pull-request review threads, not issue comments.
+The adjacent information control explains the canonical identity, attention,
+next-action, evidence-exception, and optional-context hierarchy.
+
+Card and review-feedback detail is cached evidence presentation, not a refresh
+path. Issue and pull-request bodies are bounded to 64 KiB; unresolved review
+threads and their comments retain deterministic order, direct links, and
+explicit truncation. Hover, keyboard focus, panel pinning, dismissal, and Escape
+must execute no Git or GitHub command. Native Markdown detail and every status
+presentation remain usable without relying on color alone. All read-only
+Markdown evidence must pass through one theme-aware block renderer that
+preserves headings, paragraphs, lists and tasks, quotes, code, dividers, tables,
+inline emphasis, and links. It must not reinterpret ordinary interface labels
+or mutate the cached source body.
 
 Human-facing lane detail remains lane-centered. The CLI groups Active, Waiting,
 Recently Active, and Parked lanes. The macOS dashboard opens on Following,

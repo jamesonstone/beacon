@@ -19,10 +19,10 @@ struct RepositorySyncView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Repository Sync")
                         .font(BeaconTypography.semibold(12))
-                        .foregroundStyle(BeaconPalette.borderGradient(BeaconPalette.gold))
+                        .foregroundStyle(BeaconThemePreference.current().tokens.textPrimary.color)
                     Text("Git-only · fast-forward-safe")
                         .font(BeaconTypography.regular(8))
-                        .foregroundStyle(BeaconPalette.lavender.opacity(0.78))
+                        .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                 }
@@ -34,7 +34,7 @@ struct RepositorySyncView: View {
             if let error = state.repositorySyncError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(BeaconTypography.regular(9))
-                    .foregroundStyle(BeaconPalette.coral)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.danger.color)
                     .lineLimit(2)
             }
 
@@ -45,11 +45,11 @@ struct RepositorySyncView: View {
                         systemImage: report.fetchAttempted ? "network" : "internaldrive"
                     )
                     .font(BeaconTypography.regular(8))
-                    .foregroundStyle(BeaconPalette.lavender)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
                     Spacer()
                     Text("\(state.repositoriesNeedingSync.count) need attention")
                         .font(BeaconTypography.medium(9))
-                        .foregroundStyle(state.repositoriesNeedingSync.isEmpty ? BeaconPalette.mint : BeaconPalette.gold)
+                        .foregroundStyle(state.repositoriesNeedingSync.isEmpty ? BeaconThemePreference.current().tokens.success.color : BeaconThemePreference.current().tokens.warning.color)
                 }
 
                 ScrollView {
@@ -72,7 +72,7 @@ struct RepositorySyncView: View {
                         Task { await state.syncRepositories(selected.sorted()) }
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(BeaconPalette.gold.opacity(0.78))
+                    .tint(BeaconThemePreference.current().tokens.warning.color.opacity(0.78))
                     .disabled(selected.isEmpty || state.isApplyingRepositorySync)
                 }
                 .font(BeaconTypography.medium(9))
@@ -129,7 +129,7 @@ struct RepositorySyncView: View {
                         .font(BeaconTypography.semibold(10))
                     Text("\(repository.currentBranch ?? "detached") → \(repository.base)")
                         .font(BeaconTypography.medium(8))
-                        .foregroundStyle(BeaconPalette.cyan)
+                        .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
                     Spacer()
                     Label(stateLabel(repository), systemImage: stateSymbol(repository))
                         .font(BeaconTypography.medium(8))
@@ -137,7 +137,7 @@ struct RepositorySyncView: View {
                 }
                 Text(repository.reason)
                     .font(BeaconTypography.regular(8))
-                    .foregroundStyle(BeaconPalette.lavender.opacity(0.82))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                     .lineLimit(2)
             }
 
@@ -151,7 +151,7 @@ struct RepositorySyncView: View {
             }
         }
         .padding(8)
-        .background(BeaconPalette.softGradient(stateAccent(repository)), in: RoundedRectangle(cornerRadius: 9))
+        .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 9))
         .overlay {
             RoundedRectangle(cornerRadius: 9)
                 .strokeBorder(stateAccent(repository).opacity(0.34), lineWidth: 0.7)
@@ -184,9 +184,9 @@ struct RepositorySyncView: View {
     }
 
     private func stateAccent(_ repository: RepositorySyncItem) -> Color {
-        if repository.updated || repository.state == "current" { return BeaconPalette.mint }
-        if repository.canUpdate { return BeaconPalette.gold }
-        if repository.state == "ahead" { return BeaconPalette.cyan }
-        return BeaconPalette.coral
+        if repository.updated || repository.state == "current" { return BeaconThemePreference.current().tokens.success.color }
+        if repository.canUpdate { return BeaconThemePreference.current().tokens.warning.color }
+        if repository.state == "ahead" { return BeaconThemePreference.current().tokens.info.color }
+        return BeaconThemePreference.current().tokens.danger.color
     }
 }

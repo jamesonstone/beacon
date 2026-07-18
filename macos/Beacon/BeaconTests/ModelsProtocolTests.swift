@@ -51,6 +51,14 @@ extension ModelsTests {
         XCTAssertTrue(EvidenceBadgeDismissals.decode("not-json").isEmpty)
     }
 
+    func testCanonicalPRFeedbackLabelNamesTheEvidenceSource() {
+        XCTAssertEqual(EvidenceTaxonomy.pullRequestFeedbackLabel(2), "PR feedback · 2")
+        XCTAssertGreaterThan(RichHoverPresentation.openDelay, .zero)
+        XCTAssertGreaterThan(RichHoverPresentation.closeDelay, .zero)
+        XCTAssertFalse(RichHoverPresentation.cardDetailEnabled(evidenceHoverLaneID: "lane-1", laneID: "lane-1"))
+        XCTAssertTrue(RichHoverPresentation.cardDetailEnabled(evidenceHoverLaneID: "lane-2", laneID: "lane-1"))
+    }
+
     func testDecodesPartialRepositoryErrorWithoutDiscardingLanes() throws {
         var object = try Self.snapshotObject()
         object["errors"] = [["repository": "owner/repo", "stage": "github", "message": "timeout"]]
@@ -235,6 +243,60 @@ extension ModelsTests {
         )
         XCTAssertEqual(orderRequest["type"] as? String, "reorder_pinned_notes")
         XCTAssertEqual(orderRequest["note_ids"] as? [String], ["detail-2", "detail-1"])
+    }
+
+    func testLaneOrderRequestUsesCompleteLaneIDField() throws {
+        let request = try Self.requestObject(
+            AgentClient.laneOrderRequestData(laneIDs: ["lane-b", "lane-a"])
+        )
+        XCTAssertEqual(request["type"] as? String, "reorder_lanes")
+        XCTAssertEqual(request["lane_ids"] as? [String], ["lane-b", "lane-a"])
+        XCTAssertNil(request["note_ids"])
+    }
+
+    func testDecodesRichIssueAndReviewFeedbackDetailsAdditively() throws {
+        var object = try Self.snapshotObject()
+        var workingSet = try XCTUnwrap(object["working_set"] as? [String: Any])
+        workingSet["order"] = ["gh:owner/repo#42"]
+        object["working_set"] = workingSet
+        var lanes = try XCTUnwrap(object["lanes"] as? [[String: Any]])
+        var pullRequest = try XCTUnwrap(lanes[0]["pull_request"] as? [String: Any])
+        pullRequest["body"] = "## Summary\nDetails"
+        pullRequest["body_truncated"] = false
+        var feedback = try XCTUnwrap(pullRequest["feedback"] as? [String: Any])
+        feedback["threads_truncated"] = false
+        feedback["threads"] = [[
+            "id": "thread-1",
+            "path": "internal/work.go",
+            "line": 42,
+            "outdated": false,
+            "comments_truncated": false,
+            "comments": [[
+                "id": "comment-1",
+                "author": "reviewer",
+                "body": "Please handle retries.",
+                "body_truncated": false,
+                "url": "https://example.test/comment-1",
+                "created_at": "2026-07-18T12:00:00Z",
+                "updated_at": "2026-07-18T12:00:00Z",
+            ]],
+        ]]
+        pullRequest["feedback"] = feedback
+        lanes[0]["pull_request"] = pullRequest
+        var issue = try XCTUnwrap(lanes[0]["issue"] as? [String: Any])
+        issue["body"] = "Issue details"
+        issue["body_truncated"] = false
+        lanes[0]["issue"] = issue
+        object["lanes"] = lanes
+
+        let data = try JSONSerialization.data(withJSONObject: object)
+        let snapshot = try JSONDecoder().decode(BeaconSnapshot.self, from: data)
+
+        XCTAssertEqual(snapshot.workingSet?.order, ["gh:owner/repo#42"])
+        XCTAssertEqual(snapshot.lanes[0].pullRequest?.body, "## Summary\nDetails")
+        XCTAssertEqual(snapshot.lanes[0].pullRequest?.feedback.threads?.first?.displayLine, 42)
+        XCTAssertEqual(snapshot.lanes[0].pullRequest?.feedback.threads?.first?.comments.first?.author, "reviewer")
+        XCTAssertEqual(snapshot.lanes[0].issue?.body, "Issue details")
     }
 
     private static func requestObject(_ data: Data) throws -> [String: Any] {

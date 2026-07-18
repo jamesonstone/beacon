@@ -40,6 +40,23 @@ enum SignalNotesPresentation {
     }
 }
 
+enum DashboardOverviewPresentation {
+    static func notesTransition(
+        from previous: DashboardViewMode,
+        to next: DashboardViewMode,
+        current: SignalNotesSize,
+        lastExpanded: SignalNotesSize
+    ) -> (current: SignalNotesSize, lastExpanded: SignalNotesSize) {
+        if next == .overview {
+            return (.minimized, current.isExpanded ? current : lastExpanded)
+        }
+        if previous == .overview, current == .minimized {
+            return (lastExpanded.isExpanded ? lastExpanded : .half, lastExpanded)
+        }
+        return (current, lastExpanded)
+    }
+}
+
 @MainActor
 final class SignalNotesAutosave: ObservableObject {
     private let delay: Duration
@@ -97,7 +114,7 @@ extension MenuView {
                     if let error = state.notesError {
                         Label(error, systemImage: "exclamationmark.triangle.fill")
                             .font(BeaconTypography.regular(8))
-                            .foregroundStyle(BeaconPalette.coral)
+                            .foregroundStyle(BeaconThemePreference.current().tokens.danger.color)
                             .lineLimit(1)
                     } else if state.notesAreDirty {
                         Label(
@@ -105,18 +122,18 @@ extension MenuView {
                             systemImage: state.isSavingNotes ? "arrow.triangle.2.circlepath" : "clock.badge.checkmark"
                         )
                             .font(BeaconTypography.regular(8))
-                            .foregroundStyle(BeaconPalette.cyan.opacity(0.82))
+                            .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
                     } else if let updatedAt = state.notesUpdatedAt {
                         Label(
                             SignalNotesPresentation.savedLabel(age: timeSinceActivity(updatedAt)),
                             systemImage: "checkmark.circle.fill"
                         )
                             .font(BeaconTypography.regular(8))
-                            .foregroundStyle(BeaconPalette.mint.opacity(0.82))
+                            .foregroundStyle(BeaconThemePreference.current().tokens.success.color)
                     } else {
                         Text("Markdown · local only")
                             .font(BeaconTypography.regular(8))
-                            .foregroundStyle(BeaconPalette.lavender.opacity(0.72))
+                            .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                     }
                     Spacer()
 
@@ -125,7 +142,7 @@ extension MenuView {
                     }
                     .buttonStyle(.plain)
                     .font(BeaconTypography.medium(9))
-                    .foregroundStyle(BeaconPalette.lavender)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
                     .disabled(!state.notesAreDirty || state.isSavingNotes)
 
                     Button {
@@ -136,7 +153,7 @@ extension MenuView {
                             .font(BeaconTypography.semibold(9))
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(BeaconPalette.cyan.opacity(0.72))
+                    .tint(BeaconThemePreference.current().tokens.info.color.opacity(0.72))
                     .disabled(!state.notesAreDirty || state.isSavingNotes)
                     .keyboardShortcut("s", modifiers: .command)
                 }
@@ -144,12 +161,11 @@ extension MenuView {
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 7)
-        .background(BeaconPalette.softGradient(BeaconPalette.pink), in: RoundedRectangle(cornerRadius: 10))
+        .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.pink), lineWidth: 0.7)
+                .strokeBorder(interfaceBorderColor, lineWidth: colorSchemeContrast == .increased ? 1.1 : 0.7)
         }
-        .shadow(color: BeaconPalette.pink.opacity(0.10), radius: 5, y: 2)
     }
 
     private var signalNotesHeader: some View {
@@ -158,11 +174,11 @@ extension MenuView {
             VStack(alignment: .leading, spacing: 1) {
                 Text("Notes")
                     .font(BeaconTypography.semibold(11))
-                    .foregroundStyle(BeaconPalette.borderGradient(BeaconPalette.pink))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textPrimary.color)
                 if !signalNotesExpanded {
                     Text(notesPreview)
                         .font(BeaconTypography.regular(8))
-                        .foregroundStyle(BeaconPalette.lavender.opacity(0.78))
+                        .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                         .lineLimit(1)
                 }
             }
@@ -170,16 +186,16 @@ extension MenuView {
             if state.isSavingNotes {
                 ProgressView()
                     .controlSize(.mini)
-                    .tint(BeaconPalette.cyan)
+                    .tint(BeaconThemePreference.current().tokens.info.color)
             }
             Button {
-                withAnimation(.easeInOut(duration: 0.18)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
                     toggleSignalNotesSize()
                 }
             } label: {
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(BeaconPalette.cyan)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
                     .rotationEffect(signalNotesExpanded ? .degrees(180) : .zero)
                     .frame(width: 20, height: 20)
             }
@@ -189,7 +205,7 @@ extension MenuView {
         }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
-            withAnimation(.easeInOut(duration: 0.22)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
                 cycleSignalNotesSize()
             }
         }
@@ -244,10 +260,10 @@ extension MenuView {
         )
         .padding(8)
         .frame(minHeight: surface == .menu ? 120 : 180, maxHeight: .infinity)
-        .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 8))
+        .background(BeaconThemePreference.current().tokens.surfaceOverlay.color, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.cyan), lineWidth: 0.7)
+                .strokeBorder(interfaceBorderColor, lineWidth: colorSchemeContrast == .increased ? 1.1 : 0.7)
         }
         .contextMenu {
             if state.activeNoteID == "general", !state.notesCurrentLine.isEmpty {

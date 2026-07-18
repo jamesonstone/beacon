@@ -154,6 +154,7 @@ struct WorkingSetGroups: Codable, Equatable {
     let waiting: [String]
     let recent: [String]
     let parked: [String]
+    let order: [String]?
 }
 
 struct LaneGroups: Codable, Equatable {

@@ -63,6 +63,10 @@ actor AgentClient: AgentClientProtocol {
         try await request(type: "add_manual_lane", title: title)
     }
 
+    func reorderLanes(_ ids: [String]) async throws -> AgentEvent {
+        try await request(type: "reorder_lanes", laneIDs: ids)
+    }
+
     func repositorySync(refresh: Bool) async throws -> AgentEvent {
         let event = try await request(type: "get_repository_sync", refresh: refresh)
         guard event.type != "project_failed", event.repositorySync != nil else {
@@ -112,8 +116,8 @@ actor AgentClient: AgentClientProtocol {
         }
     }
 
-    func request(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, noteID: String? = nil, noteIDs: [String]? = nil, refresh: Bool? = nil) async throws -> AgentEvent {
-        let payload = try Self.requestData(type: type, projectID: projectID, projectIDs: projectIDs, trackingState: trackingState, laneID: laneID, attentionState: attentionState, pinned: pinned, note: note, tag: tag, title: title, content: content, noteID: noteID, noteIDs: noteIDs, refresh: refresh)
+    func request(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, laneIDs: [String]? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, noteID: String? = nil, noteIDs: [String]? = nil, refresh: Bool? = nil) async throws -> AgentEvent {
+        let payload = try Self.requestData(type: type, projectID: projectID, projectIDs: projectIDs, trackingState: trackingState, laneID: laneID, laneIDs: laneIDs, attentionState: attentionState, pinned: pinned, note: note, tag: tag, title: title, content: content, noteID: noteID, noteIDs: noteIDs, refresh: refresh)
         return try await request(payload: payload)
     }
 
@@ -147,7 +151,11 @@ actor AgentClient: AgentClientProtocol {
         try requestData(type: "reorder_pinned_notes", noteIDs: noteIDs)
     }
 
-    private static func requestData(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, noteID: String? = nil, noteIDs: [String]? = nil, refresh: Bool? = nil) throws -> Data {
+    static func laneOrderRequestData(laneIDs: [String]) throws -> Data {
+        try requestData(type: "reorder_lanes", laneIDs: laneIDs)
+    }
+
+    private static func requestData(type: String, projectID: String? = nil, projectIDs: [String]? = nil, trackingState: String? = nil, laneID: String? = nil, laneIDs: [String]? = nil, attentionState: String? = nil, pinned: Bool? = nil, note: String? = nil, tag: String? = nil, title: String? = nil, content: String? = nil, noteID: String? = nil, noteIDs: [String]? = nil, refresh: Bool? = nil) throws -> Data {
         var object: [String: Any] = [
             "protocol_version": 1,
             "request_id": UUID().uuidString.lowercased(),
@@ -157,6 +165,7 @@ actor AgentClient: AgentClientProtocol {
         object["project_ids"] = projectIDs
         object["tracking_state"] = trackingState
         object["lane_id"] = laneID
+        object["lane_ids"] = laneIDs
         object["attention_state"] = attentionState
         object["pinned"] = pinned
         object["note"] = note

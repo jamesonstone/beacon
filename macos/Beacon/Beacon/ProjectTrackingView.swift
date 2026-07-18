@@ -32,16 +32,16 @@ struct ProjectFollowingView: View {
                         Label("Dashboard", systemImage: "chevron.left")
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(BeaconPalette.cyan)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
                 }
                 Spacer()
                 Text("\(projects.count) \(selectedTab.title.lowercased())")
                     .font(BeaconTypography.medium(9))
-                    .foregroundStyle(BeaconPalette.lavender)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
                 if state.queuedTrackingCount > 0 {
                     Text("\(state.queuedTrackingCount) queued")
                         .font(BeaconTypography.semibold(10))
-                        .foregroundStyle(BeaconPalette.gold)
+                        .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
                 }
             }
             if showsTabPicker {
@@ -61,7 +61,7 @@ struct ProjectFollowingView: View {
                 LazyVStack(alignment: .leading, spacing: 8) {
                     if filteredProjects.isEmpty {
                         ContentUnavailableView.search(text: search)
-                            .foregroundStyle(BeaconPalette.lavender)
+                            .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
                     } else {
                         ForEach(filteredProjects) { project in
                             projectRow(project)
@@ -94,13 +94,13 @@ struct ProjectFollowingView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(project.name)
                     .font(BeaconTypography.semibold(11))
-                    .foregroundStyle(BeaconPalette.borderGradient(accent))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textPrimary.color)
                 Text(project.github)
                     .font(BeaconTypography.regular(10))
-                    .foregroundStyle(BeaconPalette.cyan.opacity(0.9))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
                 Text(project.path)
                     .font(BeaconTypography.regular(9))
-                    .foregroundStyle(BeaconPalette.lavender.opacity(0.78))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                     .lineLimit(1)
                 let status = state.projectStatuses[project.github]
                 HStack(spacing: 6) {
@@ -115,7 +115,7 @@ struct ProjectFollowingView: View {
                     }
                 }
                 .font(BeaconTypography.regular(9))
-                .foregroundStyle(accent.opacity(0.9))
+                .foregroundStyle(accent)
             }
             Spacer()
             if state.isMutating(project) {
@@ -136,18 +136,18 @@ struct ProjectFollowingView: View {
             }
         }
         .padding(9)
-        .background(BeaconPalette.softGradient(accent), in: RoundedRectangle(cornerRadius: 9))
+        .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 9))
         .overlay {
             RoundedRectangle(cornerRadius: 9)
-                .strokeBorder(BeaconPalette.borderGradient(accent), lineWidth: 0.8)
+                .strokeBorder(BeaconThemePreference.current().tokens.borderStrong.color, lineWidth: 0.8)
         }
     }
 
     private var inventoryAccent: Color {
         switch selectedTab {
-        case .following: BeaconPalette.lavender
-        case .recent: BeaconPalette.pink
-        case .quiet: BeaconPalette.cyan
+        case .following: BeaconThemePreference.current().tokens.textSecondary.color
+        case .recent: BeaconThemePreference.current().tokens.accent.color
+        case .quiet: BeaconThemePreference.current().tokens.info.color
         }
     }
 

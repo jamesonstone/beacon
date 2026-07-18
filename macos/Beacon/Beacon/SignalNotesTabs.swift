@@ -33,8 +33,8 @@ struct SignalNoteTabStrip: View {
                         .frame(width: 22, height: 22)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(BeaconPalette.cyan)
-                .background(BeaconPalette.softGradient(BeaconPalette.cyan), in: RoundedRectangle(cornerRadius: 6))
+                .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
+                .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 6))
                 .help("New Tab")
                 .accessibilityLabel("New Note tab")
             }
@@ -103,7 +103,7 @@ private struct SignalNoteTabButton: View {
                         .frame(width: 13, height: 13)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(BeaconPalette.coral.opacity(0.9))
+                .foregroundStyle(BeaconThemePreference.current().tokens.danger.color)
                 .help("Delete \(title)")
                 .accessibilityLabel("Delete \(title) note")
             }
@@ -115,21 +115,28 @@ private struct SignalNoteTabButton: View {
                         .frame(width: 13, height: 13)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(BeaconPalette.lavender.opacity(0.9))
+                .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                 .help("Close \(title)")
                 .accessibilityLabel("Close \(title) tab")
             }
         }
-        .foregroundStyle(selected ? BeaconPalette.mint : BeaconPalette.lavender)
+        .foregroundStyle(selected ? BeaconThemePreference.current().tokens.success.color : BeaconThemePreference.current().tokens.textSecondary.color)
         .padding(.horizontal, 7)
         .frame(height: 24)
         .background(
-            selected ? BeaconPalette.softGradient(BeaconPalette.mint) : BeaconPalette.softGradient(BeaconPalette.lavender),
+            selected
+                ? BeaconThemePreference.current().tokens.surfaceRaised.color
+                : BeaconThemePreference.current().tokens.surface.color,
             in: RoundedRectangle(cornerRadius: 6)
         )
         .overlay {
             RoundedRectangle(cornerRadius: 6)
-                .strokeBorder((selected ? BeaconPalette.mint : BeaconPalette.lavender).opacity(selected ? 0.62 : 0.24), lineWidth: 0.7)
+                .strokeBorder(
+                    selected
+                        ? BeaconThemePreference.current().tokens.success.color
+                        : BeaconThemePreference.current().tokens.border.color,
+                    lineWidth: selected ? 1 : 0.7
+                )
         }
         .onHover { hovering = $0 }
     }
@@ -154,7 +161,7 @@ struct SignalNotePicker: View {
                     .onSubmit { create() }
                 Button("Create", action: create)
                     .buttonStyle(.borderedProminent)
-                    .tint(BeaconPalette.cyan.opacity(0.72))
+                    .tint(BeaconThemePreference.current().tokens.info.color.opacity(0.72))
             }
 
             if !state.notesCurrentLine.isEmpty {
@@ -169,7 +176,7 @@ struct SignalNotePicker: View {
                 }
                 .buttonStyle(.plain)
                 .font(BeaconTypography.medium(9))
-                .foregroundStyle(BeaconPalette.mint)
+                .foregroundStyle(BeaconThemePreference.current().tokens.success.color)
                 .help(state.notesCurrentLine)
             }
 
@@ -179,7 +186,7 @@ struct SignalNotePicker: View {
             } else {
                 Text("Previously opened")
                     .font(BeaconTypography.semibold(8))
-                    .foregroundStyle(BeaconPalette.lavender.opacity(0.76))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                 ScrollView {
                     LazyVStack(spacing: 4) {
                         ForEach(state.noteHistory) { tab in
@@ -189,21 +196,21 @@ struct SignalNotePicker: View {
                                 } label: {
                                     HStack(spacing: 7) {
                                         Image(systemName: tab.isOpen ? "rectangle.on.rectangle" : "doc.text")
-                                            .foregroundStyle(tab.isOpen ? BeaconPalette.mint : BeaconPalette.cyan)
+                                            .foregroundStyle(tab.isOpen ? BeaconThemePreference.current().tokens.success.color : BeaconThemePreference.current().tokens.info.color)
                                         VStack(alignment: .leading, spacing: 1) {
                                             Text(tab.title)
                                                 .font(BeaconTypography.medium(9))
-                                                .foregroundStyle(BeaconPalette.mint)
+                                                .foregroundStyle(BeaconThemePreference.current().tokens.success.color)
                                                 .lineLimit(1)
                                             Text(tab.id)
                                                 .font(BeaconTypography.regular(7))
-                                                .foregroundStyle(BeaconPalette.lavender.opacity(0.68))
+                                                .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                                         }
                                         Spacer()
                                         if tab.isOpen {
                                             Text("OPEN")
                                                 .font(BeaconTypography.bold(7))
-                                                .foregroundStyle(BeaconPalette.mint)
+                                                .foregroundStyle(BeaconThemePreference.current().tokens.success.color)
                                         }
                                     }
                                     .contentShape(Rectangle())
@@ -214,7 +221,7 @@ struct SignalNotePicker: View {
                                 Button { onDeleteNote(tab) } label: {
                                     Image(systemName: "trash")
                                         .font(.system(size: 9, weight: .semibold))
-                                        .foregroundStyle(BeaconPalette.coral)
+                                        .foregroundStyle(BeaconThemePreference.current().tokens.danger.color)
                                         .frame(width: 24, height: 24)
                                         .contentShape(Rectangle())
                                 }
@@ -223,7 +230,7 @@ struct SignalNotePicker: View {
                                 .accessibilityLabel("Delete \(tab.title) note")
                             }
                             .padding(7)
-                            .background(Color.black.opacity(0.14), in: RoundedRectangle(cornerRadius: 6))
+                            .background(BeaconThemePreference.current().tokens.surfaceOverlay.color, in: RoundedRectangle(cornerRadius: 6))
                         }
                     }
                 }
@@ -231,10 +238,10 @@ struct SignalNotePicker: View {
         }
         .padding(8)
         .frame(minHeight: 120, maxHeight: .infinity)
-        .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 8))
+        .background(BeaconThemePreference.current().tokens.surfaceOverlay.color, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.cyan), lineWidth: 0.7)
+                .strokeBorder(BeaconThemePreference.current().tokens.borderStrong.color, lineWidth: 0.7)
         }
     }
 

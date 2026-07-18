@@ -43,6 +43,7 @@ struct BeaconCommandItem: Identifiable {
 }
 
 struct BeaconQuickSwitcher: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let scope: BeaconSwitcherScope
     let commands: [BeaconCommandItem]
     @Binding var query: String
@@ -59,14 +60,14 @@ struct BeaconQuickSwitcher: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: scope == .all ? "command" : "doc.text.magnifyingglass")
-                    .foregroundStyle(BeaconPalette.cyan)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
                 Text(scope.title)
                     .font(BeaconTypography.semibold(11))
-                    .foregroundStyle(BeaconPalette.mint)
+                    .foregroundStyle(BeaconThemePreference.current().tokens.success.color)
                 Spacer()
                 Text(scope == .all ? "⌘K" : "⌘P")
                     .font(BeaconTypography.regular(8))
-                    .foregroundStyle(BeaconPalette.lavender.opacity(0.72))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
             }
 
             TextField(scope.prompt, text: $query)
@@ -91,16 +92,16 @@ struct BeaconQuickSwitcher: View {
                                         HStack(spacing: 8) {
                                             Image(systemName: command.symbol)
                                                 .frame(width: 15)
-                                                .foregroundStyle(index == selection ? BeaconPalette.mint : BeaconPalette.cyan)
+                                                .foregroundStyle(index == selection ? BeaconThemePreference.current().tokens.success.color : BeaconThemePreference.current().tokens.info.color)
                                             VStack(alignment: .leading, spacing: 1) {
                                                 Text(command.title)
                                                     .font(BeaconTypography.medium(9))
-                                                    .foregroundStyle(BeaconPalette.mint)
+                                                    .foregroundStyle(BeaconThemePreference.current().tokens.success.color)
                                                     .lineLimit(1)
                                                 if !command.detail.isEmpty {
                                                     Text(command.detail)
                                                         .font(BeaconTypography.regular(7))
-                                                        .foregroundStyle(BeaconPalette.lavender.opacity(0.72))
+                                                        .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
                                                         .lineLimit(1)
                                                 }
                                             }
@@ -108,7 +109,7 @@ struct BeaconQuickSwitcher: View {
                                             if index == selection {
                                                 Image(systemName: "return")
                                                     .font(.system(size: 8, weight: .semibold))
-                                                    .foregroundStyle(BeaconPalette.lavender)
+                                                    .foregroundStyle(BeaconThemePreference.current().tokens.textSecondary.color)
                                             }
                                         }
                                         .padding(.leading, 8)
@@ -125,7 +126,7 @@ struct BeaconQuickSwitcher: View {
                                         } label: {
                                             Image(systemName: "trash")
                                                 .font(.system(size: 9, weight: .semibold))
-                                                .foregroundStyle(BeaconPalette.coral)
+                                                .foregroundStyle(BeaconThemePreference.current().tokens.danger.color)
                                                 .frame(width: 25, height: 25)
                                                 .contentShape(Rectangle())
                                         }
@@ -136,7 +137,9 @@ struct BeaconQuickSwitcher: View {
                                 }
                                 .padding(.trailing, 5)
                                 .background(
-                                    index == selection ? BeaconPalette.softGradient(BeaconPalette.cyan) : BeaconPalette.softGradient(.clear),
+                                    index == selection
+                                        ? BeaconThemePreference.current().tokens.surfaceRaised.color
+                                        : BeaconThemePreference.current().tokens.surface.color,
                                     in: RoundedRectangle(cornerRadius: 7)
                                 )
                                 .id(command.id)
@@ -145,23 +148,25 @@ struct BeaconQuickSwitcher: View {
                     }
                     .onChange(of: selection) { _, latest in
                         guard results.indices.contains(latest) else { return }
-                        withAnimation(.easeOut(duration: 0.08)) { proxy.scrollTo(results[latest].id) }
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.08)) {
+                            proxy.scrollTo(results[latest].id)
+                        }
                     }
                 }
             }
 
             Text("↑↓ navigate · Return open · Esc dismiss")
                 .font(BeaconTypography.regular(7))
-                .foregroundStyle(BeaconPalette.lavender.opacity(0.65))
+                .foregroundStyle(BeaconThemePreference.current().tokens.textMuted.color)
         }
         .padding(12)
         .frame(maxWidth: 390, maxHeight: 390)
-        .background(BeaconPalette.switcherBackground, in: RoundedRectangle(cornerRadius: 12))
+        .background(BeaconThemePreference.current().tokens.surfaceOverlay.color, in: RoundedRectangle(cornerRadius: 12))
         .overlay {
             RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(BeaconPalette.borderGradient(BeaconPalette.cyan), lineWidth: 1)
+                .strokeBorder(BeaconThemePreference.current().tokens.borderStrong.color, lineWidth: 1)
         }
-        .shadow(color: Color.black.opacity(0.45), radius: 18, y: 8)
+        .shadow(color: Color.black.opacity(0.18), radius: 8, y: 4)
         .task {
             await Task.yield()
             searchFocused = true

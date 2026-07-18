@@ -110,6 +110,8 @@ enum TestSnapshots {
     static let issue = IssueDetails(
         number: 41,
         title: "Feature issue",
+        body: "Issue description",
+        bodyTruncated: false,
         url: "https://example.test/issues/41",
         labels: [],
         assignees: ["me"],
@@ -137,6 +139,8 @@ enum TestSnapshots {
     static let pullRequest = PullRequestDetails(
         number: 42,
         title: "Feature",
+        body: "Pull request description",
+        bodyTruncated: false,
         url: "https://example.test/pull/42",
         headRefName: "feature",
         headRefOID: "abc",
@@ -148,7 +152,15 @@ enum TestSnapshots {
         mergeable: "MERGEABLE",
         ciState: "success",
         checks: CheckSummary(total: 1, success: 1, pending: 0, failure: 0, skipped: 0, unknown: 0),
-        feedback: FeedbackSummary(comments: 0, reviews: 0, approvals: 0, changesRequested: 0, unresolvedThreads: 0),
+        feedback: FeedbackSummary(
+            comments: 0,
+            reviews: 0,
+            approvals: 0,
+            changesRequested: 0,
+            unresolvedThreads: 0,
+            threads: [],
+            threadsTruncated: false
+        ),
         closingIssues: [issue]
     )
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -67,7 +66,7 @@ func (c Client) collectMine(ctx context.Context, configured map[string]config.Re
 		}
 	}
 
-	issueOutput, err := c.run(ctx, "gh", "search", "issues", "--assignee", author, "--state", "open", "--limit", strconv.Itoa(searchLimit), "--json", "number,title,url,updatedAt,labels,assignees,repository")
+	issueOutput, err := c.run(ctx, "gh", "search", "issues", "--assignee", author, "--state", "open", "--limit", strconv.Itoa(searchLimit), "--json", "number,title,body,url,updatedAt,labels,assignees,repository")
 	if err != nil {
 		collection.Errors = append(collection.Errors, model.ScanError{Stage: "github-search-issues", Message: err.Error()})
 		return
@@ -192,19 +191,21 @@ func (c Client) collectRepository(ctx context.Context, repository config.Reposit
 			evidence.Warnings = append(evidence.Warnings, model.ScanError{Repository: repository.Name, Stage: "github-prs", Message: "result limit reached; pull requests may be truncated"})
 		}
 		for index := range evidence.PullRequests {
-			count, truncated, threadErr := c.unresolvedThreads(ctx, repository.GitHub, evidence.PullRequests[index].Number)
+			threads, count, truncated, threadErr := c.reviewThreadDetails(ctx, repository.GitHub, evidence.PullRequests[index].Number)
 			if threadErr != nil {
 				evidence.PullRequests[index].ReviewDecision = "UNKNOWN"
 				evidence.Errors = append(evidence.Errors, model.ScanError{Repository: repository.Name, Stage: "github-feedback", Message: threadErr.Error()})
 				continue
 			}
 			evidence.PullRequests[index].Feedback.UnresolvedThreads = count
+			evidence.PullRequests[index].Feedback.Threads = threads
+			evidence.PullRequests[index].Feedback.ThreadsTruncated = truncated
 			if truncated {
 				evidence.Warnings = append(evidence.Warnings, model.ScanError{Repository: repository.Name, Stage: "github-feedback", Message: fmt.Sprintf("PR #%d review threads may be truncated", evidence.PullRequests[index].Number)})
 			}
 		}
 	}
-	issueArguments := []string{"issue", "list", "--repo", repository.GitHub, "--state", "open", "--limit", strconv.Itoa(searchLimit), "--json", "number,title,url,updatedAt,labels,assignees"}
+	issueArguments := []string{"issue", "list", "--repo", repository.GitHub, "--state", "open", "--limit", strconv.Itoa(searchLimit), "--json", "number,title,body,url,updatedAt,labels,assignees"}
 	if scope != "all" {
 		issueArguments = append(issueArguments, "--assignee", author)
 	}
@@ -232,40 +233,18 @@ func (c Client) pullRequestDetail(ctx context.Context, repository string, number
 		return nil, []model.ScanError{{Stage: "github-pr", Message: "decode detail: " + err.Error()}}, nil
 	}
 	pullRequest := normalizePullRequest(raw)
-	count, truncated, err := c.unresolvedThreads(ctx, repository, number)
+	threads, count, truncated, err := c.reviewThreadDetails(ctx, repository, number)
 	if err != nil {
 		pullRequest.ReviewDecision = "UNKNOWN"
 		return &pullRequest, []model.ScanError{{Stage: "github-feedback", Message: err.Error()}}, nil
 	}
 	pullRequest.Feedback.UnresolvedThreads = count
+	pullRequest.Feedback.Threads = threads
+	pullRequest.Feedback.ThreadsTruncated = truncated
 	if truncated {
 		return &pullRequest, nil, []model.ScanError{{Stage: "github-feedback", Message: fmt.Sprintf("PR #%d review threads may be truncated", number)}}
 	}
 	return &pullRequest, nil, nil
-}
-
-func (c Client) unresolvedThreads(ctx context.Context, repository string, number int) (int, bool, error) {
-	owner, name, ok := strings.Cut(repository, "/")
-	if !ok {
-		return 0, false, fmt.Errorf("invalid GitHub repository: %s", repository)
-	}
-	query := `query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100) { totalCount nodes { isResolved } } } } }`
-	output, err := c.run(ctx, "gh", "api", "graphql", "-F", "owner="+owner, "-F", "name="+name, "-F", "number="+strconv.Itoa(number), "-f", "query="+query)
-	if err != nil {
-		return 0, false, err
-	}
-	var response rawThreadResponse
-	if err := json.Unmarshal(output, &response); err != nil {
-		return 0, false, fmt.Errorf("decode review threads: %w", err)
-	}
-	threads := response.Data.Repository.PullRequest.ReviewThreads
-	unresolved := 0
-	for _, thread := range threads.Nodes {
-		if !thread.IsResolved {
-			unresolved++
-		}
-	}
-	return unresolved, threads.TotalCount > len(threads.Nodes), nil
 }
 
 func (c Client) run(ctx context.Context, name string, args ...string) ([]byte, error) {

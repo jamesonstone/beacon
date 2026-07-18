@@ -82,6 +82,34 @@ func TestCacheLoadUpgradesSchemaTwoSnapshotWithoutQuarantine(t *testing.T) {
 	}
 }
 
+func TestAssembleNormalizesAdditiveFollowingWorkspaceArraysFromCurrentCache(t *testing.T) {
+	record := cachedRecord("owner/current-cache", 8, model.TrackingTracked)
+	record.Snapshot.Lanes[0].PullRequest = &model.PullRequest{
+		Number:   39,
+		Feedback: model.Feedback{Threads: []model.ReviewThread{{ID: "thread-1"}}},
+	}
+	record.Snapshot.Lanes[0].PullRequest.Feedback.Threads[0].Comments = nil
+	legacyLane := record.Snapshot.Lanes[0]
+	legacyLane.ID = "legacy-without-threads"
+	legacyLane.PullRequest = &model.PullRequest{Number: 38, Feedback: model.Feedback{Threads: nil}}
+	record.Snapshot.Lanes = append(record.Snapshot.Lanes, legacyLane)
+
+	snapshot := Assemble([]ProjectRecord{record}, "/config.yaml", "/tracking.json", time.Now())
+	if snapshot.WorkingSet.Order == nil {
+		t.Fatal("working-set order must encode as an empty array before reconciliation")
+	}
+	for _, lane := range snapshot.Lanes {
+		if lane.PullRequest == nil || lane.PullRequest.Feedback.Threads == nil {
+			t.Fatalf("rich evidence arrays were not normalized: %#v", lane.PullRequest)
+		}
+		for _, thread := range lane.PullRequest.Feedback.Threads {
+			if thread.Comments == nil {
+				t.Fatalf("review comments were not normalized: %#v", thread)
+			}
+		}
+	}
+}
+
 func TestCacheLoadsVersionOneAndPersistsCheckoutConfirmations(t *testing.T) {
 	directory := t.TempDir()
 	cache := Cache{Directory: directory}

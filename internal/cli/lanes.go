@@ -148,12 +148,30 @@ func (a App) laneSeenCommand(configPath *string) *cobra.Command {
 	}
 }
 
+func (a App) laneReorderCommand(configPath *string) *cobra.Command {
+	return &cobra.Command{
+		Use: "reorder <lane-id>...", Short: "Persist the complete working-set lane order", Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return usageError{fmt.Errorf("%s requires the complete ordered lane id list", cmd.CommandPath())}
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := a.laneRequest(cmd.Context(), *configPath, agent.Request{Type: agent.RequestReorderLanes, LaneIDs: args})
+			if err == nil {
+				_, err = fmt.Fprintln(a.Out, "reordered working-set lanes")
+			}
+			return err
+		},
+	}
+}
+
 func (a App) laneRequest(ctx context.Context, configPath string, request agent.Request) (agent.Event, error) {
 	_, paths, err := a.agentConfig(configPath)
 	if err != nil {
 		return agent.Event{}, err
 	}
-	event, err := (agent.Client{Socket: paths.Socket}).Request(ctx, request)
+	event, err := a.agentClient(paths.Socket).Request(ctx, request)
 	if err != nil {
 		return agent.Event{}, err
 	}
