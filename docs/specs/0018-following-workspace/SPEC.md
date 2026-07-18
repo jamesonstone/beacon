@@ -2,7 +2,7 @@
 kit_metadata_version: 1
 artifact: spec
 workflow_version: 2
-phase: validate
+phase: deliver
 delivery_intent: ready_pull_request
 clarification:
   status: ready
@@ -29,6 +29,14 @@ references:
     relation: implements
     read_policy: must
     used_for: clarified requirements and ready pull request lane
+    status: active
+  - id: pr-40
+    name: Improve Following workspace clarity
+    type: github-pr
+    target: https://github.com/jamesonstone/beacon/pull/40
+    relation: verifies
+    read_policy: evidence
+    used_for: ready review and hosted validation
     status: active
   - id: constitution
     name: Beacon constitution
@@ -229,7 +237,7 @@ collection through the existing GitHub cache and a coordinated additive model.
 - [x] AC11: Existing lane policy, Following membership, top-item actions,
   external activity, notes, CLI output purity, API reserves, and release behavior
   do not regress.
-- [ ] AC12: Canonical docs, focused tests, full Go/race/macOS/build/release/Kit
+- [x] AC12: Canonical docs, focused tests, full Go/race/macOS/build/release/Kit
   checks, diff hygiene, and fresh-build visual interaction smoke pass before the
   ready PR is delivered.
 
@@ -269,7 +277,7 @@ collection through the existing GitHub cache and a coordinated additive model.
 - [x] T6: Reconcile README, constitution, and project progress documentation.
 - [x] T7: Run focused and full validation, visual smoke, secret scan, and diff
   review; repair every relevant issue.
-- [ ] T8: Commit, push, create the assigned ready PR, observe hosted checks, and
+- [x] T8: Commit, push, create the assigned ready PR, observe hosted checks, and
   record final evidence.
 
 ## Validation Map
@@ -325,6 +333,12 @@ collection through the existing GitHub cache and a coordinated additive model.
   `jamesonstone`.
 - Branch: `GH-39`, created from refreshed `origin/main` at
   `e2237f7ff1c02e6aea5ddb1bf2a94b2838849f27` after clean `0/0` staleness recon.
+- Implementation commit:
+  `3da3b77496bbee1cd704aff70bd017e705862387` by Jameson Stone
+  `<jameson@stone.tc>`.
+- Ready pull request: https://github.com/jamesonstone/beacon/pull/40,
+  targeting `main`, assigned to `jamesonstone`, and configured to close issue
+  #39.
 - Focused Go validation passed for `internal/workset`, `internal/githubscan`,
   `internal/agent`, `internal/scan`, and `internal/cli`.
 - Full local validation passed: `make fmt-check vet test test-race build
@@ -338,3 +352,5 @@ collection through the existing GitHub cache and a coordinated additive model.
   Following/Parking drop targets, keyboard Move Up/Down actions, explicit
   exception labels including `PR feedback · N`, the complete taxonomy popover,
   and cached issue/PR Markdown detail with direct links and Escape dismissal.
+- Hosted checks passed on the implementation head: `go` in 57 seconds, `macos`
+  in 2 minutes 20 seconds, and configured-maintainer assignment in 4 seconds.
