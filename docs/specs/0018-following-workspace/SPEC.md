@@ -20,6 +20,8 @@ relationships:
   - type: builds_on
     target: 0010-project-following
   - type: builds_on
+    target: 0012-repository-sync-ui-refresh
+  - type: builds_on
     target: 0017-beacon-focus-notes
 references:
   - id: issue-39
@@ -37,6 +39,22 @@ references:
     relation: verifies
     read_policy: evidence
     used_for: ready review and hosted validation
+    status: active
+  - id: issue-41
+    name: Add lighthouse and restore configurable application typography
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/41
+    relation: implements
+    read_policy: must
+    used_for: README masthead and installed-font Appearance continuation
+    status: active
+  - id: pr-42
+    name: Customize Beacon branding and typography
+    type: github-pr
+    target: https://github.com/jamesonstone/beacon/pull/42
+    relation: verifies
+    read_policy: evidence
+    used_for: ready review and hosted validation of the Appearance continuation
     status: active
   - id: constitution
     name: Beacon constitution
@@ -92,6 +110,8 @@ turning presentation into a second workflow authority. One Go-owned user order,
 three presentation densities, an adaptive experimental overview, and concise
 exception evidence let the shared macOS workspace show substantially more work
 while preserving factual status, deterministic next actions, and API reserves.
+One shared installed-font preference keeps that workspace personally readable
+without letting SwiftUI and AppKit typography drift apart.
 
 ## Context
 
@@ -191,6 +211,23 @@ collection through the existing GitHub cache and a coordinated additive model.
   least 3:1. Accessible semantic aliases replace classic palette accents when
   raw colors cannot meet the role's threshold.
 
+### Font Appearance Continuation
+
+- Issue #41, exact branch `GH-41`, and ready PR #42 continue after the README
+  masthead change because the user explicitly chose the existing delivery lane.
+- `JetBrainsMono Nerd Font` is the exact default application font family.
+- Settings → Appearance → Font lists every font family currently installed on
+  the system and persists the user's explicit selection for both the menu extra
+  and detached dashboard.
+- The selected family applies live to ordinary interface copy, identifiers,
+  code, counters, read-only Markdown, and the AppKit Signal Notes editor while
+  preserving each role's existing size and weight.
+- If the selected family is no longer installed, Beacon first falls back to the
+  default family when available and otherwise uses the appropriate system UI or
+  system monospaced fallback. Missing fonts never block application startup.
+- The existing text-size and card-density preferences remain independent from
+  the font-family choice.
+
 ## Requirements
 
 1. Extend versioned lane state with a normalized global lane order that
@@ -259,6 +296,15 @@ collection through the existing GitHub cache and a coordinated additive model.
     route every read-only GitHub Markdown body/comment through it, and verify
     block separation, inline semantics, tables, task lists, text selection, and
     all-five-theme rendering without changing cached source text.
+24. Restore one persisted application font-family preference with the exact
+    default `JetBrainsMono Nerd Font` and deterministic missing-font fallback.
+25. Enumerate every installed system font family in Settings → Appearance →
+    Font and apply the selected family live to both shared macOS surfaces.
+26. Route SwiftUI typography roles and AppKit Markdown editor fonts through the
+    same selected family while retaining existing sizes, weights, and semantic
+    styling.
+27. Document and test default selection, installed-family enumeration,
+    persistence, fallback, and shared SwiftUI/AppKit refresh behavior.
 
 ## Assumptions
 
@@ -278,6 +324,8 @@ collection through the existing GitHub cache and a coordinated additive model.
   automated contrast evidence and AppKit presentation share one source.
 - Native macOS accessibility environment values are available on the minimum
   supported macOS 14 deployment target.
+- AppKit's installed-family catalog is the local source of truth for font
+  availability; no font download, bundling, or network lookup is required.
 
 ## Acceptance Criteria
 
@@ -332,6 +380,15 @@ collection through the existing GitHub cache and a coordinated additive model.
 - [x] AC21: Every read-only Markdown-backed detail surface preserves block and
   inline formatting without concatenating text, remains selectable and linked,
   follows all five themes, and passes focused plus fresh-app visual validation.
+- [x] AC22: With no saved family, Beacon selects `JetBrainsMono Nerd Font`; a
+  valid installed family persists and updates both shared surfaces without
+  restart.
+- [x] AC23: Appearance exposes every installed family, and a removed, invalid,
+  or unavailable selection deterministically falls back without startup or
+  rendering failure.
+- [x] AC24: SwiftUI copy and role fonts plus the AppKit Markdown editor resolve
+  through the same selected family while preserving text-size, weight, theme,
+  and density behavior.
 
 ## Implementation Plan
 
@@ -360,6 +417,12 @@ collection through the existing GitHub cache and a coordinated additive model.
     update user/canonical docs and review the complete semantic-role inventory.
 12. Run the full local and fresh-build visual gates, commit/push to PR #40,
     update delivery evidence, and wait for final hosted checks on the exact head.
+13. Extend the active Appearance contract for the issue #41 font continuation
+    and align its existing issue, branch, and PR lane.
+14. Add the installed-family catalog, persistent Appearance picker, shared
+    SwiftUI/AppKit font resolution, focused tests, and user documentation.
+15. Run focused and complete macOS/Kit/diff validation, review the combined
+    lane, commit/push to PR #42, and wait for hosted checks on the exact head.
 
 ## Agent Team Plan
 
@@ -396,6 +459,12 @@ collection through the existing GitHub cache and a coordinated additive model.
   #40, update evidence, and require the final hosted checks to pass.
 - [x] T14: Implement, document, test, and visually verify shared block-aware
   formatting for every read-only Markdown-backed detail surface.
+- [x] T15: Record the issue #41 installed-font continuation in this active
+  specification and align the existing delivery lane.
+- [x] T16: Implement and document the JetBrainsMono default, installed-family
+  Appearance picker, persistence, fallback, and shared font application.
+- [ ] T17: Add focused tests, run all relevant validation, review the combined
+  diff, update issue/PR metadata, push, and verify final hosted checks.
 
 ## Validation Map
 
@@ -414,6 +483,7 @@ collection through the existing GitHub cache and a coordinated additive model.
 | AC19 | token completeness and WCAG math tests plus AppKit-rendered preview smoke for every built-in theme |
 | AC20 | full make gate, Linux builds, Kit/diff/secret review, stable-app interaction smoke, exact branch/PR recon, and hosted checks |
 | AC21 | parser block/inline/table/task fixtures, five-theme render smoke, macOS test/build, and fresh detail-popover visual smoke |
+| AC22-AC24 | font-catalog/default/fallback tests, UserDefaults persistence assertions, SwiftUI/AppKit resolution tests, macOS test/build, Appearance inspection, and relaunch smoke |
 
 ## Reflection Notes
 
@@ -452,6 +522,8 @@ collection through the existing GitHub cache and a coordinated additive model.
   shared macOS surface, ordering, and API-budget contracts.
 - Add feature 0018 to `docs/PROJECT_PROGRESS_SUMMARY.md` and advance it with
   evidence-backed workflow phases.
+- Document the exact default family, installed-font Appearance selector, live
+  shared application, persistence, and safe missing-font fallback in README.
 
 ## Delivery Decision
 
@@ -459,6 +531,9 @@ collection through the existing GitHub cache and a coordinated additive model.
   `main`, assigned to `jamesonstone`, and closing issue #39.
 - Use explicit staging, verified Jameson Stone author/committer identity, the
   repository PR template, and literal hosted-check reporting.
+- Continue the user-approved font work on issue #41, exact branch `GH-41`, and
+  ready PR #42; update their scope to cover both the README masthead and shared
+  Appearance typography before delivery.
 
 ## Evidence
 
@@ -536,3 +611,18 @@ collection through the existing GitHub cache and a coordinated additive model.
   ready state, assignment, base, and issue closure.
 - Hosted checks passed on the Markdown implementation head: `go` in 56 seconds
   and `macos` in 2 minutes 53 seconds.
+- Issue #41 continues on branch `GH-41` and ready PR #42 after the user chose
+  the existing lane for the installed-font Appearance follow-up.
+- The typography implementation uses `JetBrainsMono Nerd Font` by default,
+  lists all installed AppKit font families under Settings → Appearance → Font,
+  persists the selection, and routes SwiftUI plus AppKit font roles through one
+  fallback-aware resolver.
+- Five focused typography tests pass for the exact default, installed-family
+  enumeration, persistence, missing-font fallback, and shared AppKit role
+  resolution.
+- The complete local gate passes `make fmt-check vet test test-race build
+  release-test macos-test macos-build`; the fresh macOS suite executed 113
+  tests with zero failures, and the fresh macOS application build succeeded.
+- Linux amd64/arm64 builds, all 18 Kit feature checks, `git diff --check`,
+  changed-file secret-pattern review, system-font override audit, and source-size
+  review pass for the typography continuation.

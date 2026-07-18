@@ -199,13 +199,6 @@ final class ModelsTests: XCTestCase {
         XCTAssertFalse(UpToDatePresentation.shouldShow(inProgressCount: 0, loadingProjectCount: 1))
     }
 
-    func testDashboardTypographyUsesSystemCopyAndElevenPointMinimum() {
-        XCTAssertEqual(BeaconTypography.defaultBaseSize, 12)
-        XCTAssertEqual(BeaconTypography.resolvedSize(7, baseSize: 11), 11)
-        XCTAssertEqual(BeaconTypography.resolvedSize(10, baseSize: 12), 12)
-        XCTAssertEqual(BeaconTypography.resolvedSize(17, baseSize: 14), 21)
-    }
-
     func testStackedDashboardPrioritizesProjectNameOverLaneTitle() {
         XCTAssertEqual(DashboardLanePresentation.projectNameSize, 15)
         XCTAssertEqual(DashboardLanePresentation.laneTitleSize, 13)

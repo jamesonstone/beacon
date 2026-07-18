@@ -33,6 +33,7 @@ struct MenuView: View {
     @AppStorage("beacon.dismissed-evidence-badges") var dismissedEvidenceBadgesValue = "[]"
     @AppStorage(SignalNotesPresentation.sizeStorageKey) var signalNotesSizeValue = SignalNotesSize.half.rawValue
     @AppStorage(SignalNotesPresentation.lastExpandedStorageKey) var signalNotesLastExpandedSizeValue = SignalNotesSize.half.rawValue
+    @AppStorage(BeaconTypography.familyKey) var fontFamilyValue = BeaconTypography.defaultFamily
     @AppStorage(BeaconTypography.baseSizeKey) var fontSizeValue = BeaconTypography.defaultBaseSize
     @AppStorage(BeaconThemePreference.storageKey) var themeIDValue = BeaconThemePreference.defaultID.rawValue
 
@@ -147,6 +148,7 @@ struct MenuView: View {
             )
         }
         .environment(\.beaconTheme, theme)
+        .font(BeaconTypography.regular(10))
         .preferredColorScheme(theme.appearance.colorScheme)
         .tint(theme.tokens.accent.color)
         .foregroundStyle(theme.tokens.textPrimary.color)

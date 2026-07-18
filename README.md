@@ -619,16 +619,19 @@ count set directly inside it. Its width and numeral scale adapt through `99+`,
 so the app identity and current workload remain recognizable as one compact
 status item.
 
-Beacon defaults to 12-point system UI typography and keeps essential interface
-copy at least 11 points. Monospaced type is reserved for code, branches,
-identifiers, timestamps, percentages, and counters. Settings provides 11, 12,
-13, 14, and 16-point base sizes; both surfaces share the persisted choice. A
-separate persisted
-**Card Density** setting offers Comfortable, Compact, and Dense without changing
-font size. Comfortable retains the full card, Compact keeps identity, next
-action, age/delta, and exceptions, and Dense keeps identity, next action, and
-one exception summary. Lane notation remains optional local context: use the
-trailing **+** to add a tag and the chip's close control to remove it.
+Beacon defaults to **JetBrainsMono Nerd Font** and keeps essential interface
+copy at least 11 points. Choose **Settings → Appearance → Font** to select any
+font family installed on the system; the menu extra, detached dashboard,
+read-only Markdown, and native Signal Notes editor update live and share the
+persisted choice. If a selected family is later removed, Beacon falls back to
+JetBrainsMono Nerd Font when available and otherwise uses safe system fonts.
+Settings also provides 11, 12, 13, 14, and 16-point base sizes. A separate
+persisted **Card Density** setting offers Comfortable, Compact, and Dense
+without changing font size. Comfortable retains the full card, Compact keeps
+identity, next action, age/delta, and exceptions, and Dense keeps identity, next
+action, and one exception summary. Lane notation remains optional local
+context: use the trailing **+** to add a tag and the chip's close control to
+remove it.
 
 Canonical evidence badges now show exceptions only. Healthy defaults such as
 clean worktrees, successful CI, approved review, and current freshness stay
