@@ -463,7 +463,7 @@ collection through the existing GitHub cache and a coordinated additive model.
   specification and align the existing delivery lane.
 - [x] T16: Implement and document the JetBrainsMono default, installed-family
   Appearance picker, persistence, fallback, and shared font application.
-- [ ] T17: Add focused tests, run all relevant validation, review the combined
+- [x] T17: Add focused tests, run all relevant validation, review the combined
   diff, update issue/PR metadata, push, and verify final hosted checks.
 
 ## Validation Map
@@ -626,3 +626,11 @@ collection through the existing GitHub cache and a coordinated additive model.
 - Linux amd64/arm64 builds, all 18 Kit feature checks, `git diff --check`,
   changed-file secret-pattern review, system-font override audit, and source-size
   review pass for the typography continuation.
+- Typography implementation commit
+  `52e90fa68851670c21c9d70e05ff2992811bfc05` by Jameson Stone
+  `<jameson@stone.tc>` is pushed to `GH-41` and ready PR #42.
+- Issue #41 and PR #42 now describe both the six-line README lighthouse and the
+  configurable application-font continuation while preserving the assigned,
+  ready, `main`-targeting delivery lane.
+- Hosted checks passed on the typography implementation head: `go` in 54
+  seconds and `macos` in 1 minute 59 seconds.
