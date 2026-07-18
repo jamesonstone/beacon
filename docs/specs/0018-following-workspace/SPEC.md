@@ -634,3 +634,7 @@ collection through the existing GitHub cache and a coordinated additive model.
   ready, `main`-targeting delivery lane.
 - Hosted checks passed on the typography implementation head: `go` in 54
   seconds and `macos` in 1 minute 59 seconds.
+- A fresh built-app smoke opened with `JetBrainsMono Nerd Font`, exposed all 218
+  installed families in Appearance, switched live to Menlo, restored the
+  default, and retained that restored choice after quit/relaunch; the existing
+  background agent remained untouched.
