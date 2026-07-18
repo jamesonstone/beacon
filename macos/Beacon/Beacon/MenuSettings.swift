@@ -47,6 +47,24 @@ extension MenuView {
                     Label("Theme: \(theme.name)", systemImage: "paintpalette")
                 }
                 Menu {
+                    Picker("Font", selection: $fontFamilyValue) {
+                        ForEach(BeaconFontCatalog.selectionOptions, id: \.self) { family in
+                            Text(
+                                family == BeaconTypography.defaultFamily
+                                    ? "\(family) — Default"
+                                    : family
+                            )
+                            .font(.custom(family, size: 12))
+                            .tag(family)
+                        }
+                    }
+                } label: {
+                    Label(
+                        "Font: \(BeaconFontCatalog.displayName(for: fontFamilyValue))",
+                        systemImage: "textformat"
+                    )
+                }
+                Menu {
                     Picker("Font Size", selection: $fontSizeValue) {
                         ForEach(BeaconFontSize.allCases) { size in
                             Text(size.title).tag(size.rawValue)
