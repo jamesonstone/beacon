@@ -2,7 +2,7 @@
 kit_metadata_version: 1
 artifact: spec
 workflow_version: 2
-phase: validate
+phase: deliver
 delivery_intent: ready_pull_request
 clarification:
   status: ready
@@ -528,3 +528,11 @@ collection through the existing GitHub cache and a coordinated additive model.
   supplied body now displays distinct Original ask, Scope boundaries,
   Acceptance criteria, and Expected verification sections with readable list
   markers and spacing in the detailed hover panel.
+- Markdown-formatting implementation commit:
+  `02673786fc53d36a6ce4b3e6f22152cb5ad0a78b` by Jameson Stone
+  `<jameson@stone.tc>`, pushed to the existing `GH-39` branch and ready PR #40.
+- PR #40 was updated in place with the shared Markdown renderer, root cause,
+  coverage, and exact visual verification step while preserving its template,
+  ready state, assignment, base, and issue closure.
+- Hosted checks passed on the Markdown implementation head: `go` in 56 seconds
+  and `macos` in 2 minutes 53 seconds.

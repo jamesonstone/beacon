@@ -196,11 +196,11 @@ canonical feature artifact wins whenever this index disagrees with it.
 
 ### following-workspace
 
-- **STATUS**: validate
+- **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Let users prioritize and understand every followed work lane while fitting the current working set into one adaptive view.
 - **APPROACH**: Persist one Go-owned lane order, add shared density and experimental Overview presentation, show only canonical evidence exceptions, collect bounded rich GitHub detail, and render both macOS surfaces from one persisted five-theme semantic token catalog.
-- **OPEN ITEMS**: The delivered Following/theme scope remains green on issue #39, branch `GH-39`, and ready PR #40. The focused Markdown-formatting follow-up is implemented and locally validated; explicit staging, commit, push, PR update, and hosted checks remain.
+- **OPEN ITEMS**: Following workspace, themes, and shared Markdown formatting are implemented, documented, locally and visually validated, committed, pushed, reflected in ready PR #40, and green in hosted Go/macOS checks on issue #39 and branch `GH-39`; final human review and merge remain.
 - **POINTERS**: `docs/specs/0018-following-workspace/SPEC.md`
 
 ## LAST UPDATED
