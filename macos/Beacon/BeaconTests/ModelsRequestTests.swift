@@ -25,7 +25,15 @@ extension ModelsTests {
     }
 
     func testDefaultAgentSocketUsesCacheDirectory() {
-        XCTAssertTrue(AgentClient.defaultSocketPath().hasSuffix("/.cache/beacon/agent.sock"))
+        let environment = ProcessInfo.processInfo.environment
+        let cacheBase = environment["XDG_CACHE_HOME"].flatMap { $0.isEmpty ? nil : $0 }
+            ?? FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".cache").path
+        let expected = URL(fileURLWithPath: cacheBase)
+            .appendingPathComponent("beacon/agent.sock").path
+
+        XCTAssertEqual(AgentClient.defaultSocketPath(), expected)
+        XCTAssertTrue(AgentClient.defaultSocketPath().hasSuffix("/beacon/agent.sock"))
     }
 
     func testGeneralNoteRequestsPreserveLegacyAgentPayloadShape() throws {

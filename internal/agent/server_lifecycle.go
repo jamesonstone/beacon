@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+
+	"golang.org/x/sys/unix"
 )
 
 func (s *Server) Serve(ctx context.Context) error {
@@ -21,7 +23,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	}
 	defer release()
 	_ = os.Remove(s.Paths.Socket)
-	listener, err := net.Listen("unix", s.Paths.Socket)
+	listener, err := listenUnixSocket(ctx, s.Paths.Socket)
 	if err != nil {
 		return fmt.Errorf("listen on agent socket %s: %w", s.Paths.Socket, err)
 	}
@@ -52,6 +54,12 @@ func (s *Server) Serve(ctx context.Context) error {
 		}
 		go s.handle(serverContext, connection)
 	}
+}
+
+func listenUnixSocket(ctx context.Context, path string) (net.Listener, error) {
+	previousMask := unix.Umask(0o077)
+	defer unix.Umask(previousMask)
+	return (&net.ListenConfig{}).Listen(ctx, "unix", path)
 }
 
 func (s *Server) Stop() {

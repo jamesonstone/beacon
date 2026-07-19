@@ -32,6 +32,21 @@ func TestResolvePathsHonorsXDGAndUsesUserScopedLayout(t *testing.T) {
 	}
 }
 
+func TestEnsureRuntimeSecuresSocketDirectory(t *testing.T) {
+	paths := testPaths(t.TempDir())
+	paths.Socket = filepath.Join(t.TempDir(), "socket", "agent.sock")
+	if err := paths.EnsureRuntime(); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(filepath.Dir(paths.Socket))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0o700 {
+		t.Fatalf("socket directory mode = %o, want 700", got)
+	}
+}
+
 func TestCacheRoundTripAssemblyAndCorruptionQuarantine(t *testing.T) {
 	directory := t.TempDir()
 	cache := Cache{Directory: directory, Now: func() time.Time { return time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC) }}
