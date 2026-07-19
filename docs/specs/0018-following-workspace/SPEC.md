@@ -80,6 +80,14 @@ references:
     read_policy: must
     used_for: fitted Following and Notes split-layout continuation
     status: active
+  - id: pr-56
+    name: Add fitted Following dashboard view mode
+    type: github-pr
+    target: https://github.com/jamesonstone/beacon/pull/56
+    relation: verifies
+    read_policy: evidence
+    used_for: ready review and hosted validation of the fitted layout
+    status: active
   - id: constitution
     name: Beacon constitution
     type: doc
@@ -545,7 +553,7 @@ collection through the existing GitHub cache and a coordinated additive model.
   `origin/main`, then record the accepted fitted-layout contract.
 - [x] T22: Implement and test fitted Following geometry, half-height Notes,
   stable persistence, existing-mode compatibility, and refresh-safe selection.
-- [ ] T23: Run full validation and native interaction smoke, review and stage
+- [x] T23: Run full validation and native interaction smoke, review and stage
   explicitly, then deliver the assigned ready PR and verify its hosted head.
 
 ## Validation Map
@@ -788,3 +796,11 @@ collection through the existing GitHub cache and a coordinated additive model.
 - Fresh built-app smoke confirmed all 12 lane actions and accessibility labels,
   half-height Notes, persisted relaunch state, compact resize recomputation, and
   live View Mode interaction while the scan control remained busy.
+- Implementation commit `d76b544702b14d65899823cc497bbf742212ad50`
+  by Jameson Stone `<jameson@stone.tc>` is pushed to `GH-55` and ready PR #56.
+  The PR targets `main`, is assigned to `jamesonstone`, and closes issue #55.
+- Hosted checks passed on the implementation head: configured-maintainer
+  assignment in 4 seconds, `go` in 1 minute 10 seconds, and `macos` in 2 minutes
+  44 seconds. CodeRabbit completed with no review threads; its optional README
+  placement nit was not adopted because the durable behavior is already in this
+  spec and the Constitution while README retains the established user summary.
