@@ -2,7 +2,7 @@
 kit_metadata_version: 1
 artifact: spec
 workflow_version: 2
-phase: implement
+phase: deliver
 delivery_intent: ready_pull_request
 clarification:
   status: ready
@@ -194,7 +194,7 @@ autosave or mutate the draft.
 - [x] T6: Add focused Swift tests and update the Xcode project.
 - [x] T7: Run formatting, Go unit/race/lint/build checks, macOS tests/build,
   targeted live Ollama smoke, and review the complete diff.
-- [ ] T8: Complete issue #45 delivery on `GH-45` with an explicit commit, push,
+- [x] T8: Complete issue #45 delivery on `GH-45` with an explicit commit, push,
   ready pull request, and hosted-check verification.
 
 ## Validation Plan
@@ -220,4 +220,6 @@ autosave or mutate the draft.
 - Branch: `GH-45`
 - Local validation: complete; Go, race, vet, build, release, macOS test/build,
   live Ollama, and native Notes assistant smoke checks pass
-- Pull request: pending publication and hosted-check verification
+- Hosted validation: Go and macOS checks passed on implementation commit
+  `db6abf2`; the ready pull request remains the human review boundary
+- Pull request: [#46](https://github.com/jamesonstone/beacon/pull/46)
