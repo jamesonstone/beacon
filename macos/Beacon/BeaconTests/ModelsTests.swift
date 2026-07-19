@@ -302,6 +302,53 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(DashboardViewMode.overview.symbol, "rectangle.grid.2x2")
     }
 
+    func testViewModeMenuIdentityIgnoresUnrelatedParentRefreshes() {
+        let first = DashboardViewModeMenu(
+            mode: .stacked,
+            themeID: BeaconThemePreference.defaultID.rawValue,
+            increasedContrast: false,
+            select: { _ in }
+        )
+        let refreshedParent = DashboardViewModeMenu(
+            mode: .stacked,
+            themeID: BeaconThemePreference.defaultID.rawValue,
+            increasedContrast: false,
+            select: { _ in }
+        )
+        let changedMode = DashboardViewModeMenu(
+            mode: .tiles,
+            themeID: BeaconThemePreference.defaultID.rawValue,
+            increasedContrast: false,
+            select: { _ in }
+        )
+
+        XCTAssertEqual(first, refreshedParent)
+        XCTAssertNotEqual(first, changedMode)
+    }
+
+    func testTaxonomyInfoStaysOpenAcrossTriggerAndPopoverTraversal() {
+        XCTAssertFalse(TaxonomyInfoPresentation.shouldDismiss(
+            isPinned: false,
+            triggerHovered: true,
+            popoverHovered: false
+        ))
+        XCTAssertFalse(TaxonomyInfoPresentation.shouldDismiss(
+            isPinned: false,
+            triggerHovered: false,
+            popoverHovered: true
+        ))
+        XCTAssertFalse(TaxonomyInfoPresentation.shouldDismiss(
+            isPinned: true,
+            triggerHovered: false,
+            popoverHovered: false
+        ))
+        XCTAssertTrue(TaxonomyInfoPresentation.shouldDismiss(
+            isPinned: false,
+            triggerHovered: false,
+            popoverHovered: false
+        ))
+    }
+
     func testDashboardDensitiesHaveStablePersistentIdentifiers() {
         XCTAssertEqual(DashboardDensity.storageKey, "beacon.dashboard.density")
         XCTAssertEqual(DashboardDensity.defaultDensity, .comfortable)

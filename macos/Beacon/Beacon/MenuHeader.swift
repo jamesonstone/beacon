@@ -119,6 +119,16 @@ extension MenuView {
         return "Dependency Limits, highest usage \(state.dependencyUsagePercent) percent, \(state.dependencyUsageLevel.title)"
     }
 
+    var viewModeMenu: some View {
+        DashboardViewModeMenu(
+            mode: viewMode,
+            themeID: themeIDValue,
+            increasedContrast: colorSchemeContrast == .increased,
+            select: setViewMode
+        )
+        .equatable()
+    }
+
     var refreshButton: some View {
         Button {
             Task { await state.scan() }
@@ -148,12 +158,27 @@ extension MenuView {
     }
 }
 
+enum TaxonomyInfoPresentation {
+    static func shouldDismiss(
+        isPinned: Bool,
+        triggerHovered: Bool,
+        popoverHovered: Bool
+    ) -> Bool {
+        !isPinned && !triggerHovered && !popoverHovered
+    }
+}
+
 private struct TaxonomyInfoButton: View {
     @State private var isPresented = false
+    @State private var isPinned = false
+    @State private var triggerHovered = false
+    @State private var popoverHovered = false
+    @State private var pendingTask: Task<Void, Never>?
 
     var body: some View {
         Button {
-            isPresented.toggle()
+            isPinned.toggle()
+            isPresented = isPinned
         } label: {
             Image(systemName: "info.circle.fill")
                 .font(.system(size: 13, weight: .semibold))
@@ -168,6 +193,10 @@ private struct TaxonomyInfoButton: View {
         .buttonStyle(.plain)
         .help("How Beacon organizes identity, status, actions, and evidence")
         .accessibilityLabel("Beacon taxonomy guide")
+        .onHover { hovered in
+            triggerHovered = hovered
+            hovered ? scheduleOpen() : scheduleClose()
+        }
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 13) {
@@ -196,6 +225,47 @@ private struct TaxonomyInfoButton: View {
             }
             .frame(width: 440, height: 430)
             .background(BeaconThemePreference.current().tokens.surfaceOverlay.color)
+            .onHover { hovered in
+                popoverHovered = hovered
+                hovered ? pendingTask?.cancel() : scheduleClose()
+            }
+            .onExitCommand {
+                isPinned = false
+                isPresented = false
+            }
+        }
+        .onChange(of: isPresented) { _, presented in
+            if !presented {
+                isPinned = false
+                popoverHovered = false
+                pendingTask?.cancel()
+            }
+        }
+        .onDisappear { pendingTask?.cancel() }
+    }
+
+    private func scheduleOpen() {
+        pendingTask?.cancel()
+        pendingTask = Task { @MainActor in
+            try? await Task.sleep(for: RichHoverPresentation.openDelay)
+            guard !Task.isCancelled, triggerHovered else { return }
+            isPresented = true
+        }
+    }
+
+    private func scheduleClose() {
+        pendingTask?.cancel()
+        guard !isPinned else { return }
+        pendingTask = Task { @MainActor in
+            try? await Task.sleep(for: RichHoverPresentation.closeDelay)
+            guard !Task.isCancelled,
+                  TaxonomyInfoPresentation.shouldDismiss(
+                      isPinned: isPinned,
+                      triggerHovered: triggerHovered,
+                      popoverHovered: popoverHovered
+                  )
+            else { return }
+            isPresented = false
         }
     }
 

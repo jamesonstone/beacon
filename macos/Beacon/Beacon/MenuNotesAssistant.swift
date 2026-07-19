@@ -84,6 +84,10 @@ struct NotesAssistantPanel: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onAppear {
+                guard let messageID = state.notesAssistantMessages.last?.id else { return }
+                proxy.scrollTo(messageID, anchor: .bottom)
+            }
             .onChange(of: state.notesAssistantMessages.last?.id) { _, messageID in
                 guard let messageID else { return }
                 proxy.scrollTo(messageID, anchor: .bottom)

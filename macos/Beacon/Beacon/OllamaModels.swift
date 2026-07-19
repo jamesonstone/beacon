@@ -70,6 +70,36 @@ struct NotesAssistantMessage: Identifiable, Equatable {
     }
 }
 
+enum NotesAssistantRequestHistory {
+    static let maxMessageCount = 128
+    static let maxByteCount = 2 * 1024 * 1024
+    static let maxUserMessageByteCount = 16 * 1024
+    static let truncationNotice =
+        "Older turns remain visible but were omitted from this request to stay within local limits."
+
+    static func boundedMessages(from transcript: [NotesAssistantMessage]) -> [OllamaChatMessage] {
+        guard !transcript.isEmpty else { return [] }
+
+        var startIndex = 0
+        // A valid request starts and ends with a user turn, so its count is odd.
+        let maximumOddMessageCount = maxMessageCount - 1
+        while transcript.count - startIndex > maximumOddMessageCount {
+            startIndex += 2
+        }
+
+        var byteCount = transcript[startIndex...].reduce(0) { partialResult, message in
+            partialResult + message.content.utf8.count
+        }
+        while byteCount > maxByteCount, startIndex + 2 < transcript.count {
+            byteCount -= transcript[startIndex].content.utf8.count
+            byteCount -= transcript[startIndex + 1].content.utf8.count
+            startIndex += 2
+        }
+
+        return transcript[startIndex...].map(\.chatMessage)
+    }
+}
+
 protocol OllamaClientProtocol {
     func ollamaStatus() async throws -> OllamaStatus
     func setOllamaDefaultModel(_ model: String) async throws -> String

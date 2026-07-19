@@ -209,6 +209,76 @@ final class OllamaFeatureTests: XCTestCase {
         )
     }
 
+    func testLongConversationKeepsVisibleTranscriptAndBoundsRequestHistory() async {
+        let client = OllamaClientStub(
+            status: OllamaStatus(models: [model("alpha:latest")], configuredModel: ""),
+            response: OllamaChatResponse(model: "alpha:latest", content: "Latest answer")
+        )
+        let state = makeState(client: client)
+        await state.refreshOllamaModels()
+        state.notesAssistantMessages = (0 ..< 64).flatMap { turn in
+            [
+                NotesAssistantMessage(role: .user, content: "question \(turn)"),
+                NotesAssistantMessage(role: .assistant, content: "answer \(turn)"),
+            ]
+        }
+        state.notesAssistantPrompt = "latest question"
+
+        await state.sendNotesAssistantPrompt()
+
+        XCTAssertEqual(state.notesAssistantMessages.count, 130)
+        XCTAssertEqual(state.notesAssistantMessages.first?.content, "question 0")
+        XCTAssertEqual(state.notesAssistantMessages.last?.content, "Latest answer")
+        XCTAssertEqual(state.ollamaNotice, NotesAssistantRequestHistory.truncationNotice)
+        let chats = await client.chats
+        XCTAssertEqual(chats.first?.messages.count, 127)
+        XCTAssertEqual(chats.first?.messages.first?.content, "question 1")
+        XCTAssertEqual(chats.first?.messages.last?.content, "latest question")
+    }
+
+    func testRequestHistoryDropsOldestTurnsToStayWithinByteLimit() {
+        let largeAnswer = String(repeating: "a", count: 700_000)
+        var transcript = (0 ..< 3).flatMap { turn in
+            [
+                NotesAssistantMessage(role: .user, content: "question \(turn)"),
+                NotesAssistantMessage(role: .assistant, content: largeAnswer),
+            ]
+        }
+        transcript.append(NotesAssistantMessage(role: .user, content: "latest question"))
+
+        let request = NotesAssistantRequestHistory.boundedMessages(from: transcript)
+
+        XCTAssertEqual(request.first?.content, "question 1")
+        XCTAssertEqual(request.last?.content, "latest question")
+        XCTAssertLessThanOrEqual(
+            request.reduce(0) { $0 + $1.content.utf8.count },
+            NotesAssistantRequestHistory.maxByteCount
+        )
+    }
+
+    func testOversizedUserMessageIsRejectedBeforeSending() async {
+        let client = OllamaClientStub(
+            status: OllamaStatus(models: [model("alpha:latest")], configuredModel: "")
+        )
+        let state = makeState(client: client)
+        await state.refreshOllamaModels()
+        state.notesAssistantPrompt = String(
+            repeating: "a",
+            count: NotesAssistantRequestHistory.maxUserMessageByteCount + 1
+        )
+
+        await state.sendNotesAssistantPrompt()
+
+        XCTAssertTrue(state.notesAssistantMessages.isEmpty)
+        XCTAssertFalse(state.notesAssistantPrompt.isEmpty)
+        XCTAssertEqual(
+            state.ollamaError,
+            "Prompt exceeds the \(NotesAssistantRequestHistory.maxUserMessageByteCount)-byte limit."
+        )
+        let chats = await client.chats
+        XCTAssertTrue(chats.isEmpty)
+    }
+
     func testSecondSurfaceChangesPresentationWithoutResettingSharedSession() {
         let state = makeState(client: OllamaClientStub(
             status: OllamaStatus(models: [model("alpha:latest")], configuredModel: "")

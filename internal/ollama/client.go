@@ -229,7 +229,7 @@ func chatMessages(input ChatInput) []message {
 	}
 	messages := make([]message, len(input.Messages))
 	for index, inputMessage := range input.Messages {
-		messages[index] = message{Role: inputMessage.Role, Content: inputMessage.Content}
+		messages[index] = message(inputMessage)
 	}
 	if strings.TrimSpace(input.Context) != "" {
 		messages[0].Content = "Beacon Notes context:\n<notes_context>\n" + input.Context +

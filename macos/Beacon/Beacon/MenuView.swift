@@ -259,30 +259,6 @@ struct MenuView: View {
         .background(theme.tokens.canvas.color)
     }
 
-    var viewModeMenu: some View {
-        Menu {
-            Picker("View mode", selection: Binding(get: { viewMode }, set: setViewMode)) {
-                ForEach(DashboardViewMode.allCases) { mode in
-                    Label(mode.title, systemImage: mode.symbol).tag(mode)
-                }
-            }
-        } label: {
-            Image(systemName: viewMode.symbol)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
-                .frame(width: 28, height: 28)
-                .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 8))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(interfaceBorderColor, lineWidth: colorSchemeContrast == .increased ? 1.1 : 0.7)
-                }
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help("View mode: \(viewMode.title)")
-    }
-
     func showProjects(_ tab: ProjectInventoryTab) {
         projectInventoryTab = tab
         toggleDashboardDestination(.projectInventory)

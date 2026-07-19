@@ -102,11 +102,18 @@ extension AppState {
         guard !prompt.isEmpty,
               ollamaModels.contains(where: { $0.name == model }),
               !isSendingOllamaPrompt else { return }
+        guard prompt.utf8.count <= NotesAssistantRequestHistory.maxUserMessageByteCount else {
+            ollamaError = "Prompt exceeds the \(NotesAssistantRequestHistory.maxUserMessageByteCount)-byte limit."
+            return
+        }
         notesAssistantRequestGeneration += 1
         let requestGeneration = notesAssistantRequestGeneration
         let userMessage = NotesAssistantMessage(role: .user, content: prompt)
         notesAssistantMessages.append(userMessage)
-        let requestMessages = notesAssistantMessages.map(\.chatMessage)
+        let requestMessages = NotesAssistantRequestHistory.boundedMessages(from: notesAssistantMessages)
+        if requestMessages.count < notesAssistantMessages.count {
+            ollamaNotice = NotesAssistantRequestHistory.truncationNotice
+        }
         notesAssistantPrompt = ""
         isSendingOllamaPrompt = true
         ollamaError = nil
