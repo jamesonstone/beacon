@@ -6,6 +6,7 @@ struct LiveMarkdownEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var isFocused: Bool
     @Binding var currentLine: String
+    @Binding var selectedText: String
     let accessibilityLabel: String
 
     func makeCoordinator() -> Coordinator {
@@ -56,9 +57,10 @@ struct LiveMarkdownEditor: NSViewRepresentable {
         context.coordinator.parent = self
         var needsFullStyle = false
         if textView.string != text {
-            let selection = textView.selectedRange()
             textView.string = text
-            textView.setSelectedRange(clamped(selection, length: textView.string.utf16.count))
+            let selection = clamped(textView.selectedRange(), length: textView.string.utf16.count)
+            textView.setSelectedRange(NSRange(location: selection.location, length: 0))
+            selectedText = ""
             needsFullStyle = true
         }
         if context.coordinator.styleSignature != styleSignature {
@@ -109,6 +111,7 @@ struct LiveMarkdownEditor: NSViewRepresentable {
             parent.isFocused = true
             if let textView = notification.object as? NSTextView {
                 updateCurrentLine(from: textView)
+                updateSelection(from: textView)
             }
         }
 
@@ -138,11 +141,13 @@ struct LiveMarkdownEditor: NSViewRepresentable {
             )
             pendingEditRange = nil
             updateCurrentLine(from: textView)
+            updateSelection(from: textView)
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
             updateCurrentLine(from: textView)
+            updateSelection(from: textView)
         }
 
         func applyFullStyle(to textView: NSTextView) {
@@ -159,6 +164,13 @@ struct LiveMarkdownEditor: NSViewRepresentable {
             let lineRange = source.lineRange(for: NSRange(location: location, length: 0))
             parent.currentLine = source.substring(with: lineRange)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        func updateSelection(from textView: NSTextView) {
+            parent.selectedText = LiveMarkdownSelection.text(
+                in: textView.string,
+                range: textView.selectedRange()
+            )
         }
 
         private func applyStyle(to textView: NSTextView, range: NSRange?) {
@@ -187,6 +199,16 @@ struct LiveMarkdownEditor: NSViewRepresentable {
             let end = min(source.length, max(start + 1, editEnd + 1))
             return source.paragraphRange(for: NSRange(location: start, length: end - start))
         }
+    }
+}
+
+enum LiveMarkdownSelection {
+    static func text(in source: String, range: NSRange) -> String {
+        let source = source as NSString
+        guard range.length > 0,
+              range.location <= source.length,
+              range.location + range.length <= source.length else { return "" }
+        return source.substring(with: range)
     }
 }
 

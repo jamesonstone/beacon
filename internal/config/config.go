@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -29,6 +30,7 @@ type Settings struct {
 	MaxParallel            int
 	GitHubAuthor           string
 	GitHubScope            GitHubScope
+	OllamaModel            string
 }
 
 type GitHubScope string
@@ -75,6 +77,7 @@ type rawSettings struct {
 	MaxParallel            int    `yaml:"max_parallel"`
 	GitHubAuthor           string `yaml:"github_author"`
 	GitHubScope            string `yaml:"github_scope"`
+	OllamaModel            string `yaml:"ollama_model"`
 }
 
 type rawSource struct {
@@ -140,6 +143,9 @@ func normalize(raw rawConfig, path string) (Config, error) {
 	if raw.Version == Version1 && raw.Settings.GitHubScope != "" {
 		return Config{}, errors.New("config version 1 does not support settings.github_scope")
 	}
+	if raw.Version == Version1 && raw.Settings.OllamaModel != "" {
+		return Config{}, errors.New("config version 1 does not support settings.ollama_model")
+	}
 	if len(raw.Repositories) == 0 && len(raw.Sources) == 0 {
 		return Config{}, errors.New("config must contain at least one source or repository")
 	}
@@ -176,9 +182,14 @@ func normalize(raw rawConfig, path string) (Config, error) {
 }
 
 func normalizeSettings(raw rawSettings) (Settings, error) {
+	ollamaModel, err := NormalizeOllamaModel(raw.OllamaModel)
+	if err != nil {
+		return Settings{}, err
+	}
 	settings := Settings{
 		MaxParallel: raw.MaxParallel, GitHubAuthor: raw.GitHubAuthor,
 		GitHubScope: GitHubScope(strings.TrimSpace(raw.GitHubScope)),
+		OllamaModel: ollamaModel,
 	}
 	if settings.MaxParallel == 0 {
 		settings.MaxParallel = 4
@@ -195,7 +206,6 @@ func normalizeSettings(raw rawSettings) (Settings, error) {
 	if settings.GitHubScope != GitHubScopeMine && settings.GitHubScope != GitHubScopeAll {
 		return Settings{}, errors.New("settings.github_scope must be mine or all")
 	}
-	var err error
 	if settings.ScanInterval, err = durationOrDefault(raw.ScanInterval, time.Minute); err != nil {
 		return Settings{}, fmt.Errorf("settings.scan_interval: %w", err)
 	}
@@ -212,6 +222,17 @@ func normalizeSettings(raw rawSettings) (Settings, error) {
 		return Settings{}, fmt.Errorf("settings.stale_after: %w", err)
 	}
 	return settings, nil
+}
+
+func NormalizeOllamaModel(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if len(value) > 200 {
+		return "", errors.New("settings.ollama_model must be at most 200 characters")
+	}
+	if strings.IndexFunc(value, unicode.IsControl) >= 0 {
+		return "", errors.New("settings.ollama_model must not contain control characters")
+	}
+	return value, nil
 }
 
 func normalizeSource(raw rawSource) (Source, error) {

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -166,6 +167,11 @@ extension MenuView {
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(interfaceBorderColor, lineWidth: colorSchemeContrast == .increased ? 1.1 : 0.7)
         }
+        .overlay {
+            GeometryReader { proxy in
+                notesAssistantOverlay(in: proxy.size)
+            }
+        }
     }
 
     private var signalNotesHeader: some View {
@@ -187,6 +193,9 @@ extension MenuView {
                 ProgressView()
                     .controlSize(.mini)
                     .tint(BeaconThemePreference.current().tokens.info.color)
+            }
+            if signalNotesExpanded {
+                notesAssistantHeaderButton
             }
             Button {
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
@@ -238,8 +247,11 @@ extension MenuView {
         setSignalNotesSize(signalNotesSize.nextCycled)
     }
 
-    private func setSignalNotesSize(_ size: SignalNotesSize) {
+    func setSignalNotesSize(_ size: SignalNotesSize) {
         signalNotesSizeValue = size.rawValue
+        if size == .minimized {
+            closeNotesAssistant()
+        }
         if size.isExpanded {
             signalNotesLastExpandedSizeValue = size.rawValue
         }
@@ -255,6 +267,10 @@ extension MenuView {
             currentLine: Binding(
                 get: { state.notesCurrentLine },
                 set: { state.updateNotesCurrentLine($0) }
+            ),
+            selectedText: Binding(
+                get: { state.notesSelectedText },
+                set: { state.notesSelectedText = $0 }
             ),
             accessibilityLabel: "Live Markdown notes"
         )
@@ -279,6 +295,14 @@ extension MenuView {
             Button("New Detail Note") {
                 Task { await state.showNewNotePicker() }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSTextView.didChangeSelectionNotification)) { notification in
+            guard let textView = notification.object as? NSTextView,
+                  textView.accessibilityLabel() == "Live Markdown notes" else { return }
+            state.notesSelectedText = LiveMarkdownSelection.text(
+                in: textView.string,
+                range: textView.selectedRange()
+            )
         }
     }
 

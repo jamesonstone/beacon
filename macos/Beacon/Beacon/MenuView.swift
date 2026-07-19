@@ -24,6 +24,7 @@ struct MenuView: View {
     @State var manualTitle = ""
     @State var showingManualEditor = false
     @State var notesEditorFocused = false
+    @State var showingNotesAssistant = false
     @State var switcherScope: BeaconSwitcherScope?
     @State var switcherQuery = ""
     @State var switcherSelection = 0
@@ -106,6 +107,7 @@ struct MenuView: View {
         .onAppear {
             loginItem.refresh()
             Task { await state.refreshIntegrationHealth() }
+            Task { await state.refreshOllamaModels() }
         }
         .background { keyboardShortcutControls }
         .overlay {

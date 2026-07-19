@@ -16,6 +16,7 @@ func TestAtomicWriterWritesLoadableVersionTwoConfig(t *testing.T) {
 		Settings: Settings{
 			ScanInterval: time.Minute, RemoteRefreshInterval: 5 * time.Minute,
 			StaleAfter: 24 * time.Hour, MaxParallel: 4, GitHubAuthor: "@me", GitHubScope: GitHubScopeMine,
+			OllamaModel: "gpt-oss:20b",
 		},
 		Sources: []Source{{Path: root}},
 	}
@@ -26,7 +27,7 @@ func TestAtomicWriterWritesLoadableVersionTwoConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Version != Version || len(loaded.Sources) != 1 {
+	if loaded.Version != Version || len(loaded.Sources) != 1 || loaded.Settings.OllamaModel != "gpt-oss:20b" {
 		t.Fatalf("loaded = %#v", loaded)
 	}
 	contents, err := os.ReadFile(path)
@@ -46,7 +47,7 @@ func TestMergePreservesExistingAndDeduplicatesAdditions(t *testing.T) {
 		Repositories: []Repository{{Name: "repo", Path: "/repo/a", GitHub: "owner/repo", Base: "main", Remote: "origin"}},
 	}
 	additions := Config{
-		Settings: Settings{GitHubScope: GitHubScopeAll},
+		Settings: Settings{GitHubScope: GitHubScopeAll, OllamaModel: "llama3.2:latest"},
 		Sources:  []Source{{Path: "/source/a"}, {Path: "/source/b"}},
 		Repositories: []Repository{
 			{Name: "repo", Path: "/repo/a", GitHub: "owner/repo"},
@@ -54,7 +55,7 @@ func TestMergePreservesExistingAndDeduplicatesAdditions(t *testing.T) {
 		},
 	}
 	merged := Merge(current, additions)
-	if merged.Version != Version || merged.Settings.GitHubScope != GitHubScopeAll {
+	if merged.Version != Version || merged.Settings.GitHubScope != GitHubScopeAll || merged.Settings.OllamaModel != "llama3.2:latest" {
 		t.Fatalf("merged = %#v", merged)
 	}
 	if len(merged.Sources) != 2 || len(merged.Repositories) != 2 {
@@ -62,5 +63,15 @@ func TestMergePreservesExistingAndDeduplicatesAdditions(t *testing.T) {
 	}
 	if merged.Repositories[1].Name != "repo-2" {
 		t.Fatalf("deduplicated name = %q", merged.Repositories[1].Name)
+	}
+}
+
+func TestMarshalRejectsInvalidOllamaModelBeforeWriting(t *testing.T) {
+	_, err := Marshal(Config{
+		Settings: Settings{OllamaModel: "bad\nmodel"},
+		Sources:  []Source{{Path: t.TempDir()}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "ollama_model") {
+		t.Fatalf("error = %v", err)
 	}
 }

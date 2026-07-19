@@ -4,6 +4,10 @@ import SwiftUI
 extension MenuView {
     var noteSwitcherCommands: [BeaconCommandItem] {
         var items = [
+            BeaconCommandItem.notesAssistant(
+                detail: notesAssistantCommandDetail,
+                action: showNotesAssistant
+            ),
             BeaconCommandItem(
                 id: "note-general", title: "General", detail: "Pinned Note", symbol: "pin.fill", keywords: "signal notes tab",
                 action: { Task { await state.activateNote("general") } }
@@ -129,5 +133,21 @@ extension MenuView {
         if state.dependencyLimitsReport == nil, !state.isCheckingDependencyLimits {
             Task { await state.checkDependencyLimits() }
         }
+    }
+}
+
+extension BeaconCommandItem {
+    static func notesAssistant(
+        detail: String,
+        action: @escaping @MainActor () -> Void
+    ) -> BeaconCommandItem {
+        BeaconCommandItem(
+            id: "notes-assistant",
+            title: NotesAssistantPresentation.quickSwitcherTitle,
+            detail: detail,
+            symbol: "sparkles",
+            keywords: NotesAssistantPresentation.quickSwitcherKeywords,
+            action: action
+        )
     }
 }

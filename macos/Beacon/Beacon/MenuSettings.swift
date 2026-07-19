@@ -88,6 +88,7 @@ extension MenuView {
                 Label("Appearance", systemImage: "circle.lefthalf.filled")
             }
             terminalSettingsMenu
+            ollamaSettingsMenu
             Button {
                 dismissedEvidenceBadgesValue = "[]"
             } label: {
@@ -141,6 +142,50 @@ extension MenuView {
         .menuIndicator(.hidden)
         .fixedSize()
         .help("Settings")
+    }
+
+    private var ollamaSettingsMenu: some View {
+        Menu {
+            if state.isLoadingOllamaModels {
+                Label("Loading local models…", systemImage: "arrow.triangle.2.circlepath")
+            } else if state.ollamaModels.isEmpty {
+                Text(state.ollamaError ?? "No local Ollama models found")
+            } else {
+                ForEach(state.ollamaModels) { model in
+                    Button {
+                        Task { await state.setOllamaDefaultModel(model.name) }
+                    } label: {
+                        HStack {
+                            Text(model.name)
+                            if model.name == state.ollamaConfiguredModel {
+                                Image(systemName: "checkmark.circle.fill")
+                            }
+                        }
+                    }
+                    .disabled(state.isSavingOllamaDefault)
+                }
+            }
+            if let notice = state.ollamaNotice {
+                Divider()
+                Text(notice)
+            }
+            Divider()
+            Button {
+                Task { await state.refreshOllamaModels() }
+            } label: {
+                Label("Refresh Local Models", systemImage: "arrow.clockwise")
+            }
+            .disabled(state.isLoadingOllamaModels)
+        } label: {
+            Label(
+                "Ollama Model: \(ollamaDefaultModelLabel)",
+                systemImage: "brain.head.profile"
+            )
+        }
+    }
+
+    private var ollamaDefaultModelLabel: String {
+        state.ollamaConfiguredModel.isEmpty ? "Automatic" : state.ollamaConfiguredModel
     }
 
     @ViewBuilder

@@ -166,7 +166,7 @@ struct CLIClient: CLIClientProtocol, AgentLifecycleControllerProtocol {
         }
     }
 
-    private func execute(arguments: [String], standardInput: Data? = nil) async throws -> Data {
+    func execute(arguments: [String], standardInput: Data? = nil) async throws -> Data {
         let executableURL = executableURL
         return try await Task.detached(priority: .userInitiated) {
             try Self.executeBlocking(
