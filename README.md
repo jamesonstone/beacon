@@ -24,6 +24,16 @@ native macOS application provides both a menu-bar extra and a detachable Dock
 window; both consume the same cached schema-v3 snapshots and incremental agent
 events through a bundled copy of the executable.
 
+## macOS App
+
+### Following dashboard
+
+![Beacon macOS dashboard showing active and waiting work lanes](docs/images/beacon-macos-dashboard.jpg)
+
+### Signal Notes
+
+![Beacon macOS Signal Notes panel with a Markdown release checklist](docs/images/beacon-macos-signal-notes.jpg)
+
 ## Requirements
 
 - `git`
