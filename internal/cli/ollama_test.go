@@ -89,6 +89,38 @@ func TestOllamaChatAllowsPromptWithoutNotesContext(t *testing.T) {
 	}
 }
 
+func TestOllamaChatReadsCompleteConversationFromStdin(t *testing.T) {
+	fake := &fakeOllamaClient{result: ollama.ChatResult{Model: "local:latest", Content: "answer"}}
+	app := App{
+		In:  strings.NewReader(`{"context":"private note","messages":[{"role":"user","content":"first"},{"role":"assistant","content":"answer"},{"role":"user","content":"follow up"}]}`),
+		Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, ollamaClientSource: func() ollamaClient { return fake },
+	}
+	root := app.Root()
+	root.SetArgs([]string{"ollama", "chat", "--model", "local:latest", "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if fake.input.Context != "private note" || fake.input.Prompt != "" || fake.input.Model != "local:latest" {
+		t.Fatalf("input = %#v", fake.input)
+	}
+	want := []ollama.ChatMessage{
+		{Role: "user", Content: "first"},
+		{Role: "assistant", Content: "answer"},
+		{Role: "user", Content: "follow up"},
+	}
+	if len(fake.input.Messages) != len(want) {
+		t.Fatalf("messages = %#v", fake.input.Messages)
+	}
+	for index := range want {
+		if fake.input.Messages[index] != want[index] {
+			t.Fatalf("messages = %#v", fake.input.Messages)
+		}
+	}
+	if strings.Contains(strings.Join(root.Flags().Args(), " "), "private note") {
+		t.Fatal("conversation leaked into command arguments")
+	}
+}
+
 func TestOllamaSetDefaultAtomicallyPreservesConfig(t *testing.T) {
 	configPath := writeOllamaTestConfig(t, "")
 	var output bytes.Buffer

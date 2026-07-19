@@ -17,7 +17,7 @@
 
 ## Dispatch
 
-- Use `kit dispatch` when broad work must be turned into a safe Agent Team Plan
+- Use `kit dispatch` after native planning when an accepted plan needs a safe multi-lane execution topology
 - Load `docs/references/rules/agent-team-orchestration.md` when dispatch, direct subagent execution, or read-only verification topology affects the task
 - Keep one accountable supervisor responsible for scope, integration, validation, evidence, delivery gating, and final reporting
 - Use subagents when the work cleanly separates into low-overlap lanes after discovery

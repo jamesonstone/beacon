@@ -61,7 +61,10 @@ func ResolvePaths(configPath string) (Paths, error) {
 }
 
 func (p Paths) EnsureRuntime() error {
-	for _, directory := range []string{filepath.Dir(p.State), filepath.Dir(p.Notes), p.CacheRoot, p.Projects, p.Logs} {
+	for _, directory := range []string{
+		filepath.Dir(p.State), filepath.Dir(p.Notes), p.CacheRoot,
+		filepath.Dir(p.Socket), p.Projects, p.Logs,
+	} {
 		if err := os.MkdirAll(directory, 0o700); err != nil {
 			return fmt.Errorf("create Beacon runtime directory %s: %w", directory, err)
 		}

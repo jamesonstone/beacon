@@ -5,17 +5,20 @@ actor OllamaClientStub: OllamaClientProtocol {
     let status: OllamaStatus
     let response: OllamaChatResponse
     let chatDelay: Duration?
-    private(set) var chats: [(model: String, context: String, prompt: String)] = []
+    let failingChatCall: Int?
+    private(set) var chats: [(model: String, context: String, messages: [OllamaChatMessage])] = []
     private(set) var defaults: [String] = []
 
     init(
         status: OllamaStatus,
         response: OllamaChatResponse = OllamaChatResponse(model: "alpha:latest", content: "Answer"),
-        chatDelay: Duration? = nil
+        chatDelay: Duration? = nil,
+        failingChatCall: Int? = nil
     ) {
         self.status = status
         self.response = response
         self.chatDelay = chatDelay
+        self.failingChatCall = failingChatCall
     }
 
     func ollamaStatus() async throws -> OllamaStatus { status }
@@ -28,11 +31,14 @@ actor OllamaClientStub: OllamaClientProtocol {
     func ollamaChat(
         model: String,
         context: String,
-        prompt: String
+        messages: [OllamaChatMessage]
     ) async throws -> OllamaChatResponse {
-        chats.append((model, context, prompt))
+        chats.append((model, context, messages))
         if let chatDelay {
             try await Task.sleep(for: chatDelay)
+        }
+        if let failingChatCall, chats.count == failingChatCall {
+            throw TestError.failed
         }
         return response
     }
@@ -96,6 +102,22 @@ final class OllamaFeatureTests: XCTestCase {
         }
     }
 
+    func testConversationPanelIsLargerAndStaysInsideBeaconBounds() {
+        for surface in [DashboardSurface.menu, .window] {
+            let available = CGSize(width: 700, height: 760)
+            let compact = NotesAssistantPresentation.panelSize(in: available, surface: surface)
+            let conversation = NotesAssistantPresentation.conversationPanelSize(in: available, surface: surface)
+            XCTAssertGreaterThan(conversation.width, compact.width)
+            XCTAssertGreaterThan(conversation.height, compact.height)
+            XCTAssertLessThanOrEqual(conversation.width, available.width - 24)
+            XCTAssertLessThanOrEqual(conversation.height, available.height - 24)
+        }
+        XCTAssertEqual(NotesAssistantPresentation.buttonSymbol, "dot.radiowaves.left.and.right")
+        XCTAssertTrue(NotesAssistantPresentation.shouldPrepareSession(currentMode: nil))
+        XCTAssertFalse(NotesAssistantPresentation.shouldPrepareSession(currentMode: .compact))
+        XCTAssertFalse(NotesAssistantPresentation.shouldPrepareSession(currentMode: .conversation))
+    }
+
     func testAppStateAttachesExactSelectionAndSendsOnePrompt() async {
         let status = OllamaStatus(
             models: [model("alpha:latest"), model("zeta:latest")],
@@ -114,7 +136,8 @@ final class OllamaFeatureTests: XCTestCase {
             ollamaClient: client
         )
 
-        await state.prepareNotesAssistant(selection: "  selected\ntext  ", note: "whole note")
+        state.prepareNotesAssistant(selection: "  selected\ntext  ", note: "whole note")
+        await state.refreshOllamaModels()
         XCTAssertEqual(state.notesAssistantAttachment, "  selected\ntext  ")
         XCTAssertEqual(state.notesAssistantContextSource, .selection)
         XCTAssertEqual(state.ollamaSelectedModel, "zeta:latest")
@@ -122,56 +145,13 @@ final class OllamaFeatureTests: XCTestCase {
 
         await state.sendNotesAssistantPrompt()
 
-        XCTAssertEqual(state.notesAssistantResponse?.content, "Useful answer")
+        XCTAssertEqual(state.notesAssistantMessages.map(\.role), [.user, .assistant])
+        XCTAssertEqual(state.notesAssistantMessages.map(\.content), ["summarize this", "Useful answer"])
         let chats = await client.chats
         XCTAssertEqual(chats.count, 1)
         XCTAssertEqual(chats.first?.model, "zeta:latest")
         XCTAssertEqual(chats.first?.context, "  selected\ntext  ")
-        XCTAssertEqual(chats.first?.prompt, "summarize this")
-    }
-
-    func testAppStateFallsBackToCurrentNoteAndCanSendWithoutContext() async {
-        let client = OllamaClientStub(
-            status: OllamaStatus(models: [model("alpha:latest")], configuredModel: "")
-        )
-        let state = makeState(client: client)
-
-        await state.prepareNotesAssistant(selection: "", note: "draft with unsaved text")
-        XCTAssertEqual(state.notesAssistantAttachment, "draft with unsaved text")
-        XCTAssertEqual(state.notesAssistantContextSource, .note)
-
-        state.removeNotesAssistantContext()
-        state.notesAssistantPrompt = "brainstorm"
-        XCTAssertNil(state.notesAssistantContextSource)
-        XCTAssertTrue(state.canSendNotesAssistantPrompt)
-
-        await state.sendNotesAssistantPrompt()
-
-        let chats = await client.chats
-        XCTAssertEqual(chats.first?.context, "")
-        XCTAssertEqual(chats.first?.prompt, "brainstorm")
-    }
-
-    func testDismissResetsAssistantAndIgnoresLateResponse() async {
-        let client = OllamaClientStub(
-            status: OllamaStatus(models: [model("alpha:latest")], configuredModel: ""),
-            chatDelay: .milliseconds(40)
-        )
-        let state = makeState(client: client)
-        await state.prepareNotesAssistant(selection: "", note: "whole note")
-        state.notesAssistantPrompt = "summarize"
-
-        let send = Task { await state.sendNotesAssistantPrompt() }
-        while !state.isSendingOllamaPrompt {
-            await Task.yield()
-        }
-        state.dismissNotesAssistant()
-        await send.value
-
-        XCTAssertEqual(state.notesAssistantAttachment, "")
-        XCTAssertEqual(state.notesAssistantPrompt, "")
-        XCTAssertNil(state.notesAssistantResponse)
-        XCTAssertFalse(state.isSendingOllamaPrompt)
+        XCTAssertEqual(chats.first?.messages, [OllamaChatMessage(role: .user, content: "summarize this")])
     }
 
     func testQuickSwitcherCommandIsDiscoverableAndRunsSharedAction() {
@@ -237,7 +217,7 @@ final class OllamaFeatureTests: XCTestCase {
         XCTAssertNotNil(state.ollamaError)
     }
 
-    private func model(_ name: String) -> OllamaModel {
+    func model(_ name: String) -> OllamaModel {
         OllamaModel(
             name: name,
             size: 42,
@@ -250,7 +230,7 @@ final class OllamaFeatureTests: XCTestCase {
         )
     }
 
-    private func makeState(client: OllamaClientProtocol) -> AppState {
+    func makeState(client: OllamaClientProtocol) -> AppState {
         AppState(
             agent: ScriptedAgent(events: []),
             installer: nil,

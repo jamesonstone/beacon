@@ -37,10 +37,77 @@ struct OllamaChatResponse: Codable, Equatable {
     let content: String
 }
 
+enum OllamaChatRole: String, Codable, Equatable {
+    case user
+    case assistant
+}
+
+struct OllamaChatMessage: Codable, Equatable {
+    let role: OllamaChatRole
+    let content: String
+}
+
+struct NotesAssistantMessage: Identifiable, Equatable {
+    let id: UUID
+    let role: OllamaChatRole
+    let content: String
+    let model: String?
+
+    init(
+        id: UUID = UUID(),
+        role: OllamaChatRole,
+        content: String,
+        model: String? = nil
+    ) {
+        self.id = id
+        self.role = role
+        self.content = content
+        self.model = model
+    }
+
+    var chatMessage: OllamaChatMessage {
+        OllamaChatMessage(role: role, content: content)
+    }
+}
+
+enum NotesAssistantRequestHistory {
+    static let maxMessageCount = 128
+    static let maxByteCount = 2 * 1024 * 1024
+    static let maxUserMessageByteCount = 16 * 1024
+    static let truncationNotice =
+        "Older turns remain visible but were omitted from this request to stay within local limits."
+
+    static func boundedMessages(from transcript: [NotesAssistantMessage]) -> [OllamaChatMessage] {
+        guard !transcript.isEmpty else { return [] }
+
+        var startIndex = 0
+        // A valid request starts and ends with a user turn, so its count is odd.
+        let maximumOddMessageCount = maxMessageCount - 1
+        while transcript.count - startIndex > maximumOddMessageCount {
+            startIndex += 2
+        }
+
+        var byteCount = transcript[startIndex...].reduce(0) { partialResult, message in
+            partialResult + message.content.utf8.count
+        }
+        while byteCount > maxByteCount, startIndex + 2 < transcript.count {
+            byteCount -= transcript[startIndex].content.utf8.count
+            byteCount -= transcript[startIndex + 1].content.utf8.count
+            startIndex += 2
+        }
+
+        return transcript[startIndex...].map(\.chatMessage)
+    }
+}
+
 protocol OllamaClientProtocol {
     func ollamaStatus() async throws -> OllamaStatus
     func setOllamaDefaultModel(_ model: String) async throws -> String
-    func ollamaChat(model: String, context: String, prompt: String) async throws -> OllamaChatResponse
+    func ollamaChat(
+        model: String,
+        context: String,
+        messages: [OllamaChatMessage]
+    ) async throws -> OllamaChatResponse
 }
 
 enum NotesAssistantContextSource: Equatable {
@@ -60,8 +127,21 @@ struct NotesAssistantContext: Equatable {
     let source: NotesAssistantContextSource
 }
 
+enum NotesAssistantMode: Equatable {
+    case compact
+    case conversation
+
+    var title: String {
+        switch self {
+        case .compact: "Notes AI"
+        case .conversation: "Beacon AI Conversation"
+        }
+    }
+}
+
 enum NotesAssistantPresentation {
     static let buttonLabel = "AI"
+    static let buttonSymbol = "dot.radiowaves.left.and.right"
     static let buttonAccessibilityLabel = "Ask AI About Current Note"
     static let panelAccessibilityLabel = "Ollama Notes assistant"
     static let quickSwitcherTitle = "Ask AI About Current Note"
@@ -93,5 +173,17 @@ enum NotesAssistantPresentation {
         let width = max(220, min(maximumWidth, available.width - 24))
         let height = max(160, min(surface == .menu ? 250 : 320, available.height - 40))
         return CGSize(width: width, height: height)
+    }
+
+    static func conversationPanelSize(in available: CGSize, surface: DashboardSurface) -> CGSize {
+        let maximumWidth: CGFloat = surface == .menu ? 406 : 520
+        let maximumHeight: CGFloat = surface == .menu ? 516 : 680
+        let width = max(300, min(maximumWidth, available.width - 24))
+        let height = max(300, min(maximumHeight, available.height - 24))
+        return CGSize(width: width, height: height)
+    }
+
+    static func shouldPrepareSession(currentMode: NotesAssistantMode?) -> Bool {
+        currentMode == nil
     }
 }

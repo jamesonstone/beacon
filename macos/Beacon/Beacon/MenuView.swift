@@ -24,7 +24,6 @@ struct MenuView: View {
     @State var manualTitle = ""
     @State var showingManualEditor = false
     @State var notesEditorFocused = false
-    @State var showingNotesAssistant = false
     @State var switcherScope: BeaconSwitcherScope?
     @State var switcherQuery = ""
     @State var switcherSelection = 0
@@ -111,6 +110,11 @@ struct MenuView: View {
         }
         .background { keyboardShortcutControls }
         .overlay {
+            GeometryReader { proxy in
+                notesAssistantConversationOverlay(in: proxy.size)
+            }
+        }
+        .overlay {
             if let switcherScope {
                 ZStack {
                     (reduceTransparency ? theme.tokens.canvas.color : Color.black.opacity(0.42))
@@ -175,6 +179,10 @@ struct MenuView: View {
                 .keyboardShortcut("k", modifiers: .command)
             Button("Tab Search") { showSwitcher(.notes) }
                 .keyboardShortcut("p", modifiers: .command)
+            Button("Open AI Conversation") { showNotesAssistant(.conversation) }
+                .keyboardShortcut("i", modifiers: .command)
+            Button("Open Compact Notes AI") { showNotesAssistant(.compact) }
+                .keyboardShortcut("i", modifiers: [.command, .shift])
             Button("Next Note") { Task { await state.cycleNotes(direction: 1) } }
                 .keyboardShortcut(.tab, modifiers: .control)
             Button("Previous Note") { Task { await state.cycleNotes(direction: -1) } }
@@ -249,30 +257,6 @@ struct MenuView: View {
         }
         .font(BeaconTypography.regular(12))
         .background(theme.tokens.canvas.color)
-    }
-
-    var viewModeMenu: some View {
-        Menu {
-            Picker("View mode", selection: Binding(get: { viewMode }, set: setViewMode)) {
-                ForEach(DashboardViewMode.allCases) { mode in
-                    Label(mode.title, systemImage: mode.symbol).tag(mode)
-                }
-            }
-        } label: {
-            Image(systemName: viewMode.symbol)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
-                .frame(width: 28, height: 28)
-                .background(BeaconThemePreference.current().tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 8))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(interfaceBorderColor, lineWidth: colorSchemeContrast == .increased ? 1.1 : 0.7)
-                }
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help("View mode: \(viewMode.title)")
     }
 
     func showProjects(_ tab: ProjectInventoryTab) {

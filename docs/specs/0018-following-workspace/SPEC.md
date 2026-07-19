@@ -56,6 +56,22 @@ references:
     read_policy: evidence
     used_for: ready review and hosted validation of the Appearance continuation
     status: active
+  - id: issue-51
+    name: Improve Notes AI and dashboard interactions
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/51
+    relation: implements
+    read_policy: must
+    used_for: refresh-safe view-mode selection and hover taxonomy follow-up
+    status: active
+  - id: pr-52
+    name: Improve Notes AI and dashboard interactions
+    type: github-pr
+    target: https://github.com/jamesonstone/beacon/pull/52
+    relation: verifies
+    read_policy: evidence
+    used_for: existing ready pull request delivery lane for the interaction follow-up
+    status: active
   - id: constitution
     name: Beacon constitution
     type: doc
@@ -89,6 +105,11 @@ references:
     used_for: membership, lane visibility, and Parking Lot behavior
     status: active
 skills:
+  - name: figma:figma-swiftui
+    source: codex
+    path: /Users/jamesonstone/.codex/plugins/cache/openai-curated-remote/figma/2.0.16/skills/figma-swiftui/SKILL.md
+    trigger: native toolbar interaction changes from the user-provided screenshot
+    required: true
   - name: github:github
     source: codex
     path: /Users/jamesonstone/.codex/plugins/cache/openai-curated-remote/github/0.1.8-2841cf9749ae/skills/github/SKILL.md
@@ -98,6 +119,16 @@ skills:
     source: codex
     path: /Users/jamesonstone/.codex/plugins/cache/openai-curated-remote/github/0.1.8-2841cf9749ae/skills/yeet/SKILL.md
     trigger: user-requested branch, commit, push, and pull request delivery
+    required: true
+  - name: github:gh-address-comments
+    source: codex
+    path: /Users/jamesonstone/.codex/plugins/cache/openai-curated-remote/github/0.1.8-2841cf9749ae/skills/gh-address-comments/SKILL.md
+    trigger: live unresolved review feedback on the existing pull request
+    required: true
+  - name: computer-use:computer-use
+    source: codex
+    path: /Users/jamesonstone/.codex/plugins/cache/openai-bundled/computer-use/1.0.1000451/skills/computer-use/SKILL.md
+    trigger: fresh native macOS interaction smoke
     required: true
 ---
 
@@ -305,6 +336,11 @@ collection through the existing GitHub cache and a coordinated additive model.
     styling.
 27. Document and test default selection, installed-family enumeration,
     persistence, fallback, and shared SwiftUI/AppKit refresh behavior.
+28. Keep the View Mode control and every layout choice interactive while a
+    manual or background refresh publishes snapshot and progress updates.
+29. Present the taxonomy guide after a deliberate information-control hover,
+    preserve pointer traversal into the guide, and retain click pinning,
+    outside/Escape dismissal, keyboard access, and zero refresh/network work.
 
 ## Assumptions
 
@@ -389,6 +425,12 @@ collection through the existing GitHub cache and a coordinated additive model.
 - [x] AC24: SwiftUI copy and role fonts plus the AppKit Markdown editor resolve
   through the same selected family while preserving text-size, weight, theme,
   and density behavior.
+- [x] AC25: During an active Following refresh, the View Mode menu remains open
+  long enough to select any mode, applies that selection immediately, and does
+  not cancel, restart, or otherwise alter the refresh.
+- [x] AC26: Hovering the information control opens the complete taxonomy guide;
+  moving into the guide keeps it open, click pins/unpins it, outside click or
+  Escape dismisses it, and keyboard/accessibility activation still works.
 
 ## Implementation Plan
 
@@ -423,6 +465,10 @@ collection through the existing GitHub cache and a coordinated additive model.
     SwiftUI/AppKit font resolution, focused tests, and user documentation.
 15. Run focused and complete macOS/Kit/diff validation, review the combined
     lane, commit/push to PR #42, and wait for hosted checks on the exact head.
+16. Isolate the View Mode menu from unrelated observed refresh publications and
+    use direct native menu actions so a live scan cannot invalidate selection.
+17. Reuse Beacon's delayed hover/pointer-traversal interaction contract for the
+    taxonomy guide, then validate both changes in a freshly built app.
 
 ## Agent Team Plan
 
@@ -465,6 +511,12 @@ collection through the existing GitHub cache and a coordinated additive model.
   Appearance picker, persistence, fallback, and shared font application.
 - [x] T17: Add focused tests, run all relevant validation, review the combined
   diff, update issue/PR metadata, push, and verify final hosted checks.
+- [x] T18: Reproduce and trace the refresh-time View Mode failure and document
+  the interaction follow-up on the existing GH-51 / PR #52 lane.
+- [x] T19: Implement refresh-independent direct View Mode actions and hover,
+  traversal, pinning, dismissal, and accessibility behavior for taxonomy help.
+- [x] T20: Add focused coverage, run local and native interaction validation,
+  update PR #52, push the follow-up, and verify its exact final hosted head.
 
 ## Validation Map
 
@@ -483,6 +535,8 @@ collection through the existing GitHub cache and a coordinated additive model.
 | AC19 | token completeness and WCAG math tests plus AppKit-rendered preview smoke for every built-in theme |
 | AC20 | full make gate, Linux builds, Kit/diff/secret review, stable-app interaction smoke, exact branch/PR recon, and hosted checks |
 | AC21 | parser block/inline/table/task fixtures, five-theme render smoke, macOS test/build, and fresh detail-popover visual smoke |
+| AC25 | stable View Mode control identity/action tests plus active-refresh native selection smoke across layouts |
+| AC26 | hover timing contract tests plus native hover, traversal, click pin, outside/Escape, and keyboard accessibility smoke |
 | AC22-AC24 | font-catalog/default/fallback tests, UserDefaults persistence assertions, SwiftUI/AppKit resolution tests, macOS test/build, Appearance inspection, and relaunch smoke |
 
 ## Reflection Notes
@@ -513,6 +567,17 @@ collection through the existing GitHub cache and a coordinated additive model.
   headings, paragraphs, and list items. Rendering one whole attributed string
   therefore flattened the detail body; a shared block parser now preserves that
   structure without rewriting or mutating the cached GitHub source.
+- The refresh scan publishes unrelated `AppState` changes while the native View
+  Mode submenu is open. Isolating direct mode actions in an equatable child
+  keeps the menu identity stable without pausing, cancelling, or restarting the
+  scan.
+- The taxonomy guide now reuses the detail popover's delayed hover and pointer
+  traversal timings while retaining click, Escape, outside-dismissal, keyboard,
+  and accessibility activation.
+- Review of PR #52 found that the helper's bounded conversation input could
+  eventually reject every follow-up. Requests now retain the newest complete
+  turns within both helper limits while the entire transcript remains visible,
+  and either panel initially scrolls to the newest visible turn.
 
 ## Documentation Updates
 
@@ -638,3 +703,31 @@ collection through the existing GitHub cache and a coordinated additive model.
   installed families in Appearance, switched live to Menlo, restored the
   default, and retained that restored choice after quit/relaunch; the existing
   background agent remained untouched.
+- The GH-51 interaction follow-up keeps View Mode selectable during an active
+  Following refresh and adds delayed hover presentation to the taxonomy guide
+  with traversal, click, outside-click, Escape, keyboard, and accessibility
+  behavior preserved.
+- Focused tests pass for stable View Mode identity, taxonomy hover traversal,
+  bounded AI request history, and full visible transcript preservation.
+- The complete local gate passes `make BEACON_DERIVED_DATA=/tmp/beacon-gh51-followup-final
+  fmt-check vet test test-race release-test build macos-test macos-build`; the
+  macOS suite executed 145 tests with zero failures and zero skips.
+- All 20 feature checks pass `kit check --all`; `git diff --check`, plist lint,
+  changed-file secret-pattern review, and the six touched Swift source-size
+  checks pass. `kit check --project` retains three pre-existing instruction
+  scaffold findings in files outside this change.
+- Fresh built-app smoke changed Stacked to Horizontal Tiles while the refresh
+  control remained busy, with the same scan continuing. Pointer-only hover
+  opened the taxonomy guide, traversal into the guide preserved it, moving away
+  closed it, and click plus Escape preserved explicit activation and dismissal.
+- Interaction and review-repair implementation commit
+  `97d9ca4625df5e59ba98b71ec689f729d247718c` by Jameson Stone
+  `<jameson@stone.tc>` is pushed to the existing `GH-51` branch and ready PR
+  #52.
+- Issue #51 and PR #52 are open, assigned to `jamesonstone`, aligned to
+  `GH-51` targeting `main`, and describe the Notes AI plus dashboard interaction
+  scope while preserving the repository template and issue closure.
+- Hosted checks passed on the implementation head: `go` in 1 minute 7 seconds
+  and `macos` in 2 minutes 37 seconds. CodeRabbit completed successfully, and
+  its sole current review thread is resolved as addressed by the implementation
+  commit.

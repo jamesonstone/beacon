@@ -25,6 +25,14 @@ references:
     relation: implements
     read_policy: must
     used_for: original request, scope, acceptance criteria, and delivery lane
+    status: optional
+  - id: issue-51
+    name: Expand Notes AI into a conversation panel
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/51
+    relation: implements
+    read_policy: must
+    used_for: conversation history, presentation modes, keyboard shortcuts, and delivery lane
     status: active
   - id: constitution
     name: Beacon constitution
@@ -56,13 +64,14 @@ skills:
 
 ## Thesis
 
-Beacon should let a user ask a one-turn question about the current local Signal
-Note, defaulting to the exact editor selection when one exists and otherwise the
-entire visible note, and receive a response from a locally installed Ollama
-model without turning Notes into an autonomous agent or sending note content to
-a remote model. Context should remain removable, the interaction visibly user
-initiated, the panel easy to enter and exit, and note content unchanged unless
-the user edits it through the existing editor.
+Beacon should let a user have an in-memory conversation about the current local
+Signal Note, defaulting to the exact editor selection when one exists and
+otherwise the entire visible note, and receive responses from a locally
+installed Ollama model without turning Notes into an autonomous agent or sending
+note content to a remote model. Context should remain removable, every user and
+assistant turn should remain visible in order, the interaction visibly user
+initiated, the composer easy to reach, and note content unchanged unless the
+user edits it through the existing editor.
 
 ## Context
 
@@ -83,9 +92,9 @@ Symbols.
 
 ## Clarifications
 
-- This slice is a single-turn assistant. It does not add background analysis,
-  embeddings, retrieval, persistent chat history, automatic note organization,
-  or note mutation.
+- This slice is an active-session, multi-turn assistant. It does not add
+  background analysis, embeddings, retrieval, persistent chat history,
+  automatic note organization, or note mutation.
 - The assistant action is always available while Notes is expanded. It captures
   the exact non-empty editor selection when one exists and otherwise the entire
   current draft, including unsaved text visible in the editor.
@@ -96,6 +105,16 @@ Symbols.
   selected model are non-empty and no request is running; context is optional.
 - A dedicated labeled Cancel action exits and resets the assistant immediately.
   The Notes and all-commands quick switchers expose the same entry action.
+- Command-I opens the larger conversation presentation with a right-edge slide
+  transition. Command-Shift-I opens the existing compact Notes presentation.
+  Switching presentations preserves the active conversation; Cancel resets it.
+- The conversation renders every completed user and assistant turn in order in
+  one independently scrolling history. The unsent prompt composer and send/model
+  controls remain pinned to the bottom in both presentations.
+- Each follow-up request carries the complete active conversation to Ollama with
+  native user and assistant roles. Beacon never truncates displayed history
+  silently; oversized input remains visible and fails as a recoverable inline
+  error before generation.
 - Ollama remains fixed to its loopback endpoint. Beacon does not expose a remote
   host setting, authentication field, or arbitrary URL in this feature.
 - Only models reported as real local artifacts are offered. Cloud entries such
@@ -113,7 +132,7 @@ Symbols.
 
 ## Requirements
 
-1. Keep one user-initiated, single-turn Ollama assistant inside the current
+1. Keep one user-initiated, active-session Ollama conversation inside the current
    Notes and Beacon bounds without background analysis or automatic note edits.
 2. Make the AI entry action always available, materially larger than the prior
    icon, and reachable from the Notes and all-commands quick switchers.
@@ -127,6 +146,17 @@ Symbols.
    transport, and loopback non-streaming chat through the Go helper.
 7. Preserve existing Notes editing, autosave, tabs, sizing, shared state,
    theming, accessibility, and background-agent behavior.
+8. Keep every user and assistant turn in one ordered, in-memory conversation and
+   render the complete active history rather than replacing the prior answer.
+9. Send the complete active history to Ollama with explicit user and assistant
+   roles while preserving bounded stdin transport and strict role/content
+   validation.
+10. Pin the unsent prompt composer and model/send controls to the bottom while
+    conversation history scrolls independently and follows newly completed turns.
+11. Open a materially larger, in-bounds conversation panel from the right with
+    Command-I while Command-Shift-I opens the existing compact panel.
+12. Restyle the AI control with an accessible, playful Beacon-themed SF Symbol
+    composition using the current semantic theme tokens.
 
 ## Assumptions
 
@@ -176,21 +206,41 @@ Symbols.
 - [x] AC12: The follow-up is documented and covered by Go optional-context tests
   plus Swift context resolution, removal, cancellation, presentation, and
   quick-switcher command tests.
+- [x] AC13: The AI header control uses the Beacon-themed mark, semantic theme
+  colors, the existing AI label, and the existing accessible action name.
+- [x] AC14: Command-I opens a conversation panel larger than the compact panel,
+  aligned to the Beacon surface's right edge, and inserts/removes it with a
+  right-edge transition unless Reduce Motion is enabled.
+- [x] AC15: Command-Shift-I opens the existing compact Notes-owned panel, and
+  changing between compact and conversation presentations does not reset the
+  active context, messages, model, or unsent prompt.
+- [x] AC16: Sending appends the trimmed user turn, clears the pinned composer,
+  passes every prior turn to the helper in order, and appends the returned model
+  answer without removing earlier messages.
+- [x] AC17: Both presentations render the entire ordered history in an
+  independently scrolling region while the attachment, composer, model selector,
+  and send action remain reachable; a failed send restores its prompt as unsent.
+- [x] AC18: Cancel clears context, ordered history, prompt, errors, progress, and
+  stale-response eligibility without mutating the current Note.
 
 ## Design
 
 ### Go authority
 
 `internal/ollama` owns the fixed loopback endpoint, bounded HTTP decoding,
-local-model filtering, exact availability validation, and the one-turn chat
-request. `internal/cli` exposes JSON-only helper operations for model status,
+local-model filtering, exact availability validation, and role-ordered chat
+requests. `internal/cli` exposes JSON-only helper operations for model status,
 chat, and the configured default. Chat input is JSON read from stdin so neither
-the selected note text nor the prompt appears in the process list.
+the selected note text nor conversation messages appear in the process list.
 
-The helper sends a short system instruction followed by one user message that
-labels optional Notes context and the user's request. It disables streaming
-and returns only the normalized model and assistant content needed by the thin
-client. Network calls use explicit contexts and response-size limits.
+The helper sends a short system instruction followed by the complete ordered
+active conversation using native user and assistant roles. Optional Notes
+context is clearly delimited as untrusted data on the first user turn. Legacy
+single-prompt stdin remains accepted for compatibility, while new conversation
+input is role-validated, UTF-8 validated, and total-size bounded before Ollama
+is called. It disables streaming and returns only the normalized model and
+assistant content needed by the thin client. Network calls use explicit
+contexts and response-size limits.
 
 ### Configuration
 
@@ -212,11 +262,13 @@ are visually separate, the prompt remains editable without context, and native
 menus, buttons, progress, focus, and semantic theme colors preserve macOS
 behavior. A labeled Cancel action dismisses and resets the interaction.
 
-`AppState` holds one shared assistant request state for the menu extra and
-detached dashboard. Its injected Ollama helper boundary loads status, resolves
-the effective model, persists an explicit default, serializes one request, and
-normalizes recoverable errors. Dismissing the panel does not cancel Notes
-autosave or mutate the draft.
+`AppState` holds one shared assistant request state and ordered in-memory message
+history for the menu extra and detached dashboard. Its injected Ollama helper
+boundary loads status, resolves the effective model, persists an explicit
+default, serializes complete conversation requests, and normalizes recoverable
+errors. The compact Notes overlay and larger right-edge overlay reuse one panel
+component whose history expands while its composer stays at the bottom.
+Dismissing the panel does not cancel Notes autosave or mutate the draft.
 
 ## Implementation Plan
 
@@ -232,6 +284,17 @@ autosave or mutate the draft.
    complete repository gates, and exercise the built app against local Ollama.
 6. Deliver the follow-up on the existing issue #45, branch `GH-45`, and ready
    PR #46 lane, then verify the final hosted head.
+7. Replace the single response slot with an ordered in-memory user/assistant
+   history and send that complete history through the bounded helper protocol.
+8. Refactor the panel into flexible scrollable history plus a bottom-pinned
+   composer shared by compact and conversation presentations.
+9. Add Command-I for the large right-edge transition, Command-Shift-I for the
+   compact presentation, and a Beacon-themed AI mark without changing the
+   existing button label or accessible intent.
+10. Extend focused Go/Swift coverage, refresh product documentation, run the
+    complete local gates, and smoke both presentation modes.
+11. Deliver the extension on issue #51, branch `GH-51`, and a ready pull request,
+    then verify the exact final hosted head.
 
 Rollback restores required context in the helper, removes the follow-up state
 and switcher command, and returns the header to selection-gated presentation.
@@ -261,6 +324,18 @@ No persisted data or configuration migration is involved.
   context resolution, removal, cancellation, command discovery, and context-free chat.
 - [x] T12: Refresh docs, rerun all local/live gates, update ready PR #46, and
   verify the final hosted head.
+- [x] T13: Extend the helper chat protocol with bounded, role-validated ordered
+  messages while preserving legacy prompt compatibility and local-only policy.
+- [x] T14: Replace the Swift single-response state with ordered active-session
+  messages, complete-history sends, failed-prompt restoration, and reset safety.
+- [x] T15: Render all turns in a flexible scrolling history with the prompt,
+  model picker, and send action pinned to the bottom in both panel sizes.
+- [x] T16: Add the large right-edge conversation presentation, Command-I and
+  Command-Shift-I routing, mode-preserving transitions, and Beacon-themed mark.
+- [x] T17: Add focused helper, state, sizing, mode, failure, history, and reset
+  tests; update README and Constitution behavior contracts.
+- [x] T18: Run full local and native smoke validation, complete GH-51 delivery,
+  and verify the exact ready-PR hosted-check state.
 
 ## Validation Map
 
@@ -272,6 +347,8 @@ No persisted data or configuration migration is involved.
 | AC10 | Swift command discovery/action test plus live Command-K and Command-P invocation while Notes is expanded and minimized |
 | AC11 | Complete Go race/vet/build/release gates, 135-test native suite, universal macOS build, and live Save/Revert state inspection |
 | AC12 | README, Constitution, project-summary, and feature-spec review plus focused 10-test Ollama XCTest suite |
+| AC13-AC15 | Swift presentation constants/sizing tests, shortcut and Reduce Motion wiring review, and native compact/large transition smoke |
+| AC16-AC18 | Go ordered-message/limit tests, Swift AppState history/failure/reset tests, full native suite, and unchanged-note smoke |
 
 ## Reflection Notes
 
@@ -289,12 +366,30 @@ same command, minimized Notes restores before opening, and exact selection still
 wins over whole-note fallback. A real local model answered after context removal
 while Save and Revert stayed disabled, confirming no note mutation.
 
+The conversation extension keeps presentation and session ownership in shared
+`AppState`, so the menu extra and detached dashboard cannot reset one another.
+The complete role-ordered transcript is sent on every turn, remains visible in
+both panel sizes, and survives Command-I/Command-Shift-I mode changes together
+with any unsent draft. The composer remains outside the history scroll at the
+bottom, while Cancel continues to be the explicit reset boundary.
+
+The extension smoke exercised both shortcuts while native text editors were
+focused, removed real Notes context before generation, completed a two-turn
+exchange with `gemma3:270m`, and verified that the second answer depended on the
+first turn. All four messages and an additional unsent draft remained visible
+with the composer pinned at the bottom; Cancel cleared the session while Notes
+Save and Revert remained disabled.
+
 ## Documentation Updates
 
 - [x] README usage now covers always-available AI, selection/full-note context,
   removal, Cancel, both quick switchers, and the local-only boundary.
 - [x] Constitution records shared entry points, optional context, reset, and
   late-response safety as durable product invariants.
+- [x] README covers both keyboard presentations, complete active-session
+  history, the pinned composer, and ephemeral local conversation behavior.
+- [x] Constitution records ordered role transport, shared presentation state,
+  and the pinned-composer conversation layout.
 - [x] Project progress summary tracks the reopened implementation phase and
   follow-up scope on the existing delivery lane.
 - [x] This specification maps the follow-up requirements, implementation,
@@ -302,10 +397,11 @@ while Save and Revert stayed disabled, confirming no note mutation.
 
 ## Delivery Decision
 
-Continue the existing ready-for-review lane on issue #45, exact branch `GH-45`,
-and PR #46 because this is a narrow follow-up to the same Ollama Notes assistant.
-Use explicit staging, verified Jameson Stone author and committer identity, the
-repository PR template, and literal final-head hosted-check reporting.
+Deliver the conversation extension on issue #51 and exact branch `GH-51` because
+it changes the assistant from one-turn response replacement to an active
+multi-turn conversation and adds a distinct presentation mode. Use explicit
+staging, verified Jameson Stone author and committer identity, the repository PR
+template, a ready pull request, and literal final-head hosted-check reporting.
 
 ## Evidence
 
@@ -327,3 +423,20 @@ repository PR template, and literal final-head hosted-check reporting.
   enabling Save or Revert.
 - Follow-up hosted validation: required Go and macOS checks passed on
   implementation commit `80bd1f3`; PR #46 remains ready for human review.
+- Conversation extension issue: [#51](https://github.com/jamesonstone/beacon/issues/51)
+- Conversation extension branch: `GH-51`
+- Conversation extension local validation: focused Go client/CLI tests, full Go
+  format/test/race/vet/build/release targets, 14 focused Ollama XCTest cases,
+  the complete 140-test native suite, universal macOS build, `kit check --all`,
+  project-file lint, whitespace checks, and independent diff review pass.
+- Conversation extension native validation: the built app opened the large
+  right-edge panel with Command-I and the compact panel with Command-Shift-I
+  while text inputs were focused; an unsent prompt survived mode switching; a
+  context-free two-turn `gemma3:270m` exchange retained all four ordered turns;
+  the bottom composer kept an additional unsent draft visible; and Cancel reset
+  the session without enabling Notes Save or Revert.
+- Conversation extension hosted validation: required Go and macOS checks passed
+  on implementation commit `24eba88`; CodeRabbit remained optional and in
+  progress when delivery evidence was recorded.
+- Conversation extension pull request: [#52](https://github.com/jamesonstone/beacon/pull/52),
+  ready for human review

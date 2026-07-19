@@ -192,3 +192,52 @@ struct NeonWaveWordmark: View {
         }
     }
 }
+
+struct DashboardViewModeMenu: View, Equatable {
+    let mode: DashboardViewMode
+    let themeID: String
+    let increasedContrast: Bool
+    let select: (DashboardViewMode) -> Void
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.mode == rhs.mode
+            && lhs.themeID == rhs.themeID
+            && lhs.increasedContrast == rhs.increasedContrast
+    }
+
+    var body: some View {
+        let theme = BeaconThemeCatalog.theme(forStoredID: themeID)
+        let borderColor = increasedContrast
+            ? theme.tokens.borderStrong.color
+            : theme.tokens.border.color
+
+        Menu {
+            ForEach(DashboardViewMode.allCases) { option in
+                Button {
+                    select(option)
+                } label: {
+                    Label(
+                        option.title,
+                        systemImage: option == mode ? "checkmark" : option.symbol
+                    )
+                }
+                .disabled(option == mode)
+            }
+        } label: {
+            Image(systemName: mode.symbol)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.tokens.info.color)
+                .frame(width: 28, height: 28)
+                .background(theme.tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(borderColor, lineWidth: increasedContrast ? 1.1 : 0.7)
+                }
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("View mode: \(mode.title)")
+        .accessibilityLabel("View mode, \(mode.title)")
+    }
+}

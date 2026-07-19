@@ -50,7 +50,8 @@ final class AppState: ObservableObject {
     @Published var notesAssistantAttachment = ""
     @Published var notesAssistantContextSource: NotesAssistantContextSource?
     @Published var notesAssistantPrompt = ""
-    @Published var notesAssistantResponse: OllamaChatResponse?
+    @Published var notesAssistantMessages: [NotesAssistantMessage] = []
+    @Published var notesAssistantMode: NotesAssistantMode?
     @Published var ollamaModels: [OllamaModel] = []
     @Published var ollamaConfiguredModel = ""
     @Published var ollamaSelectedModel = ""

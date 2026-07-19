@@ -4,65 +4,193 @@ struct NotesAssistantPanel: View {
     @Environment(\.beaconTheme) private var theme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @ObservedObject var state: AppState
+    let mode: NotesAssistantMode
     let close: () -> Void
+    @FocusState private var promptFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 7) {
-                Label("Notes AI", systemImage: "sparkles")
-                    .font(BeaconTypography.semibold(10))
-                    .foregroundStyle(theme.tokens.accent.color)
-                Spacer()
-                Button(role: .cancel, action: close) {
-                    Label("Cancel", systemImage: "xmark")
-                        .font(BeaconTypography.semibold(8))
+        VStack(alignment: .leading, spacing: 8) {
+            header
+            conversation
+            composer
+        }
+        .padding(mode == .compact ? 9 : 12)
+        .background(theme.tokens.surfaceOverlay.color, in: RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(theme.tokens.borderStrong.color, lineWidth: borderWidth)
+        }
+        .shadow(color: .black.opacity(0.22), radius: 9, y: 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(NotesAssistantPresentation.panelAccessibilityLabel)
+        .task {
+            await Task.yield()
+            promptFocused = true
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 7) {
+            BeaconAIMark()
+            Text(mode.title)
+                .font(BeaconTypography.semibold(mode == .compact ? 10 : 12))
+                .foregroundStyle(theme.tokens.accent.color)
+            Spacer()
+            Text(mode == .compact ? "⌘⇧I" : "⌘I")
+                .font(BeaconTypography.regular(7))
+                .foregroundStyle(theme.tokens.textMuted.color)
+            Button(role: .cancel, action: close) {
+                Label("Cancel", systemImage: "xmark")
+                    .font(BeaconTypography.semibold(8))
+            }
+            .buttonStyle(.bordered)
+            .keyboardShortcut(.cancelAction)
+            .help("Exit and reset the Notes assistant")
+            .accessibilityLabel("Cancel Notes AI")
+        }
+    }
+
+    private var conversation: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    contextAttachment
+
+                    if state.notesAssistantMessages.isEmpty,
+                       state.ollamaError == nil,
+                       state.ollamaNotice == nil {
+                        emptyConversation
+                    }
+
+                    ForEach(state.notesAssistantMessages) { message in
+                        messageRow(message)
+                            .id(message.id)
+                    }
+
+                    if state.isSendingOllamaPrompt {
+                        HStack(spacing: 6) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Thinking locally…")
+                                .font(BeaconTypography.regular(8))
+                                .foregroundStyle(theme.tokens.textSecondary.color)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Ollama is preparing a response")
+                    }
+
+                    statusMessage
                 }
-                .buttonStyle(.bordered)
-                .keyboardShortcut(.cancelAction)
-                .help("Exit the Notes assistant")
-                .accessibilityLabel("Cancel Notes AI")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onAppear {
+                guard let messageID = state.notesAssistantMessages.last?.id else { return }
+                proxy.scrollTo(messageID, anchor: .bottom)
+            }
+            .onChange(of: state.notesAssistantMessages.last?.id) { _, messageID in
+                guard let messageID else { return }
+                proxy.scrollTo(messageID, anchor: .bottom)
+            }
+        }
+        .padding(7)
+        .background(theme.tokens.surface.color, in: RoundedRectangle(cornerRadius: 7))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7)
+                .strokeBorder(theme.tokens.border.color, lineWidth: borderWidth)
+        }
+    }
+
+    private var emptyConversation: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label("Ready for a conversation", systemImage: "bubble.left.and.bubble.right")
+                .font(BeaconTypography.semibold(9))
+                .foregroundStyle(theme.tokens.success.color)
+            Text("Ask a question below. Every turn stays visible here until you Cancel.")
+                .font(BeaconTypography.regular(8))
+                .foregroundStyle(theme.tokens.textMuted.color)
+        }
+        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private func messageRow(_ message: NotesAssistantMessage) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            if message.role == .user {
+                Spacer(minLength: mode == .compact ? 18 : 48)
             }
 
-            contextAttachment
+            VStack(alignment: .leading, spacing: 5) {
+                if message.role == .assistant {
+                    HStack(spacing: 5) {
+                        BeaconAIMark()
+                            .scaleEffect(0.78)
+                            .frame(width: 15, height: 15)
+                        Text(message.model ?? "Local Ollama")
+                            .font(BeaconTypography.semibold(8))
+                            .foregroundStyle(theme.tokens.accent.color)
+                    }
+                    BeaconMarkdownDocument(message.content, baseSize: mode == .compact ? 8.5 : 9.5)
+                } else {
+                    Label("You", systemImage: "person.crop.circle.fill")
+                        .font(BeaconTypography.semibold(8))
+                        .foregroundStyle(theme.tokens.info.color)
+                    Text(message.content)
+                        .font(BeaconTypography.regular(mode == .compact ? 8.5 : 9.5))
+                        .foregroundStyle(theme.tokens.textPrimary.color)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(8)
+            .background(
+                message.role == .user
+                    ? theme.tokens.info.color.opacity(0.13)
+                    : theme.tokens.surfaceRaised.color,
+                in: RoundedRectangle(cornerRadius: 8)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(
+                        message.role == .user ? theme.tokens.info.color.opacity(0.45) : theme.tokens.border.color,
+                        lineWidth: borderWidth
+                    )
+            }
 
+            if message.role == .assistant {
+                Spacer(minLength: mode == .compact ? 8 : 36)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(message.role == .user ? "You: \(message.content)" : "AI: \(message.content)")
+    }
+
+    @ViewBuilder
+    private var statusMessage: some View {
+        if let message = state.ollamaError ?? state.ollamaNotice {
+            Label(message, systemImage: state.ollamaError == nil ? "info.circle" : "exclamationmark.triangle.fill")
+                .font(BeaconTypography.regular(8))
+                .foregroundStyle(state.ollamaError == nil ? theme.tokens.info.color : theme.tokens.danger.color)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var composer: some View {
+        VStack(alignment: .leading, spacing: 7) {
             TextEditor(text: $state.notesAssistantPrompt)
-                .font(BeaconTypography.regular(9))
+                .font(BeaconTypography.regular(mode == .compact ? 9 : 10))
                 .foregroundStyle(theme.tokens.editorText.color)
                 .scrollContentBackground(.hidden)
+                .focused($promptFocused)
                 .padding(5)
-                .frame(height: 46)
+                .frame(height: mode == .compact ? 46 : 72)
                 .background(theme.tokens.editorBackground.color, in: RoundedRectangle(cornerRadius: 7))
                 .overlay {
                     RoundedRectangle(cornerRadius: 7)
                         .strokeBorder(theme.tokens.border.color, lineWidth: borderWidth)
                 }
                 .accessibilityLabel("Prompt for Notes AI")
-
-            if let response = state.notesAssistantResponse {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Label(response.model, systemImage: "sparkles")
-                            .font(BeaconTypography.semibold(8))
-                            .foregroundStyle(theme.tokens.accent.color)
-                        Text(response.content)
-                            .font(BeaconTypography.regular(9))
-                            .foregroundStyle(theme.tokens.textPrimary.color)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-                .frame(maxHeight: .infinity)
-                .padding(7)
-                .background(theme.tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 7))
-            } else if let message = state.ollamaError ?? state.ollamaNotice {
-                Label(message, systemImage: state.ollamaError == nil ? "info.circle" : "exclamationmark.triangle.fill")
-                    .font(BeaconTypography.regular(8))
-                    .foregroundStyle(state.ollamaError == nil ? theme.tokens.info.color : theme.tokens.danger.color)
-                    .lineLimit(3)
-                    .frame(maxHeight: .infinity, alignment: .topLeading)
-            } else {
-                Spacer(minLength: 0)
-            }
 
             HStack(spacing: 7) {
                 if state.isLoadingOllamaModels {
@@ -103,15 +231,12 @@ struct NotesAssistantPanel: View {
                 .accessibilityLabel(state.isSendingOllamaPrompt ? "Waiting for Ollama" : "Send to Ollama")
             }
         }
-        .padding(9)
-        .background(theme.tokens.surfaceOverlay.color, in: RoundedRectangle(cornerRadius: 10))
+        .padding(7)
+        .background(theme.tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 7))
         .overlay {
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(theme.tokens.borderStrong.color, lineWidth: borderWidth)
+            RoundedRectangle(cornerRadius: 7)
+                .strokeBorder(theme.tokens.border.color, lineWidth: borderWidth)
         }
-        .shadow(color: .black.opacity(0.22), radius: 9, y: 4)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(NotesAssistantPresentation.panelAccessibilityLabel)
     }
 
     private var borderWidth: CGFloat {
@@ -122,18 +247,15 @@ struct NotesAssistantPanel: View {
     private var contextAttachment: some View {
         if let source = state.notesAssistantContextSource {
             HStack(alignment: .top, spacing: 7) {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 5) {
                     Label(source.title, systemImage: "paperclip")
                         .font(BeaconTypography.semibold(8))
                         .foregroundStyle(theme.tokens.info.color)
-                    ScrollView {
-                        Text(state.notesAssistantAttachment)
-                            .font(BeaconTypography.regular(9))
-                            .foregroundStyle(theme.tokens.textPrimary.color)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(maxHeight: 44)
+                    Text(state.notesAssistantAttachment)
+                        .font(BeaconTypography.regular(mode == .compact ? 8 : 9))
+                        .foregroundStyle(theme.tokens.textPrimary.color)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 Spacer(minLength: 4)
                 Button {
@@ -161,72 +283,5 @@ struct NotesAssistantPanel: View {
                 .padding(.horizontal, 2)
                 .accessibilityLabel("No Notes context attached")
         }
-    }
-}
-
-extension MenuView {
-    @ViewBuilder
-    func notesAssistantOverlay(in size: CGSize) -> some View {
-        if showingNotesAssistant, signalNotesExpanded {
-            let panelSize = NotesAssistantPresentation.panelSize(in: size, surface: surface)
-            HStack {
-                Spacer(minLength: 0)
-                NotesAssistantPanel(state: state) {
-                    closeNotesAssistant()
-                }
-                .frame(width: panelSize.width, height: panelSize.height)
-                .padding(.trailing, 28)
-            }
-            .padding(.top, 32)
-        }
-    }
-
-    var notesAssistantHeaderButton: some View {
-        Button {
-            if showingNotesAssistant {
-                closeNotesAssistant()
-            } else {
-                showNotesAssistant()
-            }
-        } label: {
-            Label(
-                NotesAssistantPresentation.buttonLabel,
-                systemImage: "sparkles"
-            )
-            .font(BeaconTypography.semibold(9))
-            .padding(.horizontal, 7)
-            .frame(height: 24)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(theme.tokens.info.color.opacity(0.78))
-        .help(NotesAssistantPresentation.buttonAccessibilityLabel)
-        .accessibilityLabel(NotesAssistantPresentation.buttonAccessibilityLabel)
-    }
-
-    var notesAssistantCommandDetail: String {
-        switch NotesAssistantPresentation.context(
-            selection: state.notesSelectedText,
-            note: state.notesDraft
-        )?.source {
-        case .selection: "Attach the current Notes selection"
-        case .note: "Attach the entire current note"
-        case nil: "Start without note context"
-        }
-    }
-
-    func showNotesAssistant() {
-        if !signalNotesExpanded {
-            let restored = SignalNotesSize(rawValue: signalNotesLastExpandedSizeValue) ?? .half
-            setSignalNotesSize(restored == .minimized ? .half : restored)
-        }
-        showingNotesAssistant = true
-        let selection = state.notesSelectedText
-        let note = state.notesDraft
-        Task { await state.prepareNotesAssistant(selection: selection, note: note) }
-    }
-
-    func closeNotesAssistant() {
-        showingNotesAssistant = false
-        state.dismissNotesAssistant()
     }
 }

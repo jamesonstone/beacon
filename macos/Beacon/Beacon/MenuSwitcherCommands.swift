@@ -6,7 +6,7 @@ extension MenuView {
         var items = [
             BeaconCommandItem.notesAssistant(
                 detail: notesAssistantCommandDetail,
-                action: showNotesAssistant
+                action: { showNotesAssistant(.compact) }
             ),
             BeaconCommandItem(
                 id: "note-general", title: "General", detail: "Pinned Note", symbol: "pin.fill", keywords: "signal notes tab",
@@ -145,7 +145,7 @@ extension BeaconCommandItem {
             id: "notes-assistant",
             title: NotesAssistantPresentation.quickSwitcherTitle,
             detail: detail,
-            symbol: "sparkles",
+            symbol: NotesAssistantPresentation.buttonSymbol,
             keywords: NotesAssistantPresentation.quickSwitcherKeywords,
             action: action
         )

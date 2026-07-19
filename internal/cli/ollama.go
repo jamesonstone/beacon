@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const ollamaInputLimit = ollama.MaxContextBytes + ollama.MaxPromptBytes + 4096
+const ollamaInputLimit = 6*(ollama.MaxContextBytes+ollama.MaxConversationBytes) + 64*1024
 
 type ollamaClient interface {
 	ListModels(context.Context) ([]ollama.Model, error)

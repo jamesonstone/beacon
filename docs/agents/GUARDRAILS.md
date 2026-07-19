@@ -89,9 +89,20 @@ Do not create:
 
 unless the repo-local Kit rules explicitly require them or the user explicitly overrides the Kit contract.
 
+## AWS Context Hard Gate
+
+When .kit.yaml defines an enabled aws context, agents must:
+
+1. Run kit aws verify before the first AWS-dependent command in the task.
+2. Run kit aws verify again immediately before any command that can mutate AWS resources or deploy through AWS-backed tooling.
+3. Treat the returned account ID and ARN as authoritative. A profile name alone is not proof of identity because environment credentials can change resolution.
+4. Use the verified configured profile explicitly for AWS CLI, SDK, Terraform, CDK, deployment, and project scripts where supported.
+5. Stop on missing AWS CLI, expired or unavailable credentials, incomplete .kit.yaml AWS fields, or an account mismatch. Read .kit.yaml and ask the user when the intended context remains ambiguous.
+6. Never fall back to default, another discovered profile, or ambient credentials after verification fails.
+
 ## Completion Bar
 
-- For v2 feature work, populate all required `SPEC.md` sections and keep front matter `workflow_version`, `phase`, references, relationships, and skills current
+- For V3 feature work, satisfy the phase-aware living-spec gates and keep front matter `workflow_version`, `phase`, references, relationships, and skills current; preserve version-specific requirements for legacy specs
 - For legacy staged workflows, populate all required sections in the staged artifact being used
 - Replace placeholder-only sections with `not applicable`, `not required`, or `no additional information required`
 - Always update affected documentation and ensure touched docs are current and properly formatted before calling work complete
@@ -114,5 +125,17 @@ unless the repo-local Kit rules explicitly require them or the user explicitly o
 
 - Prefer explicit error handling over silent failure
 - Keep changes minimal and reversible
-- Do not run `git add` or `git commit` without explicit approval
+- Resolve all in-scope issues autonomously and continue until the goal is fully complete or a genuine blocker remains; diagnose before retrying, preserve target and scope, and verify the recovered state
+- Do not ask for routine approval to switch supported tools, including authenticated `gh`, when the authorized mutation is unchanged
+- Ask permission only before large-scale deletion or deleting sensitive files
+- Treat missing credentials, ambiguous identity or target, conflicting user-owned changes, and required external authorization as blockers requiring the smallest missing input, not as routine retry-permission requests
 - Do not run `coderabbit --prompt-only` unless explicitly requested or approved
+
+
+## Repository Memory Completion Gate
+
+- Inspect existing repository memory before implementation.
+- Create or adopt a spec before code when material rationale exists.
+- After implementation and validation, curate durable rationale into the correct canonical documents.
+- A justified `not required` decision is valid when code and tests preserve the complete durable truth.
+- Every implementation final response must include `Repository Memory`, a valid decision, rationale, and artifact paths or `none`.
