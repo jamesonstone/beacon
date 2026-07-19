@@ -395,7 +395,7 @@ beacon limits
 beacon limits --json
 beacon ollama models
 beacon ollama models --json
-printf '{"selection":"release checklist","prompt":"find missing steps"}' | \
+printf '{"context":"release checklist","messages":[{"role":"user","content":"find missing steps"}]}' | \
   beacon ollama chat --model gpt-oss:20b --json
 beacon ollama set-default gpt-oss:20b
 beacon projects
@@ -751,16 +751,22 @@ and Command-1 through Command-9 selects by open-tab position. All writes and
 deletions travel through the Go agent authority so the menu, detached window,
 and CLI remain synchronized.
 
-Press the larger **AI** button in the Notes header at any time to open the local
-Ollama assistant directly below it. Beacon attaches the exact non-empty editor
-selection when one exists; otherwise it snapshots the entire current note,
-including visible unsaved edits. The attachment can be removed before sending,
-so a prompt may continue without Notes context. Add a prompt, choose any
-discovered local model immediately to the left of Send, and read the one-turn
-response in the same in-bounds panel. **Cancel** exits and resets the assistant,
-and **Ask AI About Current Note** is also available in both Command-K Quick
-Switcher and Command-P Tab Search. Context and prompts travel to the bundled
-helper over stdin, never in process arguments; this narrow assistant keeps no
+Press the larger **AI** button with its Beacon signal-and-spark mark at any time
+to open the compact local Ollama assistant directly below it. Command-I opens a
+larger conversation panel from the right edge; Command-Shift-I opens the compact
+panel. Beacon attaches the exact non-empty editor selection when one exists;
+otherwise it snapshots the entire current note, including visible unsaved edits.
+The complete attachment appears at the start of the scrollable conversation and
+can be removed before sending, so a prompt may continue without Notes context.
+
+Every user and assistant turn remains visible in order for the active session,
+and each follow-up sends that complete role-aware conversation to Ollama. History
+scrolls independently while the unsent prompt, local-model selector, and Send
+action stay pinned at the bottom. Switching between compact and large panels
+preserves the conversation; **Cancel** exits and resets it. **Ask AI About Current
+Note** is also available in both Command-K Quick Switcher and Command-P Tab
+Search. Context and conversation messages travel to the bundled helper over
+stdin, never in process arguments. This narrow assistant keeps no persistent
 chat history, runs no background insights, excludes cloud models, and never
 edits the note automatically. The Settings default and `settings.ollama_model`
 are the same configuration value.

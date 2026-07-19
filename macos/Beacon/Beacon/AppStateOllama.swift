@@ -1,16 +1,31 @@
 import Foundation
 
 extension AppState {
-    func prepareNotesAssistant(selection: String, note: String) async {
+    @discardableResult
+    func presentNotesAssistant(
+        _ mode: NotesAssistantMode,
+        selection: String,
+        note: String
+    ) -> Bool {
+        guard notesAssistantMode != mode else { return false }
+        let shouldPrepare = NotesAssistantPresentation.shouldPrepareSession(currentMode: notesAssistantMode)
+        if shouldPrepare {
+            prepareNotesAssistant(selection: selection, note: note)
+        }
+        notesAssistantMode = mode
+        return shouldPrepare
+    }
+
+    func prepareNotesAssistant(selection: String, note: String) {
         notesAssistantRequestGeneration += 1
         isSendingOllamaPrompt = false
         let context = NotesAssistantPresentation.context(selection: selection, note: note)
         notesAssistantAttachment = context?.text ?? ""
         notesAssistantContextSource = context?.source
         notesAssistantPrompt = ""
-        notesAssistantResponse = nil
+        notesAssistantMessages = []
         ollamaError = nil
-        await refreshOllamaModels()
+        ollamaNotice = nil
     }
 
     func removeNotesAssistantContext() {
@@ -20,10 +35,11 @@ extension AppState {
 
     func dismissNotesAssistant() {
         notesAssistantRequestGeneration += 1
+        notesAssistantMode = nil
         notesAssistantAttachment = ""
         notesAssistantContextSource = nil
         notesAssistantPrompt = ""
-        notesAssistantResponse = nil
+        notesAssistantMessages = []
         ollamaError = nil
         ollamaNotice = nil
         isSendingOllamaPrompt = false
@@ -88,8 +104,11 @@ extension AppState {
               !isSendingOllamaPrompt else { return }
         notesAssistantRequestGeneration += 1
         let requestGeneration = notesAssistantRequestGeneration
+        let userMessage = NotesAssistantMessage(role: .user, content: prompt)
+        notesAssistantMessages.append(userMessage)
+        let requestMessages = notesAssistantMessages.map(\.chatMessage)
+        notesAssistantPrompt = ""
         isSendingOllamaPrompt = true
-        notesAssistantResponse = nil
         ollamaError = nil
         defer {
             if notesAssistantRequestGeneration == requestGeneration {
@@ -100,12 +119,20 @@ extension AppState {
             let response = try await ollamaClient.ollamaChat(
                 model: model,
                 context: context,
-                prompt: prompt
+                messages: requestMessages
             )
             guard notesAssistantRequestGeneration == requestGeneration else { return }
-            notesAssistantResponse = response
+            notesAssistantMessages.append(NotesAssistantMessage(
+                role: .assistant,
+                content: response.content,
+                model: response.model
+            ))
         } catch {
             guard notesAssistantRequestGeneration == requestGeneration else { return }
+            notesAssistantMessages.removeAll { $0.id == userMessage.id }
+            notesAssistantPrompt = notesAssistantPrompt.isEmpty
+                ? prompt
+                : prompt + "\n\n" + notesAssistantPrompt
             ollamaError = error.localizedDescription
         }
     }

@@ -112,6 +112,59 @@ func TestChatAllowsPromptWithoutNotesContext(t *testing.T) {
 	}
 }
 
+func TestChatSendsCompleteOrderedConversationWithContextOnFirstUserTurn(t *testing.T) {
+	var messages []message
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/api/tags":
+			_, _ = writer.Write([]byte(`{"models":[{"name":"local:latest","size":42,"details":{"format":"gguf"}}]}`))
+		case "/api/chat":
+			var body struct {
+				Messages []message `json:"messages"`
+			}
+			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+				t.Fatal(err)
+			}
+			messages = body.Messages
+			_, _ = writer.Write([]byte(`{"model":"local:latest","message":{"role":"assistant","content":"second answer"}}`))
+		default:
+			t.Fatalf("path = %q", request.URL.Path)
+		}
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, server.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Chat(context.Background(), ChatInput{
+		Model:   "local:latest",
+		Context: "complete private note",
+		Messages: []ChatMessage{
+			{Role: "user", Content: "first question"},
+			{Role: "assistant", Content: "first answer"},
+			{Role: "user", Content: "follow-up question"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(messages) != 4 {
+		t.Fatalf("messages = %#v", messages)
+	}
+	if messages[0].Role != "system" || messages[1].Role != "user" || messages[2].Role != "assistant" || messages[3].Role != "user" {
+		t.Fatalf("roles = %#v", messages)
+	}
+	if !strings.Contains(messages[1].Content, "complete private note") || !strings.Contains(messages[1].Content, "first question") {
+		t.Fatalf("first user message = %q", messages[1].Content)
+	}
+	if messages[2].Content != "first answer" || messages[3].Content != "follow-up question" {
+		t.Fatalf("conversation = %#v", messages)
+	}
+	if strings.Contains(messages[2].Content+messages[3].Content, "complete private note") {
+		t.Fatalf("Notes context repeated after first user turn: %#v", messages)
+	}
+}
+
 func TestChatRejectsUnavailableAndOversizedInputBeforeGeneration(t *testing.T) {
 	chatCalls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -125,11 +178,27 @@ func TestChatRejectsUnavailableAndOversizedInputBeforeGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, input := range []ChatInput{
+	inputs := []ChatInput{
 		{Model: "missing:latest", Context: "context", Prompt: "question"},
 		{Model: "local:latest", Context: strings.Repeat("x", MaxContextBytes+1), Prompt: "question"},
 		{Model: "local:latest", Context: "context", Prompt: "  "},
-	} {
+		{Model: "local:latest", Prompt: "question", Messages: []ChatMessage{{Role: "user", Content: "duplicate"}}},
+		{Model: "local:latest", Messages: []ChatMessage{{Role: "assistant", Content: "wrong first role"}}},
+		{Model: "local:latest", Messages: []ChatMessage{{Role: "user", Content: "question"}, {Role: "user", Content: "not alternating"}}},
+		{Model: "local:latest", Messages: []ChatMessage{{Role: "user", Content: "question"}, {Role: "assistant", Content: "unfinished"}}},
+		{Model: "local:latest", Messages: []ChatMessage{{Role: "user", Content: "  "}}},
+		{Model: "local:latest", Messages: []ChatMessage{{Role: "user", Content: string([]byte{0xff})}}},
+		{Model: "local:latest", Messages: []ChatMessage{{Role: "user", Content: strings.Repeat("x", MaxPromptBytes+1)}}},
+		{
+			Model: "local:latest",
+			Messages: []ChatMessage{
+				{Role: "user", Content: "question"},
+				{Role: "assistant", Content: strings.Repeat("x", MaxConversationBytes)},
+				{Role: "user", Content: "follow-up"},
+			},
+		},
+	}
+	for _, input := range inputs {
 		if _, err := client.Chat(context.Background(), input); err == nil {
 			t.Fatalf("input %#v unexpectedly succeeded", input)
 		}

@@ -78,6 +78,27 @@ struct NotesSolarSystemMark: View {
     }
 }
 
+struct BeaconAIMark: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(BeaconThemePreference.current().tokens.info.color.opacity(0.2))
+            Circle()
+                .stroke(BeaconThemePreference.current().tokens.identityIssue.color.opacity(0.75), lineWidth: 0.8)
+            Image(systemName: NotesAssistantPresentation.buttonSymbol)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
+            Image(systemName: "sparkle")
+                .font(.system(size: 5, weight: .black))
+                .foregroundStyle(BeaconThemePreference.current().tokens.success.color)
+                .offset(x: 6, y: -6)
+        }
+        .frame(width: 19, height: 19)
+        .shadow(color: BeaconThemePreference.current().tokens.info.color.opacity(0.35), radius: 2)
+        .accessibilityHidden(true)
+    }
+}
+
 struct EmptyNotesSpaceView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
