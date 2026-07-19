@@ -102,20 +102,29 @@ extension MenuView {
             if signalNotesExpanded {
                 notesAssistantHeaderButton
             }
-            Button {
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
-                    toggleSignalNotesSize()
-                }
-            } label: {
+            if viewMode.locksNotesAtHalfHeight {
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
-                    .rotationEffect(signalNotesExpanded ? .degrees(180) : .zero)
                     .frame(width: 20, height: 20)
+                    .help("Notes stay at half height in Fit Following")
+                    .accessibilityLabel("Notes fixed at half height")
+            } else {
+                Button {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
+                        toggleSignalNotesSize()
+                    }
+                } label: {
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
+                        .rotationEffect(signalNotesExpanded ? .degrees(180) : .zero)
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(.plain)
+                .help(signalNotesExpanded ? "Minimize Notes" : "Restore Notes")
+                .accessibilityLabel(signalNotesExpanded ? "Minimize Notes" : "Restore Notes")
             }
-            .buttonStyle(.plain)
-            .help(signalNotesExpanded ? "Minimize Notes" : "Restore Notes")
-            .accessibilityLabel(signalNotesExpanded ? "Minimize Notes" : "Restore Notes")
         }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
@@ -135,11 +144,15 @@ extension MenuView {
     var signalNotesExpanded: Bool { signalNotesSize.isExpanded }
 
     func signalNotesHeight(in availableHeight: CGFloat) -> CGFloat? {
-        guard let fraction = signalNotesSize.heightFraction else { return nil }
-        return max(220, availableHeight * fraction)
+        DashboardViewModePresentation.notesHeight(
+            in: availableHeight,
+            mode: viewMode,
+            size: signalNotesSize
+        )
     }
 
     func toggleSignalNotesSize() {
+        guard !viewMode.locksNotesAtHalfHeight else { return }
         if signalNotesSize == .minimized {
             let restored = SignalNotesSize(rawValue: signalNotesLastExpandedSizeValue) ?? .half
             setSignalNotesSize(restored == .minimized ? .half : restored)
@@ -149,6 +162,7 @@ extension MenuView {
     }
 
     func cycleSignalNotesSize() {
+        guard !viewMode.locksNotesAtHalfHeight else { return }
         setSignalNotesSize(signalNotesSize.nextCycled)
     }
 

@@ -573,7 +573,9 @@ must not add an inbox, aliases, timeline, or activity-management destination.
 Secondary commands and preferences live in a top-right Settings menu. A
 separate compact view control offers a persisted stacked list, horizontal tile
 strips, an experimental state-column kanban board, and an adaptive experimental
-Overview over the same ordered lanes. Overview uses the dense shared card,
+Overview over the same ordered lanes. A fitted Following view keeps Notes in
+the lower half while scaling every current Following lane into the upper half
+without a separate lane-area scroll. Overview uses the dense shared card,
 collapses empty groups, minimizes Notes while active, and restores its prior
 size on exit. Comfortable, Compact, and Dense are separately persisted shared
 card-density contracts, not alternate policy or font-size settings. A compact

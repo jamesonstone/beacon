@@ -103,12 +103,14 @@ extension ModelsTests {
     }
 
     func testDashboardViewModesHaveStablePresentationContracts() {
-        XCTAssertEqual(DashboardViewMode.allCases.map(\.rawValue), ["stacked", "tiles", "kanban", "overview"])
+        XCTAssertEqual(DashboardViewMode.allCases.map(\.rawValue), ["stacked", "tiles", "kanban", "overview", "fitted"])
         XCTAssertEqual(DashboardViewMode.stacked.title, "Stacked")
         XCTAssertEqual(DashboardViewMode.tiles.symbol, "rectangle.grid.1x2")
         XCTAssertTrue(DashboardViewMode.kanban.title.contains("Experimental"))
         XCTAssertTrue(DashboardViewMode.overview.title.contains("Experimental"))
         XCTAssertEqual(DashboardViewMode.overview.symbol, "rectangle.grid.2x2")
+        XCTAssertEqual(DashboardViewMode.fitted.title, "Fit Following")
+        XCTAssertTrue(DashboardViewMode.fitted.locksNotesAtHalfHeight)
     }
 
     func testViewModeMenuIdentityIgnoresUnrelatedParentRefreshes() {
@@ -167,7 +169,7 @@ extension ModelsTests {
     }
 
     func testOverviewMinimizesAndRestoresPriorNotesSize() {
-        let entered = DashboardOverviewPresentation.notesTransition(
+        let entered = DashboardViewModePresentation.notesTransition(
             from: .stacked,
             to: .overview,
             current: .eighty,
@@ -176,7 +178,7 @@ extension ModelsTests {
         XCTAssertEqual(entered.current, .minimized)
         XCTAssertEqual(entered.lastExpanded, .eighty)
 
-        let exited = DashboardOverviewPresentation.notesTransition(
+        let exited = DashboardViewModePresentation.notesTransition(
             from: .overview,
             to: .tiles,
             current: entered.current,

@@ -39,20 +39,40 @@ enum SignalNotesPresentation {
     }
 }
 
-enum DashboardOverviewPresentation {
+enum DashboardViewModePresentation {
     static func notesTransition(
         from previous: DashboardViewMode,
         to next: DashboardViewMode,
         current: SignalNotesSize,
         lastExpanded: SignalNotesSize
     ) -> (current: SignalNotesSize, lastExpanded: SignalNotesSize) {
+        let remembered = lastExpanded.isExpanded ? lastExpanded : .half
         if next == .overview {
-            return (.minimized, current.isExpanded ? current : lastExpanded)
+            let previousExpanded = previous == .fitted
+                ? remembered
+                : (current.isExpanded ? current : remembered)
+            return (.minimized, previousExpanded)
         }
-        if previous == .overview, current == .minimized {
-            return (lastExpanded.isExpanded ? lastExpanded : .half, lastExpanded)
+        if next == .fitted {
+            let previousExpanded = current.isExpanded ? current : remembered
+            return (.half, previousExpanded)
+        }
+        if previous == .overview || previous == .fitted {
+            return (remembered, remembered)
         }
         return (current, lastExpanded)
+    }
+
+    static func notesHeight(
+        in availableHeight: CGFloat,
+        mode: DashboardViewMode,
+        size: SignalNotesSize
+    ) -> CGFloat? {
+        if mode.locksNotesAtHalfHeight {
+            return availableHeight * SignalNotesPresentation.expandedHeightFraction
+        }
+        guard let fraction = size.heightFraction else { return nil }
+        return max(220, availableHeight * fraction)
     }
 }
 

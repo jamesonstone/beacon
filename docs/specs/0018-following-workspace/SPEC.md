@@ -72,6 +72,14 @@ references:
     read_policy: evidence
     used_for: existing ready pull request delivery lane for the interaction follow-up
     status: active
+  - id: issue-55
+    name: Add fitted Following dashboard view mode
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/55
+    relation: implements
+    read_policy: must
+    used_for: fitted Following and Notes split-layout continuation
+    status: active
   - id: constitution
     name: Beacon constitution
     type: doc
@@ -181,6 +189,10 @@ collection through the existing GitHub cache and a coordinated additive model.
 - `Overview (Experimental)` is a fourth persisted view mode. It uses adaptive
   dense grids, collapses empty sections, and temporarily minimizes Notes while
   restoring the prior Notes size on exit.
+- `Fit Following` is a fifth persisted view mode. It reserves the lower half of
+  the dashboard for interactive Notes and dynamically scales every current
+  Following lane into the remaining upper-half workspace without lane-area
+  scrolling. Existing status sections and lane actions remain intact.
 - At the supplied detached-window size and default font, Overview must show the
   eleven current Following lanes without lane-area scrolling. Smaller windows
   and the 430-point menu may scroll. Parking Lot, Recently Updated, and Quiet
@@ -341,6 +353,9 @@ collection through the existing GitHub cache and a coordinated additive model.
 29. Present the taxonomy guide after a deliberate information-control hover,
     preserve pointer traversal into the guide, and retain click pinning,
     outside/Escape dismissal, keyboard access, and zero refresh/network work.
+30. Add persisted `Fit Following` as a no-scroll, scale-to-fit layout for every
+    current Following lane above a fixed half-height Notes workspace. Preserve
+    status order, refresh behavior, card actions, and all existing view modes.
 
 ## Assumptions
 
@@ -431,6 +446,9 @@ collection through the existing GitHub cache and a coordinated additive model.
 - [x] AC26: Hovering the information control opens the complete taxonomy guide;
   moving into the guide keeps it open, click pins/unpins it, outside click or
   Escape dismisses it, and keyboard/accessibility activation still works.
+- [x] AC27: Fit Following keeps Notes interactive in the lower half, displays
+  every current Following lane simultaneously in the upper workspace without
+  lane-area scrolling, and recomputes its scale for menu or window resizing.
 
 ## Implementation Plan
 
@@ -469,6 +487,12 @@ collection through the existing GitHub cache and a coordinated additive model.
     use direct native menu actions so a live scan cannot invalidate selection.
 17. Reuse Beacon's delayed hover/pointer-traversal interaction contract for the
     taxonomy guide, then validate both changes in a freshly built app.
+18. Add the issue #55 persisted mode and a deterministic fitted-grid sizing
+    model that preserves status sections and scales all lanes into its bounds.
+19. Lock Notes presentation to the lower half while the fitted mode is active,
+    restore the prior Notes size on exit, and cover transitions and resizing.
+20. Run focused and complete validation, visually inspect both dashboard
+    surfaces, and deliver the assigned ready issue #55 pull request.
 
 ## Agent Team Plan
 
@@ -517,6 +541,12 @@ collection through the existing GitHub cache and a coordinated additive model.
   traversal, pinning, dismissal, and accessibility behavior for taxonomy help.
 - [x] T20: Add focused coverage, run local and native interaction validation,
   update PR #52, push the follow-up, and verify its exact final hosted head.
+- [x] T21: Create assigned issue #55 and exact branch `GH-55` from refreshed
+  `origin/main`, then record the accepted fitted-layout contract.
+- [x] T22: Implement and test fitted Following geometry, half-height Notes,
+  stable persistence, existing-mode compatibility, and refresh-safe selection.
+- [ ] T23: Run full validation and native interaction smoke, review and stage
+  explicitly, then deliver the assigned ready PR and verify its hosted head.
 
 ## Validation Map
 
@@ -538,6 +568,7 @@ collection through the existing GitHub cache and a coordinated additive model.
 | AC25 | stable View Mode control identity/action tests plus active-refresh native selection smoke across layouts |
 | AC26 | hover timing contract tests plus native hover, traversal, click pin, outside/Escape, and keyboard accessibility smoke |
 | AC22-AC24 | font-catalog/default/fallback tests, UserDefaults persistence assertions, SwiftUI/AppKit resolution tests, macOS test/build, Appearance inspection, and relaunch smoke |
+| AC27 | fitted-grid geometry and mode-transition tests, 300-line audit, fresh menu/window resize smoke, full macOS validation, and hosted checks |
 
 ## Reflection Notes
 
@@ -578,6 +609,13 @@ collection through the existing GitHub cache and a coordinated additive model.
   eventually reject every follow-up. Requests now retain the newest complete
   turns within both helper limits while the entire transcript remains visible,
   and either panel initially scrolls to the newest visible turn.
+- Enumerating candidate column counts makes the fitted grid deterministic and
+  keeps its sizing model independent from SwiftUI rendering. Explicit rows,
+  rather than a lazy container, ensure every scaled lane remains present and
+  accessible even when its visual bounds are compact.
+- Fresh-app accessibility inspection caught that a container-level label hid
+  the individual lane labels. Removing that override preserved the complete
+  child accessibility tree while keeping the visual fit unchanged.
 
 ## Documentation Updates
 
@@ -599,6 +637,8 @@ collection through the existing GitHub cache and a coordinated additive model.
 - Continue the user-approved font work on issue #41, exact branch `GH-41`, and
   ready PR #42; update their scope to cover both the README masthead and shared
   Appearance typography before delivery.
+- Deliver the fitted Following continuation on issue #55, exact branch `GH-55`,
+  in a new ready pull request targeting `main` and assigned to `jamesonstone`.
 
 ## Evidence
 
@@ -731,3 +771,20 @@ collection through the existing GitHub cache and a coordinated additive model.
   and `macos` in 2 minutes 37 seconds. CodeRabbit completed successfully, and
   its sole current review thread is resolved as addressed by the implementation
   commit.
+- Issue #55 is assigned to `jamesonstone`; branch `GH-55` was created from
+  refreshed `origin/main` at `1a283a6a28513620b2bf3f1786b9fcb83e7f0715`.
+- Fit Following persists as the fifth view mode, fits all 12 live Following
+  lanes into the upper workspace at both normal and compact window sizes, and
+  keeps interactive Notes fixed to the lower half without a lane-area scroll.
+- Five focused fitted-layout and transition tests plus the two existing mode
+  contract tests pass. The complete local gate passes `make
+  BEACON_DERIVED_DATA=/tmp/beacon-gh55-final fmt-check vet test test-race
+  release-test build macos-test macos-build`; the macOS suite executed 150
+  tests with zero failures and zero skips.
+- Linux amd64 build, all 20 Kit feature checks, project-contract validation,
+  plist lint, `git diff --check`, and the application/code source-size audit
+  pass; zero Go, Swift, shell, JavaScript, TypeScript, or Python files exceed
+  300 lines.
+- Fresh built-app smoke confirmed all 12 lane actions and accessibility labels,
+  half-height Notes, persisted relaunch state, compact resize recomputation, and
+  live View Mode interaction while the scan control remained busy.

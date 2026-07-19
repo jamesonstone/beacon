@@ -60,7 +60,7 @@ struct MenuView: View {
     func setViewMode(_ mode: DashboardViewMode) {
         let previous = DashboardViewMode(rawValue: viewModeValue) ?? .stacked
         guard previous != mode else { return }
-        let transition = DashboardOverviewPresentation.notesTransition(
+        let transition = DashboardViewModePresentation.notesTransition(
             from: previous,
             to: mode,
             current: SignalNotesSize(rawValue: signalNotesSizeValue) ?? .half,

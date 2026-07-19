@@ -6,6 +6,7 @@ enum DashboardViewMode: String, CaseIterable, Identifiable {
     case tiles
     case kanban
     case overview
+    case fitted
 
     var id: String { rawValue }
 
@@ -15,6 +16,7 @@ enum DashboardViewMode: String, CaseIterable, Identifiable {
         case .tiles: "Horizontal Tiles"
         case .kanban: "Kanban (Experimental)"
         case .overview: "Overview (Experimental)"
+        case .fitted: "Fit Following"
         }
     }
 
@@ -24,8 +26,11 @@ enum DashboardViewMode: String, CaseIterable, Identifiable {
         case .tiles: "rectangle.grid.1x2"
         case .kanban: "rectangle.split.3x1"
         case .overview: "rectangle.grid.2x2"
+        case .fitted: "rectangle.split.1x2"
         }
     }
+
+    var locksNotesAtHalfHeight: Bool { self == .fitted }
 }
 
 enum DashboardDensity: String, CaseIterable, Identifiable {
