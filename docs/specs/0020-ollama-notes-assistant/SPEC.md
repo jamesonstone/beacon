@@ -2,7 +2,7 @@
 kit_metadata_version: 1
 artifact: spec
 workflow_version: 2
-phase: implement
+phase: deliver
 delivery_intent: ready_pull_request
 clarification:
   status: ready
@@ -334,7 +334,7 @@ No persisted data or configuration migration is involved.
   Command-Shift-I routing, mode-preserving transitions, and Beacon-themed mark.
 - [x] T17: Add focused helper, state, sizing, mode, failure, history, and reset
   tests; update README and Constitution behavior contracts.
-- [ ] T18: Run full local and native smoke validation, complete GH-51 delivery,
+- [x] T18: Run full local and native smoke validation, complete GH-51 delivery,
   and verify the exact ready-PR hosted-check state.
 
 ## Validation Map
@@ -435,4 +435,8 @@ template, a ready pull request, and literal final-head hosted-check reporting.
   context-free two-turn `gemma3:270m` exchange retained all four ordered turns;
   the bottom composer kept an additional unsent draft visible; and Cancel reset
   the session without enabling Notes Save or Revert.
-- Conversation extension pull request: pending implementation
+- Conversation extension hosted validation: required Go and macOS checks passed
+  on implementation commit `24eba88`; CodeRabbit remained optional and in
+  progress when delivery evidence was recorded.
+- Conversation extension pull request: [#52](https://github.com/jamesonstone/beacon/pull/52),
+  ready for human review
