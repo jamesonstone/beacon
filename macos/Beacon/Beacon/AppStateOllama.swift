@@ -1,13 +1,32 @@
 import Foundation
 
 extension AppState {
-    func prepareNotesAssistant(selection: String) async {
-        guard NotesAssistantPresentation.hasUsableSelection(selection) else { return }
-        notesAssistantAttachment = selection
+    func prepareNotesAssistant(selection: String, note: String) async {
+        notesAssistantRequestGeneration += 1
+        isSendingOllamaPrompt = false
+        let context = NotesAssistantPresentation.context(selection: selection, note: note)
+        notesAssistantAttachment = context?.text ?? ""
+        notesAssistantContextSource = context?.source
         notesAssistantPrompt = ""
         notesAssistantResponse = nil
         ollamaError = nil
         await refreshOllamaModels()
+    }
+
+    func removeNotesAssistantContext() {
+        notesAssistantAttachment = ""
+        notesAssistantContextSource = nil
+    }
+
+    func dismissNotesAssistant() {
+        notesAssistantRequestGeneration += 1
+        notesAssistantAttachment = ""
+        notesAssistantContextSource = nil
+        notesAssistantPrompt = ""
+        notesAssistantResponse = nil
+        ollamaError = nil
+        ollamaNotice = nil
+        isSendingOllamaPrompt = false
     }
 
     func refreshOllamaModels() async {
@@ -62,30 +81,37 @@ extension AppState {
 
     func sendNotesAssistantPrompt() async {
         let model = ollamaSelectedModel
-        let selection = notesAssistantAttachment
+        let context = notesAssistantAttachment
         let prompt = notesAssistantPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard NotesAssistantPresentation.hasUsableSelection(selection),
-              !prompt.isEmpty,
+        guard !prompt.isEmpty,
               ollamaModels.contains(where: { $0.name == model }),
               !isSendingOllamaPrompt else { return }
+        notesAssistantRequestGeneration += 1
+        let requestGeneration = notesAssistantRequestGeneration
         isSendingOllamaPrompt = true
         notesAssistantResponse = nil
         ollamaError = nil
-        defer { isSendingOllamaPrompt = false }
+        defer {
+            if notesAssistantRequestGeneration == requestGeneration {
+                isSendingOllamaPrompt = false
+            }
+        }
         do {
-            notesAssistantResponse = try await ollamaClient.ollamaChat(
+            let response = try await ollamaClient.ollamaChat(
                 model: model,
-                selection: selection,
+                context: context,
                 prompt: prompt
             )
+            guard notesAssistantRequestGeneration == requestGeneration else { return }
+            notesAssistantResponse = response
         } catch {
+            guard notesAssistantRequestGeneration == requestGeneration else { return }
             ollamaError = error.localizedDescription
         }
     }
 
     var canSendNotesAssistantPrompt: Bool {
-        NotesAssistantPresentation.hasUsableSelection(notesAssistantAttachment) &&
-            !notesAssistantPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !notesAssistantPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             ollamaModels.contains(where: { $0.name == ollamaSelectedModel }) &&
             !isSendingOllamaPrompt
     }

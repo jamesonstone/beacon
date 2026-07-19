@@ -62,7 +62,7 @@ func TestChatValidatesModelAndSendsBoundedNonStreamingMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 	result, err := client.Chat(context.Background(), ChatInput{
-		Model: "local:latest", Selection: "selected secret", Prompt: "summarize it",
+		Model: "local:latest", Context: "selected secret", Prompt: "summarize it",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -75,6 +75,40 @@ func TestChatValidatesModelAndSendsBoundedNonStreamingMessages(t *testing.T) {
 	}
 	if len(requestBody.Messages) != 2 || !strings.Contains(requestBody.Messages[1].Content, "selected secret") || !strings.Contains(requestBody.Messages[1].Content, "summarize it") {
 		t.Fatalf("messages = %#v", requestBody.Messages)
+	}
+}
+
+func TestChatAllowsPromptWithoutNotesContext(t *testing.T) {
+	var userMessage string
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/api/tags":
+			_, _ = writer.Write([]byte(`{"models":[{"name":"local:latest","size":42,"details":{"format":"gguf"}}]}`))
+		case "/api/chat":
+			var body struct {
+				Messages []message `json:"messages"`
+			}
+			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+				t.Fatal(err)
+			}
+			userMessage = body.Messages[1].Content
+			_, _ = writer.Write([]byte(`{"model":"local:latest","message":{"role":"assistant","content":"answer"}}`))
+		default:
+			t.Fatalf("path = %q", request.URL.Path)
+		}
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, server.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Chat(context.Background(), ChatInput{
+		Model: "local:latest", Prompt: "brainstorm next steps",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if userMessage != "User request:\nbrainstorm next steps" {
+		t.Fatalf("user message = %q", userMessage)
 	}
 }
 
@@ -92,9 +126,9 @@ func TestChatRejectsUnavailableAndOversizedInputBeforeGeneration(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, input := range []ChatInput{
-		{Model: "missing:latest", Selection: "context", Prompt: "question"},
-		{Model: "local:latest", Selection: strings.Repeat("x", MaxSelectionBytes+1), Prompt: "question"},
-		{Model: "local:latest", Selection: "context", Prompt: "  "},
+		{Model: "missing:latest", Context: "context", Prompt: "question"},
+		{Model: "local:latest", Context: strings.Repeat("x", MaxContextBytes+1), Prompt: "question"},
+		{Model: "local:latest", Context: "context", Prompt: "  "},
 	} {
 		if _, err := client.Chat(context.Background(), input); err == nil {
 			t.Fatalf("input %#v unexpectedly succeeded", input)

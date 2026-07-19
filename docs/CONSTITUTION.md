@@ -636,16 +636,22 @@ through the frontmost shared view hierarchy. When Following
 contains no in-progress lanes and no projects are loading,
 both surfaces replace the empty lane body with an adaptive celebratory state whose
 copy describes lane state rather than repository-ref freshness.
-An exact non-empty native editor selection may open one compact Notes assistant
-below the header action and inside the current Beacon bounds. The selection is
-captured when opened and displayed as attached context beside a user prompt.
-The model selector lists only installed local Ollama artifacts, its per-request
-choice does not implicitly change the configured default, and the right-aligned
-send action renders one response in the same panel. Swift sends bounded JSON to
-the helper over stdin and keeps no persistent chat history. The helper alone
-contacts `http://127.0.0.1:11434`, rejects cloud or unavailable models, and
-disables streaming for this interaction. No assistant response may mutate Notes
-or become Beacon evidence, and no background insight request is permitted.
+Expanded Notes exposes one accessible, always-enabled AI action with a generous
+native target. It opens one compact assistant below the header action and inside
+the current Beacon bounds; the Notes and all-commands quick switchers expose the
+same action and restore expanded Notes when necessary. A non-empty native editor
+selection is captured exactly, otherwise the entire current draft is captured,
+including unsaved visible edits. That snapshot is displayed as removable
+attached context beside a user prompt, and the prompt may be sent without any
+Notes context. A labeled Cancel action exits and resets the panel so a late
+response cannot repopulate it. The model selector lists only installed local
+Ollama artifacts, its per-request choice does not implicitly change the
+configured default, and the right-aligned send action renders one response in
+the same panel. Swift sends bounded JSON to the helper over stdin and keeps no
+persistent chat history. The helper alone contacts `http://127.0.0.1:11434`,
+rejects cloud or unavailable models, and disables streaming for this
+interaction. No assistant response may mutate Notes or become Beacon evidence,
+and no background insight request is permitted.
 The Beacon wordmark may animate a modest horizontally traveling gradient derived
 from the selected theme. It must remain readable, use no evidence or status
 policy, and render a static gradient when Reduce Motion is enabled.

@@ -8,38 +8,22 @@ struct NotesAssistantPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            HStack(alignment: .top, spacing: 7) {
-                Spacer(minLength: 20)
-                VStack(alignment: .leading, spacing: 3) {
-                    Label("Notes selection", systemImage: "paperclip")
+            HStack(spacing: 7) {
+                Label("Notes AI", systemImage: "sparkles")
+                    .font(BeaconTypography.semibold(10))
+                    .foregroundStyle(theme.tokens.accent.color)
+                Spacer()
+                Button(role: .cancel, action: close) {
+                    Label("Cancel", systemImage: "xmark")
                         .font(BeaconTypography.semibold(8))
-                        .foregroundStyle(theme.tokens.info.color)
-                    ScrollView {
-                        Text(state.notesAssistantAttachment)
-                            .font(BeaconTypography.regular(9))
-                            .foregroundStyle(theme.tokens.textPrimary.color)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(maxHeight: 44)
                 }
-                .padding(7)
-                .background(theme.tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 7))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 7)
-                        .strokeBorder(theme.tokens.border.color, lineWidth: borderWidth)
-                }
-
-                Button(action: close) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 8, weight: .semibold))
-                        .frame(width: 18, height: 18)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(theme.tokens.textSecondary.color)
-                .help("Close Ollama assistant")
-                .accessibilityLabel("Close Ollama assistant")
+                .buttonStyle(.bordered)
+                .keyboardShortcut(.cancelAction)
+                .help("Exit the Notes assistant")
+                .accessibilityLabel("Cancel Notes AI")
             }
+
+            contextAttachment
 
             TextEditor(text: $state.notesAssistantPrompt)
                 .font(BeaconTypography.regular(9))
@@ -52,7 +36,7 @@ struct NotesAssistantPanel: View {
                     RoundedRectangle(cornerRadius: 7)
                         .strokeBorder(theme.tokens.border.color, lineWidth: borderWidth)
                 }
-                .accessibilityLabel("Prompt about selected Notes text")
+                .accessibilityLabel("Prompt for Notes AI")
 
             if let response = state.notesAssistantResponse {
                 ScrollView {
@@ -133,6 +117,51 @@ struct NotesAssistantPanel: View {
     private var borderWidth: CGFloat {
         colorSchemeContrast == .increased ? 1.1 : 0.7
     }
+
+    @ViewBuilder
+    private var contextAttachment: some View {
+        if let source = state.notesAssistantContextSource {
+            HStack(alignment: .top, spacing: 7) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Label(source.title, systemImage: "paperclip")
+                        .font(BeaconTypography.semibold(8))
+                        .foregroundStyle(theme.tokens.info.color)
+                    ScrollView {
+                        Text(state.notesAssistantAttachment)
+                            .font(BeaconTypography.regular(9))
+                            .foregroundStyle(theme.tokens.textPrimary.color)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: 44)
+                }
+                Spacer(minLength: 4)
+                Button {
+                    state.removeNotesAssistantContext()
+                } label: {
+                    Label("Remove", systemImage: "xmark.circle.fill")
+                        .font(BeaconTypography.medium(8))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(theme.tokens.textSecondary.color)
+                .disabled(state.isSendingOllamaPrompt)
+                .help("Remove Notes context")
+                .accessibilityLabel("Remove Notes context")
+            }
+            .padding(7)
+            .background(theme.tokens.surfaceRaised.color, in: RoundedRectangle(cornerRadius: 7))
+            .overlay {
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(theme.tokens.border.color, lineWidth: borderWidth)
+            }
+        } else {
+            Label("No note context attached", systemImage: "paperclip.badge.ellipsis")
+                .font(BeaconTypography.regular(8))
+                .foregroundStyle(theme.tokens.textMuted.color)
+                .padding(.horizontal, 2)
+                .accessibilityLabel("No Notes context attached")
+        }
+    }
 }
 
 extension MenuView {
@@ -143,12 +172,61 @@ extension MenuView {
             HStack {
                 Spacer(minLength: 0)
                 NotesAssistantPanel(state: state) {
-                    showingNotesAssistant = false
+                    closeNotesAssistant()
                 }
                 .frame(width: panelSize.width, height: panelSize.height)
                 .padding(.trailing, 28)
             }
             .padding(.top, 32)
         }
+    }
+
+    var notesAssistantHeaderButton: some View {
+        Button {
+            if showingNotesAssistant {
+                closeNotesAssistant()
+            } else {
+                showNotesAssistant()
+            }
+        } label: {
+            Label(
+                NotesAssistantPresentation.buttonLabel,
+                systemImage: "sparkles"
+            )
+            .font(BeaconTypography.semibold(9))
+            .padding(.horizontal, 7)
+            .frame(height: 24)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(theme.tokens.info.color.opacity(0.78))
+        .help(NotesAssistantPresentation.buttonAccessibilityLabel)
+        .accessibilityLabel(NotesAssistantPresentation.buttonAccessibilityLabel)
+    }
+
+    var notesAssistantCommandDetail: String {
+        switch NotesAssistantPresentation.context(
+            selection: state.notesSelectedText,
+            note: state.notesDraft
+        )?.source {
+        case .selection: "Attach the current Notes selection"
+        case .note: "Attach the entire current note"
+        case nil: "Start without note context"
+        }
+    }
+
+    func showNotesAssistant() {
+        if !signalNotesExpanded {
+            let restored = SignalNotesSize(rawValue: signalNotesLastExpandedSizeValue) ?? .half
+            setSignalNotesSize(restored == .minimized ? .half : restored)
+        }
+        showingNotesAssistant = true
+        let selection = state.notesSelectedText
+        let note = state.notesDraft
+        Task { await state.prepareNotesAssistant(selection: selection, note: note) }
+    }
+
+    func closeNotesAssistant() {
+        showingNotesAssistant = false
+        state.dismissNotesAssistant()
     }
 }

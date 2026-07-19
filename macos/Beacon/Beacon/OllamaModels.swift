@@ -40,12 +40,32 @@ struct OllamaChatResponse: Codable, Equatable {
 protocol OllamaClientProtocol {
     func ollamaStatus() async throws -> OllamaStatus
     func setOllamaDefaultModel(_ model: String) async throws -> String
-    func ollamaChat(model: String, selection: String, prompt: String) async throws -> OllamaChatResponse
+    func ollamaChat(model: String, context: String, prompt: String) async throws -> OllamaChatResponse
+}
+
+enum NotesAssistantContextSource: Equatable {
+    case selection
+    case note
+
+    var title: String {
+        switch self {
+        case .selection: "Notes selection"
+        case .note: "Entire current note"
+        }
+    }
+}
+
+struct NotesAssistantContext: Equatable {
+    let text: String
+    let source: NotesAssistantContextSource
 }
 
 enum NotesAssistantPresentation {
-    static let buttonLabel = "Ask Ollama About Selection"
+    static let buttonLabel = "AI"
+    static let buttonAccessibilityLabel = "Ask AI About Current Note"
     static let panelAccessibilityLabel = "Ollama Notes assistant"
+    static let quickSwitcherTitle = "Ask AI About Current Note"
+    static let quickSwitcherKeywords = "ai ollama assistant chat prompt signal notes"
 
     static func hasUsableSelection(_ selection: String) -> Bool {
         !selection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -56,6 +76,16 @@ enum NotesAssistantPresentation {
             return configured
         }
         return models.first?.name ?? ""
+    }
+
+    static func context(selection: String, note: String) -> NotesAssistantContext? {
+        if hasUsableSelection(selection) {
+            return NotesAssistantContext(text: selection, source: .selection)
+        }
+        if hasUsableSelection(note) {
+            return NotesAssistantContext(text: note, source: .note)
+        }
+        return nil
     }
 
     static func panelSize(in available: CGSize, surface: DashboardSurface) -> CGSize {

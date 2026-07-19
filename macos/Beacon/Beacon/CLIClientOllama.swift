@@ -25,16 +25,16 @@ extension CLIClient: OllamaClientProtocol {
 
     func ollamaChat(
         model: String,
-        selection: String,
+        context: String,
         prompt: String
     ) async throws -> OllamaChatResponse {
         struct ChatInput: Encodable {
-            let selection: String
+            let context: String
             let prompt: String
         }
         let input: Data
         do {
-            input = try JSONEncoder().encode(ChatInput(selection: selection, prompt: prompt))
+            input = try JSONEncoder().encode(ChatInput(context: context, prompt: prompt))
         } catch {
             throw CLIClientError.invalidOutput(error.localizedDescription)
         }

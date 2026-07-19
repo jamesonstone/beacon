@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const ollamaInputLimit = ollama.MaxSelectionBytes + ollama.MaxPromptBytes + 4096
+const ollamaInputLimit = ollama.MaxContextBytes + ollama.MaxPromptBytes + 4096
 
 type ollamaClient interface {
 	ListModels(context.Context) ([]ollama.Model, error)
@@ -83,7 +83,7 @@ func (a App) ollamaChatCommand() *cobra.Command {
 	var model string
 	var jsonOutput bool
 	command := &cobra.Command{
-		Use: "chat", Short: "Ask a local Ollama model about selected Notes text", Args: noArgs,
+		Use: "chat", Short: "Ask a local Ollama model with optional Notes context", Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			input, err := decodeOllamaInput(a.input())
 			if err != nil {

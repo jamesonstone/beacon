@@ -195,24 +195,7 @@ extension MenuView {
                     .tint(BeaconThemePreference.current().tokens.info.color)
             }
             if signalNotesExpanded {
-                Button {
-                    if showingNotesAssistant {
-                        showingNotesAssistant = false
-                    } else {
-                        let selection = state.notesSelectedText
-                        showingNotesAssistant = true
-                        Task { await state.prepareNotesAssistant(selection: selection) }
-                    }
-                } label: {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
-                        .frame(width: 20, height: 20)
-                }
-                .buttonStyle(.plain)
-                .disabled(!NotesAssistantPresentation.hasUsableSelection(state.notesSelectedText))
-                .help(NotesAssistantPresentation.buttonLabel)
-                .accessibilityLabel(NotesAssistantPresentation.buttonLabel)
+                notesAssistantHeaderButton
             }
             Button {
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
@@ -264,10 +247,10 @@ extension MenuView {
         setSignalNotesSize(signalNotesSize.nextCycled)
     }
 
-    private func setSignalNotesSize(_ size: SignalNotesSize) {
+    func setSignalNotesSize(_ size: SignalNotesSize) {
         signalNotesSizeValue = size.rawValue
         if size == .minimized {
-            showingNotesAssistant = false
+            closeNotesAssistant()
         }
         if size.isExpanded {
             signalNotesLastExpandedSizeValue = size.rawValue

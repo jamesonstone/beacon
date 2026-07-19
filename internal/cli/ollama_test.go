@@ -49,11 +49,11 @@ func TestOllamaModelsReturnsLocalStatusWithoutStartingAgent(t *testing.T) {
 	}
 }
 
-func TestOllamaChatReadsSelectionAndPromptFromStdin(t *testing.T) {
+func TestOllamaChatReadsContextAndPromptFromStdin(t *testing.T) {
 	fake := &fakeOllamaClient{result: ollama.ChatResult{Model: "local:latest", Content: "answer"}}
 	var output bytes.Buffer
 	app := App{
-		In:  strings.NewReader(`{"selection":"private note","prompt":"summarize"}`),
+		In:  strings.NewReader(`{"context":"private note","prompt":"summarize"}`),
 		Out: &output, Err: &bytes.Buffer{}, ollamaClientSource: func() ollamaClient { return fake },
 	}
 	root := app.Root()
@@ -61,15 +61,31 @@ func TestOllamaChatReadsSelectionAndPromptFromStdin(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if fake.input.Selection != "private note" || fake.input.Prompt != "summarize" || fake.input.Model != "local:latest" {
+	if fake.input.Context != "private note" || fake.input.Prompt != "summarize" || fake.input.Model != "local:latest" {
 		t.Fatalf("input = %#v", fake.input)
 	}
 	if strings.Contains(strings.Join(root.Flags().Args(), " "), "private note") {
-		t.Fatal("selected note leaked into command arguments")
+		t.Fatal("Notes context leaked into command arguments")
 	}
 	var result ollama.ChatResult
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.Content != "answer" {
 		t.Fatalf("result = %#v, %v", result, err)
+	}
+}
+
+func TestOllamaChatAllowsPromptWithoutNotesContext(t *testing.T) {
+	fake := &fakeOllamaClient{result: ollama.ChatResult{Model: "local:latest", Content: "answer"}}
+	app := App{
+		In: strings.NewReader(`{"prompt":"brainstorm"}`), Out: &bytes.Buffer{}, Err: &bytes.Buffer{},
+		ollamaClientSource: func() ollamaClient { return fake },
+	}
+	root := app.Root()
+	root.SetArgs([]string{"ollama", "chat", "--model", "local:latest", "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if fake.input.Context != "" || fake.input.Prompt != "brainstorm" {
+		t.Fatalf("input = %#v", fake.input)
 	}
 }
 
@@ -93,8 +109,8 @@ func TestOllamaSetDefaultAtomicallyPreservesConfig(t *testing.T) {
 
 func TestDecodeOllamaInputRejectsUnknownAndMultipleDocuments(t *testing.T) {
 	for _, input := range []string{
-		`{"selection":"x","prompt":"y","unknown":true}`,
-		"{\"selection\":\"x\",\"prompt\":\"y\"}\n{}",
+		`{"context":"x","prompt":"y","unknown":true}`,
+		"{\"context\":\"x\",\"prompt\":\"y\"}\n{}",
 	} {
 		if _, err := decodeOllamaInput(strings.NewReader(input)); err == nil {
 			t.Fatalf("input %q unexpectedly succeeded", input)

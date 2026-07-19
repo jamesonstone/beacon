@@ -48,6 +48,7 @@ final class AppState: ObservableObject {
     @Published var notesCurrentLine = ""
     @Published var notesSelectedText = ""
     @Published var notesAssistantAttachment = ""
+    @Published var notesAssistantContextSource: NotesAssistantContextSource?
     @Published var notesAssistantPrompt = ""
     @Published var notesAssistantResponse: OllamaChatResponse?
     @Published var ollamaModels: [OllamaModel] = []
@@ -91,6 +92,7 @@ final class AppState: ObservableObject {
     let notesAutosave = SignalNotesAutosave()
     var notesDraftID = "general"
     var notesUseFallback = false
+    var notesAssistantRequestGeneration = 0
 
     init(
         agent: AgentClientProtocol = AgentClient(),
