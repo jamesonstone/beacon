@@ -23,6 +23,7 @@
 | 0017 | beacon-focus-notes | `docs/specs/0017-beacon-focus-notes` | deliver | no | 2026-07-17 | Make the next action explicit and refine Notes with persisted pinned order, flexible sizing, and native space animation. |
 | 0018 | following-workspace | `docs/specs/0018-following-workspace` | deliver | no | 2026-07-18 | Make Following reorderable, denser, self-explanatory, rich in cached evidence, and readable through five semantic themes. |
 | 0019 | drop-down-terminal | `docs/specs/0019-drop-down-terminal` | deliver | no | 2026-07-18 | Add a retained native terminal that toggles with Command-J inside the current Beacon dashboard bounds while Beacon is active. |
+| 0020 | ollama-notes-assistant | `docs/specs/0020-ollama-notes-assistant` | implement | no | 2026-07-18 | Attach an exact Notes selection to a user prompt and render one local Ollama response inside a bounded native Notes panel. |
 
 ## PROJECT INTENT
 
@@ -212,6 +213,15 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **APPROACH**: Retain one SwiftTerm-backed pseudo-terminal in an AppKit panel bounded by the current dashboard frame, handle the shortcut with an application-local AppKit event monitor, persist edge and height settings, and keep Warp as a documented external dedicated-window option rather than automating private preferences.
 - **OPEN ITEMS**: Terminal ownership, Settings, focused tests, documentation, universal build and release packaging, live shell-retention smoke, and application-local shortcut scoping are complete on issue #43, branch `GH-43`, and ready PR #44; hosted-check verification, human review, and merge remain.
 - **POINTERS**: `docs/specs/0019-drop-down-terminal/SPEC.md`
+
+### ollama-notes-assistant
+
+- **STATUS**: implement
+- **PAUSED**: no
+- **INTENT**: Let a user ask one explicit question about selected Signal Notes text through an installed local Ollama model without making Notes autonomous or remotely hosted.
+- **APPROACH**: Capture exact native editor selection, keep loopback Ollama discovery and chat validation in the Go helper, pass note context over stdin, persist one optional default model in strict YAML, and render a shared in-bounds SwiftUI assistant panel.
+- **OPEN ITEMS**: Implement and validate AC1-AC11 on issue #45 and branch `GH-45`, then deliver a ready pull request.
+- **POINTERS**: `docs/specs/0020-ollama-notes-assistant/SPEC.md`
 
 ## LAST UPDATED
 

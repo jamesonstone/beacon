@@ -46,6 +46,18 @@ final class AppState: ObservableObject {
     @Published var notesWorkspace: AgentNotesWorkspace?
     @Published var notesDraft = ""
     @Published var notesCurrentLine = ""
+    @Published var notesSelectedText = ""
+    @Published var notesAssistantAttachment = ""
+    @Published var notesAssistantPrompt = ""
+    @Published var notesAssistantResponse: OllamaChatResponse?
+    @Published var ollamaModels: [OllamaModel] = []
+    @Published var ollamaConfiguredModel = ""
+    @Published var ollamaSelectedModel = ""
+    @Published var ollamaNotice: String?
+    @Published var ollamaError: String?
+    @Published var isLoadingOllamaModels = false
+    @Published var isSavingOllamaDefault = false
+    @Published var isSendingOllamaPrompt = false
     @Published var isSavingNotes = false
     @Published var notesError: String?
     @Published var repositorySyncReport: RepositorySyncReport?
@@ -64,6 +76,7 @@ final class AppState: ObservableObject {
     let repositorySyncFallback: CLIClientProtocol?
     let dependencyLimitsClient: CLIClientProtocol?
     let externalActivityClient: CLIClientProtocol?
+    let ollamaClient: OllamaClientProtocol
     private var subscriptionTask: Task<Void, Never>?
     var revisions: [String: UInt64] = [:]
     var activeScanID: String?
@@ -85,7 +98,8 @@ final class AppState: ObservableObject {
         notesFallback: CLIClientProtocol? = CLIClient(),
         repositorySyncFallback: CLIClientProtocol? = CLIClient(),
         dependencyLimitsClient: CLIClientProtocol? = CLIClient(),
-        externalActivityClient: CLIClientProtocol? = nil
+        externalActivityClient: CLIClientProtocol? = nil,
+        ollamaClient: OllamaClientProtocol = CLIClient()
     ) {
         self.agent = agent
         self.installer = installer
@@ -93,6 +107,7 @@ final class AppState: ObservableObject {
         self.repositorySyncFallback = repositorySyncFallback
         self.dependencyLimitsClient = dependencyLimitsClient
         self.externalActivityClient = externalActivityClient
+        self.ollamaClient = ollamaClient
     }
 
     convenience init(client: CLIClientProtocol) {

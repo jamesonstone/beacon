@@ -38,6 +38,7 @@ type App struct {
 	syncPrompterSource    repositorySyncPrompter
 	agentClientSource     func(string) agentRequestClient
 	agentStarterSource    func(agent.Paths) agentStarter
+	ollamaClientSource    func() ollamaClient
 	autoStartAgent        bool
 }
 
@@ -122,6 +123,7 @@ func (a App) Root() *cobra.Command {
 		a.limitsCommand(),
 		a.integrationsCommand(&configPath),
 		a.activityCommand(&configPath),
+		a.ollamaCommand(&configPath),
 		a.agentCommand(&configPath),
 		a.doctorCommand(&configPath),
 		a.openCommand(&configPath),
@@ -141,7 +143,7 @@ func shouldAutoStartAgent(command *cobra.Command) bool {
 		top = top.Parent()
 	}
 	switch top.Name() {
-	case "activity", "agent", "doctor", "init", "integrations", "version":
+	case "activity", "agent", "doctor", "init", "integrations", "ollama", "version":
 		return false
 	default:
 		return true

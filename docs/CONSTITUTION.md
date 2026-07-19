@@ -227,6 +227,9 @@ must not feed new policy back into the scanner.
   project-tracking migration.
 - `internal/notes` owns the atomic, size-bounded, user-only General document,
   stable-ID detail documents, and versioned tab workspace.
+- `internal/ollama` owns bounded HTTP calls to the fixed loopback Ollama API,
+  local-artifact model filtering, exact availability validation, and one-turn
+  selected-Notes chat requests.
 - `internal/agent` owns operational paths, per-project caches, protocol-v1
   transport, scheduling, subscriptions, lifecycle locking, and LaunchAgent
   installation.
@@ -306,12 +309,16 @@ Configuration resolution order is:
 3. `$HOME/.config/beacon/config.yaml`
 
 Configuration accepts YAML schema versions 1 and 2. Version 2 adds persistent
-source roots and `github_scope: mine|all`; version 1 remains readable. Unknown
+source roots, `github_scope: mine|all`, and optional `ollama_model`; version 1
+remains readable. Unknown
 fields, unsupported versions, duplicate names or sources, invalid durations or
 scope, missing paths, and malformed `owner/repo` values are errors. A leading
 `~` is expanded and paths are canonicalized. Defaults are `main`, `origin`, a
 one-minute scan interval, a 45-minute remote refresh interval, a 24-hour
 stale threshold, four workers, GitHub author `@me`, and scope `mine`.
+An empty or unavailable Ollama default selects the first installed local model
+in stable name order without rewriting the configured value. Settings may
+atomically update this same field through the bundled helper.
 
 `beacon init` and its `beacon config init` alias may merge new sources or
 explicit repositories, preview the result, and atomically rewrite the file
@@ -629,6 +636,16 @@ through the frontmost shared view hierarchy. When Following
 contains no in-progress lanes and no projects are loading,
 both surfaces replace the empty lane body with an adaptive celebratory state whose
 copy describes lane state rather than repository-ref freshness.
+An exact non-empty native editor selection may open one compact Notes assistant
+below the header action and inside the current Beacon bounds. The selection is
+captured when opened and displayed as attached context beside a user prompt.
+The model selector lists only installed local Ollama artifacts, its per-request
+choice does not implicitly change the configured default, and the right-aligned
+send action renders one response in the same panel. Swift sends bounded JSON to
+the helper over stdin and keeps no persistent chat history. The helper alone
+contacts `http://127.0.0.1:11434`, rejects cloud or unavailable models, and
+disables streaming for this interaction. No assistant response may mutate Notes
+or become Beacon evidence, and no background insight request is permitted.
 The Beacon wordmark may animate a modest horizontally traveling gradient derived
 from the selected theme. It must remain readable, use no evidence or status
 policy, and render a static gradient when Reduce Motion is enabled.
@@ -707,7 +724,8 @@ service.
 
 The application may use `NSWorkspace` to open pull requests, worktree paths,
 and `$HOME/.config/beacon/config.yaml`. It may invoke the bundled helper's
-project follow/unfollow, repository-sync, and dependency-limit commands but
+project follow/unfollow, repository-sync, dependency-limit, and local Ollama
+model/default/chat commands but
 must not execute Git or `gh` directly or contain correlation, repository-sync safety, readiness,
 fingerprint, cache, scheduling, or recent-activity policy. The
 bundled helper is named `beacon-cli` to avoid a case-insensitive filename

@@ -51,6 +51,11 @@ func (AtomicWriter) Write(path string, cfg Config) error {
 }
 
 func Marshal(cfg Config) ([]byte, error) {
+	ollamaModel, err := NormalizeOllamaModel(cfg.Settings.OllamaModel)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Settings.OllamaModel = ollamaModel
 	defaults := defaultSettings()
 	if cfg.Settings.ScanInterval <= 0 {
 		cfg.Settings.ScanInterval = defaults.ScanInterval
@@ -78,6 +83,7 @@ func Marshal(cfg Config) ([]byte, error) {
 			MaxParallel:            cfg.Settings.MaxParallel,
 			GitHubAuthor:           cfg.Settings.GitHubAuthor,
 			GitHubScope:            string(cfg.Settings.GitHubScope),
+			OllamaModel:            cfg.Settings.OllamaModel,
 		},
 	}
 	for _, source := range cfg.Sources {
@@ -104,6 +110,9 @@ func Merge(current Config, additions Config) Config {
 	}
 	if additions.Settings.GitHubScope != "" {
 		merged.Settings.GitHubScope = additions.Settings.GitHubScope
+	}
+	if additions.Settings.OllamaModel != "" {
+		merged.Settings.OllamaModel = additions.Settings.OllamaModel
 	}
 	if merged.Settings.GitHubScope == "" {
 		merged.Settings.GitHubScope = GitHubScopeMine

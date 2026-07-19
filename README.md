@@ -250,6 +250,7 @@ settings:
   max_parallel: 4
   github_author: '@me'
   github_scope: mine
+  ollama_model: gpt-oss:20b
   tracked_refresh_interval: 1m
   untracked_probe_interval: 10m
 
@@ -284,7 +285,15 @@ same local or GitHub repository.
 Configuration is strict: unknown fields, duplicate names or sources, invalid
 durations or scope, missing paths, and malformed GitHub names are rejected.
 Existing version-1 files remain readable and are migrated only by a confirmed
-init operation.
+init operation or an explicit Ollama-default selection.
+
+`ollama_model` is the optional default for the Notes assistant. It must name a
+model installed in the local Ollama service to be selected automatically. If it
+is absent, empty, or currently unavailable, Beacon uses the first installed
+local model in stable name order without rewriting the configured value. Choose
+**Settings → Ollama Model** to update the same field atomically. Beacon fixes
+this integration to `http://127.0.0.1:11434` and excludes Ollama `:cloud`
+entries.
 
 Project-following choices are stored separately in the strict, versioned
 `$HOME/.local/state/beacon/tracking.json`. Configuration defines what Beacon can
@@ -374,6 +383,11 @@ beacon sync check --json
 beacon sync apply owner/repository --yes
 beacon limits
 beacon limits --json
+beacon ollama models
+beacon ollama models --json
+printf '{"selection":"release checklist","prompt":"find missing steps"}' | \
+  beacon ollama chat --model gpt-oss:20b --json
+beacon ollama set-default gpt-oss:20b
 beacon projects
 beacon select
 beacon projects --followed
@@ -727,6 +741,16 @@ and Command-1 through Command-9 selects by open-tab position. All writes and
 deletions travel through the Go agent authority so the menu, detached window,
 and CLI remain synchronized.
 
+Select any non-empty subset in the native Notes editor and press the header's
+sparkles button to open the local Ollama assistant directly below it. Beacon
+attaches the exact selection, lets you add a prompt, choose any discovered local
+model immediately to the left of Send, and renders the one-turn response in the
+same in-bounds panel. The selected text and prompt travel to the bundled helper
+over stdin, never in process arguments; this narrow assistant keeps no chat
+history, runs no background insights, excludes cloud models, and never edits the
+note automatically. The Settings default and `settings.ollama_model` are the
+same configuration value.
+
 Use **Open Beacon at Login** in either view to enable quiet startup. Beacon
 registers its embedded login helper through macOS Service Management. A login
 launch starts without opening the dashboard; selecting Beacon later opens it.
@@ -843,8 +867,9 @@ logs.
 Scanning may run a timeout-bounded `git fetch --prune --no-tags` to refresh
 remote-tracking metadata. Beacon never edits working files, changes branches,
 pushes commits, creates pull requests, changes reviews, or merges work. Beacon
-writes only its own configuration during confirmed `beacon init` operations and
-its own user-scoped following state, Markdown signal notes, cache, PID/socket,
+writes only its own configuration during confirmed `beacon init` operations or
+an explicit Ollama-default selection, plus its own user-scoped following state,
+Markdown signal notes, cache, PID/socket,
 LaunchAgent, and rotated logs. New evidence may update a non-followed project's activity timestamp but
 never changes whether the user follows it.
 Confirmed `beacon integrations install|uninstall` operations may also update
@@ -856,7 +881,8 @@ an adjacent restrictive backup; hook execution itself remains observational.
 - `cmd/beacon` and `internal/` implement config, source discovery,
   Git/GitHub/Kit evidence collection, lane correlation, managed tracking state,
   cache/protocol/scheduling, policy, output, structured hook normalization, and
-  provider integration settings.
+  provider integration settings. `internal/ollama` alone owns the bounded
+  loopback Ollama HTTP boundary and local-model validation.
 - `macos/Beacon` contains the shared SwiftUI menu/dashboard app, embedded login
   item, app icon, and tests.
 - The Xcode build embeds the Go executable as `Contents/MacOS/beacon-cli`; the standalone executable remains `beacon`.

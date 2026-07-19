@@ -81,6 +81,7 @@ func TestLoadVersionTwoSources(t *testing.T) {
 	writeConfig(t, path, `version: 2
 settings:
   github_scope: all
+  ollama_model: "  llama3.2:latest  "
 sources:
   - path: `+sourcePath+`
 `)
@@ -89,7 +90,7 @@ sources:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Version != Version || cfg.Settings.GitHubScope != GitHubScopeAll {
+	if cfg.Version != Version || cfg.Settings.GitHubScope != GitHubScopeAll || cfg.Settings.OllamaModel != "llama3.2:latest" {
 		t.Fatalf("config = %#v", cfg)
 	}
 	canonicalSource, err := filepath.EvalSymlinks(sourcePath)
@@ -154,6 +155,14 @@ repositories:
     path: ` + sourcePath + `
     github: owner/example
 `,
+		"v1 ollama model": `version: 1
+settings:
+  ollama_model: llama3.2:latest
+repositories:
+  - name: example
+    path: ` + sourcePath + `
+    github: owner/example
+`,
 		"scope": `version: 2
 settings:
   github_scope: friends
@@ -182,6 +191,21 @@ sources:
 				t.Fatal("expected validation error")
 			}
 		})
+	}
+}
+
+func TestLoadRejectsInvalidOllamaModel(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	writeConfig(t, path, `version: 2
+settings:
+  ollama_model: |-
+    bad
+    model
+sources:
+  - path: `+t.TempDir()+`
+`)
+	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "ollama_model") {
+		t.Fatalf("error = %v", err)
 	}
 }
 
