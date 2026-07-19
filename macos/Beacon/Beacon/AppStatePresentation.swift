@@ -65,8 +65,15 @@ extension AppState {
     }
 
     func lanes(for identifiers: [String]) -> [WorkLane] {
-        let lanesByID = Dictionary(uniqueKeysWithValues: (snapshot?.lanes ?? []).map { ($0.id, $0) })
-        return identifiers.compactMap { lanesByID[$0] }
+        let lanesByID = Dictionary(
+            (snapshot?.lanes ?? []).map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        var seen = Set<String>()
+        return identifiers.compactMap { identifier in
+            guard seen.insert(identifier).inserted else { return nil }
+            return lanesByID[identifier]
+        }
     }
 
     func projectGroups(for lanes: [WorkLane]) -> [ProjectLaneGroup] {
