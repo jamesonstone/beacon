@@ -36,7 +36,7 @@
 
 - Keep map work file-scoped or narrowly bounded so synthesis stays deterministic
 - Prefer repo-local docs before secondary global inputs
-- For v2 feature-scoped work, keep must-read inputs small: the current `SPEC.md` section or decision, plus directly linked references, relationships, rules, evidence, or historical staged artifacts only when they affect that decision
+- For living-spec feature work, keep must-read inputs small: the current `SPEC.md` section or decision, plus directly linked references, relationships, rules, evidence, or historical staged artifacts only when they affect that decision
 - Treat generated `.kit/state.json` and task bundles as pointer/index data; recurse back to canonical Markdown before changing behavior
 - Treat rulesets under `docs/references/rules/` as just-in-time context; load only the linked ruleset sections whose `read_policy` and `applies_to` match the current decision
 - Treat `docs/notes/<feature>` as optional source material, not canonical truth; load `docs/references/rules/feature-notes.md` when notes may materially affect the task
@@ -53,4 +53,4 @@
 - Treat RLM as discovery and context selection first; do not jump straight into parallel execution while the candidate set is still broad
 - Always update affected documentation and ensure touched documents stay current and properly formatted before finishing the work
 - Record the docs, skills, and references that materially shaped the feature in canonical front matter references
-- Use `kit dispatch` only when the work moves from broad discovery into multi-lane execution planning
+- Use `kit dispatch` only after native planning has established a narrow implementation topology
