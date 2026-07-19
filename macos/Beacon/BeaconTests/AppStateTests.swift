@@ -174,6 +174,29 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(state.lanes(for: snapshot.workingSet?.parked ?? []).map(\.id), ["quiet-worktree"])
     }
 
+    func testLaneLookupToleratesDuplicateSnapshotAndGroupIdentifiers() async {
+        let base = TestSnapshots.withLane
+        let first = TestSnapshots.lane(id: "duplicate", branch: "first")
+        let second = TestSnapshots.lane(id: "duplicate", branch: "second")
+        let snapshot = BeaconSnapshot(
+            schemaVersion: base.schemaVersion,
+            generatedAt: base.generatedAt,
+            configPath: base.configPath,
+            tracking: base.tracking,
+            refresh: base.refresh,
+            summary: base.summary,
+            groups: base.groups,
+            projects: base.projects,
+            lanes: [first, second],
+            errors: base.errors
+        )
+        let state = AppState(client: StubClient(result: .success(snapshot)))
+
+        await state.scan()
+
+        XCTAssertEqual(state.lanes(for: ["duplicate", "duplicate"]).map(\.branch), ["first"])
+    }
+
     func testProjectFollowingIsIndependentOfLaneAttentionState() async {
         var snapshot = TestSnapshots.withIdleInventory
         snapshot.workingSet = WorkingSetGroups(

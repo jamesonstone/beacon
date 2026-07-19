@@ -124,8 +124,13 @@ func (s Scanner) scanWorktree(ctx context.Context, repo config.Repository, recor
 	if branch == "" {
 		branch = "detached-" + shortOID(record.HeadOID)
 	}
+	identity := branch
+	if record.Detached {
+		pathHash := sha256.Sum256([]byte(filepath.Clean(record.Path)))
+		identity += "-" + fmt.Sprintf("%x", pathHash[:8])
+	}
 	lane := LocalLane{
-		ID:     "git:" + repo.GitHub + "@" + url.PathEscape(branch),
+		ID:     "git:" + repo.GitHub + "@" + url.PathEscape(identity),
 		Branch: branch,
 		Worktree: model.Worktree{
 			Path: record.Path, HeadOID: record.HeadOID, Detached: record.Detached,
