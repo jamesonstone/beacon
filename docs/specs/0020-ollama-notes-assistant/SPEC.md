@@ -2,7 +2,7 @@
 kit_metadata_version: 1
 artifact: spec
 workflow_version: 2
-phase: implement
+phase: deliver
 delivery_intent: ready_pull_request
 clarification:
   status: ready
@@ -259,7 +259,7 @@ No persisted data or configuration migration is involved.
   AI button, labeled Cancel, and removable attachment presentation.
 - [x] T11: Add the shared Ask AI command to both quick-switcher scopes and cover
   context resolution, removal, cancellation, command discovery, and context-free chat.
-- [ ] T12: Refresh docs, rerun all local/live gates, update ready PR #46, and
+- [x] T12: Refresh docs, rerun all local/live gates, update ready PR #46, and
   verify the final hosted head.
 
 ## Validation Map
@@ -325,5 +325,5 @@ repository PR template, and literal final-head hosted-check reporting.
   reset through Cancel, opened through Command-K and Command-P, restored
   minimized Notes, and captured the exact `collection_date` selection without
   enabling Save or Revert.
-- Follow-up hosted validation remains pending until the implementation commit is
-  pushed to PR #46.
+- Follow-up hosted validation: required Go and macOS checks passed on
+  implementation commit `80bd1f3`; PR #46 remains ready for human review.
