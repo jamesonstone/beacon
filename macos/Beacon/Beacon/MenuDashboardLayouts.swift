@@ -161,6 +161,8 @@ extension MenuView {
                 kanbanDashboard(snapshot)
             case .overview:
                 overviewDashboard(snapshot)
+            case .fitted:
+                fittedFollowingDashboard(snapshot)
             }
         }
     }
@@ -194,6 +196,15 @@ extension MenuView {
                     accent: BeaconThemePreference.current().tokens.textSecondary.color,
                     lanes: lanes
                 )
+            case .fitted:
+                ScrollView {
+                    overviewSection(
+                        "Parking Lot",
+                        symbol: "pause.circle.fill",
+                        accent: BeaconThemePreference.current().tokens.textSecondary.color,
+                        lanes: lanes
+                    )
+                }
             }
         }
     }

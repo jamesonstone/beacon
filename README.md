@@ -565,10 +565,12 @@ Quiet views and never
 start duplicate repository scans. Secondary actions live in the top-right gear
 menu so lane evidence receives the full height. The adjacent view button
 switches between the default stacked list, horizontal state tiles, and an
-experimental kanban board, plus **Overview (Experimental)**. Overview uses an
-adaptive dense grid, omits empty groups, and temporarily minimizes Notes; the
-prior Notes size returns when leaving Overview. The selection persists across
-launches, and smaller windows scroll safely.
+experimental kanban board, plus **Overview (Experimental)** and **Fit
+Following**. Overview uses an adaptive dense grid, omits empty groups, and
+temporarily minimizes Notes; the prior Notes size returns when leaving
+Overview. Fit Following keeps Notes in the lower half and scales every current
+Following lane into the upper half without a separate lane-area scroll. The
+selection persists across launches, and smaller windows remain usable.
 In the default stacked view, each project name is a solid, bold heading above
 its lanes so repository context is visible before the pull request or issue
 title.
