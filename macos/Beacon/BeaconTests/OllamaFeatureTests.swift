@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import Beacon
 
@@ -112,7 +113,14 @@ final class OllamaFeatureTests: XCTestCase {
             XCTAssertLessThanOrEqual(conversation.width, available.width - 24)
             XCTAssertLessThanOrEqual(conversation.height, available.height - 24)
         }
-        XCTAssertEqual(NotesAssistantPresentation.buttonSymbol, "dot.radiowaves.left.and.right")
+        XCTAssertEqual(NotesAssistantPresentation.buttonSymbol, "brain.head.profile")
+        XCTAssertNotNil(NSImage(
+            systemSymbolName: NotesAssistantPresentation.buttonSymbol,
+            accessibilityDescription: nil
+        ))
+        XCTAssertEqual(SignalNotesPresentation.headerControlSize, 20)
+        XCTAssertGreaterThanOrEqual(NotesAssistantPresentation.buttonAnimationDuration, 4)
+        XCTAssertLessThanOrEqual(NotesAssistantPresentation.buttonAnimationDuration, 7)
         XCTAssertTrue(NotesAssistantPresentation.shouldPrepareSession(currentMode: nil))
         XCTAssertFalse(NotesAssistantPresentation.shouldPrepareSession(currentMode: .compact))
         XCTAssertFalse(NotesAssistantPresentation.shouldPrepareSession(currentMode: .conversation))

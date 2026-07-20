@@ -68,6 +68,21 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(BeaconSpaceMotion.phase(at: start, duration: 10), 0)
         XCTAssertEqual(BeaconSpaceMotion.phase(at: start.addingTimeInterval(2.5), duration: 10), 0.25)
         XCTAssertEqual(BeaconSpaceMotion.phase(at: start.addingTimeInterval(12.5), duration: 10), 0.25)
+
+        let startOffset = BeaconSpaceMotion.orbitOffset(
+            at: 0,
+            horizontalRadius: 7,
+            verticalRadius: 5.5
+        )
+        let quarterOffset = BeaconSpaceMotion.orbitOffset(
+            at: 0.25,
+            horizontalRadius: 7,
+            verticalRadius: 5.5
+        )
+        XCTAssertEqual(startOffset.width, 7, accuracy: 0.001)
+        XCTAssertEqual(startOffset.height, 0, accuracy: 0.001)
+        XCTAssertEqual(quarterOffset.width, 0, accuracy: 0.001)
+        XCTAssertEqual(quarterOffset.height, 5.5, accuracy: 0.001)
     }
 
     func testSignalNotesLiveMarkdownStylesWithoutChangingSource() {

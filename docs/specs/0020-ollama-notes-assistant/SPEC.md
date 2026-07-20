@@ -33,6 +33,14 @@ references:
     relation: implements
     read_policy: must
     used_for: conversation history, presentation modes, keyboard shortcuts, and delivery lane
+    status: optional
+  - id: issue-62
+    name: Refine Notes assistant button
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/62
+    relation: implements
+    read_policy: must
+    used_for: compact icon-only control, motion, accessibility, and delivery lane
     status: active
   - id: constitution
     name: Beacon constitution
@@ -83,9 +91,10 @@ accepts message-based prompts. Beacon can therefore preserve its existing Go
 authority by putting Ollama HTTP and model-validation policy in the bundled Go
 helper while keeping Swift responsible for selection capture and presentation.
 
-The user-provided Notes screenshot is the visual authority for placement. The
-assistant trigger belongs at the top right of the expanded Notes header, before
-the size control. Its panel appears immediately below and right-aligned to that
+The user-provided Notes screenshots are the visual authority for placement and
+scale. The assistant trigger belongs at the top right of the expanded Notes
+header, before the size control, and matches that adjacent control's 20-by-20
+point footprint. Its panel appears immediately below and right-aligned to that
 trigger, overlays the Notes content without expanding past Beacon's current
 bounds, and uses existing semantic theme tokens, native controls, and SF
 Symbols.
@@ -134,8 +143,9 @@ Symbols.
 
 1. Keep one user-initiated, active-session Ollama conversation inside the current
    Notes and Beacon bounds without background analysis or automatic note edits.
-2. Make the AI entry action always available, materially larger than the prior
-   icon, and reachable from the Notes and all-commands quick switchers.
+2. Make the assistant entry action always available as a 20-by-20 point,
+   icon-only control that matches the adjacent Notes size control and remains
+   reachable from the Notes and all-commands quick switchers.
 3. Snapshot exact selected text when present and otherwise the entire current
    draft, including unsaved visible edits.
 4. Present captured context as an optional removable attachment and allow a
@@ -155,8 +165,9 @@ Symbols.
     conversation history scrolls independently and follows newly completed turns.
 11. Open a materially larger, in-bounds conversation panel from the right with
     Command-I while Command-Shift-I opens the existing compact panel.
-12. Restyle the AI control with an accessible, playful Beacon-themed SF Symbol
-    composition using the current semantic theme tokens.
+12. Use Beacon's established `brain.head.profile` Ollama symbol with a subtle,
+    whimsical animated sparkle, current semantic theme tokens, increased-
+    contrast support, and a static Reduce Motion state.
 
 ## Assumptions
 
@@ -171,8 +182,9 @@ Symbols.
 
 ## Acceptance Criteria
 
-- [x] AC1: Expanded Notes presents an always-enabled, accessible, labeled AI
-  button with a materially larger target on both Beacon surfaces.
+- [x] AC1: Expanded Notes presents an always-enabled, accessible, icon-only
+  assistant button in the same 20-by-20 point footprint as the adjacent Notes
+  size control on both Beacon surfaces.
 - [x] AC2: Pressing the button captures the exact selected text when non-empty,
   otherwise the entire current draft, and opens one right-aligned assistant
   panel directly below the button within the existing Notes/Beacon bounds.
@@ -206,8 +218,10 @@ Symbols.
 - [x] AC12: The follow-up is documented and covered by Go optional-context tests
   plus Swift context resolution, removal, cancellation, presentation, and
   quick-switcher command tests.
-- [x] AC13: The AI header control uses the Beacon-themed mark, semantic theme
-  colors, the existing AI label, and the existing accessible action name.
+- [x] AC13: The assistant header control uses the established
+  `brain.head.profile` symbol, semantic theme colors, no visible text, a subtle
+  animated sparkle, and the existing accessible action name; Reduce Motion
+  presents the same mark without continuous movement.
 - [x] AC14: Command-I opens a conversation panel larger than the compact panel,
   aligned to the Beacon surface's right edge, and inserts/removes it with a
   right-edge transition unless Reduce Motion is enabled.
@@ -295,6 +309,14 @@ Dismissing the panel does not cancel Notes autosave or mutate the draft.
     complete local gates, and smoke both presentation modes.
 11. Deliver the extension on issue #51, branch `GH-51`, and a ready pull request,
     then verify the exact final hosted head.
+12. Replace the labeled prominent header control with an icon-only 20-by-20
+    point assistant mark that matches the adjacent Notes control, remains
+    theme- and contrast-aware, and becomes static under Reduce Motion.
+13. Add focused symbol, sizing, and motion coverage; update affected product
+    documentation; run the complete native and repository gates; and smoke the
+    built control at its actual header size.
+14. Deliver the refinement on issue #62, exact branch `GH-62`, and a ready pull
+    request, then verify the exact final hosted head.
 
 Rollback restores required context in the helper, removes the follow-up state
 and switcher command, and returns the header to selection-gated presentation.
@@ -336,18 +358,24 @@ No persisted data or configuration migration is involved.
   tests; update README and Constitution behavior contracts.
 - [x] T18: Run full local and native smoke validation, complete GH-51 delivery,
   and verify the exact ready-PR hosted-check state.
+- [x] T19: Replace the visible `AI` label and prominent button chrome with a
+  20-by-20 point icon-only assistant control matching the Notes size control.
+- [x] T20: Add a theme-aware animated assistant mark with increased-contrast
+  treatment, a Reduce Motion static state, and focused presentation coverage.
+- [x] T21: Update affected documentation and complete local/native validation.
+- [x] T22: Deliver GH-62 and verify the exact final hosted head.
 
 ## Validation Map
 
 | Criterion | Verification |
 | --- | --- |
-| AC1-AC3 | Swift context-resolution tests plus live larger-button, whole-note, removable-attachment, and Cancel smoke |
+| AC1-AC3 | Swift context-resolution and 20-by-20 icon-only presentation tests plus live whole-note, removable-attachment, and Cancel smoke |
 | AC4-AC7 | Focused Go client/CLI tests, bounded helper tests, and live local-model request without context |
 | AC8-AC9 | AppState progress/error tests, request-generation cancellation test, transport review, and unchanged-note smoke |
 | AC10 | Swift command discovery/action test plus live Command-K and Command-P invocation while Notes is expanded and minimized |
 | AC11 | Complete Go race/vet/build/release gates, 135-test native suite, universal macOS build, and live Save/Revert state inspection |
 | AC12 | README, Constitution, project-summary, and feature-spec review plus focused 10-test Ollama XCTest suite |
-| AC13-AC15 | Swift presentation constants/sizing tests, shortcut and Reduce Motion wiring review, and native compact/large transition smoke |
+| AC13-AC15 | Swift symbol, sizing, motion-phase, shortcut, and Reduce Motion wiring review plus native icon/compact/large transition smoke |
 | AC16-AC18 | Go ordered-message/limit tests, Swift AppState history/failure/reset tests, full native suite, and unchanged-note smoke |
 
 ## Reflection Notes
@@ -380,6 +408,14 @@ first turn. All four messages and an additional unsent draft remained visible
 with the composer pinned at the bottom; Cancel cleared the session while Notes
 Save and Revert remained disabled.
 
+The earlier larger labeled button optimized first-use discoverability, but the
+follow-up screenshot shows that its text and prominent chrome dominate the
+otherwise compact Notes header. The accepted refinement keeps discoverability
+in the tooltip, accessibility label, and quick switchers while using the same
+small footprint as the adjacent Notes control. A familiar assistant symbol and
+slow orbiting sparkle carry the visual meaning without permanent label text;
+Reduce Motion freezes that composition instead of removing its identity.
+
 ## Documentation Updates
 
 - [x] README usage now covers always-available AI, selection/full-note context,
@@ -394,6 +430,8 @@ Save and Revert remained disabled.
   follow-up scope on the existing delivery lane.
 - [x] This specification maps the follow-up requirements, implementation,
   validation, reflection, delivery decision, and evidence.
+- [x] Product documentation describes the compact icon-only assistant control
+  without referring to a larger visible `AI` label.
 
 ## Delivery Decision
 
@@ -402,6 +440,12 @@ it changes the assistant from one-turn response replacement to an active
 multi-turn conversation and adds a distinct presentation mode. Use explicit
 staging, verified Jameson Stone author and committer identity, the repository PR
 template, a ready pull request, and literal final-head hosted-check reporting.
+
+Deliver the compact control refinement separately on issue #62 and exact branch
+`GH-62` because the previous assistant issues and pull requests are closed and
+the active GH-59 lane has unrelated settings/documentation scope. Keep the
+existing assistant behavior unchanged and use the same explicit staging,
+human-identity, ready-PR, and final-head verification gates.
 
 ## Evidence
 
@@ -440,3 +484,21 @@ template, a ready pull request, and literal final-head hosted-check reporting.
   progress when delivery evidence was recorded.
 - Conversation extension pull request: [#52](https://github.com/jamesonstone/beacon/pull/52),
   ready for human review
+- Compact control refinement issue: [#62](https://github.com/jamesonstone/beacon/issues/62)
+- Compact control refinement branch: `GH-62`
+- Compact control refinement local validation: the complete 154-test native
+  suite, universal macOS build, full Go format/test/race/vet/build/release
+  targets, all 21 Kit feature checks, the Kit project contract, whitespace
+  checks, and focused valid-symbol/size/orbit tests pass.
+- Compact control refinement native validation: the rebuilt app renders the
+  icon-only assistant and adjacent Notes control in matching compact footprints;
+  the accessibility tree exposes `Ask AI About Current Note`; clicking the mark
+  opens the existing assistant with the current note and clicking it again
+  dismisses the panel without changing Notes.
+- Compact control refinement pull request: [#63](https://github.com/jamesonstone/beacon/pull/63),
+  ready for human review and assigned to Jameson Stone.
+- Compact control refinement hosted validation: the initial Xcode 15.4 macOS run
+  exposed an ambiguous trigonometric overload that the newer local toolchain
+  accepted. Commit `6276124` selects the explicit CoreGraphics `CGFloat`
+  overloads; required Go and macOS checks then passed on that exact head, and
+  CodeRabbit completed with no actionable review threads.

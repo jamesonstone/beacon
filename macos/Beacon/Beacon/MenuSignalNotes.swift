@@ -106,7 +106,10 @@ extension MenuView {
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
-                    .frame(width: 20, height: 20)
+                    .frame(
+                        width: SignalNotesPresentation.headerControlSize,
+                        height: SignalNotesPresentation.headerControlSize
+                    )
                     .help("Notes stay at half height in Fit Following")
                     .accessibilityLabel("Notes fixed at half height")
             } else {
@@ -119,7 +122,10 @@ extension MenuView {
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
                         .rotationEffect(signalNotesExpanded ? .degrees(180) : .zero)
-                        .frame(width: 20, height: 20)
+                        .frame(
+                            width: SignalNotesPresentation.headerControlSize,
+                            height: SignalNotesPresentation.headerControlSize
+                        )
                 }
                 .buttonStyle(.plain)
                 .help(signalNotesExpanded ? "Minimize Notes" : "Restore Notes")

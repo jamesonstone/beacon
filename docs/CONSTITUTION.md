@@ -632,19 +632,22 @@ flush before switching or closing, and preserve the active tab when saving
 fails. Closing remains non-destructive. Permanent detail-note delete actions on
 tabs, New Tab history, and Command-K/Command-P results all route through one
 native destructive confirmation alert; General and New Tab expose no delete
-action. The rocket wordmark mark, Notes solar system, and empty-state orbit use
-native animation, carry no evidence semantics, and remain stationary when
-Reduce Motion is enabled. The switchers use an opaque semantic theme surface
-over a theme-aware backdrop. Native
+action. The rocket wordmark mark, Notes solar system, assistant sparkle, and
+empty-state orbit use native animation, carry no evidence semantics, and remain
+stationary when Reduce Motion is enabled. The switchers use an opaque semantic
+theme surface over a theme-aware backdrop. Native
 Command-K and Command-P switchers plus tab-cycle and numeric shortcuts operate
 through the frontmost shared view hierarchy. When Following
 contains no in-progress lanes and no projects are loading,
 both surfaces replace the empty lane body with an adaptive celebratory state whose
 copy describes lane state rather than repository-ref freshness.
-Expanded Notes exposes one accessible, always-enabled AI action with a generous
-native target and playful signal-and-spark mark derived from semantic theme
-tokens. It opens one compact assistant below the header action and inside the
-current Beacon bounds; the Notes and all-commands quick switchers expose the
+Expanded Notes exposes one accessible, always-enabled assistant action in the
+same 20-by-20 point footprint as the adjacent Notes size control. Its visible
+control is an icon-only brain-and-spark mark derived from semantic theme tokens;
+the tooltip and accessibility label carry the full action name. One sparkle
+orbits slowly when motion is enabled and remains stationary when Reduce Motion
+is enabled. The action opens one compact assistant below the header and inside
+the current Beacon bounds; the Notes and all-commands quick switchers expose the
 same action and restore expanded Notes when necessary. Command-I opens a larger
 conversation panel from the right edge, while Command-Shift-I opens the compact
 panel; Reduce Motion removes the spatial transition. A non-empty native editor
