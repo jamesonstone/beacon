@@ -43,9 +43,17 @@ extension MenuView {
         .padding(.top, 2)
     }
 
-    func laneCard(_ lane: WorkLane, density override: DashboardDensity? = nil) -> some View {
+    func laneCard(
+        _ lane: WorkLane,
+        density override: DashboardDensity? = nil,
+        watermarkProjectName: String? = nil
+    ) -> some View {
         let cardDensity = override ?? density
-        return laneRow(lane, density: cardDensity)
+        return laneRow(
+            lane,
+            density: cardDensity,
+            watermarkProjectName: watermarkProjectName
+        )
             .contentShape(RoundedRectangle(cornerRadius: 9))
             .onTapGesture { state.open(lane) }
             .contextMenu { laneActions(lane) }
@@ -64,7 +72,11 @@ extension MenuView {
             ) { laneDetailPanel(lane) }
     }
 
-    func laneRow(_ lane: WorkLane, density: DashboardDensity) -> some View {
+    func laneRow(
+        _ lane: WorkLane,
+        density: DashboardDensity,
+        watermarkProjectName: String? = nil
+    ) -> some View {
         let identity = DashboardLanePresentation.identity(for: lane)
         let accent = identity.accent.color
         return VStack(alignment: .leading, spacing: density.spacing) {
@@ -135,7 +147,17 @@ extension MenuView {
             evidenceBadges(lane, condensed: density == .dense)
         }
         .padding(density.cardPadding)
-        .background(BeaconThemePreference.current().tokens.surface.color, in: RoundedRectangle(cornerRadius: 9))
+        .background {
+            ZStack {
+                RoundedRectangle(cornerRadius: 9)
+                    .fill(BeaconThemePreference.current().tokens.surface.color)
+                if let watermarkProjectName,
+                   !watermarkProjectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    ProjectWatermark(projectName: watermarkProjectName, theme: theme)
+                        .clipShape(RoundedRectangle(cornerRadius: 9))
+                }
+            }
+        }
         .overlay {
             RoundedRectangle(cornerRadius: 9)
                 .strokeBorder(interfaceBorderColor, lineWidth: colorSchemeContrast == .increased ? 1.2 : 0.8)

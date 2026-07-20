@@ -24,6 +24,10 @@ enum BeaconThemeCatalog {
         appearance: .dark,
         signatureAccent: color("#E9785D"),
         isRecommended: true,
+        projectWatermark: BeaconProjectWatermarkPalette(
+            base: color("#0B0C0E"), highlightLeading: color("#16070A"),
+            highlightCenter: color("#041019"), highlightTrailing: color("#120811")
+        ),
         tokens: BeaconThemeTokens(
             canvas: color("#151619"), surface: color("#1C1E22"),
             surfaceRaised: color("#24272C"), surfaceOverlay: color("#2C3036"),
@@ -49,6 +53,10 @@ enum BeaconThemeCatalog {
         appearance: .light,
         signatureAccent: color("#A95135"),
         isRecommended: false,
+        projectWatermark: BeaconProjectWatermarkPalette(
+            base: color("#F4F0E9"), highlightLeading: color("#F7EFEC"),
+            highlightCenter: color("#ECF3F7"), highlightTrailing: color("#F5EFF3")
+        ),
         tokens: BeaconThemeTokens(
             canvas: color("#F7F4ED"), surface: color("#FFFFFF"),
             surfaceRaised: color("#F7F4ED"), surfaceOverlay: color("#FFFFFF"),
@@ -74,6 +82,10 @@ enum BeaconThemeCatalog {
         appearance: .dark,
         signatureAccent: color("#268BD2"),
         isRecommended: false,
+        projectWatermark: BeaconProjectWatermarkPalette(
+            base: color("#002B36"), highlightLeading: color("#002432"),
+            highlightCenter: color("#0A2825"), highlightTrailing: color("#1C1D2A")
+        ),
         tokens: BeaconThemeTokens(
             canvas: color("#002B36"), surface: color("#073642"),
             surfaceRaised: color("#06313B"), surfaceOverlay: color("#04303A"),
@@ -99,6 +111,10 @@ enum BeaconThemeCatalog {
         appearance: .dark,
         signatureAccent: color("#66D9EF"),
         isRecommended: false,
+        projectWatermark: BeaconProjectWatermarkPalette(
+            base: color("#272822"), highlightLeading: color("#13242A"),
+            highlightCenter: color("#182711"), highlightTrailing: color("#251820")
+        ),
         tokens: BeaconThemeTokens(
             canvas: color("#272822"), surface: color("#32332C"),
             surfaceRaised: color("#2D2E27"), surfaceOverlay: color("#292A24"),
@@ -124,6 +140,10 @@ enum BeaconThemeCatalog {
         appearance: .dark,
         signatureAccent: color("#58A3FF"),
         isRecommended: false,
+        projectWatermark: BeaconProjectWatermarkPalette(
+            base: color("#103C48"), highlightLeading: color("#123346"),
+            highlightCenter: color("#123A30"), highlightTrailing: color("#292F3D")
+        ),
         tokens: BeaconThemeTokens(
             canvas: color("#103C48"), surface: color("#184956"),
             surfaceRaised: color("#143F4B"), surfaceOverlay: color("#103C48"),

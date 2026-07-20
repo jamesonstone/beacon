@@ -570,7 +570,11 @@ Following**. Overview uses an adaptive dense grid, omits empty groups, and
 temporarily minimizes Notes; the prior Notes size returns when leaving
 Overview. Fit Following keeps Notes in the lower half and scales every current
 Following lane into the upper half without a separate lane-area scroll. The
-selection persists across launches, and smaller windows remain usable.
+selection persists across launches, and smaller windows remain usable. Each
+fitted card uses its full background for an oversized, clipped project-name
+watermark, so repository identity remains visible without consuming any grid
+space. A slow theme-specific color highlight travels through the letters while
+the lane's factual content and controls remain in front.
 In the default stacked view, each project name is a solid, bold heading above
 its lanes so repository context is visible before the pull request or issue
 title.
@@ -705,9 +709,11 @@ Beacon follows macOS **Increase Contrast**, **Differentiate Without Color**,
 **Reduce Transparency**, and **Reduce Motion**. These preferences strengthen
 borders, retain redundant labels and symbols, replace translucent overlays with
 solid theme surfaces, and stop decorative or layout motion without changing
-saved workflow state. Automated checks require at least 4.5:1 contrast for
-normal text and 3:1 for focus, strong borders, and large indicators in every
-built-in theme.
+saved workflow state. The fitted project watermark becomes fully opaque with
+Increase Contrast, desaturates with Differentiate Without Color, and holds a
+centered static highlight with Reduce Motion. Automated checks require at least
+4.5:1 contrast for normal text and 3:1 for focus, strong borders, and large
+indicators in every built-in theme.
 
 The information button beside View and Settings explains the universal
 hierarchy: work-item identity, lane attention, one next action, evidence

@@ -32,6 +32,36 @@ final class BeaconThemeTests: XCTestCase {
         }
     }
 
+    func testEveryThemeHasAContrastSafeProjectWatermarkPalette() {
+        for theme in BeaconThemeCatalog.all {
+            let palette = theme.projectWatermark.namedValues
+            XCTAssertEqual(palette.count, 4, theme.name)
+            XCTAssertEqual(Set(palette.map(\.name)).count, 4, theme.name)
+
+            for entry in palette {
+                let surfaceContrast = entry.value.contrastRatio(with: theme.tokens.surface)
+                XCTAssertGreaterThanOrEqual(
+                    surfaceContrast,
+                    1.1,
+                    "\(theme.name) \(entry.name) must remain visible on the card surface"
+                )
+                XCTAssertLessThanOrEqual(
+                    surfaceContrast,
+                    1.4,
+                    "\(theme.name) \(entry.name) must remain a faint background role"
+                )
+
+                for pair in theme.tokens.normalTextPairs where pair.background == theme.tokens.surface {
+                    XCTAssertGreaterThanOrEqual(
+                        pair.foreground.contrastRatio(with: entry.value),
+                        4.5,
+                        "\(theme.name) \(pair.name) must stay readable over \(entry.name)"
+                    )
+                }
+            }
+        }
+    }
+
     func testCorePaletteSignaturesMatchTheCanonicalThemes() {
         let expected: [BeaconThemeID: [String]] = [
             .lobsterNebula: ["#151619", "#1C1E22", "#F3F0E8", "#C7C2B8", "#E9785D"],
@@ -162,6 +192,50 @@ final class BeaconThemeTests: XCTestCase {
             let png = try XCTUnwrap(representation.representation(using: .png, properties: [:]))
             XCTAssertGreaterThan(png.count, 1_000, "\(theme.name) semantic smoke view did not render")
         }
+    }
+
+    @MainActor
+    func testEveryThemeProjectWatermarkRenders() throws {
+        let size = CGSize(width: 220, height: 88)
+        for theme in BeaconThemeCatalog.all {
+            let watermarked = ZStack {
+                theme.tokens.surface.color
+                ProjectWatermark(projectName: "lsmc-lims-connector", theme: theme)
+            }
+                .frame(width: size.width, height: size.height)
+                .preferredColorScheme(theme.appearance.colorScheme)
+            let surfaceOnly = theme.tokens.surface.color
+                .frame(width: size.width, height: size.height)
+                .preferredColorScheme(theme.appearance.colorScheme)
+            let watermarkPixels = try renderedPixels(watermarked, size: size)
+            let surfacePixels = try renderedPixels(surfaceOnly, size: size)
+            XCTAssertEqual(watermarkPixels.count, surfacePixels.count, theme.name)
+            let differingBytes = zip(watermarkPixels, surfacePixels)
+                .lazy
+                .filter { $0 != $1 }
+                .count
+            XCTAssertGreaterThan(
+                differingBytes,
+                200,
+                "\(theme.name) project watermark must change visible surface pixels"
+            )
+        }
+    }
+
+    @MainActor
+    private func renderedPixels<Content: View>(_ root: Content, size: CGSize) throws -> [UInt8] {
+        let hosting = NSHostingView(rootView: root)
+        hosting.frame = NSRect(origin: .zero, size: size)
+        hosting.layoutSubtreeIfNeeded()
+        let representation = try XCTUnwrap(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
+        hosting.cacheDisplay(in: hosting.bounds, to: representation)
+        let buffer = try XCTUnwrap(representation.bitmapData)
+        return Array(
+            UnsafeBufferPointer(
+                start: buffer,
+                count: representation.bytesPerRow * representation.pixelsHigh
+            )
+        )
     }
 }
 

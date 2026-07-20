@@ -575,7 +575,10 @@ separate compact view control offers a persisted stacked list, horizontal tile
 strips, an experimental state-column kanban board, and an adaptive experimental
 Overview over the same ordered lanes. A fitted Following view keeps Notes in
 the lower half while scaling every current Following lane into the upper half
-without a separate lane-area scroll. Overview uses the dense shared card,
+without a separate lane-area scroll. Each fitted card may render the canonical
+project name as an oversized clipped background watermark, but that decoration
+must not change card geometry, ordering, interaction, or accessibility
+semantics. Overview uses the dense shared card,
 collapses empty groups, minimizes Notes while active, and restores its prior
 size on exit. Comfortable, Compact, and Dense are separately persisted shared
 card-density contracts, not alternate policy or font-size settings. A compact
@@ -688,8 +691,11 @@ Nebula. Each complete token set owns canvas, layered surfaces, borders,
 primary/secondary/muted text, accent/focus, success/warning/danger/info,
 Local/PR/Issue identities, editor roles, and a derived terminal palette.
 Ordinary text, cards, controls, and borders use solid neutral surfaces and
-minimal shadows; gradients are reserved for the wordmark, beacon/rocket, and
-occasional illustration. Every built-in theme must pass automated token-
+minimal shadows; gradients are reserved for the wordmark, beacon/rocket,
+fitted project watermarks, and occasional illustration. Fitted watermark
+palettes are theme-owned near-surface colors: every color remains faint against
+the card surface and preserves normal-text contrast for foreground card roles.
+Every built-in theme must pass automated token-
 completeness, stable-ID, persistence, rendered smoke, 4.5:1 normal-text and
 terminal-foreground contrast, and 3:1 non-text/large-indicator contrast checks.
 Raw classic accents that miss these thresholds require accessible semantic
@@ -699,8 +705,11 @@ Both surfaces respect Increase Contrast, Differentiate Without Color, Reduce
 Transparency, and Reduce Motion. Higher contrast strengthens semantic borders;
 differentiate-without-color retains explicit labels and SF Symbols; reduced
 transparency substitutes opaque theme surfaces; reduced motion disables
-decorative and layout animation. These settings never change evidence or saved
-workflow state.
+decorative and layout animation. The fitted project watermark additionally
+uses its full theme palette under Increase Contrast, desaturates under
+Differentiate Without Color, and holds a centered static highlight under
+Reduce Motion. Decorative project text stays out of the accessibility tree.
+These settings never change evidence or saved workflow state.
 Individual evidence badges may be hidden as reversible local presentation
 state. Dismissal is scoped to lane, evidence dimension, and exact value so a
 changed signal reappears; it must never mutate or suppress canonical evidence

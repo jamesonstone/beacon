@@ -128,7 +128,11 @@ extension MenuView {
                     ForEach(0..<columns, id: \.self) { column in
                         let index = row * columns + column
                         if lanes.indices.contains(index) {
-                            laneCard(lanes[index], density: .dense)
+                            laneCard(
+                                lanes[index],
+                                density: .dense,
+                                watermarkProjectName: state.projectGroup(for: lanes[index]).name
+                            )
                                 .frame(
                                     width: FittedFollowingPresentation.cardSize.width,
                                     height: FittedFollowingPresentation.cardSize.height,
