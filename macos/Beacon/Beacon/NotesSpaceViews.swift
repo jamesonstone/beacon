@@ -15,10 +15,10 @@ enum BeaconSpaceMotion {
         horizontalRadius: CGFloat,
         verticalRadius: CGFloat
     ) -> CGSize {
-        let radians = phase * .pi * 2
+        let radians = CGFloat(phase * Double.pi * 2)
         return CGSize(
-            width: cos(radians) * horizontalRadius,
-            height: sin(radians) * verticalRadius
+            width: CoreGraphics.cos(radians) * horizontalRadius,
+            height: CoreGraphics.sin(radians) * verticalRadius
         )
     }
 }
