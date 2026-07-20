@@ -230,7 +230,7 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **PAUSED**: no
 - **INTENT**: Make each repository immediately identifiable inside Fit Following without reducing the number of simultaneously visible lanes.
 - **APPROACH**: Place the canonical project name behind each fixed dense card as an oversized clipped watermark, animate a slow theme-owned contrast-safe color sweep, and preserve static accessible fallbacks.
-- **OPEN ITEMS**: Implementation, documentation, full local validation, and five-theme native smoke are complete on issue #57 and branch `GH-57`; pull-request delivery, hosted-check verification, human review, and merge remain.
+- **OPEN ITEMS**: Implementation, documentation, full local validation, five-theme native smoke, and ready PR #58 delivery are complete on issue #57 and branch `GH-57`; hosted-check verification, human review, and merge remain.
 - **POINTERS**: `docs/specs/0021-animated-project-watermarks/SPEC.md`
 
 ## LAST UPDATED

@@ -20,6 +20,14 @@ references:
     read_policy: must
     used_for: original request, scope, acceptance criteria, and delivery lane
     status: active
+  - id: pr-58
+    name: Animated project watermarks delivery
+    type: github-pr
+    target: https://github.com/jamesonstone/beacon/pull/58
+    relation: implements
+    read_policy: must
+    used_for: review, hosted validation, and merge boundary
+    status: active
   - id: following-workspace
     name: Following workspace
     type: spec
@@ -169,7 +177,8 @@ card size, Notes split, or lane interaction.
 Increase Contrast presents the tested palette at full strength, Differentiate
 Without Color removes hue dependence, and Reduce Motion keeps a centered
 static highlight. The decorative duplicate is hidden from accessibility while
-the existing semantic card children remain authoritative.
+the existing semantic card children remain authoritative. Issue #57 is
+represented by ready pull request #58 from exact branch `GH-57`.
 
 ## REPOSITORY MEMORY
 
