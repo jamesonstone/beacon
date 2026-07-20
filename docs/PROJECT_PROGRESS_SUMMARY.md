@@ -23,7 +23,7 @@
 | 0017 | beacon-focus-notes | `docs/specs/0017-beacon-focus-notes` | deliver | no | 2026-07-17 | Make the next action explicit and refine Notes with persisted pinned order, flexible sizing, and native space animation. |
 | 0018 | following-workspace | `docs/specs/0018-following-workspace` | deliver | no | 2026-07-18 | Make Following reorderable, denser, self-explanatory, rich in cached evidence, and readable through five semantic themes. |
 | 0019 | drop-down-terminal | `docs/specs/0019-drop-down-terminal` | deliver | no | 2026-07-18 | Add a retained native terminal that toggles with Command-J inside the current Beacon dashboard bounds while Beacon is active. |
-| 0020 | ollama-notes-assistant | `docs/specs/0020-ollama-notes-assistant` | deliver | no | 2026-07-18 | Attach an exact Notes selection or full current note to a user prompt and render one local Ollama response inside a bounded native Notes panel. |
+| 0020 | ollama-notes-assistant | `docs/specs/0020-ollama-notes-assistant` | deliver | no | 2026-07-18 | Hold a complete in-memory local Ollama conversation about an exact Notes selection or full current note across compact and toggled half-width presentations. |
 | 0021 | animated-project-watermarks | `docs/specs/0021-animated-project-watermarks` | deliver | no | 2026-07-20 | Show every fitted lane project as an oversized theme-aware animated background watermark without changing all-items geometry. |
 
 ## PROJECT INTENT
@@ -39,8 +39,9 @@ task state.
 See `docs/CONSTITUTION.md` for project-wide constraints and principles.
 
 The project progress table and summaries must always reflect the highest
-completed evidence-backed artifact or workflow-v2 phase for each feature. The
-canonical feature artifact wins whenever this index disagrees with it.
+completed evidence-backed artifact or feature-spec phase for each feature,
+interpreted according to its declared workflow version. The canonical feature
+artifact wins whenever this index disagrees with it.
 
 ## FEATURE SUMMARIES
 
@@ -219,9 +220,9 @@ canonical feature artifact wins whenever this index disagrees with it.
 
 - **STATUS**: deliver
 - **PAUSED**: no
-- **INTENT**: Let a user ask one explicit question with optional current-note context through an installed local Ollama model without making Notes autonomous or remotely hosted.
-- **APPROACH**: Resolve exact native selection or the full current draft into removable context, keep loopback Ollama discovery and chat validation in the Go helper, pass optional context over stdin, persist one optional default model in strict YAML, and render a shared in-bounds SwiftUI assistant panel reachable from Notes or the quick switchers.
-- **OPEN ITEMS**: The whole-note fallback, removable context, labeled Cancel, larger AI action, and quick-switcher follow-up are implemented, documented, locally and live validated, and green in hosted Go/macOS checks on issue #45, branch `GH-45`, and ready PR #46; final human review and merge remain.
+- **INTENT**: Let a user hold one explicit in-memory conversation with optional current-note context through an installed local Ollama model without making Notes autonomous, persistent, or remotely hosted.
+- **APPROACH**: Resolve exact native selection or the full current draft into removable context, keep loopback Ollama discovery and role-ordered chat validation in the Go helper, pass context and history over stdin, persist one optional default model in strict YAML, and share one SwiftUI session across a compact Notes panel and a Command-I-toggled full-height panel on the dashboard's right half.
+- **OPEN ITEMS**: The base assistant, multi-turn conversation, and icon-only control are merged through PRs #46, #52, and #63. The Command-I toggle, responsive half-width geometry, and post-init semantic documentation review are locally implemented and validated on issue #64 and branch `GH-64`; pull-request delivery, hosted checks, human review, and merge remain.
 - **POINTERS**: `docs/specs/0020-ollama-notes-assistant/SPEC.md`
 
 ### animated-project-watermarks

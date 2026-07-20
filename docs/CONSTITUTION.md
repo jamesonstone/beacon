@@ -648,13 +648,14 @@ the tooltip and accessibility label carry the full action name. One sparkle
 orbits slowly when motion is enabled and remains stationary when Reduce Motion
 is enabled. The action opens one compact assistant below the header and inside
 the current Beacon bounds; the Notes and all-commands quick switchers expose the
-same action and restore expanded Notes when necessary. Command-I opens a larger
-conversation panel from the right edge, while Command-Shift-I opens the compact
-panel; Reduce Motion removes the spatial transition. A non-empty native editor
-selection is captured exactly, otherwise the entire current draft is captured,
-including unsaved visible edits. That complete snapshot is displayed first in
-the scrollable conversation as removable attached context, and the prompt may be
-sent without Notes context.
+same action and restore expanded Notes when necessary. Command-I toggles a
+full-content-height conversation panel on the right half of the current Beacon
+surface, while Command-Shift-I opens the compact panel. The second Command-I
+uses the same reset boundary as Cancel, and Reduce Motion removes the spatial
+transition. A non-empty native editor selection is captured exactly, otherwise
+the entire current draft is captured, including unsaved visible edits. That
+complete snapshot is displayed first in the scrollable conversation as removable
+attached context, and the prompt may be sent without Notes context.
 
 The active in-memory conversation retains every user and assistant turn in
 order. Follow-ups send the complete role-aware history without silent
@@ -888,9 +889,9 @@ reduction in complexity or risk and must be recorded in the applicable spec.
 - Advance its entry in the same change that advances the canonical feature
   artifact. Never record an aspirational phase, unchecked work, or a delivery
   claim without evidence.
-- For workflow v2, record the highest completed phase in the feature's single
-  `SPEC.md`: `clarify`, `ready`, `implement`, `validate`, `reflect`, or
-  `deliver`.
+- For a living workflow-v3 spec or a supported workflow-v2 spec, record the
+  highest evidence-backed `phase` in the feature's single `SPEC.md`, preserving
+  the declared workflow version's phase semantics.
 - For an explicitly selected legacy staged workflow, record the highest
   completed canonical artifact: `BRAINSTORM.md`, `SPEC.md`, `PLAN.md`, or
   `TASKS.md`/delivery evidence.
@@ -910,16 +911,18 @@ Use the formal track for new features, substantial architecture or behavioral
 changes, public schema or policy changes, provider additions, packaging model
 changes, or work explicitly started with Kit's spec workflow.
 
-Workflow v2 uses one canonical `docs/specs/<feature>/SPEC.md` and advances it
-through `clarify`, `ready`, `implement`, `validate`, `reflect`, and `deliver`.
-The artifact owns requirements, assumptions, acceptance criteria, plan, tasks,
-validation mapping, reflection, documentation, delivery decision, and evidence.
-Update `docs/PROJECT_PROGRESS_SUMMARY.md` whenever its highest completed phase
-changes.
+Current formal work uses native agent planning and one canonical workflow-v3
+`docs/specs/<feature>/SPEC.md`. Before implementation, translate an accepted
+native plan into that living spec when the work contains material rationale.
+The artifact owns purpose, context, requirements, accepted plan, decisions,
+discoveries, validation, outcome, and repository-memory curation. Update
+`docs/PROJECT_PROGRESS_SUMMARY.md` whenever its highest completed phase changes.
+`kit spec [feature]` may scaffold or adopt the living spec, but does not replace
+native planning and must not ingest agent transcripts as repository memory.
 
-Legacy staged documents (`BRAINSTORM.md`, legacy `SPEC.md`, `PLAN.md`, and
-`TASKS.md`) are used only when explicitly selected. They are not automatically
-canonical for a workflow-v2 feature.
+Workflow-v2 specs remain supported legacy inputs and must not be mechanically
+rewritten into workflow v3. Legacy staged documents (`BRAINSTORM.md`, legacy
+`SPEC.md`, `PLAN.md`, and `TASKS.md`) are used only when explicitly selected.
 
 ### Ad Hoc (Lightweight)
 
@@ -1038,6 +1041,7 @@ are not implied by Beacon's long-term vision.
   documented local provider hook; transient context that is neither snapshot
   evidence nor durable progress.
 - **Canonical artifact**: the repository document that owns detailed truth for
-  a workflow, normally a workflow-v2 feature `SPEC.md`.
+  a workflow, normally a living workflow-v3 or supported workflow-v2 feature
+  `SPEC.md`.
 - **Highest completed artifact or phase**: the furthest evidence-backed workflow
   state actually completed for a feature, never the state merely planned next.

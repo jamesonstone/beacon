@@ -21,14 +21,14 @@ extension MenuView {
     func notesAssistantConversationOverlay(in size: CGSize) -> some View {
         if state.notesAssistantMode == .conversation {
             let panelSize = NotesAssistantPresentation.conversationPanelSize(in: size, surface: surface)
-            HStack {
+            HStack(spacing: 0) {
                 Spacer(minLength: 0)
                 NotesAssistantPanel(state: state, mode: .conversation) {
                     closeNotesAssistant()
                 }
                 .frame(width: panelSize.width, height: panelSize.height)
-                .padding(12)
             }
+            .frame(width: size.width, height: size.height)
             .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
             .zIndex(20)
         }
@@ -81,6 +81,15 @@ extension MenuView {
         }
         if shouldRefresh {
             Task { await state.refreshOllamaModels() }
+        }
+    }
+
+    func toggleNotesAssistantConversation() {
+        switch NotesAssistantPresentation.conversationToggleAction(currentMode: state.notesAssistantMode) {
+        case .show:
+            showNotesAssistant(.conversation)
+        case .dismiss:
+            closeNotesAssistant()
         }
     }
 

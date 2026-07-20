@@ -180,7 +180,7 @@ struct MenuView: View {
                 .keyboardShortcut("k", modifiers: .command)
             Button("Tab Search") { showSwitcher(.notes) }
                 .keyboardShortcut("p", modifiers: .command)
-            Button("Open AI Conversation") { showNotesAssistant(.conversation) }
+            Button("Toggle AI Conversation") { toggleNotesAssistantConversation() }
                 .keyboardShortcut("i", modifiers: .command)
             Button("Open Compact Notes AI") { showNotesAssistant(.compact) }
                 .keyboardShortcut("i", modifiers: [.command, .shift])

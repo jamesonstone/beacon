@@ -103,15 +103,16 @@ final class OllamaFeatureTests: XCTestCase {
         }
     }
 
-    func testConversationPanelIsLargerAndStaysInsideBeaconBounds() {
+    func testConversationPanelUsesHalfWidthAndFullHeightForEverySurface() {
         for surface in [DashboardSurface.menu, .window] {
-            let available = CGSize(width: 700, height: 760)
-            let compact = NotesAssistantPresentation.panelSize(in: available, surface: surface)
-            let conversation = NotesAssistantPresentation.conversationPanelSize(in: available, surface: surface)
-            XCTAssertGreaterThan(conversation.width, compact.width)
-            XCTAssertGreaterThan(conversation.height, compact.height)
-            XCTAssertLessThanOrEqual(conversation.width, available.width - 24)
-            XCTAssertLessThanOrEqual(conversation.height, available.height - 24)
+            for available in [CGSize(width: 430, height: 540), CGSize(width: 1_201, height: 801)] {
+                let conversation = NotesAssistantPresentation.conversationPanelSize(
+                    in: available,
+                    surface: surface
+                )
+                XCTAssertEqual(conversation.width, available.width / 2)
+                XCTAssertEqual(conversation.height, available.height)
+            }
         }
         XCTAssertEqual(NotesAssistantPresentation.buttonSymbol, "brain.head.profile")
         XCTAssertNotNil(NSImage(
@@ -124,6 +125,21 @@ final class OllamaFeatureTests: XCTestCase {
         XCTAssertTrue(NotesAssistantPresentation.shouldPrepareSession(currentMode: nil))
         XCTAssertFalse(NotesAssistantPresentation.shouldPrepareSession(currentMode: .compact))
         XCTAssertFalse(NotesAssistantPresentation.shouldPrepareSession(currentMode: .conversation))
+    }
+
+    func testCommandITogglesOnlyAnOpenConversation() {
+        XCTAssertEqual(
+            NotesAssistantPresentation.conversationToggleAction(currentMode: nil),
+            .show
+        )
+        XCTAssertEqual(
+            NotesAssistantPresentation.conversationToggleAction(currentMode: .compact),
+            .show
+        )
+        XCTAssertEqual(
+            NotesAssistantPresentation.conversationToggleAction(currentMode: .conversation),
+            .dismiss
+        )
     }
 
     func testAppStateAttachesExactSelectionAndSendsOnePrompt() async {
