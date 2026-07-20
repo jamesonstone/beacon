@@ -222,7 +222,7 @@ artifact wins whenever this index disagrees with it.
 - **PAUSED**: no
 - **INTENT**: Let a user hold one explicit in-memory conversation with optional current-note context through an installed local Ollama model without making Notes autonomous, persistent, or remotely hosted.
 - **APPROACH**: Resolve exact native selection or the full current draft into removable context, keep loopback Ollama discovery and role-ordered chat validation in the Go helper, pass context and history over stdin, persist one optional default model in strict YAML, and share one SwiftUI session across a compact Notes panel and a Command-I-toggled full-height panel on the dashboard's right half.
-- **OPEN ITEMS**: The base assistant, multi-turn conversation, and icon-only control are merged through PRs #46, #52, and #63. The Command-I toggle, responsive half-width geometry, and post-init semantic documentation review are implemented and locally validated on issue #64, branch `GH-64`, and ready PR #65; hosted checks, human review, and merge remain.
+- **OPEN ITEMS**: The base assistant, multi-turn conversation, and icon-only control are merged through PRs #46, #52, and #63. The Command-I toggle, responsive half-width geometry, and post-init semantic documentation review are implemented and validated on issue #64, branch `GH-64`, and ready PR #65; required hosted Go/macOS checks and CodeRabbit review pass, while human review and merge remain.
 - **POINTERS**: `docs/specs/0020-ollama-notes-assistant/SPEC.md`
 
 ### animated-project-watermarks

@@ -623,3 +623,6 @@ and literal final-head hosted-check reporting.
 - Conversation toggle pull request: [#65](https://github.com/jamesonstone/beacon/pull/65),
   ready for review, assigned to `jamesonstone`, and opened from `GH-64` into
   `main` after explicit staging and verified Jameson Stone authorship.
+- Conversation toggle hosted validation: required Go and macOS checks pass,
+  CodeRabbit completes successfully with no actionable comments, and the pull
+  request has no review threads.
