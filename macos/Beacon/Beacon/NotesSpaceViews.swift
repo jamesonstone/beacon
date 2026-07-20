@@ -9,6 +9,18 @@ enum BeaconSpaceMotion {
     static func angle(at date: Date, duration: TimeInterval) -> Angle {
         .degrees(phase(at: date, duration: duration) * 360)
     }
+
+    static func orbitOffset(
+        at phase: Double,
+        horizontalRadius: CGFloat,
+        verticalRadius: CGFloat
+    ) -> CGSize {
+        let radians = phase * .pi * 2
+        return CGSize(
+            width: cos(radians) * horizontalRadius,
+            height: sin(radians) * verticalRadius
+        )
+    }
 }
 
 struct BeaconRocketMark: View {
@@ -79,22 +91,65 @@ struct NotesSolarSystemMark: View {
 }
 
 struct BeaconAIMark: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
+    let animated: Bool
+
+    init(animated: Bool = false) {
+        self.animated = animated
+    }
+
+    @ViewBuilder
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(BeaconThemePreference.current().tokens.info.color.opacity(0.2))
-            Circle()
-                .stroke(BeaconThemePreference.current().tokens.identityIssue.color.opacity(0.75), lineWidth: 0.8)
-            Image(systemName: NotesAssistantPresentation.buttonSymbol)
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
-            Image(systemName: "sparkle")
-                .font(.system(size: 5, weight: .black))
-                .foregroundStyle(BeaconThemePreference.current().tokens.success.color)
-                .offset(x: 6, y: -6)
+        if animated, !reduceMotion {
+            TimelineView(.animation(minimumInterval: 1.0 / 18.0)) { context in
+                mark(
+                    phase: BeaconSpaceMotion.phase(
+                        at: context.date,
+                        duration: NotesAssistantPresentation.buttonAnimationDuration
+                    )
+                )
+            }
+        } else {
+            mark(phase: 0.12)
         }
-        .frame(width: 19, height: 19)
-        .shadow(color: BeaconThemePreference.current().tokens.info.color.opacity(0.35), radius: 2)
+    }
+
+    private func mark(phase: Double) -> some View {
+        let theme = BeaconThemePreference.current()
+        let sparkleOffset = BeaconSpaceMotion.orbitOffset(
+            at: phase,
+            horizontalRadius: 7,
+            verticalRadius: 5.5
+        )
+        let increasedContrast = colorSchemeContrast == .increased
+
+        return ZStack {
+            Circle()
+                .fill(theme.tokens.info.color.opacity(increasedContrast ? 0.3 : 0.18))
+            Circle()
+                .strokeBorder(
+                    theme.tokens.identityIssue.color.opacity(increasedContrast ? 1 : 0.78),
+                    lineWidth: increasedContrast ? 1.15 : 0.75
+                )
+            Image(systemName: NotesAssistantPresentation.buttonSymbol)
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(theme.tokens.warning.color)
+            Image(systemName: "sparkle")
+                .font(.system(size: 4.5, weight: .black))
+                .foregroundStyle(theme.tokens.success.color)
+                .scaleEffect(0.82 + 0.18 * ((sin(phase * .pi * 4) + 1) / 2))
+                .offset(sparkleOffset)
+        }
+        .frame(
+            width: SignalNotesPresentation.headerControlSize,
+            height: SignalNotesPresentation.headerControlSize
+        )
+        .shadow(
+            color: theme.tokens.info.color.opacity(increasedContrast ? 0.45 : 0.3),
+            radius: increasedContrast ? 1.5 : 2
+        )
         .accessibilityHidden(true)
     }
 }

@@ -42,16 +42,14 @@ extension MenuView {
                 showNotesAssistant(.compact)
             }
         } label: {
-            HStack(spacing: 5) {
-                BeaconAIMark()
-                Text(NotesAssistantPresentation.buttonLabel)
-                    .font(BeaconTypography.semibold(9))
-            }
-            .padding(.horizontal, 7)
-            .frame(height: 24)
+            BeaconAIMark(animated: true)
+                .contentShape(Rectangle())
         }
-        .buttonStyle(.borderedProminent)
-        .tint(theme.tokens.info.color.opacity(0.78))
+        .buttonStyle(.plain)
+        .frame(
+            width: SignalNotesPresentation.headerControlSize,
+            height: SignalNotesPresentation.headerControlSize
+        )
         .help(NotesAssistantPresentation.buttonAccessibilityLabel)
         .accessibilityLabel(NotesAssistantPresentation.buttonAccessibilityLabel)
     }

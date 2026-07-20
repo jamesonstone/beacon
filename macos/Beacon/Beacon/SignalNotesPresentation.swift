@@ -25,6 +25,7 @@ enum SignalNotesSize: String, Equatable {
 }
 
 enum SignalNotesPresentation {
+    static let headerControlSize: CGFloat = 20
     static let expandedByDefault = true
     static let expandedHeightFraction = 0.5
     static let enlargedHeightFraction = 0.8

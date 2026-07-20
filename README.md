@@ -759,8 +759,8 @@ and Command-1 through Command-9 selects by open-tab position. All writes and
 deletions travel through the Go agent authority so the menu, detached window,
 and CLI remain synchronized.
 
-Press the larger **AI** button with its Beacon signal-and-spark mark at any time
-to open the compact local Ollama assistant directly below it. Command-I opens a
+Press the compact animated assistant button with its brain-and-spark mark at any
+time to open the local Ollama assistant directly below it. Command-I opens a
 larger conversation panel from the right edge; Command-Shift-I opens the compact
 panel. Beacon attaches the exact non-empty editor selection when one exists;
 otherwise it snapshots the entire current note, including visible unsaved edits.
