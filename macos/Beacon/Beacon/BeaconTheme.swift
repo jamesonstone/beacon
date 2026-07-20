@@ -44,6 +44,22 @@ struct BeaconSRGB: Equatable, Hashable {
     }
 }
 
+struct BeaconProjectWatermarkPalette: Equatable {
+    let base: BeaconSRGB
+    let highlightLeading: BeaconSRGB
+    let highlightCenter: BeaconSRGB
+    let highlightTrailing: BeaconSRGB
+
+    var namedValues: [(name: String, value: BeaconSRGB)] {
+        [
+            ("base", base),
+            ("highlightLeading", highlightLeading),
+            ("highlightCenter", highlightCenter),
+            ("highlightTrailing", highlightTrailing),
+        ]
+    }
+}
+
 struct BeaconThemeTokens: Equatable {
     let canvas: BeaconSRGB
     let surface: BeaconSRGB
@@ -209,6 +225,7 @@ struct BeaconTheme: Identifiable, Equatable {
     let appearance: BeaconThemeAppearance
     let signatureAccent: BeaconSRGB
     let isRecommended: Bool
+    let projectWatermark: BeaconProjectWatermarkPalette
     let tokens: BeaconThemeTokens
 
     var terminalPalette: BeaconTerminalPalette {

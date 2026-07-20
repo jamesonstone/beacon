@@ -24,6 +24,7 @@
 | 0018 | following-workspace | `docs/specs/0018-following-workspace` | deliver | no | 2026-07-18 | Make Following reorderable, denser, self-explanatory, rich in cached evidence, and readable through five semantic themes. |
 | 0019 | drop-down-terminal | `docs/specs/0019-drop-down-terminal` | deliver | no | 2026-07-18 | Add a retained native terminal that toggles with Command-J inside the current Beacon dashboard bounds while Beacon is active. |
 | 0020 | ollama-notes-assistant | `docs/specs/0020-ollama-notes-assistant` | deliver | no | 2026-07-18 | Attach an exact Notes selection or full current note to a user prompt and render one local Ollama response inside a bounded native Notes panel. |
+| 0021 | animated-project-watermarks | `docs/specs/0021-animated-project-watermarks` | deliver | no | 2026-07-20 | Show every fitted lane project as an oversized theme-aware animated background watermark without changing all-items geometry. |
 
 ## PROJECT INTENT
 
@@ -223,6 +224,15 @@ canonical feature artifact wins whenever this index disagrees with it.
 - **OPEN ITEMS**: The whole-note fallback, removable context, labeled Cancel, larger AI action, and quick-switcher follow-up are implemented, documented, locally and live validated, and green in hosted Go/macOS checks on issue #45, branch `GH-45`, and ready PR #46; final human review and merge remain.
 - **POINTERS**: `docs/specs/0020-ollama-notes-assistant/SPEC.md`
 
+### animated-project-watermarks
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Make each repository immediately identifiable inside Fit Following without reducing the number of simultaneously visible lanes.
+- **APPROACH**: Place the canonical project name behind each fixed dense card as an oversized clipped watermark, animate a slow theme-owned contrast-safe color sweep, and preserve static accessible fallbacks.
+- **OPEN ITEMS**: Implementation, documentation, full local validation, and five-theme native smoke are complete on issue #57 and branch `GH-57`; pull-request delivery, hosted-check verification, human review, and merge remain.
+- **POINTERS**: `docs/specs/0021-animated-project-watermarks/SPEC.md`
+
 ## LAST UPDATED
 
-2026-07-18 EDT
+2026-07-20 EDT

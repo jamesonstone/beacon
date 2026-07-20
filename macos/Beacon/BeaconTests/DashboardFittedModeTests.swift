@@ -2,6 +2,44 @@ import XCTest
 @testable import Beacon
 
 final class DashboardFittedModeTests: XCTestCase {
+    func testProjectWatermarkUsesACalmDeterministicSweep() {
+        XCTAssertGreaterThan(ProjectWatermarkPresentation.cycle, NeonWave.cycle)
+        XCTAssertEqual(ProjectWatermarkPresentation.cycle, 10)
+        XCTAssertEqual(ProjectWatermarkPresentation.phase(at: Date(timeIntervalSinceReferenceDate: 0)), 0)
+        XCTAssertEqual(ProjectWatermarkPresentation.phase(at: Date(timeIntervalSinceReferenceDate: 5)), 0.5)
+        XCTAssertEqual(ProjectWatermarkPresentation.phase(at: Date(timeIntervalSinceReferenceDate: 10)), 0)
+        XCTAssertEqual(
+            ProjectWatermarkPresentation.displayedPhase(
+                at: Date(timeIntervalSinceReferenceDate: 2),
+                reduceMotion: true
+            ),
+            ProjectWatermarkPresentation.staticPhase
+        )
+
+        let start = ProjectWatermarkPresentation.sweepStart(for: 0.5)
+        let end = ProjectWatermarkPresentation.sweepEnd(for: 0.5)
+        XCTAssertEqual(start.x, 0, accuracy: 0.0001)
+        XCTAssertEqual(start.y, 0.2, accuracy: 0.0001)
+        XCTAssertEqual(end.x, 1, accuracy: 0.0001)
+        XCTAssertEqual(end.y, 0.8, accuracy: 0.0001)
+        XCTAssertEqual(ProjectWatermarkPresentation.opacity(increasedContrast: false), 0.86)
+        XCTAssertEqual(ProjectWatermarkPresentation.opacity(increasedContrast: true), 1)
+        XCTAssertEqual(
+            ProjectWatermarkPresentation.saturation(differentiateWithoutColor: false),
+            1
+        )
+        XCTAssertEqual(
+            ProjectWatermarkPresentation.saturation(differentiateWithoutColor: true),
+            0
+        )
+    }
+
+    func testProjectWatermarkDoesNotChangeFittedCardGeometry() {
+        XCTAssertEqual(FittedFollowingPresentation.cardSize, CGSize(width: 220, height: 88))
+        XCTAssertGreaterThan(ProjectWatermarkPresentation.fontSize, 40)
+        XCTAssertLessThan(ProjectWatermarkPresentation.minimumScaleFactor, 0.5)
+    }
+
     func testFittedLayoutSelectsLargestNoOverflowScale() {
         let available = CGSize(width: 1_000, height: 500)
         let layout = FittedFollowingPresentation.layout(

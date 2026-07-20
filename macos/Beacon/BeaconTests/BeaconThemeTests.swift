@@ -32,6 +32,36 @@ final class BeaconThemeTests: XCTestCase {
         }
     }
 
+    func testEveryThemeHasAContrastSafeProjectWatermarkPalette() {
+        for theme in BeaconThemeCatalog.all {
+            let palette = theme.projectWatermark.namedValues
+            XCTAssertEqual(palette.count, 4, theme.name)
+            XCTAssertEqual(Set(palette.map(\.name)).count, 4, theme.name)
+
+            for entry in palette {
+                let surfaceContrast = entry.value.contrastRatio(with: theme.tokens.surface)
+                XCTAssertGreaterThanOrEqual(
+                    surfaceContrast,
+                    1.1,
+                    "\(theme.name) \(entry.name) must remain visible on the card surface"
+                )
+                XCTAssertLessThanOrEqual(
+                    surfaceContrast,
+                    1.4,
+                    "\(theme.name) \(entry.name) must remain a faint background role"
+                )
+
+                for pair in theme.tokens.normalTextPairs where pair.background == theme.tokens.surface {
+                    XCTAssertGreaterThanOrEqual(
+                        pair.foreground.contrastRatio(with: entry.value),
+                        4.5,
+                        "\(theme.name) \(pair.name) must stay readable over \(entry.name)"
+                    )
+                }
+            }
+        }
+    }
+
     func testCorePaletteSignaturesMatchTheCanonicalThemes() {
         let expected: [BeaconThemeID: [String]] = [
             .lobsterNebula: ["#151619", "#1C1E22", "#F3F0E8", "#C7C2B8", "#E9785D"],
@@ -161,6 +191,23 @@ final class BeaconThemeTests: XCTestCase {
             hosting.cacheDisplay(in: hosting.bounds, to: representation)
             let png = try XCTUnwrap(representation.representation(using: .png, properties: [:]))
             XCTAssertGreaterThan(png.count, 1_000, "\(theme.name) semantic smoke view did not render")
+        }
+    }
+
+    @MainActor
+    func testEveryThemeProjectWatermarkRenders() throws {
+        for theme in BeaconThemeCatalog.all {
+            let root = ProjectWatermark(projectName: "lsmc-lims-connector", theme: theme)
+                .frame(width: 220, height: 88)
+                .background(theme.tokens.surface.color)
+                .preferredColorScheme(theme.appearance.colorScheme)
+            let hosting = NSHostingView(rootView: root)
+            hosting.frame = NSRect(x: 0, y: 0, width: 220, height: 88)
+            hosting.layoutSubtreeIfNeeded()
+            let representation = try XCTUnwrap(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
+            hosting.cacheDisplay(in: hosting.bounds, to: representation)
+            let png = try XCTUnwrap(representation.representation(using: .png, properties: [:]))
+            XCTAssertGreaterThan(png.count, 500, "\(theme.name) project watermark did not render")
         }
     }
 }
