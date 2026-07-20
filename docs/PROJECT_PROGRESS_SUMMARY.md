@@ -204,7 +204,7 @@ artifact wins whenever this index disagrees with it.
 - **PAUSED**: no
 - **INTENT**: Let users prioritize and understand every followed work lane while fitting the current working set into one adaptive view.
 - **APPROACH**: Persist one Go-owned lane order, project Following by configured project and PR/issue/local priority, add shared density and experimental Overview presentation, show only canonical evidence exceptions, collect bounded rich GitHub detail, and render both macOS surfaces from one persisted five-theme semantic token catalog.
-- **OPEN ITEMS**: Following workspace, themes, shared Markdown formatting, and the issue #66 project-preserving PR/issue/local priority continuation are implemented, documented, and locally validated. Earlier issue #39 / branch `GH-39` work is green in ready PR #40; issue #66 / branch `GH-66` still requires commit, ready PR delivery, hosted checks, and final human review.
+- **OPEN ITEMS**: Following workspace, themes, shared Markdown formatting, and the issue #66 project-preserving PR/issue/local priority continuation are implemented and merged through green PR #67 as `17b7921`. Issue #68 / branch `GH-68` captures the one post-merge test refinement and final delivery-evidence reconciliation; full local validation is complete, while ready PR delivery, hosted checks, and merge remain.
 - **POINTERS**: `docs/specs/0018-following-workspace/SPEC.md`
 
 ### drop-down-terminal

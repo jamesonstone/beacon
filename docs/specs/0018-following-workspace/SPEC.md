@@ -96,6 +96,22 @@ references:
     read_policy: must
     used_for: project-preserving Following work-item priority
     status: active
+  - id: pr-67
+    name: Prioritize Following work items
+    type: github-pr
+    target: https://github.com/jamesonstone/beacon/pull/67
+    relation: verifies
+    read_policy: evidence
+    used_for: merged implementation and hosted validation of work-item priority
+    status: active
+  - id: issue-68
+    name: Complete Following ordering merge follow-up
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/68
+    relation: implements
+    read_policy: must
+    used_for: post-merge test refinement and delivery-evidence reconciliation
+    status: active
   - id: constitution
     name: Beacon constitution
     type: doc
@@ -586,7 +602,7 @@ collection through the existing GitHub cache and a coordinated additive model.
   priority contract before implementation.
 - [x] T25: Implement and test Go-owned pull-request, issue, then local/manual
   Following projection while retaining persisted same-type order.
-- [ ] T26: Reconcile canonical memory, run all validation and delivery gates,
+- [x] T26: Reconcile canonical memory, run all validation and delivery gates,
   then create and verify the assigned ready issue #66 pull request.
 
 ## Validation Map
@@ -690,6 +706,9 @@ collection through the existing GitHub cache and a coordinated additive model.
 - Deliver the Following work-item priority continuation on issue #66, exact
   branch `GH-66`, in a new ready pull request targeting `main`, assigned to
   `jamesonstone`, and closing issue #66.
+- Capture the post-merge test refinement and final delivery reconciliation on
+  issue #68 and exact branch `GH-68`, without changing the merged runtime
+  behavior or rewriting the preserved local `GH-66` recovery ref.
 
 ## Evidence
 
@@ -866,3 +885,29 @@ collection through the existing GitHub cache and a coordinated additive model.
   passes, changed-file secret-pattern review finds no credentials, and every
   touched Go or Swift file remains at or below 300 lines after extracting the
   ordering tests into their focused test file.
+- Implementation commit `d069b2c75465f447dd3260f401d7653743573fb3`
+  and review-repair commit `643c279f5befa88d516b76336c8fceb3d20dbbd2`
+  were pushed to `GH-66` and reviewed in ready PR #67, which targeted `main`,
+  was assigned to `jamesonstone`, and closed issue #66 when merged.
+- Hosted checks passed on PR #67's final head `643c279f5befa88d516b76336c8fceb3d20dbbd2`:
+  `go` in 1 minute 3 seconds, `macos` in 1 minute 55 seconds, and CodeRabbit
+  completed. Its first valid partition-coverage nit was fixed in that head.
+- PR #67 was squash-merged as `17b79210612f4789c3b83e84ac7e97e26aa2cb60`;
+  direct tree comparison confirms merged `main` contains the complete PR head.
+  The merge occurred before the second valid CodeRabbit test-quality nit could
+  be pushed: the rejected keyboard move targeted the last lane and could exit
+  on bounds before proving partition filtering.
+- Issue #68 is assigned to `jamesonstone`, and exact branch `GH-68` was created
+  from refreshed merged `origin/main` at
+  `17b79210612f4789c3b83e84ac7e97e26aa2cb60`. The follow-up changes that move
+  target to the first lane and its adjacent incompatible type, matching the
+  already validated local `07daeffe14c91a606f94f2b694ae6805873a50e7`
+  recovery commit without altering runtime behavior.
+- The complete `GH-68` local gate passes `make
+  BEACON_DERIVED_DATA=/tmp/beacon-gh68-final fmt-check vet test test-race
+  release-test build macos-test macos-build`; the macOS suite executed 159 tests
+  with zero failures, and the universal Debug build succeeded. All 21 feature
+  checks and the coherent project-contract check pass; the Xcode project and
+  both application plists lint cleanly, `git diff --check` passes, the focused
+  Swift test remains 96 lines, and changed-file secret review finds no
+  credentials.
