@@ -43,7 +43,7 @@ extension MenuView {
         } label: {
             Label(settingsPanelMenuTitle(panel), systemImage: settingsPanelSymbol(panel))
         }
-        .accessibilityLabel("Open \(panel.title) settings")
+        .accessibilityLabel(settingsPanelAccessibilityLabel(panel))
     }
 
     func settingsPanelContent(_ panel: BeaconSettingsPanel) -> some View {
@@ -90,10 +90,21 @@ extension MenuView {
     }
 
     private func settingsPanelSymbol(_ panel: BeaconSettingsPanel) -> String {
-        if panel == .terminal, case .failed = terminal.shortcutStatus {
-            return "exclamationmark.terminal"
+        if terminalShortcutUnavailable(panel) {
+            return "exclamationmark.triangle.fill"
         }
         return panel.symbol
+    }
+
+    private func settingsPanelAccessibilityLabel(_ panel: BeaconSettingsPanel) -> String {
+        let label = "Open \(panel.title) settings"
+        return terminalShortcutUnavailable(panel) ? "\(label), shortcut unavailable" : label
+    }
+
+    private func terminalShortcutUnavailable(_ panel: BeaconSettingsPanel) -> Bool {
+        guard panel == .terminal else { return false }
+        if case .failed = terminal.shortcutStatus { return true }
+        return false
     }
 
     @ViewBuilder
