@@ -112,6 +112,14 @@ references:
     read_policy: must
     used_for: post-merge test refinement and delivery-evidence reconciliation
     status: active
+  - id: pr-69
+    name: Complete Following merge follow-up
+    type: github-pr
+    target: https://github.com/jamesonstone/beacon/pull/69
+    relation: verifies
+    read_policy: evidence
+    used_for: ready review and hosted validation of post-merge reconciliation
+    status: active
   - id: constitution
     name: Beacon constitution
     type: doc
@@ -911,3 +919,12 @@ collection through the existing GitHub cache and a coordinated additive model.
   both application plists lint cleanly, `git diff --check` passes, the focused
   Swift test remains 96 lines, and changed-file secret review finds no
   credentials.
+- Test commit `12d842bbd36e8925540c025927a4ef6f338c9320` and repository-memory
+  commit `5f3125c686571d6d5d1ce52b4be302b026ab97b9` are pushed to `GH-68` and
+  reflected in ready PR #69. The PR targets `main`, is assigned to
+  `jamesonstone`, and closes issue #68.
+- Hosted checks passed on PR #69 head `5f3125c686571d6d5d1ce52b4be302b026ab97b9`:
+  configured-maintainer assignment in 3 seconds, `go` in 1 minute 3 seconds,
+  and `macos` in 2 minutes 45 seconds. CodeRabbit completed with no actionable
+  comments; its linked-issue check was inconclusive only because the configured
+  review path filter excludes the two documentation files.
