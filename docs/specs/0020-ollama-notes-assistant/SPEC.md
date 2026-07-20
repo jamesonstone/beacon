@@ -430,7 +430,7 @@ No persisted data or configuration migration is involved.
   conversation geometry, resizing, reverse transition, and compact-mode parity.
 - [x] T25: Complete the semantic post-init documentation review and reconcile
   only durable project documentation affected by the refreshed Kit contract.
-- [ ] T26: Run focused, native, full, and read-only verification; curate final
+- [x] T26: Run focused, native, full, and read-only verification; curate final
   repository memory; explicitly stage and deliver the assigned ready PR.
 
 ## Validation Map
@@ -620,3 +620,6 @@ and literal final-head hosted-check reporting.
   source, test, documentation, source-size, generated-entrypoint, and complete
   Git-history secret review. Its focused suite passed 18 tests, all 21 specs
   passed Kit validation, and reconcile planned no managed-file changes.
+- Conversation toggle pull request: [#65](https://github.com/jamesonstone/beacon/pull/65),
+  ready for review, assigned to `jamesonstone`, and opened from `GH-64` into
+  `main` after explicit staging and verified Jameson Stone authorship.
