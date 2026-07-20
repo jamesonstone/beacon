@@ -165,6 +165,9 @@ presentation-only change with no data-model expansion.
   content, changes color over time, and adds no duplicate accessibility node.
 - Project-file lint, Kit repository checks, cross-platform Go build, whitespace
   review, and delivery-state checks complete before staging.
+- Required hosted `go` and `macos` checks plus the optional CodeRabbit follow-up
+  pass on implementation head `face55d`. The one valid review finding tightened
+  rendered-pixel coverage; both review threads are resolved with evidence.
 
 ## OUTCOME
 
