@@ -141,7 +141,7 @@ func (m Manager) Reconcile(snapshot model.Snapshot) (model.Snapshot, error) {
 		state.Order = order
 		changed = true
 	}
-	sortWorking(&working, order)
+	sortWorking(&working, order, snapshot.Projects, snapshot.Lanes)
 	working.Order = visibleLaneOrder(order, working)
 	snapshot.WorkingSet = working
 	snapshot.Summary.ActiveLanes = len(working.Active) + len(working.Waiting)

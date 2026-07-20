@@ -51,7 +51,47 @@ func TestLaneOrderPersistsAcrossGroupsAndNewLanesLeadTheirGroup(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertOrder(t, updated.WorkingSet.Order, "new", "second", "waiting", "first")
-	assertOrder(t, updated.WorkingSet.Active, "new", "first")
+	assertOrder(t, updated.WorkingSet.Active, "first", "new")
+}
+
+func TestFollowingOrderKeepsProjectsTogetherAndPrioritizesWorkItemType(t *testing.T) {
+	pullRequest := &model.PullRequest{Number: 1}
+	issue := &model.Issue{Number: 1}
+	projects := []model.Project{
+		{GitHub: "owner/alpha"},
+		{GitHub: "owner/beta"},
+	}
+	lanes := []model.Lane{
+		{ID: "alpha-local", GitHub: "owner/alpha"},
+		{ID: "beta-local", GitHub: "owner/beta"},
+		{ID: "alpha-pr-newer", GitHub: "owner/alpha", PullRequest: pullRequest},
+		{ID: "beta-issue", GitHub: "owner/beta", Issue: issue},
+		{ID: "alpha-issue", GitHub: "owner/alpha", Issue: issue},
+		{ID: "beta-pr", GitHub: "owner/beta", PullRequest: pullRequest},
+		{ID: "alpha-pr-older", GitHub: "owner/alpha", PullRequest: pullRequest},
+		{ID: "manual", Repository: "manual"},
+	}
+	order := []string{
+		"beta-local", "alpha-local", "alpha-pr-newer", "beta-issue",
+		"alpha-issue", "beta-pr", "alpha-pr-older", "manual",
+	}
+	working := model.WorkingSet{
+		Active:  append([]string{}, order...),
+		Waiting: append([]string{}, order...),
+		Recent:  append([]string{}, order...),
+		Parked:  append([]string{}, order...),
+	}
+
+	sortWorking(&working, order, projects, lanes)
+
+	expected := []string{
+		"alpha-pr-newer", "alpha-pr-older", "alpha-issue", "alpha-local",
+		"beta-pr", "beta-issue", "beta-local", "manual",
+	}
+	assertOrder(t, working.Active, expected...)
+	assertOrder(t, working.Waiting, expected...)
+	assertOrder(t, working.Recent, expected...)
+	assertOrder(t, working.Parked, order...)
 }
 
 func TestLaneReorderRejectsIncompleteDuplicateAndUnknownInputs(t *testing.T) {

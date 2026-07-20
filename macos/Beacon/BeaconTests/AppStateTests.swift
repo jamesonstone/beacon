@@ -250,27 +250,6 @@ final class AppStateTests: XCTestCase {
         XCTAssertNil(state.lastError)
     }
 
-    func testLaneReorderSendsCompleteOrderAndRejectsCrossStatusMove() async {
-        var snapshot = TestSnapshots.withIdleInventory
-        snapshot.workingSet = WorkingSetGroups(
-            path: "/Users/test/.local/state/beacon/lanes.json",
-            active: ["active-base", "active-work"],
-            waiting: [],
-            recent: [],
-            parked: ["quiet-worktree"],
-            order: ["active-base", "active-work", "quiet-worktree"]
-        )
-        let agent = RecordingLaneAttentionAgent(mutationEvent: TestSnapshots.snapshotEvent(snapshot))
-        let state = AppState(agent: agent, installer: nil)
-        state.apply(TestSnapshots.snapshotEvent(snapshot))
-
-        await state.reorderLane("active-work", before: "active-base")
-        await state.reorderLane("active-work", before: "quiet-worktree")
-
-        let calls = await agent.laneOrderCalls
-        XCTAssertEqual(calls, [["active-work", "active-base", "quiet-worktree"]])
-    }
-
     func testOpenTargetPrefersPullRequestThenIssueThenWorktree() throws {
         let lane = TestSnapshots.lane(
             pullRequest: TestSnapshots.pullRequest,

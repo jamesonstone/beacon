@@ -40,6 +40,31 @@ extension TestSnapshots {
         )
     }
 
+    static func workingSetSnapshot(lanes: [WorkLane], active: [String]) -> BeaconSnapshot {
+        let base = withIdleInventory
+        var snapshot = BeaconSnapshot(
+            schemaVersion: base.schemaVersion,
+            generatedAt: base.generatedAt,
+            configPath: base.configPath,
+            tracking: base.tracking,
+            refresh: base.refresh,
+            summary: base.summary,
+            groups: base.groups,
+            projects: base.projects,
+            lanes: lanes,
+            errors: base.errors
+        )
+        snapshot.workingSet = WorkingSetGroups(
+            path: "/Users/test/.local/state/beacon/lanes.json",
+            active: active,
+            waiting: [],
+            recent: [],
+            parked: [],
+            order: active
+        )
+        return snapshot
+    }
+
     static let withLane: BeaconSnapshot = {
         let issueLane = lane(issue: issue)
         return BeaconSnapshot(
