@@ -363,7 +363,7 @@ No persisted data or configuration migration is involved.
 - [x] T20: Add a theme-aware animated assistant mark with increased-contrast
   treatment, a Reduce Motion static state, and focused presentation coverage.
 - [x] T21: Update affected documentation and complete local/native validation.
-- [ ] T22: Deliver GH-62 and verify the exact final hosted head.
+- [x] T22: Deliver GH-62 and verify the exact final hosted head.
 
 ## Validation Map
 
@@ -495,4 +495,10 @@ human-identity, ready-PR, and final-head verification gates.
   the accessibility tree exposes `Ask AI About Current Note`; clicking the mark
   opens the existing assistant with the current note and clicking it again
   dismisses the panel without changing Notes.
-- Compact control refinement pull request and hosted validation: pending delivery
+- Compact control refinement pull request: [#63](https://github.com/jamesonstone/beacon/pull/63),
+  ready for human review and assigned to Jameson Stone.
+- Compact control refinement hosted validation: the initial Xcode 15.4 macOS run
+  exposed an ambiguous trigonometric overload that the newer local toolchain
+  accepted. Commit `6276124` selects the explicit CoreGraphics `CGFloat`
+  overloads; required Go and macOS checks then passed on that exact head, and
+  CodeRabbit completed with no actionable review threads.
