@@ -86,5 +86,4 @@ the complete build, test, install, and packaging workflow.
 
 ## Maintainers
 
-Maintained with 🪖 and ❤️ by [Jameson](https://github.com/jamesonstone)
-(`jamesonstone`).
+Maintained with 🪖 and ❤️ by [Jameson](https://github.com/jamesonstone) (`jamesonstone`).

@@ -41,6 +41,14 @@ references:
     relation: implements
     read_policy: must
     used_for: compact icon-only control, motion, accessibility, and delivery lane
+    status: optional
+  - id: issue-64
+    name: Toggle full-height AI conversation panel
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/64
+    relation: implements
+    read_policy: must
+    used_for: Command-I toggle, conversation geometry, semantic documentation review, and delivery lane
     status: active
   - id: constitution
     name: Beacon constitution
@@ -117,6 +125,13 @@ Symbols.
 - Command-I opens the larger conversation presentation with a right-edge slide
   transition. Command-Shift-I opens the existing compact Notes presentation.
   Switching presentations preserves the active conversation; Cancel resets it.
+- Command-I is a presentation toggle: it opens or switches to the conversation
+  presentation when another mode is active, and pressing it again while the
+  conversation is open dismisses and resets through the existing cancellation
+  boundary with the reverse right-edge transition.
+- The conversation presentation occupies the full available dashboard content
+  height and exactly half its available width. The compact presentation remains
+  Notes-owned and unchanged.
 - The conversation renders every completed user and assistant turn in order in
   one independently scrolling history. The unsent prompt composer and send/model
   controls remain pinned to the bottom in both presentations.
@@ -168,6 +183,14 @@ Symbols.
 12. Use Beacon's established `brain.head.profile` Ollama symbol with a subtle,
     whimsical animated sparkle, current semantic theme tokens, increased-
     contrast support, and a static Reduce Motion state.
+13. Make Command-I toggle the conversation presentation through the existing
+    animated open and reset-safe close paths while preserving Command-Shift-I.
+14. Size the right-edge conversation presentation to the complete available
+    dashboard content height and one-half of the available width on both shared
+    surfaces, recomputing with window size changes.
+15. Semantically review refreshed Kit-managed files and align canonical project
+    documentation only where durable rules, source structure, workflow, or
+    command behavior changed; preserve accurate custom guidance.
 
 ## Assumptions
 
@@ -236,6 +259,15 @@ Symbols.
   and send action remain reachable; a failed send restores its prompt as unsent.
 - [x] AC18: Cancel clears context, ordered history, prompt, errors, progress, and
   stale-response eligibility without mutating the current Note.
+- [x] AC19: Command-I opens or switches to the conversation presentation, and a
+  second Command-I press dismisses it with the reverse right-edge transition
+  while using the existing reset and stale-response protection boundary.
+- [x] AC20: The conversation panel is right-aligned, exactly half of the current
+  dashboard content width, and the full dashboard content height at menu and
+  detached-window sizes; resizing recomputes both dimensions.
+- [x] AC21: The post-init documentation review inspects the requested canonical
+  inputs and refreshed registry/command evidence, changes only semantically
+  stale docs, and passes the required Kit and whitespace checks.
 
 ## Design
 
@@ -317,10 +349,38 @@ Dismissing the panel does not cancel Notes autosave or mutate the draft.
     built control at its actual header size.
 14. Deliver the refinement on issue #62, exact branch `GH-62`, and a ready pull
     request, then verify the exact final hosted head.
+15. Route Command-I through one testable presentation toggle that reuses the
+    current show and reset-safe close paths without altering Command-Shift-I.
+16. Replace capped conversation geometry and outer padding with a right-edge
+    half-width, full-height overlay that tracks the root surface size.
+17. Add focused shortcut and geometry coverage, run fresh native open/close and
+    resize smoke, and preserve compact/session behavior.
+18. Review the refreshed Kit files and canonical documentation semantically,
+    curate durable outcomes, then deliver issue #64 on exact branch `GH-64` in
+    an assigned ready pull request with literal final-head check evidence.
 
 Rollback restores required context in the helper, removes the follow-up state
 and switcher command, and returns the header to selection-gated presentation.
 No persisted data or configuration migration is involved.
+
+## Agent Team Plan
+
+- The supervisor owns issue #64, this specification, cross-lane integration,
+  acceptance, full validation, repository-memory curation, and all Git/GitHub
+  delivery mutations.
+- One UI specialist owns the assistant presentation and paired Swift tests,
+  predicted in `MenuView.swift`, `MenuNotesAssistantPresentation.swift`,
+  `OllamaModels.swift`, and `OllamaFeatureTests.swift`; it must not edit docs,
+  stage, commit, push, or mutate GitHub.
+- One documentation specialist owns semantic review of the refreshed Kit files
+  and canonical docs, including the existing unstaged `.kit.yaml`, `README.md`,
+  and `work-lane-gating.md` refresh; it must not edit this feature spec, source
+  code, tests, git state, or GitHub state.
+- One read-only verification agent runs after integration and may not edit or
+  mutate delivery state.
+- The supervisor and two specialists run at maximum concurrency three. The
+  feature spec, integration, full validation, curation, and delivery are
+  serialized. Predicted implementation-file overlap is none.
 
 ## Task Checklist
 
@@ -364,6 +424,14 @@ No persisted data or configuration migration is involved.
   treatment, a Reduce Motion static state, and focused presentation coverage.
 - [x] T21: Update affected documentation and complete local/native validation.
 - [x] T22: Deliver GH-62 and verify the exact final hosted head.
+- [x] T23: Create assigned issue #64 and exact branch `GH-64` from refreshed
+  `origin/main`, preserve the requested Kit-refresh files, and adopt this spec.
+- [x] T24: Implement and test Command-I toggling, exact full-height half-width
+  conversation geometry, resizing, reverse transition, and compact-mode parity.
+- [x] T25: Complete the semantic post-init documentation review and reconcile
+  only durable project documentation affected by the refreshed Kit contract.
+- [x] T26: Run focused, native, full, and read-only verification; curate final
+  repository memory; explicitly stage and deliver the assigned ready PR.
 
 ## Validation Map
 
@@ -377,6 +445,8 @@ No persisted data or configuration migration is involved.
 | AC12 | README, Constitution, project-summary, and feature-spec review plus focused 10-test Ollama XCTest suite |
 | AC13-AC15 | Swift symbol, sizing, motion-phase, shortcut, and Reduce Motion wiring review plus native icon/compact/large transition smoke |
 | AC16-AC18 | Go ordered-message/limit tests, Swift AppState history/failure/reset tests, full native suite, and unchanged-note smoke |
+| AC19-AC20 | pure presentation toggle/geometry tests plus fresh Command-I open-close, resize, reverse-transition, and Command-Shift-I native smoke |
+| AC21 | requested documentation discovery commands, semantic diff review, `kit check --project`, conditional `kit check --all`, and `git diff --check` |
 
 ## Reflection Notes
 
@@ -416,6 +486,23 @@ small footprint as the adjacent Notes control. A familiar assistant symbol and
 slow orbiting sparkle carry the visual meaning without permanent label text;
 Reduce Motion freezes that composition instead of removing its identity.
 
+Command-I now makes one explicit presentation decision before entering the
+existing state paths: no assistant or compact mode selects conversation, while
+conversation mode calls the same reset-safe dismissal used by Cancel. This
+keeps stale-response protection and reverse transition behavior centralized.
+Root `GeometryReader` dimensions are the source of truth for the large overlay,
+so removing outer padding and fixed caps makes resizing naturally recompute one
+half of the available width and all of the available height.
+
+The post-init semantic review found that the Constitution and progress index
+still presented workflow v2 as the current formal default, and that the
+reference index recommended a lower-level refresh command without surfacing the
+new automatic clean-preflight lane behavior. Those durable references now route
+to native planning, living workflow-v3 specs, reviewed whole-project reconcile,
+and the refreshed work-lane rule. Agent entrypoints, source-material guidance,
+AWS boundaries, feature specs, and product command routing were already aligned;
+accurate local guidance was retained.
+
 ## Documentation Updates
 
 - [x] README usage now covers always-available AI, selection/full-note context,
@@ -432,6 +519,10 @@ Reduce Motion freezes that composition instead of removing its identity.
   validation, reflection, delivery decision, and evidence.
 - [x] Product documentation describes the compact icon-only assistant control
   without referring to a larger visible `AI` label.
+- [x] Canonical product documentation describes Command-I as a toggle and the
+  conversation panel as a full-height, half-width right-side presentation.
+- [x] Post-init semantic review records changed and no-op documentation findings
+  without replacing accurate custom project guidance.
 
 ## Delivery Decision
 
@@ -446,6 +537,12 @@ Deliver the compact control refinement separately on issue #62 and exact branch
 the active GH-59 lane has unrelated settings/documentation scope. Keep the
 existing assistant behavior unchanged and use the same explicit staging,
 human-identity, ready-PR, and final-head verification gates.
+
+Deliver the conversation toggle and semantic documentation review on assigned
+issue #64 and exact branch `GH-64`, created from refreshed `origin/main` at
+`b432ff587786dd987ee0c87b57784909a2cbc17a`. Use explicit staging, Jameson Stone
+author and committer identity, the repository template, a ready pull request,
+and literal final-head hosted-check reporting.
 
 ## Evidence
 
@@ -502,3 +599,30 @@ human-identity, ready-PR, and final-head verification gates.
   accepted. Commit `6276124` selects the explicit CoreGraphics `CGFloat`
   overloads; required Go and macOS checks then passed on that exact head, and
   CodeRabbit completed with no actionable review threads.
+- Conversation toggle issue: [#64](https://github.com/jamesonstone/beacon/issues/64),
+  assigned to `jamesonstone`.
+- Conversation toggle branch: `GH-64`, created from refreshed `origin/main` at
+  `b432ff587786dd987ee0c87b57784909a2cbc17a` while preserving the requested
+  unstaged Kit refresh for semantic review.
+- Conversation toggle focused validation: 18 `OllamaFeatureTests` pass, including
+  pure toggle decisions, exact odd-width geometry, session switching, reset, and
+  stale-response protection.
+- Conversation toggle native validation: Command-I opens, switches, and closes
+  the conversation at normal and zoomed window sizes; the panel remains on the
+  right half at full content height, and Command-Shift-I still opens compact mode.
+- Conversation toggle full local validation: Go format, vet, tests, race tests,
+  release test, and build pass; all 156 macOS tests pass; the universal macOS
+  build succeeds.
+- Post-init documentation validation: `kit rules list`, capability discovery,
+  project and all-feature checks, managed-file reconcile dry run, semantic diff
+  review, and `git diff --check` pass with no remaining managed-file drift.
+- Independent read-only verification: no findings; AC19-AC21 accepted after
+  source, test, documentation, source-size, generated-entrypoint, and complete
+  Git-history secret review. Its focused suite passed 18 tests, all 21 specs
+  passed Kit validation, and reconcile planned no managed-file changes.
+- Conversation toggle pull request: [#65](https://github.com/jamesonstone/beacon/pull/65),
+  ready for review, assigned to `jamesonstone`, and opened from `GH-64` into
+  `main` after explicit staging and verified Jameson Stone authorship.
+- Conversation toggle hosted validation: required Go and macOS checks pass,
+  CodeRabbit completes successfully with no actionable comments, and the pull
+  request has no review threads.

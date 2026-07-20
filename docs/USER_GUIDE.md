@@ -729,13 +729,15 @@ and Command-1 through Command-9 selects by open-tab position. All writes and
 deletions travel through the Go agent authority so the menu, detached window,
 and CLI remain synchronized.
 
-Press the larger **AI** button with its Beacon signal-and-spark mark at any time
-to open the compact local Ollama assistant directly below it. Command-I opens a
-larger conversation panel from the right edge; Command-Shift-I opens the compact
-panel. Beacon attaches the exact non-empty editor selection when one exists;
-otherwise it snapshots the entire current note, including visible unsaved edits.
-The complete attachment appears at the start of the scrollable conversation and
-can be removed before sending, so a prompt may continue without Notes context.
+Press the icon-only brain-and-spark action at any time to open the compact local
+Ollama assistant directly below it. Command-I toggles a conversation panel that
+slides across the right half of the dashboard at full content height;
+Command-Shift-I opens the compact panel. A second Command-I exits and resets the
+conversation just like **Cancel**. Beacon attaches the exact non-empty editor
+selection when one exists; otherwise it snapshots the entire current note,
+including visible unsaved edits. The complete attachment appears at the start of
+the scrollable conversation and can be removed before sending, so a prompt may
+continue without Notes context.
 
 Every user and assistant turn remains visible in order for the active session,
 and each follow-up sends that complete role-aware conversation to Ollama. History

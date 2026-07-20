@@ -139,6 +139,11 @@ enum NotesAssistantMode: Equatable {
     }
 }
 
+enum NotesAssistantConversationAction: Equatable {
+    case show
+    case dismiss
+}
+
 enum NotesAssistantPresentation {
     static let buttonSymbol = "brain.head.profile"
     static let buttonAnimationDuration: TimeInterval = 5.6
@@ -175,12 +180,14 @@ enum NotesAssistantPresentation {
         return CGSize(width: width, height: height)
     }
 
-    static func conversationPanelSize(in available: CGSize, surface: DashboardSurface) -> CGSize {
-        let maximumWidth: CGFloat = surface == .menu ? 406 : 520
-        let maximumHeight: CGFloat = surface == .menu ? 516 : 680
-        let width = max(300, min(maximumWidth, available.width - 24))
-        let height = max(300, min(maximumHeight, available.height - 24))
-        return CGSize(width: width, height: height)
+    static func conversationPanelSize(in available: CGSize, surface _: DashboardSurface) -> CGSize {
+        CGSize(width: available.width / 2, height: available.height)
+    }
+
+    static func conversationToggleAction(
+        currentMode: NotesAssistantMode?
+    ) -> NotesAssistantConversationAction {
+        currentMode == .conversation ? .dismiss : .show
     }
 
     static func shouldPrepareSession(currentMode: NotesAssistantMode?) -> Bool {
