@@ -454,14 +454,17 @@ the CLI and macOS lane cards; they never affect Beacon's attention or action
 policy. Manual lanes support planning or research without requiring Git,
 GitHub, Kit, or a Codex task API.
 
-That same Go-owned file stores one complete user lane order. Drag the handle on
-any macOS card to reorder within Active, Waiting, Recently Active, or Parking
-Lot; the relative priority survives evidence moving the lane to another group
-and is shared by the menu, detached dashboard, agent, and CLI. Drop a card on
-**Parking Lot** to Ignore it or on **Following** to Resume it. Card click still
-opens the work item. Keyboard users can choose **Move Up** or **Move Down** from
-the card menu. `beacon reorder <lane-id>...` exposes the atomic complete-order
-mutation for scripts; use the IDs and current order from `scan --json`.
+That same Go-owned file stores one complete user lane order. Within each
+Following status, Beacon keeps projects together and shows each project's pull
+requests first, issues next, and dirty local or manual lanes last. Drag the
+handle on a macOS card to reorder within the same project and work-item type;
+the persisted order breaks same-type ties and is shared by the menu, detached
+dashboard, agent, and CLI. Parking Lot keeps the complete user order and can be
+reordered freely. Drop a card on **Parking Lot** to Ignore it or on
+**Following** to Resume it. Card click still opens the work item. Keyboard users
+can choose **Move Up** or **Move Down** from the card menu. `beacon reorder
+<lane-id>...` exposes the atomic complete-order mutation for scripts; use the
+IDs and current order from `scan --json`.
 
 `beacon notes` is a local tabbed Markdown workspace for real-time thoughts that
 span lanes. The original `$XDG_DATA_HOME/beacon/notes.md` document remains the

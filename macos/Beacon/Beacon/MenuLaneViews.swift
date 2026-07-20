@@ -172,9 +172,13 @@ extension MenuView {
             .frame(width: 18, height: 22)
             .contentShape(Rectangle())
             .draggable(lane.id)
-            .help("Drag to reorder in this status, or drop on Following or Parking Lot")
+            .help(selectedDashboardTab == .parking
+                ? "Drag to reorder in Parking Lot, or drop on Following to Resume"
+                : "Drag to reorder within this project and work-item type, or drop on Parking Lot to Ignore")
             .accessibilityLabel("Reorder \(workItemTitle(lane))")
-            .accessibilityHint("Use the card actions to move this item with the keyboard")
+            .accessibilityHint(selectedDashboardTab == .parking
+                ? "Use the card actions to move this item within Parking Lot"
+                : "Use the card actions to move this item within its project and work-item type")
     }
 
     func externalActivityChip(_ activity: ExternalActivityChip) -> some View {

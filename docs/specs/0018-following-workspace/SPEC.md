@@ -88,6 +88,14 @@ references:
     read_policy: evidence
     used_for: ready review and hosted validation of the fitted layout
     status: active
+  - id: issue-66
+    name: Prioritize Following work items by type
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/66
+    relation: implements
+    read_policy: must
+    used_for: project-preserving Following work-item priority
+    status: active
   - id: constitution
     name: Beacon constitution
     type: doc
@@ -184,6 +192,11 @@ collection through the existing GitHub cache and a coordinated additive model.
 - Reordering is durable Go-owned state shared by CLI, agent, menu, detached
   dashboard, and every layout. One global lane order is projected into the
   evidence-derived Active, Waiting, Recent, and Parked sections.
+- Within each Following status section, Go keeps projects contiguous in
+  snapshot project order and presents each project's pull-request-backed lanes
+  first, issue-only lanes next, and local/manual lanes last. The persisted user
+  order remains the stable tie-breaker within the same project and work-item
+  type; Parking Lot retains the unmodified persisted order.
 - Dragging within Following changes order only. It cannot override Active,
   Waiting, or Recent. Dragging to Parking Lot invokes the existing Ignore
   mutation; dragging back invokes Resume and lets Go select the derived group.
@@ -364,6 +377,10 @@ collection through the existing GitHub cache and a coordinated additive model.
 30. Add persisted `Fit Following` as a no-scroll, scale-to-fit layout for every
     current Following lane above a fixed half-height Notes workspace. Preserve
     status order, refresh behavior, card actions, and all existing view modes.
+31. Project every Following status section through one Go-owned presentation
+    order that preserves project delineation, prioritizes pull requests before
+    issues before local/manual lanes, and retains persisted user order as the
+    same-project, same-type tie-breaker without changing attention or evidence.
 
 ## Assumptions
 
@@ -457,6 +474,10 @@ collection through the existing GitHub cache and a coordinated additive model.
 - [x] AC27: Fit Following keeps Notes interactive in the lower half, displays
   every current Following lane simultaneously in the upper workspace without
   lane-area scrolling, and recomputes its scale for menu or window resizing.
+- [x] AC28: Active, Waiting, and Recently Active keep projects contiguous and
+  order each project's pull requests before issue-only lanes before dirty
+  local/manual lanes across CLI and every macOS layout; same-type ties retain
+  persisted user order, and Parking Lot ordering remains unchanged.
 
 ## Implementation Plan
 
@@ -501,6 +522,12 @@ collection through the existing GitHub cache and a coordinated additive model.
     restore the prior Notes size on exit, and cover transitions and resizing.
 20. Run focused and complete validation, visually inspect both dashboard
     surfaces, and deliver the assigned ready issue #55 pull request.
+21. Add project- and work-item-aware Following projection in the Go working-set
+    authority, retain persisted order as the final stable tie-breaker, and add
+    mixed-project/type regression coverage before updating the shared contract.
+22. Run the complete Go/macOS delivery gates, review and explicitly stage the
+    issue #66 diff, then deliver the assigned ready pull request and verify its
+    hosted head.
 
 ## Agent Team Plan
 
@@ -555,6 +582,12 @@ collection through the existing GitHub cache and a coordinated additive model.
   stable persistence, existing-mode compatibility, and refresh-safe selection.
 - [x] T23: Run full validation and native interaction smoke, review and stage
   explicitly, then deliver the assigned ready PR and verify its hosted head.
+- [x] T24: Record issue #66 and the accepted project-preserving work-item
+  priority contract before implementation.
+- [x] T25: Implement and test Go-owned pull-request, issue, then local/manual
+  Following projection while retaining persisted same-type order.
+- [ ] T26: Reconcile canonical memory, run all validation and delivery gates,
+  then create and verify the assigned ready issue #66 pull request.
 
 ## Validation Map
 
@@ -577,6 +610,7 @@ collection through the existing GitHub cache and a coordinated additive model.
 | AC26 | hover timing contract tests plus native hover, traversal, click pin, outside/Escape, and keyboard accessibility smoke |
 | AC22-AC24 | font-catalog/default/fallback tests, UserDefaults persistence assertions, SwiftUI/AppKit resolution tests, macOS test/build, Appearance inspection, and relaunch smoke |
 | AC27 | fitted-grid geometry and mode-transition tests, 300-line audit, fresh menu/window resize smoke, full macOS validation, and hosted checks |
+| AC28 | mixed-project/type working-set projection tests, Swift reorder-partition regressions, full Go/macOS gates, and hosted checks |
 
 ## Reflection Notes
 
@@ -624,6 +658,12 @@ collection through the existing GitHub cache and a coordinated additive model.
 - Fresh-app accessibility inspection caught that a container-level label hid
   the individual lane labels. Removing that override preserved the complete
   child accessibility tree while keeping the visual fit unchanged.
+- Project and work-item precedence belongs in Go's working-set projection, not
+  Swift presentation sorting. Retaining the complete user order as a final
+  same-project, same-type tie-breaker preserves durable customization while
+  preventing a drag across priority partitions from appearing to succeed and
+  then snapping back. Parking Lot remains freely ordered because it is outside
+  the prioritized Following presentation.
 
 ## Documentation Updates
 
@@ -647,6 +687,9 @@ collection through the existing GitHub cache and a coordinated additive model.
   Appearance typography before delivery.
 - Deliver the fitted Following continuation on issue #55, exact branch `GH-55`,
   in a new ready pull request targeting `main` and assigned to `jamesonstone`.
+- Deliver the Following work-item priority continuation on issue #66, exact
+  branch `GH-66`, in a new ready pull request targeting `main`, assigned to
+  `jamesonstone`, and closing issue #66.
 
 ## Evidence
 
@@ -804,3 +847,22 @@ collection through the existing GitHub cache and a coordinated additive model.
   44 seconds. CodeRabbit completed with no review threads; its optional README
   placement nit was not adopted because the durable behavior is already in this
   spec and the Constitution while README retains the established user summary.
+- Issue #66 is assigned to `jamesonstone`; branch `GH-66` was created from
+  refreshed `origin/main` at `a35e7ee1944be15d84b6eb66502455c99300a0b8`.
+- The Go working-set authority now keeps configured projects contiguous within
+  every Following status and orders each project's PR-backed lanes before
+  issue-only lanes before local/manual lanes. Persisted user order remains the
+  same-type tie-breaker, while Parking Lot keeps its complete user order.
+- Mixed-project/type Go regressions cover Active, Waiting, Recently Active,
+  and unchanged Parking Lot order. Focused AppState coverage verifies that
+  same-project, same-type reorders still send the complete order while
+  cross-type and cross-status moves are rejected.
+- The complete local gate passes `make BEACON_DERIVED_DATA=/tmp/beacon-gh66-final
+  fmt-check vet test test-race release-test build macos-test macos-build`; the
+  macOS suite executed 157 tests with zero failures or skips, and the universal
+  Debug build succeeded.
+- All 21 feature checks and the coherent project-contract check pass, both
+  application plists and the Xcode project lint cleanly, `git diff --check`
+  passes, changed-file secret-pattern review finds no credentials, and every
+  touched Go or Swift file remains at or below 300 lines after extracting the
+  ordering tests into their focused test file.

@@ -6,28 +6,79 @@ import (
 	"github.com/jamesonstone/beacon/internal/model"
 )
 
-func sortWorking(groups *model.WorkingSet, order []string) {
+func sortWorking(groups *model.WorkingSet, order []string, projects []model.Project, lanes []model.Lane) {
 	ranks := make(map[string]int, len(order))
 	for index, id := range order {
 		ranks[id] = index
 	}
-	sortGroup := func(values []string) {
+	lanesByID := make(map[string]model.Lane, len(lanes))
+	for _, lane := range lanes {
+		lanesByID[lane.ID] = lane
+	}
+	projectRanks := make(map[string]int, len(projects))
+	for index, project := range projects {
+		projectRanks[project.GitHub] = index
+	}
+	userOrderLess := func(leftID, rightID string) bool {
+		left, leftFound := ranks[leftID]
+		right, rightFound := ranks[rightID]
+		if leftFound && rightFound {
+			return left < right
+		}
+		if leftFound != rightFound {
+			return leftFound
+		}
+		return leftID < rightID
+	}
+	sortUserOrder := func(values []string) {
 		sort.SliceStable(values, func(i, j int) bool {
-			left, leftFound := ranks[values[i]]
-			right, rightFound := ranks[values[j]]
-			if leftFound && rightFound {
-				return left < right
-			}
+			return userOrderLess(values[i], values[j])
+		})
+	}
+	sortFollowing := func(values []string) {
+		sort.SliceStable(values, func(i, j int) bool {
+			left, leftFound := lanesByID[values[i]]
+			right, rightFound := lanesByID[values[j]]
 			if leftFound != rightFound {
 				return leftFound
 			}
-			return values[i] < values[j]
+			if !leftFound {
+				return userOrderLess(values[i], values[j])
+			}
+
+			leftProject, leftProjectFound := projectRanks[left.GitHub]
+			rightProject, rightProjectFound := projectRanks[right.GitHub]
+			if leftProjectFound && rightProjectFound && leftProject != rightProject {
+				return leftProject < rightProject
+			}
+			if leftProjectFound != rightProjectFound {
+				return leftProjectFound
+			}
+			if !leftProjectFound && left.GitHub != right.GitHub {
+				return left.GitHub < right.GitHub
+			}
+
+			leftType, rightType := followingTypePriority(left), followingTypePriority(right)
+			if leftType != rightType {
+				return leftType < rightType
+			}
+			return userOrderLess(values[i], values[j])
 		})
 	}
-	sortGroup(groups.Active)
-	sortGroup(groups.Waiting)
-	sortGroup(groups.Recent)
-	sortGroup(groups.Parked)
+	sortFollowing(groups.Active)
+	sortFollowing(groups.Waiting)
+	sortFollowing(groups.Recent)
+	sortUserOrder(groups.Parked)
+}
+
+func followingTypePriority(lane model.Lane) int {
+	if lane.PullRequest != nil {
+		return 0
+	}
+	if lane.Issue != nil {
+		return 1
+	}
+	return 2
 }
 
 func normalizeLaneOrder(order []string, entries map[string]Entry, leading []string) []string {

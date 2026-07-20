@@ -36,11 +36,14 @@ parking only and must never unfollow the repository or delete lane state.
 Lanes may also carry short, deduplicated user tags. Tags and notes are optional
 context only and must not alter evidence, attention, readiness, or next-action
 policy.
-The working set also owns one complete global user lane order. It is projected
-into evidence-derived attention groups, persists independently from pins, and
-must never let presentation override attention or next-action policy. New lanes
-enter at the front of their derived group; stale identities are removed during
-reconciliation.
+The working set also owns one complete global user lane order. Go projects each
+Following attention group in configured project order, keeps each project
+contiguous, and presents pull-request-backed lanes before issue-only lanes
+before local or manual lanes. The persisted user order is the stable tie-breaker
+within one project and work-item type; Parking Lot retains the unmodified user
+order. Ordering persists independently from pins and must never override
+attention or next-action policy. New lanes enter at the front of their matching
+project/type partition; stale identities are removed during reconciliation.
 
 Beacon also owns one global Markdown signal log for transient working notes
 that span lanes. It is optional local context, never durable evidence or a

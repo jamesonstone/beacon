@@ -51,8 +51,9 @@ extension AppState {
         guard draggedID != targetID,
               let snapshot,
               let workingSet = snapshot.workingSet,
-              laneGroup(for: draggedID, in: workingSet) == laneGroup(for: targetID, in: workingSet),
-              laneGroup(for: draggedID, in: workingSet) != nil
+              let group = laneGroup(for: draggedID, in: workingSet),
+              group == laneGroup(for: targetID, in: workingSet),
+              group == "parked" || sameFollowingOrderPartition(draggedID, targetID, in: snapshot)
         else { return }
 
         let visibleIDs = workingSet.active + workingSet.waiting + workingSet.recent + workingSet.parked
@@ -72,7 +73,9 @@ extension AppState {
 
         let visibleIDs = workingSet.active + workingSet.waiting + workingSet.recent + workingSet.parked
         var order = (workingSet.order ?? []) + visibleIDs.filter { !(workingSet.order ?? []).contains($0) }
-        let peers = order.filter { laneGroup(for: $0, in: workingSet) == group }
+        let peers = laneIDs(in: group, from: workingSet).filter {
+            group == "parked" || sameFollowingOrderPartition(laneID, $0, in: snapshot)
+        }
         guard let peerIndex = peers.firstIndex(of: laneID) else { return }
         let destination = peerIndex + offset
         guard peers.indices.contains(destination) else { return }
@@ -90,6 +93,28 @@ extension AppState {
         if workingSet.recent.contains(laneID) { return "recent" }
         if workingSet.parked.contains(laneID) { return "parked" }
         return nil
+    }
+
+    private func laneIDs(in group: String, from workingSet: WorkingSetGroups) -> [String] {
+        switch group {
+        case "active": return workingSet.active
+        case "waiting": return workingSet.waiting
+        case "recent": return workingSet.recent
+        case "parked": return workingSet.parked
+        default: return []
+        }
+    }
+
+    private func sameFollowingOrderPartition(
+        _ leftID: String,
+        _ rightID: String,
+        in snapshot: BeaconSnapshot
+    ) -> Bool {
+        guard let left = snapshot.lanes.first(where: { $0.id == leftID }),
+              let right = snapshot.lanes.first(where: { $0.id == rightID })
+        else { return false }
+        return left.github == right.github
+            && DashboardLanePresentation.identity(for: left) == DashboardLanePresentation.identity(for: right)
     }
 
     func moveLane(_ laneID: String, to tab: DashboardTab) async {

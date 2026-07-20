@@ -20,7 +20,7 @@ func TestReconcileKeepsOpenPullRequestsInFollowedWorkingSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.WorkingSet.Active) != 3 || updated.WorkingSet.Active[0] != "dirty" || updated.WorkingSet.Active[1] != "old-pr" || updated.WorkingSet.Active[2] != "stale-dirty-pr" || len(updated.WorkingSet.Recent) != 0 {
+	if len(updated.WorkingSet.Active) != 3 || updated.WorkingSet.Active[0] != "old-pr" || updated.WorkingSet.Active[1] != "stale-dirty-pr" || updated.WorkingSet.Active[2] != "dirty" || len(updated.WorkingSet.Recent) != 0 {
 		t.Fatalf("working set = %#v", updated.WorkingSet)
 	}
 	if updated.Lanes[1].Attention == nil || updated.Lanes[1].Attention.State != model.AttentionActive {
@@ -46,7 +46,7 @@ func TestReconcileKeepsOpenPullRequestsInFollowedWorkingSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.WorkingSet.Active) != 2 || updated.WorkingSet.Active[0] != "dirty" || updated.WorkingSet.Active[1] != "stale-dirty-pr" || updated.Lanes[1].Attention != nil {
+	if len(updated.WorkingSet.Active) != 2 || updated.WorkingSet.Active[0] != "stale-dirty-pr" || updated.WorkingSet.Active[1] != "dirty" || updated.Lanes[1].Attention != nil {
 		t.Fatalf("closed PR remained in working set = %#v", updated.WorkingSet)
 	}
 }
