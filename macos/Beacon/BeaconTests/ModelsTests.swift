@@ -3,6 +3,20 @@ import XCTest
 @testable import Beacon
 
 final class ModelsTests: XCTestCase {
+    func testSettingsPanelsExposeStableClickDestinations() {
+        XCTAssertEqual(
+            BeaconSettingsPanel.allCases,
+            [.appearance, .terminal, .ollama, .agentHooks]
+        )
+        XCTAssertEqual(
+            BeaconSettingsPanel.allCases.map(\.title),
+            ["Appearance", "Terminal", "Ollama Model", "Agent Hook Health"]
+        )
+        XCTAssertEqual(Set(BeaconSettingsPanel.allCases.map(\.id)).count, 4)
+        XCTAssertTrue(BeaconSettingsPanel.allCases.allSatisfy { !$0.symbol.isEmpty })
+        XCTAssertTrue(BeaconSettingsPanel.allCases.allSatisfy { $0.height >= 200 })
+    }
+
     func testExternalActivityChipPrioritizesAttentionAndCountsProviders() {
         let records = [
             externalActivityRecord(provider: "codex", state: "working", session: "one"),

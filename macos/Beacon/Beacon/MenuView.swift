@@ -29,6 +29,7 @@ struct MenuView: View {
     @State var switcherSelection = 0
     @State var notePendingDeletion: AgentNoteTab?
     @State var evidenceHoverLaneID: String?
+    @State var settingsPanel: BeaconSettingsPanel?
     @AppStorage("beacon.dashboard.view-mode") private var viewModeValue = DashboardViewMode.stacked.rawValue
     @AppStorage(DashboardDensity.storageKey) var densityValue = DashboardDensity.defaultDensity.rawValue
     @AppStorage("beacon.dismissed-evidence-badges") var dismissedEvidenceBadgesValue = "[]"
