@@ -19,7 +19,7 @@ final class AppStateOrderingTests: XCTestCase {
 
         await state.reorderLane("active-work", before: "active-base")
         await state.reorderLane("active-work", before: "quiet-worktree")
-        await state.moveLane("active-work", by: 1)
+        await state.moveLane("active-base", by: 1)
 
         let calls = await agent.laneOrderCalls
         XCTAssertEqual(calls, [])
