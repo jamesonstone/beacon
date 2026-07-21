@@ -390,6 +390,11 @@ beacon config open
 beacon version
 ```
 
+`beacon open`, `beacon open-next`, and `beacon config open` delegate to the
+current platform opener: `open` on macOS and `xdg-open` on Linux. Install the
+desktop opener package in headless Linux environments before using those
+commands; all scan, JSON, notes, sync, and agent workflows remain terminal-only.
+
 Bare `beacon` is a manual refresh every time: it asks the background agent to
 check current Git and GitHub evidence, waits for the coalesced scan to finish,
 and renders the updated working set. If the agent is unavailable, Beacon runs

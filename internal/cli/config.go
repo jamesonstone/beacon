@@ -1,10 +1,8 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/spf13/cobra"
@@ -46,10 +44,7 @@ func (a App) configCommand(configPath *string) *cobra.Command {
 				if _, err := os.Stat(path); err != nil {
 					return fmt.Errorf("open config: %w; run beacon config init first", err)
 				}
-				commandContext, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
-				defer cancel()
-				_, err = a.Runner.Run(commandContext, "", "open", path)
-				return err
+				return a.openTarget(cmd.Context(), path)
 			},
 		},
 	)
