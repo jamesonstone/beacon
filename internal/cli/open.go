@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/jamesonstone/beacon/internal/agent"
 	"github.com/jamesonstone/beacon/internal/config"
@@ -99,8 +98,5 @@ func (a App) openLane(ctx context.Context, lane model.Lane) error {
 	if target == "" {
 		return fmt.Errorf("lane has no openable target: %s", lane.ID)
 	}
-	commandContext, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_, err := a.Runner.Run(commandContext, "", "open", target)
-	return err
+	return a.openTarget(ctx, target)
 }

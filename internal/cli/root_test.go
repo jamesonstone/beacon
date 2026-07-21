@@ -126,8 +126,12 @@ func TestOpenLanePrefersPullRequestThenIssueThenWorktree(t *testing.T) {
 			if err := app.openLane(context.Background(), test.lane); err != nil {
 				t.Fatal(err)
 			}
-			if runner.target != test.want {
-				t.Fatalf("target = %q, want %q", runner.target, test.want)
+			wantName, wantArgs, err := openTargetCommand(runtime.GOOS, test.want)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if runner.name != wantName || !sameStrings(runner.args, wantArgs) {
+				t.Fatalf("opener = %s %v, want %s %v", runner.name, runner.args, wantName, wantArgs)
 			}
 		})
 	}
@@ -238,7 +242,11 @@ func TestScanSnapshotUsesPartialReconciliationForRepositoryFilter(t *testing.T) 
 	}
 }
 
-type recordingRunner struct{ target string }
+type recordingRunner struct {
+	name   string
+	args   []string
+	target string
+}
 
 type recordingAgentStarter struct{ calls int }
 
@@ -260,9 +268,15 @@ func (s *recordingSnapshotScanner) Scan(_ context.Context, _ config.Config, _ st
 }
 
 func (r *recordingRunner) Run(_ context.Context, _ string, name string, args ...string) ([]byte, error) {
-	if name != "open" || len(args) != 1 {
+	switch name {
+	case "open", "xdg-open", "rundll32":
+	default:
 		return nil, fmt.Errorf("unexpected command: %s %v", name, args)
 	}
-	r.target = args[0]
+	r.name = name
+	r.args = append([]string{}, args...)
+	if len(args) > 0 {
+		r.target = args[len(args)-1]
+	}
 	return nil, nil
 }
