@@ -24,6 +24,14 @@ references:
     read_policy: must
     used_for: idle-rendering root cause, static decoration, three-second rich-hover threshold, and delivery lane
     status: active
+  - id: pr-75
+    name: Stop idle UI animation churn
+    type: github-pr
+    target: https://github.com/jamesonstone/beacon/pull/75
+    relation: implements
+    read_policy: must
+    used_for: issue-74 implementation, validation, and review evidence
+    status: active
   - id: issue-57
     name: Show animated project watermarks in Fit Following
     type: github-issue
@@ -246,7 +254,8 @@ empty-state artwork is likewise static, while bounded event-driven interaction
 transitions remain available. Rich detail and taxonomy guidance require three
 continuous seconds of pointer hover but remain immediate through keyboard focus
 and click. The decorative duplicate is hidden from accessibility while the
-existing semantic card children remain authoritative.
+existing semantic card children remain authoritative. Issue #74 is represented
+by ready pull request #75 from exact branch `GH-74`.
 
 ## REPOSITORY MEMORY
 

@@ -231,7 +231,7 @@ artifact wins whenever this index disagrees with it.
 - **PAUSED**: no
 - **INTENT**: Make each repository immediately identifiable inside Fit Following without reducing the number of simultaneously visible lanes.
 - **APPROACH**: Place the canonical project name behind each fixed dense card as an oversized clipped static watermark, preserve the theme-owned contrast-safe palette, and keep every decorative composition free of continuous rendering schedules.
-- **OPEN ITEMS**: The initial palette and fitted geometry shipped through issue #57 and PR #58. Issue #74 and branch `GH-74` remove hidden animation work, make the shared pointer-hover threshold exactly three seconds, and preserve immediate keyboard and click access; ready-PR review and merge remain.
+- **OPEN ITEMS**: The initial palette and fitted geometry shipped through issue #57 and PR #58. Issue #74, branch `GH-74`, and ready PR #75 remove hidden animation work, make the shared pointer-hover threshold exactly three seconds, and preserve immediate keyboard and click access; review and merge remain.
 - **POINTERS**: `docs/specs/0021-animated-project-watermarks/SPEC.md`
 
 ## LAST UPDATED
