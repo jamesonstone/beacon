@@ -120,6 +120,14 @@ references:
     read_policy: evidence
     used_for: ready review and hosted validation of post-merge reconciliation
     status: active
+  - id: issue-74
+    name: Stop hidden macOS animations and delay hover details
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/74
+    relation: implements
+    read_policy: must
+    used_for: exact three-second rich-hover threshold and retained interaction behavior
+    status: active
   - id: constitution
     name: Beacon constitution
     type: doc
@@ -257,8 +265,9 @@ collection through the existing GitHub cache and a coordinated additive model.
   thread with synthesized file/line and author heading, comment content,
   dates, and individual links. Local and manual cards expose available path,
   action, reason, warning, blocker, note, and tag context.
-- Rich detail opens after hover or keyboard focus, remains open while traversed,
-  can be pinned by click, closes with Escape, and never initiates network work.
+- Rich detail opens after three continuous seconds of pointer hover or
+  immediately through keyboard focus, remains open while traversed, can be
+  pinned by click, closes with Escape, and never initiates network work.
 - Every read-only Markdown-backed field uses one block-aware renderer. Issue and
   pull-request descriptions plus review comments preserve headings, paragraphs,
   ordered/unordered/task lists, quotes, code, dividers, tables, inline emphasis,
@@ -288,8 +297,8 @@ collection through the existing GitHub cache and a coordinated additive model.
   essential interface text remains at least 11 points.
 - Ordinary canvas, card, control, tab, dialog, and border presentation uses
   solid neutral surfaces, restrained borders, and minimal shadow. Beacon keeps
-  its playful gradient treatment only in the wordmark, rocket, and occasional
-  illustration.
+  its playful gradient treatment only in the static wordmark, rocket, fitted
+  watermark, and occasional illustration.
 - Status meaning is invariant across themes and is always paired with explicit
   text and an SF Symbol. Increase Contrast and Differentiate Without Color
   strengthen borders and redundant cues; Reduce Transparency removes
@@ -349,8 +358,9 @@ collection through the existing GitHub cache and a coordinated additive model.
     with the existing user-only command-response and project caches, and perform
     zero GitHub or Git commands on hover, focus, popover pin, or dismissal.
 11. Add shared rich detail presentation for issue, PR, feedback, local, and
-    manual lanes with native Markdown, direct links, truncation disclosure,
-    delayed hover, click pinning, pointer traversal, Escape, and keyboard focus.
+    manual lanes with native Markdown, direct links, truncation disclosure, an
+    exact three-second hover threshold, click pinning, pointer traversal,
+    Escape, and immediate keyboard focus.
 12. Reconcile README, constitution, progress summary, and this specification,
     then deliver the complete issue #39 scope in one ready pull request.
 13. Replace `BeaconPalette` and static neon role names with a typed semantic
@@ -395,9 +405,10 @@ collection through the existing GitHub cache and a coordinated additive model.
     persistence, fallback, and shared SwiftUI/AppKit refresh behavior.
 28. Keep the View Mode control and every layout choice interactive while a
     manual or background refresh publishes snapshot and progress updates.
-29. Present the taxonomy guide after a deliberate information-control hover,
-    preserve pointer traversal into the guide, and retain click pinning,
-    outside/Escape dismissal, keyboard access, and zero refresh/network work.
+29. Present the taxonomy guide after three continuous seconds of
+    information-control hover, preserve pointer traversal into the guide, and
+    retain click pinning, outside/Escape dismissal, immediate keyboard access,
+    and zero refresh/network work.
 30. Add persisted `Fit Following` as a no-scroll, scale-to-fit layout for every
     current Following lane above a fixed half-height Notes workspace. Preserve
     status order, refresh behavior, card actions, and all existing view modes.
@@ -492,9 +503,10 @@ collection through the existing GitHub cache and a coordinated additive model.
 - [x] AC25: During an active Following refresh, the View Mode menu remains open
   long enough to select any mode, applies that selection immediately, and does
   not cancel, restart, or otherwise alter the refresh.
-- [x] AC26: Hovering the information control opens the complete taxonomy guide;
-  moving into the guide keeps it open, click pins/unpins it, outside click or
-  Escape dismisses it, and keyboard/accessibility activation still works.
+- [x] AC26: Hovering the information control continuously for three seconds
+  opens the complete taxonomy guide; moving into the guide keeps it open, click
+  pins/unpins it, outside click or Escape dismisses it, and immediate
+  keyboard/accessibility activation still works.
 - [x] AC27: Fit Following keeps Notes interactive in the lower half, displays
   every current Following lane simultaneously in the upper workspace without
   lane-area scrolling, and recomputes its scale for menu or window resizing.
@@ -538,8 +550,9 @@ collection through the existing GitHub cache and a coordinated additive model.
     lane, commit/push to PR #42, and wait for hosted checks on the exact head.
 16. Isolate the View Mode menu from unrelated observed refresh publications and
     use direct native menu actions so a live scan cannot invalidate selection.
-17. Reuse Beacon's delayed hover/pointer-traversal interaction contract for the
-    taxonomy guide, then validate both changes in a freshly built app.
+17. Reuse Beacon's shared three-second hover/pointer-traversal interaction
+    contract for the taxonomy guide, then validate both changes in a freshly
+    built app.
 18. Add the issue #55 persisted mode and a deterministic fitted-grid sizing
     model that preserves status sections and scales all lanes into its bounds.
 19. Lock Notes presentation to the lower half while the fitted mode is active,
@@ -631,7 +644,7 @@ collection through the existing GitHub cache and a coordinated additive model.
 | AC20 | full make gate, Linux builds, Kit/diff/secret review, stable-app interaction smoke, exact branch/PR recon, and hosted checks |
 | AC21 | parser block/inline/table/task fixtures, five-theme render smoke, macOS test/build, and fresh detail-popover visual smoke |
 | AC25 | stable View Mode control identity/action tests plus active-refresh native selection smoke across layouts |
-| AC26 | hover timing contract tests plus native hover, traversal, click pin, outside/Escape, and keyboard accessibility smoke |
+| AC26 | exact three-second hover timing contract tests plus native hover, traversal, click pin, outside/Escape, and immediate keyboard accessibility smoke |
 | AC22-AC24 | font-catalog/default/fallback tests, UserDefaults persistence assertions, SwiftUI/AppKit resolution tests, macOS test/build, Appearance inspection, and relaunch smoke |
 | AC27 | fitted-grid geometry and mode-transition tests, 300-line audit, fresh menu/window resize smoke, full macOS validation, and hosted checks |
 | AC28 | mixed-project/type working-set projection tests, Swift reorder-partition regressions, full Go/macOS gates, and hosted checks |
@@ -668,9 +681,11 @@ collection through the existing GitHub cache and a coordinated additive model.
   Mode submenu is open. Isolating direct mode actions in an equatable child
   keeps the menu identity stable without pausing, cancelling, or restarting the
   scan.
-- The taxonomy guide now reuses the detail popover's delayed hover and pointer
-  traversal timings while retaining click, Escape, outside-dismissal, keyboard,
-  and accessibility activation.
+- The taxonomy guide reuses the detail popover's hover and pointer-traversal
+  timings while retaining click, Escape, outside-dismissal, keyboard, and
+  accessibility activation. Issue #74 increases the shared open threshold from
+  350 milliseconds to exactly three seconds so incidental pointer movement no
+  longer opens either surface.
 - Review of PR #52 found that the helper's bounded conversation input could
   eventually reject every follow-up. Requests now retain the newest complete
   turns within both helper limits while the entire transcript remains visible,

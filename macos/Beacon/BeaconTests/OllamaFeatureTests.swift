@@ -120,8 +120,6 @@ final class OllamaFeatureTests: XCTestCase {
             accessibilityDescription: nil
         ))
         XCTAssertEqual(SignalNotesPresentation.headerControlSize, 20)
-        XCTAssertGreaterThanOrEqual(NotesAssistantPresentation.buttonAnimationDuration, 4)
-        XCTAssertLessThanOrEqual(NotesAssistantPresentation.buttonAnimationDuration, 7)
         XCTAssertTrue(NotesAssistantPresentation.shouldPrepareSession(currentMode: nil))
         XCTAssertFalse(NotesAssistantPresentation.shouldPrepareSession(currentMode: .compact))
         XCTAssertFalse(NotesAssistantPresentation.shouldPrepareSession(currentMode: .conversation))

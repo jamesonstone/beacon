@@ -551,8 +551,8 @@ Following lane into the upper half without a separate lane-area scroll. The
 selection persists across launches, and smaller windows remain usable. Each
 fitted card uses its full background for an oversized, clipped project-name
 watermark, so repository identity remains visible without consuming any grid
-space. A slow theme-specific color highlight travels through the letters while
-the lane's factual content and controls remain in front.
+space. A centered theme-specific color highlight remains static while the
+lane's factual content and controls stay in front.
 In the default stacked view, each project name is a solid, bold heading above
 its lanes so repository context is visible before the pull request or issue
 title.
@@ -630,12 +630,12 @@ Repository Sync, Dependency Limits, and Manage Following.
 
 When Following has no work in progress and no projects are still loading, the
 blank lane area becomes a lightweight **All caught up** backsplash. Its native
-SwiftUI orbit adapts to the compact menu extra and the detached window, respects
-Reduce Motion, and describes lane state without claiming local Git refs are current.
+SwiftUI illustration adapts to the compact menu extra and the detached window
+without continuous animation and describes lane state without claiming local
+Git refs are current.
 
-The Beacon wordmark carries a modest theme-derived color wave. It uses a shared,
-deterministic time phase in the menu and detached window and becomes static
-when Reduce Motion is enabled.
+The Beacon wordmark carries a modest static theme-derived gradient in the menu
+and detached window without continuous animation.
 
 Lane cards identify the kind of work consistently in every view with explicit
 **Local**, **PR**, **Issue**, or **Manual** text and a stable SF Symbol. Each
@@ -678,25 +678,29 @@ clean worktrees, successful CI, approved review, and current freshness stay
 quiet. Explicit labels and SF Symbols identify conditions such as **Local
 changes**, **CI pending**, **CI failed**, **Stale**, and **PR feedback · 2**;
 color never carries status alone. The last label means two unresolved pull
-request review threads. Hover it for every collected file/line, reviewer,
-Markdown comment, timestamp, and individual GitHub link. A badge's trailing
+request review threads. Hover over it continuously for three seconds to see
+every collected file/line, reviewer, Markdown comment, timestamp, and individual
+GitHub link. A badge's trailing
 close control still provides exact-value local dismissal, so changed evidence
 reappears; **Restore Hidden Badges** clears all dismissals.
 
 Beacon follows macOS **Increase Contrast**, **Differentiate Without Color**,
 **Reduce Transparency**, and **Reduce Motion**. These preferences strengthen
 borders, retain redundant labels and symbols, replace translucent overlays with
-solid theme surfaces, and stop decorative or layout motion without changing
-saved workflow state. The fitted project watermark becomes fully opaque with
-Increase Contrast, desaturates with Differentiate Without Color, and holds a
-centered static highlight with Reduce Motion. Automated checks require at least
+solid theme surfaces, and stop bounded layout motion without changing saved
+workflow state. Decorative marks are static for every user. The fitted project
+watermark becomes fully opaque with Increase Contrast, desaturates with
+Differentiate Without Color, and always holds a centered static highlight.
+Automated checks require at least
 4.5:1 contrast for normal text and 3:1 for focus, strong borders, and large
 indicators in every built-in theme.
 
 The information button beside View and Settings explains the universal
 hierarchy: work-item identity, lane attention, one next action, evidence
-exceptions, then optional local context. Hover or keyboard-focus any card for a
-traversable detail panel with its bounded issue or PR description, links,
+exceptions, then optional local context. Hover continuously for three seconds
+over the information button or any card to open its traversable guidance or
+detail panel; keyboard focus and click remain immediate. Card detail includes
+its bounded issue or PR description, links,
 reasons, warnings, blockers, and local context. The panel is rendered entirely
 from cached scan evidence, can be pinned, and closes with Escape; hovering never
 runs Git or GitHub work. GitHub descriptions and review comments use one shared,
@@ -709,8 +713,8 @@ labels remain explicit interface copy.
 The playful **Notes** panel sits at the bottom of both surfaces. It opens at 50%
 of the available Beacon surface height; double-clicking its header cycles 50%,
 80%, minimized, then 50%, while its chevron minimizes or restores the most
-recent expanded size. The header's solar system, the empty-state orbit, and the
-slow rocket beside the Beacon wordmark stop moving when Reduce Motion is on.
+recent expanded size. The header's solar system, empty-state orbit, and rocket
+beside the Beacon wordmark are static native illustrations.
 
 Its horizontally scrolling tab strip keeps permanently pinned General first,
 then user-pinned details in their persisted drag order, then unpinned open
@@ -737,10 +741,10 @@ and Command-1 through Command-9 selects by open-tab position. All writes and
 deletions travel through the Go agent authority so the menu, detached window,
 and CLI remain synchronized.
 
-Press the icon-only brain-and-spark action at any time to open the compact local
-Ollama assistant directly below it. Command-I toggles a conversation panel that
-slides across the right half of the dashboard at full content height;
-Command-Shift-I opens the compact panel. A second Command-I exits and resets the
+Press the static icon-only brain-and-spark action at any time to open the
+compact local Ollama assistant directly below it. Command-I toggles a
+conversation panel that slides across the right half of the dashboard at full
+content height; Command-Shift-I opens the compact panel. A second Command-I exits and resets the
 conversation just like **Cancel**. Beacon attaches the exact non-empty editor
 selection when one exists; otherwise it snapshots the entire current note,
 including visible unsaved edits. The complete attachment appears at the start of
