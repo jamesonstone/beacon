@@ -579,9 +579,9 @@ strips, an experimental state-column kanban board, and an adaptive experimental
 Overview over the same ordered lanes. A fitted Following view keeps Notes in
 the lower half while scaling every current Following lane into the upper half
 without a separate lane-area scroll. Each fitted card may render the canonical
-project name as an oversized clipped background watermark, but that decoration
-must not change card geometry, ordering, interaction, or accessibility
-semantics. Overview uses the dense shared card,
+project name as an oversized clipped static background watermark, but that
+decoration must not change card geometry, ordering, interaction, accessibility
+semantics, or idle rendering behavior. Overview uses the dense shared card,
 collapses empty groups, minimizes Notes while active, and restores its prior
 size on exit. Comfortable, Compact, and Dense are separately persisted shared
 card-density contracts, not alternate policy or font-size settings. A compact
@@ -635,10 +635,10 @@ flush before switching or closing, and preserve the active tab when saving
 fails. Closing remains non-destructive. Permanent detail-note delete actions on
 tabs, New Tab history, and Command-K/Command-P results all route through one
 native destructive confirmation alert; General and New Tab expose no delete
-action. The rocket wordmark mark, Notes solar system, assistant sparkle, and
-empty-state orbit use native animation, carry no evidence semantics, and remain
-stationary when Reduce Motion is enabled. The switchers use an opaque semantic
-theme surface over a theme-aware backdrop. Native
+action. The rocket beside the wordmark, Notes solar system, assistant sparkle, and
+empty-state orbit are static native compositions and carry no evidence
+semantics or continuous rendering schedule. The switchers use an opaque
+semantic theme surface over a theme-aware backdrop. Native
 Command-K and Command-P switchers plus tab-cycle and numeric shortcuts operate
 through the frontmost shared view hierarchy. When Following
 contains no in-progress lanes and no projects are loading,
@@ -647,10 +647,10 @@ copy describes lane state rather than repository-ref freshness.
 Expanded Notes exposes one accessible, always-enabled assistant action in the
 same 20-by-20 point footprint as the adjacent Notes size control. Its visible
 control is an icon-only brain-and-spark mark derived from semantic theme tokens;
-the tooltip and accessibility label carry the full action name. One sparkle
-orbits slowly when motion is enabled and remains stationary when Reduce Motion
-is enabled. The action opens one compact assistant below the header and inside
-the current Beacon bounds; the Notes and all-commands quick switchers expose the
+the tooltip and accessibility label carry the full action name. The sparkle is
+static and must not schedule continuous hidden rendering. The action opens one
+compact assistant below the header and inside the current Beacon bounds; the
+Notes and all-commands quick switchers expose the
 same action and restore expanded Notes when necessary. Command-I toggles a
 full-content-height conversation panel on the right half of the current Beacon
 surface, while Command-Shift-I opens the compact panel. The second Command-I
@@ -675,9 +675,9 @@ history. The helper alone contacts `http://127.0.0.1:11434`, rejects cloud or
 unavailable models, validates conversation roles and size, and disables
 streaming. No assistant response may mutate Notes or become Beacon evidence, and
 no background insight request is permitted.
-The Beacon wordmark may animate a modest horizontally traveling gradient derived
-from the selected theme. It must remain readable, use no evidence or status
-policy, and render a static gradient when Reduce Motion is enabled.
+The Beacon wordmark uses a static gradient derived from the selected theme. It
+must remain readable, use no evidence or status policy, and schedule no
+continuous rendering work.
 The menu-bar label always shows a compact, non-template colored beacon dome.
 The number of lanes across the CLI-provided active, waiting, and recently-active
 groups appears inside that dome with adaptive width and type scale through
@@ -712,10 +712,11 @@ Both surfaces respect Increase Contrast, Differentiate Without Color, Reduce
 Transparency, and Reduce Motion. Higher contrast strengthens semantic borders;
 differentiate-without-color retains explicit labels and SF Symbols; reduced
 transparency substitutes opaque theme surfaces; reduced motion disables
-decorative and layout animation. The fitted project watermark additionally
-uses its full theme palette under Increase Contrast, desaturates under
-Differentiate Without Color, and holds a centered static highlight under
-Reduce Motion. Decorative project text stays out of the accessibility tree.
+bounded layout animation. Decorative marks, including the fitted project
+watermark, are stationary for every user. The fitted project watermark uses its
+full theme palette under Increase Contrast, desaturates under Differentiate
+Without Color, and holds a centered static highlight. Decorative project text
+stays out of the accessibility tree.
 These settings never change evidence or saved workflow state.
 Individual evidence badges may be hidden as reversible local presentation
 state. Dismissal is scoped to lane, evidence dimension, and exact value so a
@@ -729,7 +730,9 @@ next-action, evidence-exception, and optional-context hierarchy.
 Card and review-feedback detail is cached evidence presentation, not a refresh
 path. Issue and pull-request bodies are bounded to 64 KiB; unresolved review
 threads and their comments retain deterministic order, direct links, and
-explicit truncation. Hover, keyboard focus, panel pinning, dismissal, and Escape
+explicit truncation. Pointer hover must remain continuous for three seconds
+before opening card detail or taxonomy guidance; keyboard focus and explicit
+activation remain immediate. Hover, focus, panel pinning, dismissal, and Escape
 must execute no Git or GitHub command. Native Markdown detail and every status
 presentation remain usable without relying on color alone. All read-only
 Markdown evidence must pass through one theme-aware block renderer that

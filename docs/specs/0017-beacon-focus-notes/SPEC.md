@@ -28,6 +28,14 @@ references:
     read_policy: must
     used_for: user-approved requirements and ready pull request lane
     status: active
+  - id: issue-74
+    name: Stop hidden macOS animations and delay hover details
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/74
+    relation: implements
+    read_policy: must
+    used_for: superseding continuous decorative motion with stable compositions
+    status: active
   - id: constitution
     name: Beacon constitution
     type: doc
@@ -56,7 +64,7 @@ skills:
 Beacon should make the next useful action obvious while turning Notes into a
 playful, flexible working surface. One Go-owned pinned order keeps both macOS
 surfaces and the direct CLI fallback consistent, while restrained native space
-animations and predictable panel sizing improve the experience without adding
+artwork and predictable panel sizing improve the experience without adding
 assets, network work, or a second state authority.
 
 ## Context
@@ -74,6 +82,10 @@ header stacks its refresh age under the focus count, and lane cards put a
 labelled `+ Tag` pill before the existing tag chips. Separately, the authorized
 starting worktree adds one deterministic `Next:` cue to human scan output and
 leaves JSON unchanged.
+
+Issue #35 originally delivered the space artwork with continuous native motion.
+Issue #74 preserves those compositions but supersedes their timelines after
+live profiling showed that retained hidden views consumed sustained CPU.
 
 ## Clarifications
 
@@ -93,10 +105,10 @@ leaves JSON unchanged.
   single-clicks between minimized and the most recent expanded size.
 - Height percentages use the available Beacon surface height, not the physical
   display height.
-- The pencil mark is replaced by the solar-system animation; the chevron remains
-  the explicit collapse and restore control.
-- Native animations use system symbols and drawing primitives and stop moving
-  when Reduce Motion is enabled.
+- The pencil mark is replaced by the static solar-system mark; the chevron
+  remains the explicit collapse and restore control.
+- Decorative space marks use system symbols and drawing primitives but no
+  timeline, timer, or time-dependent invalidation.
 - The new-note placeholder is the literal lowercase string `title`.
 - The existing local README and human-output changes are intentional parts of
   issue #35 and this pull request.
@@ -118,8 +130,8 @@ leaves JSON unchanged.
    invariants.
 6. Rename the macOS surface to Notes, use `title` as the creation placeholder,
    remove the expanded tagline, and keep the minimized preview concise.
-7. Add a reduced-motion-aware animated rocket mark, Notes solar system, and
-   space-themed empty state using native SwiftUI only.
+7. Present a static rocket mark, Notes solar system, and space-themed empty
+   state using native SwiftUI only.
 8. Persist and share the three-state Notes presentation, implement the specified
    double-click cycle, and keep explicit chevron collapse and restore behavior.
 9. Put refresh age immediately to the right of the focus count and render the
@@ -151,8 +163,9 @@ leaves JSON unchanged.
 - [x] AC4: Both macOS surfaces show accessible pin controls, pinned-left ordering,
   and drag reordering without regressing autosave, selection, or shortcuts.
 - [x] AC5: Notes copy, lowercase `title`, minimized preview, plus-only tag action,
-  inline refresh age, and all requested native space animations are present.
-- [x] AC6: Reduce Motion leaves every animated mark legible and stationary.
+  inline refresh age, and all requested native space artwork are present.
+- [x] AC6: Every decorative mark remains legible and stationary without a
+  continuous rendering schedule.
 - [x] AC7: Header double-click cycles 50%, 80%, minimized, and 50% on both
   surfaces; chevron single-click restores the most recent expanded size.
 - [x] AC8: Human scan output adds one deterministic `Next:` cue while JSON shape
@@ -168,9 +181,12 @@ leaves JSON unchanged.
 2. Extend the Go notes manifest/store and tests with normalized pinned order.
 3. Extend protocol and CLI mutations plus older-agent and direct fallbacks.
 4. Extend shared Swift models/state/clients and tab interactions.
-5. Add presentation sizing, copy/layout changes, native animations, and tests.
+5. The initial delivery added presentation sizing, copy/layout changes, native
+   animations, and tests.
 6. Reconcile documentation, validate the entire authorized diff, self-review,
    commit, push, open the ready PR, and observe hosted checks.
+7. Issue #74 later removes the decorative timelines while preserving their
+   stable Reduce Motion compositions and all Notes interaction behavior.
 
 ## Agent Team Plan
 
@@ -212,8 +228,9 @@ leaves JSON unchanged.
   unpinned order, so older manifests upgrade additively and stale detail IDs
   disappear without a migration command.
 - One shared `AppState` presentation value makes the menu extra and detached
-  window agree on the 50/80/minimized cycle. Native timelines provide the space
-  motion and pause deterministically for Reduce Motion.
+  window agree on the 50/80/minimized cycle. The initial native timelines were
+  deterministic under Reduce Motion; issue #74 promotes those stationary
+  compositions to the default after measuring hidden idle rendering cost.
 - The visual smoke initially reached a stale process whose debug binary had been
   replaced on disk. The repository's singleton-aware `macos-run` target closed
   that prior process and launched the fresh build before any UI judgment.

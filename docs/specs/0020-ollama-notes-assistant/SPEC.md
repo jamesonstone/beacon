@@ -40,8 +40,16 @@ references:
     target: https://github.com/jamesonstone/beacon/issues/62
     relation: implements
     read_policy: must
-    used_for: compact icon-only control, motion, accessibility, and delivery lane
+    used_for: compact icon-only control, original motion decision, accessibility, and delivery lane
     status: optional
+  - id: issue-74
+    name: Stop hidden macOS animations and delay hover details
+    type: github-issue
+    target: https://github.com/jamesonstone/beacon/issues/74
+    relation: implements
+    read_policy: must
+    used_for: stable assistant mark and removal of hidden timeline work
+    status: active
   - id: issue-64
     name: Toggle full-height AI conversation panel
     type: github-issue
@@ -181,8 +189,8 @@ Symbols.
 11. Open a materially larger, in-bounds conversation panel from the right with
     Command-I while Command-Shift-I opens the existing compact panel.
 12. Use Beacon's established `brain.head.profile` Ollama symbol with a subtle,
-    whimsical animated sparkle, current semantic theme tokens, increased-
-    contrast support, and a static Reduce Motion state.
+    whimsical static sparkle, current semantic theme tokens, and increased-
+    contrast support without continuous rendering work.
 13. Make Command-I toggle the conversation presentation through the existing
     animated open and reset-safe close paths while preserving Command-Shift-I.
 14. Size the right-edge conversation presentation to the complete available
@@ -243,8 +251,8 @@ Symbols.
   quick-switcher command tests.
 - [x] AC13: The assistant header control uses the established
   `brain.head.profile` symbol, semantic theme colors, no visible text, a subtle
-  animated sparkle, and the existing accessible action name; Reduce Motion
-  presents the same mark without continuous movement.
+  static sparkle, and the existing accessible action name without continuous
+  movement.
 - [x] AC14: Command-I opens a conversation panel larger than the compact panel,
   aligned to the Beacon surface's right edge, and inserts/removes it with a
   right-edge transition unless Reduce Motion is enabled.
@@ -341,12 +349,12 @@ Dismissing the panel does not cancel Notes autosave or mutate the draft.
     complete local gates, and smoke both presentation modes.
 11. Deliver the extension on issue #51, branch `GH-51`, and a ready pull request,
     then verify the exact final hosted head.
-12. Replace the labeled prominent header control with an icon-only 20-by-20
-    point assistant mark that matches the adjacent Notes control, remains
-    theme- and contrast-aware, and becomes static under Reduce Motion.
-13. Add focused symbol, sizing, and motion coverage; update affected product
-    documentation; run the complete native and repository gates; and smoke the
-    built control at its actual header size.
+12. The issue #62 delivery replaced the labeled prominent header control with
+    an icon-only 20-by-20 point assistant mark, initially animated except under
+    Reduce Motion. Issue #74 later makes that stable state universal.
+13. Add focused symbol, sizing, and static-presentation coverage; update
+    affected product documentation; run the complete native and repository
+    gates; and smoke the built control at its actual header size.
 14. Deliver the refinement on issue #62, exact branch `GH-62`, and a ready pull
     request, then verify the exact final hosted head.
 15. Route Command-I through one testable presentation toggle that reuses the
@@ -443,7 +451,7 @@ No persisted data or configuration migration is involved.
 | AC10 | Swift command discovery/action test plus live Command-K and Command-P invocation while Notes is expanded and minimized |
 | AC11 | Complete Go race/vet/build/release gates, 135-test native suite, universal macOS build, and live Save/Revert state inspection |
 | AC12 | README, Constitution, project-summary, and feature-spec review plus focused 10-test Ollama XCTest suite |
-| AC13-AC15 | Swift symbol, sizing, motion-phase, shortcut, and Reduce Motion wiring review plus native icon/compact/large transition smoke |
+| AC13-AC15 | Swift symbol, sizing, static presentation, shortcut, and Reduce Motion wiring review plus native icon/compact/large transition smoke |
 | AC16-AC18 | Go ordered-message/limit tests, Swift AppState history/failure/reset tests, full native suite, and unchanged-note smoke |
 | AC19-AC20 | pure presentation toggle/geometry tests plus fresh Command-I open-close, resize, reverse-transition, and Command-Shift-I native smoke |
 | AC21 | requested documentation discovery commands, semantic diff review, `kit check --project`, conditional `kit check --all`, and `git diff --check` |
@@ -483,8 +491,9 @@ follow-up screenshot shows that its text and prominent chrome dominate the
 otherwise compact Notes header. The accepted refinement keeps discoverability
 in the tooltip, accessibility label, and quick switchers while using the same
 small footprint as the adjacent Notes control. A familiar assistant symbol and
-slow orbiting sparkle carry the visual meaning without permanent label text;
-Reduce Motion freezes that composition instead of removing its identity.
+sparkle carry the visual meaning without permanent label text. Issue #74
+supersedes the original slow orbit after profiling proved hidden timeline work;
+the former Reduce Motion composition is now stable for every user.
 
 Command-I now makes one explicit presentation decision before entering the
 existing state paths: no assistant or compact mode selects conversation, while

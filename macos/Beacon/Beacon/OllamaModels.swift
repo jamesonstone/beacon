@@ -146,7 +146,6 @@ enum NotesAssistantConversationAction: Equatable {
 
 enum NotesAssistantPresentation {
     static let buttonSymbol = "brain.head.profile"
-    static let buttonAnimationDuration: TimeInterval = 5.6
     static let buttonAccessibilityLabel = "Ask AI About Current Note"
     static let panelAccessibilityLabel = "Ollama Notes assistant"
     static let quickSwitcherTitle = "Ask AI About Current Note"

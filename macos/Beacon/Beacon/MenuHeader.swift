@@ -5,7 +5,7 @@ extension MenuView {
         HStack(alignment: .center, spacing: 8) {
             HStack(spacing: 6) {
                 BeaconRocketMark()
-                NeonWaveWordmark("Beacon")
+                BeaconWordmark("Beacon")
                     .font(BeaconTypography.bold(17))
             }
             HStack(alignment: .firstTextBaseline, spacing: 6) {

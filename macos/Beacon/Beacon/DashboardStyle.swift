@@ -165,22 +165,7 @@ enum DashboardLanePresentation {
     }
 }
 
-enum NeonWave {
-    static let cycle: TimeInterval = 6
-    static var gradient: LinearGradient { BeaconThemePreference.current().brandGradient }
-
-    static func phase(at date: Date) -> Double {
-        let elapsed = date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: cycle)
-        return (elapsed < 0 ? elapsed + cycle : elapsed) / cycle
-    }
-
-    static func rotation(at date: Date) -> Angle {
-        .degrees(phase(at: date) * 360)
-    }
-}
-
-struct NeonWaveWordmark: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+struct BeaconWordmark: View {
     private let text: String
 
     init(_ text: String) {
@@ -188,13 +173,10 @@ struct NeonWaveWordmark: View {
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: reduceMotion)) { context in
-            Text(text)
-                .foregroundStyle(NeonWave.gradient)
-                .hueRotation(reduceMotion ? .zero : NeonWave.rotation(at: context.date))
-                .shadow(color: BeaconThemePreference.current().tokens.identityIssue.color.opacity(0.28), radius: 2)
-                .accessibilityLabel(text)
-        }
+        Text(text)
+            .foregroundStyle(BeaconThemePreference.current().brandGradient)
+            .shadow(color: BeaconThemePreference.current().tokens.identityIssue.color.opacity(0.28), radius: 2)
+            .accessibilityLabel(text)
     }
 }
 

@@ -29,7 +29,7 @@ enum EvidenceTaxonomy {
 }
 
 enum RichHoverPresentation {
-    static let openDelay: Duration = .milliseconds(350)
+    static let openDelay: Duration = .seconds(3)
     static let closeDelay: Duration = .milliseconds(250)
 
     static func cardDetailEnabled(evidenceHoverLaneID: String?, laneID: String) -> Bool {
@@ -90,11 +90,13 @@ struct RichHoverPopover<PopoverContent: View>: ViewModifier {
             .focusable()
             .focused($isFocused)
             .onChange(of: isFocused) { _, focused in
-                focused ? scheduleOpen() : scheduleClose()
+                focused ? presentImmediately() : scheduleClose()
             }
             .onChange(of: enabled) { _, isEnabled in
                 pendingTask?.cancel()
-                if isEnabled, triggerHovered || isFocused {
+                if isEnabled, isFocused {
+                    presentImmediately()
+                } else if isEnabled, triggerHovered {
                     scheduleOpen()
                 } else if !isEnabled, !isPinned {
                     isPresented = false
@@ -148,12 +150,18 @@ struct RichHoverPopover<PopoverContent: View>: ViewModifier {
             }
     }
 
+    private func presentImmediately() {
+        pendingTask?.cancel()
+        guard enabled else { return }
+        isPresented = true
+    }
+
     private func scheduleOpen() {
         pendingTask?.cancel()
         guard enabled else { return }
         pendingTask = Task { @MainActor in
             try? await Task.sleep(for: RichHoverPresentation.openDelay)
-            guard !Task.isCancelled, enabled, triggerHovered || isFocused else { return }
+            guard !Task.isCancelled, enabled, triggerHovered else { return }
             isPresented = true
         }
     }

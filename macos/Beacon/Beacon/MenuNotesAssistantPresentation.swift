@@ -42,7 +42,7 @@ extension MenuView {
                 showNotesAssistant(.compact)
             }
         } label: {
-            BeaconAIMark(animated: true)
+            BeaconAIMark()
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

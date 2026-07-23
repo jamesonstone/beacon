@@ -11,7 +11,6 @@ enum UpToDatePresentation {
 
 struct UpToDateBacksplash: View {
     let surface: DashboardSurface
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -104,59 +103,53 @@ struct UpToDateBacksplash: View {
     }
 
     private func orbit(size: CGFloat) -> some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 12.0, paused: reduceMotion)) { context in
-            let angle = reduceMotion
-                ? Angle.degrees(18)
-                : Angle.degrees(context.date.timeIntervalSinceReferenceDate * 24)
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            BeaconThemePreference.current().tokens.success.color.opacity(0.28),
+                            BeaconThemePreference.current().tokens.info.color.opacity(0.12),
+                            BeaconThemePreference.current().tokens.textSecondary.color.opacity(0.04),
+                        ],
+                        center: .topLeading,
+                        startRadius: 2,
+                        endRadius: size * 0.6
+                    )
+                )
+                .frame(width: size * 0.70, height: size * 0.70)
+                .shadow(color: BeaconThemePreference.current().tokens.info.color.opacity(0.28), radius: 14)
+
+            Circle()
+                .stroke(BeaconThemePreference.current().brandGradient, lineWidth: 1.4)
+                .frame(width: size * 0.66, height: size * 0.66)
+
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: size * 0.32, weight: .semibold))
+                .foregroundStyle(BeaconThemePreference.current().tokens.success.color, BeaconThemePreference.current().tokens.info.color)
+                .shadow(color: BeaconThemePreference.current().tokens.success.color.opacity(0.50), radius: 4)
 
             ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                BeaconThemePreference.current().tokens.success.color.opacity(0.28),
-                                BeaconThemePreference.current().tokens.info.color.opacity(0.12),
-                                BeaconThemePreference.current().tokens.textSecondary.color.opacity(0.04),
-                            ],
-                            center: .topLeading,
-                            startRadius: 2,
-                            endRadius: size * 0.6
-                        )
-                    )
-                    .frame(width: size * 0.70, height: size * 0.70)
-                    .shadow(color: BeaconThemePreference.current().tokens.info.color.opacity(0.28), radius: 14)
-
-                Circle()
-                    .stroke(BeaconThemePreference.current().brandGradient, lineWidth: 1.4)
-                    .frame(width: size * 0.66, height: size * 0.66)
-
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: size * 0.32, weight: .semibold))
-                    .foregroundStyle(BeaconThemePreference.current().tokens.success.color, BeaconThemePreference.current().tokens.info.color)
-                    .shadow(color: BeaconThemePreference.current().tokens.success.color.opacity(0.50), radius: 4)
-
-                ZStack {
-                    Ellipse()
-                        .stroke(BeaconThemePreference.current().tokens.borderStrong.color, lineWidth: 1.2)
-                        .frame(width: size, height: size * 0.40)
-                    Image(systemName: "sparkle")
-                        .font(.system(size: size * 0.13, weight: .bold))
-                        .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
-                        .shadow(color: BeaconThemePreference.current().tokens.warning.color.opacity(0.65), radius: 3)
-                        .offset(x: size * 0.47)
-                }
-                .rotationEffect(angle)
-
-                Image(systemName: "sparkles")
-                    .font(.system(size: size * 0.12, weight: .bold))
-                    .foregroundStyle(BeaconThemePreference.current().tokens.identityIssue.color)
-                    .offset(x: -size * 0.42, y: -size * 0.34)
+                Ellipse()
+                    .stroke(BeaconThemePreference.current().tokens.borderStrong.color, lineWidth: 1.2)
+                    .frame(width: size, height: size * 0.40)
                 Image(systemName: "sparkle")
-                    .font(.system(size: size * 0.09, weight: .bold))
-                    .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
-                    .offset(x: size * 0.34, y: -size * 0.44)
+                    .font(.system(size: size * 0.13, weight: .bold))
+                    .foregroundStyle(BeaconThemePreference.current().tokens.warning.color)
+                    .shadow(color: BeaconThemePreference.current().tokens.warning.color.opacity(0.65), radius: 3)
+                    .offset(x: size * 0.47)
             }
-            .frame(width: size, height: size)
+            .rotationEffect(.degrees(18))
+
+            Image(systemName: "sparkles")
+                .font(.system(size: size * 0.12, weight: .bold))
+                .foregroundStyle(BeaconThemePreference.current().tokens.identityIssue.color)
+                .offset(x: -size * 0.42, y: -size * 0.34)
+            Image(systemName: "sparkle")
+                .font(.system(size: size * 0.09, weight: .bold))
+                .foregroundStyle(BeaconThemePreference.current().tokens.info.color)
+                .offset(x: size * 0.34, y: -size * 0.44)
         }
+        .frame(width: size, height: size)
     }
 }

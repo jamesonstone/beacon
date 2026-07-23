@@ -20,11 +20,11 @@
 | 0014 | signal-note-deletion | `docs/specs/0014-signal-note-deletion` | deliver | no | 2026-07-14 | Add permanent detail-note deletion through the Go authority with shared macOS confirmation controls and a higher-contrast switcher. |
 | 0015 | notes-agent-lifecycle | `docs/specs/0015-notes-agent-lifecycle` | deliver | no | 2026-07-14 | Restore native Signal Notes input and bind the background agent lifetime to direct CLI or macOS application activation. |
 | 0016 | external-task-activity | `docs/specs/0016-external-task-activity` | deliver | no | 2026-07-16 | Add transient Codex and Claude Code hook activity to exact followed projects and lanes without changing Beacon evidence or policy. |
-| 0017 | beacon-focus-notes | `docs/specs/0017-beacon-focus-notes` | deliver | no | 2026-07-17 | Make the next action explicit and refine Notes with persisted pinned order, flexible sizing, and native space animation. |
+| 0017 | beacon-focus-notes | `docs/specs/0017-beacon-focus-notes` | deliver | no | 2026-07-17 | Make the next action explicit and refine Notes with persisted pinned order, flexible sizing, and static native space artwork. |
 | 0018 | following-workspace | `docs/specs/0018-following-workspace` | deliver | no | 2026-07-18 | Make Following reorderable, denser, self-explanatory, rich in cached evidence, and readable through five semantic themes. |
 | 0019 | drop-down-terminal | `docs/specs/0019-drop-down-terminal` | deliver | no | 2026-07-18 | Add a retained native terminal that toggles with Command-J inside the current Beacon dashboard bounds while Beacon is active. |
 | 0020 | ollama-notes-assistant | `docs/specs/0020-ollama-notes-assistant` | deliver | no | 2026-07-18 | Hold a complete in-memory local Ollama conversation about an exact Notes selection or full current note across compact and toggled half-width presentations. |
-| 0021 | animated-project-watermarks | `docs/specs/0021-animated-project-watermarks` | deliver | no | 2026-07-20 | Show every fitted lane project as an oversized theme-aware animated background watermark without changing all-items geometry. |
+| 0021 | animated-project-watermarks | `docs/specs/0021-animated-project-watermarks` | deliver | no | 2026-07-22 | Show every fitted lane project as an oversized theme-aware static background watermark without hidden idle rendering. |
 
 ## PROJECT INTENT
 
@@ -194,7 +194,7 @@ artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Make Beacon's next useful action immediately visible and turn Notes into a flexible, playful workspace whose important tabs stay where the user puts them.
-- **APPROACH**: Add one deterministic human-output `Next:` cue, persist ordered pinned detail IDs through the existing Go workspace authority, keep pinned tabs left of stable unpinned tabs across both macOS surfaces and the CLI fallback, cycle shared Notes sizing, and use reduced-motion-aware native space animation.
+- **APPROACH**: Add one deterministic human-output `Next:` cue, persist ordered pinned detail IDs through the existing Go workspace authority, keep pinned tabs left of stable unpinned tabs across both macOS surfaces and the CLI fallback, cycle shared Notes sizing, and use static native space artwork.
 - **OPEN ITEMS**: Implementation, documentation, full local validation, visual smoke, commit, ready PR delivery, and hosted checks are complete on issue #35, branch `GH-35`, and PR #36; final human review and merge remain.
 - **POINTERS**: `docs/specs/0017-beacon-focus-notes/SPEC.md`
 
@@ -230,10 +230,10 @@ artifact wins whenever this index disagrees with it.
 - **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Make each repository immediately identifiable inside Fit Following without reducing the number of simultaneously visible lanes.
-- **APPROACH**: Place the canonical project name behind each fixed dense card as an oversized clipped watermark, animate a slow theme-owned contrast-safe color sweep, and preserve static accessible fallbacks.
-- **OPEN ITEMS**: Implementation, documentation, full local validation, five-theme native smoke, ready PR #58 delivery, hosted Go/macOS checks, and review-thread resolution are complete on issue #57 and branch `GH-57`; final human review and merge remain.
+- **APPROACH**: Place the canonical project name behind each fixed dense card as an oversized clipped static watermark, preserve the theme-owned contrast-safe palette, and keep every decorative composition free of continuous rendering schedules.
+- **OPEN ITEMS**: The initial palette and fitted geometry shipped through issue #57 and PR #58. Issue #74, branch `GH-74`, and ready PR #75 remove hidden animation work, make the shared pointer-hover threshold exactly three seconds, and preserve immediate keyboard and click access; review and merge remain.
 - **POINTERS**: `docs/specs/0021-animated-project-watermarks/SPEC.md`
 
 ## LAST UPDATED
 
-2026-07-20 EDT
+2026-07-22 EDT

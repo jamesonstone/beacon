@@ -26,17 +26,6 @@ extension ModelsTests {
         XCTAssertEqual(BeaconMenuBarPresentation.accessibilityText(3), "Beacon, 3 items in progress")
     }
 
-    func testNeonWavePhaseIsPeriodicAndNormalized() {
-        let start = Date(timeIntervalSinceReferenceDate: 120)
-        let later = start.addingTimeInterval(NeonWave.cycle)
-
-        XCTAssertEqual(NeonWave.phase(at: start), NeonWave.phase(at: later), accuracy: 0.000_001)
-        XCTAssertGreaterThanOrEqual(NeonWave.phase(at: start), 0)
-        XCTAssertLessThan(NeonWave.phase(at: start), 1)
-        XCTAssertGreaterThanOrEqual(NeonWave.phase(at: .distantPast), 0)
-        XCTAssertLessThan(NeonWave.phase(at: .distantPast), 1)
-    }
-
     func testEvidenceBadgeDismissalsAreExactValueScopedAndDeterministic() {
         let none = EvidenceBadgeDismissals.key(laneID: "lane-1", dimension: "CI", value: "none")
         let success = EvidenceBadgeDismissals.key(laneID: "lane-1", dimension: "ci", value: "success")
@@ -53,7 +42,7 @@ extension ModelsTests {
 
     func testCanonicalPRFeedbackLabelNamesTheEvidenceSource() {
         XCTAssertEqual(EvidenceTaxonomy.pullRequestFeedbackLabel(2), "PR feedback · 2")
-        XCTAssertGreaterThan(RichHoverPresentation.openDelay, .zero)
+        XCTAssertEqual(RichHoverPresentation.openDelay, .seconds(3))
         XCTAssertGreaterThan(RichHoverPresentation.closeDelay, .zero)
         XCTAssertFalse(RichHoverPresentation.cardDetailEnabled(evidenceHoverLaneID: "lane-1", laneID: "lane-1"))
         XCTAssertTrue(RichHoverPresentation.cardDetailEnabled(evidenceHoverLaneID: "lane-2", laneID: "lane-1"))

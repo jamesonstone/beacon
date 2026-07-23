@@ -2,22 +2,15 @@ import XCTest
 @testable import Beacon
 
 final class DashboardFittedModeTests: XCTestCase {
-    func testProjectWatermarkUsesACalmDeterministicSweep() {
-        XCTAssertGreaterThan(ProjectWatermarkPresentation.cycle, NeonWave.cycle)
-        XCTAssertEqual(ProjectWatermarkPresentation.cycle, 10)
-        XCTAssertEqual(ProjectWatermarkPresentation.phase(at: Date(timeIntervalSinceReferenceDate: 0)), 0)
-        XCTAssertEqual(ProjectWatermarkPresentation.phase(at: Date(timeIntervalSinceReferenceDate: 5)), 0.5)
-        XCTAssertEqual(ProjectWatermarkPresentation.phase(at: Date(timeIntervalSinceReferenceDate: 10)), 0)
-        XCTAssertEqual(
-            ProjectWatermarkPresentation.displayedPhase(
-                at: Date(timeIntervalSinceReferenceDate: 2),
-                reduceMotion: true
-            ),
-            ProjectWatermarkPresentation.staticPhase
-        )
+    func testProjectWatermarkUsesAStaticCenteredHighlight() {
+        XCTAssertEqual(ProjectWatermarkPresentation.highlightPosition, 0.5)
 
-        let start = ProjectWatermarkPresentation.sweepStart(for: 0.5)
-        let end = ProjectWatermarkPresentation.sweepEnd(for: 0.5)
+        let start = ProjectWatermarkPresentation.highlightStart(
+            for: ProjectWatermarkPresentation.highlightPosition
+        )
+        let end = ProjectWatermarkPresentation.highlightEnd(
+            for: ProjectWatermarkPresentation.highlightPosition
+        )
         XCTAssertEqual(start.x, 0, accuracy: 0.0001)
         XCTAssertEqual(start.y, 0.2, accuracy: 0.0001)
         XCTAssertEqual(end.x, 1, accuracy: 0.0001)
