@@ -51,6 +51,20 @@ checksum, Gatekeeper, and upgrade instructions.
 
 ```bash
 gh auth login
+beacon scan ~/go/src/github.com/jamesonstone/beacon \
+  ~/go/src/github.com/jamesonstone/kit
+```
+
+This is the hyper-light v2 workflow: pass repository roots or parent
+directories directly, and Beacon prints only dirty worktrees, non-base
+branches, unpublished commits, and authored open pull requests. It does not
+need a Beacon configuration or background agent. Use `--include-idle` to show
+clean base-only projects, `--no-refresh` to skip metadata fetches, or `--json`
+for the small versioned work-scan schema.
+
+The configured v1 dashboard remains available while v2 is dogfooded:
+
+```bash
 beacon init --source ~/go/src/github.com --yes
 beacon agent install
 beacon

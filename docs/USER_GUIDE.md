@@ -68,11 +68,38 @@ release.
 
 ## Quick Start
 
-Authenticate GitHub, initialize Beacon with one or more repository roots, then
-run the dashboard:
+Authenticate GitHub and scan the project repositories or parent directories
+you care about:
 
 ```bash
 gh auth login
+beacon scan ~/go/src/github.com/jamesonstone/beacon \
+  ~/go/src/github.com/jamesonstone/kit
+```
+
+Positional paths activate Beacon's hyper-light v2 workflow. It discovers
+GitHub repositories below those paths, scans every linked worktree, queries
+only your open pull requests in the selected repositories, and prints current
+work without loading or writing Beacon configuration, tracking, Following,
+Notes, activity, cache, or agent state. Clean base-only projects and issue-only
+backlog are hidden by default.
+
+```bash
+beacon scan --include-idle ~/go/src/github.com/jamesonstone
+beacon scan --no-refresh ~/go/src/github.com/jamesonstone/beacon
+beacon scan --json ~/go/src/github.com/jamesonstone
+```
+
+A parent directory is walked recursively without following symbolic links.
+`--no-refresh` skips metadata-only `git fetch`; GitHub pull-request evidence is
+still queried. The v2 terminal and JSON forms report scoped warnings and errors
+without suppressing healthy repositories. A prunable linked worktree remains a
+warning rather than being promoted to active work.
+
+The configured v1 dashboard remains available while the smaller workflow is
+dogfooded:
+
+```bash
 beacon init --source ~/go/src/github.com --yes
 beacon agent install
 beacon
@@ -353,6 +380,8 @@ beacon untag 'git:jamesonstone/beacon@GH-5' 'manual test'
 beacon seen 'git:jamesonstone/beacon@GH-5'
 beacon add --manual 'Research a smaller cache format'
 beacon scan
+beacon scan ~/go/src/github.com/jamesonstone/beacon ~/go/src/github.com/jamesonstone/kit
+beacon scan --no-refresh --json ~/go/src/github.com/jamesonstone
 beacon scan --include-idle
 beacon scan --json
 beacon scan --color=never
@@ -404,10 +433,15 @@ conservative cadence. Use `beacon refresh [project]` when you want to queue
 background work without waiting, or `beacon scan` for the complete diagnostic
 inventory.
 
-`beacon scan` remains the explicit, blocking diagnostic path and returns the
-complete repository inventory. Human output names the highest-priority Ready or
-Needs Action lane as `Next:` before the full table, while `scan --json` remains
-deterministic, ANSI-free, and does not require the agent.
+Zero-argument `beacon scan` remains the configured, blocking v1 diagnostic path
+and returns the complete repository inventory. Human output names the
+highest-priority Ready or Needs Action lane as `Next:` before the full table,
+while `scan --json` remains deterministic and ANSI-free.
+
+`beacon scan PATH...` is the config-free v2 path. It never starts the agent and
+emits only current work across the supplied repository roots or source
+directories. Its JSON is a separate small work-scan schema; idle projects are
+included only with `--include-idle`.
 `--color=auto|always|never` controls human styling; auto requires a TTY and
 honors `NO_COLOR`.
 
@@ -494,8 +528,9 @@ Idle work inside Following is treated as inventory instead of queue content.
 Human output hides idle followed projects by default and replaces them with a
 compact count; pass `--include-idle` to list that inventory. `beacon scan
 --repo NAME` always shows the selected project even when it is idle. An idle base lane is omitted
-when its project already has active work. JSON remains complete regardless of
-these presentation filters.
+when its project already has active work. Configured v1 JSON remains complete
+regardless of these presentation filters; positional v2 JSON intentionally
+matches the focused scan and includes idle projects only when requested.
 
 Following is an explicit repository-level choice, independent of lane attention.
 Every open PR and issue allowed by `github_scope` for a followed project remains

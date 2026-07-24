@@ -17,6 +17,7 @@ import (
 	"github.com/jamesonstone/beacon/internal/output"
 	"github.com/jamesonstone/beacon/internal/scan"
 	"github.com/jamesonstone/beacon/internal/tracking"
+	"github.com/jamesonstone/beacon/internal/workscan"
 	"github.com/spf13/cobra"
 )
 
@@ -36,6 +37,18 @@ func (a App) scannerComponentsWithRunner(runner command.Runner) scan.Scanner {
 	github := githubscan.Client{Runner: runner}
 	discoverer := discovery.Discoverer{Runner: runner}
 	return scan.Scanner{Git: git, GitHub: github, Discovery: discoverer, Now: time.Now}
+}
+
+func (a App) workScanner() workSnapshotScanner {
+	if a.workScannerSource != nil {
+		return a.workScannerSource
+	}
+	return workscan.Scanner{
+		Git:       gitscan.Scanner{Runner: a.Runner, Now: time.Now},
+		GitHub:    githubscan.Client{Runner: a.Runner},
+		Discovery: discovery.Discoverer{Runner: a.Runner},
+		Now:       time.Now,
+	}
 }
 
 func (a App) tracker() projectTracker {
@@ -73,13 +86,22 @@ func (a App) scanCommand(configPath *string) *cobra.Command {
 	var noRefresh bool
 	var includeIdle bool
 	command := &cobra.Command{
-		Use:   "scan",
-		Short: "Scan configured repositories",
-		Args:  noArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		Use:   "scan [path...]",
+		Short: "Scan configured repositories or supplied paths",
+		Args:  cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
 			colorMode, _ := cmd.Flags().GetString("color")
 			if _, err := a.resolveColor(colorMode); err != nil {
 				return err
+			}
+			if len(args) > 0 {
+				if repository != "" {
+					return usageError{errors.New("--repo cannot be used with path arguments")}
+				}
+				if *configPath != "" {
+					return usageError{errors.New("--config cannot be used with path arguments")}
+				}
+				return a.runPathScan(cmd.Context(), args, !noRefresh, includeIdle, jsonOutput, colorMode)
 			}
 			if jsonOutput {
 				cfg, err := config.Load(*configPath)
@@ -100,6 +122,34 @@ func (a App) scanCommand(configPath *string) *cobra.Command {
 	command.Flags().BoolVar(&noRefresh, "no-refresh", false, "skip git fetch")
 	command.Flags().BoolVar(&includeIdle, "include-idle", false, "show projects with only idle work")
 	return command
+}
+
+func (a App) runPathScan(
+	ctx context.Context,
+	paths []string,
+	refresh bool,
+	includeIdle bool,
+	jsonOutput bool,
+	colorMode string,
+) error {
+	cfg, err := config.ForSources(paths)
+	if err != nil {
+		return err
+	}
+	result, err := a.workScanner().Scan(ctx, cfg, refresh, includeIdle)
+	if err != nil {
+		return err
+	}
+	if jsonOutput {
+		return output.JSONValue(a.Out, result)
+	}
+	color, err := a.resolveColor(colorMode)
+	if err != nil {
+		return err
+	}
+	return output.WorkTerminal(a.Out, result, output.TerminalOptions{
+		Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle,
+	})
 }
 
 func (a App) runHumanScan(ctx context.Context, path, repository string, refresh bool, colorMode string, includeIdle, offerInit, showLoader, workingSet bool) error {

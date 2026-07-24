@@ -102,6 +102,32 @@ sources:
 	}
 }
 
+func TestForSourcesBuildsEphemeralVersionTwoConfig(t *testing.T) {
+	first := t.TempDir()
+	second := t.TempDir()
+
+	cfg, err := ForSources([]string{first, second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Version != Version || cfg.Path != "" || len(cfg.Sources) != 2 {
+		t.Fatalf("config = %#v", cfg)
+	}
+	if cfg.Settings.MaxParallel != 4 || cfg.Settings.GitHubAuthor != "@me" {
+		t.Fatalf("settings = %#v", cfg.Settings)
+	}
+}
+
+func TestForSourcesRejectsEmptyAndDuplicatePaths(t *testing.T) {
+	if _, err := ForSources(nil); err == nil {
+		t.Fatal("empty sources accepted")
+	}
+	source := t.TempDir()
+	if _, err := ForSources([]string{source, source}); err == nil || !strings.Contains(err.Error(), "duplicated") {
+		t.Fatalf("duplicate error = %v", err)
+	}
+}
+
 func TestCanonicalizeSourcePathResolvesAncestorsButRejectsFinalSymlink(t *testing.T) {
 	root := t.TempDir()
 	realParent := filepath.Join(root, "real")

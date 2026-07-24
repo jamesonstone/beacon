@@ -133,6 +133,17 @@ func Load(path string) (Config, error) {
 	return normalize(raw, resolved)
 }
 
+// ForSources builds an in-memory configuration for one scan. It applies the
+// same path and settings validation as a persisted version 2 configuration
+// without assigning a config path.
+func ForSources(paths []string) (Config, error) {
+	raw := rawConfig{Version: Version}
+	for _, path := range paths {
+		raw.Sources = append(raw.Sources, rawSource{Path: path})
+	}
+	return normalize(raw, "")
+}
+
 func normalize(raw rawConfig, path string) (Config, error) {
 	if raw.Version != Version1 && raw.Version != Version {
 		return Config{}, fmt.Errorf("config version must be %d or %d", Version1, Version)

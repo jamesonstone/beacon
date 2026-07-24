@@ -65,6 +65,13 @@ terminal output, JSON output, and the macOS application must present the
 same snapshot. A client must not reimplement Git, GitHub, correlation,
 project-activity classification, or readiness rules.
 
+An explicit positional `beacon scan PATH...` is the intentionally smaller
+exception to the shared configured snapshot. It reuses Go discovery, Git and
+GitHub normalization, and lane policy, then emits a separate versioned
+work-scan projection without tracking, cache, agent, or macOS state. The
+projection may narrow evidence and presentation but must not duplicate or
+contradict collection and next-action policy.
+
 ### Read-Only by Default
 
 Observation must not change the work being observed. Beacon may perform a
@@ -151,6 +158,8 @@ truthfully describe the highest completed state.
   remote-only work, and idle base work.
 - Recommend the next useful human or agent action without mutating work.
 - Preserve situational awareness across multiple repositories and worktrees.
+- Scan a selected set of repository roots or parent directories without first
+  creating persistent Beacon state.
 - Provide a useful standalone CLI and a native macOS application backed
   by the identical versioned snapshot.
 - Remain predictable under partial failures, unusual Git paths, stale remote
@@ -195,6 +204,18 @@ Collection, normalization, correlation, policy, presentation, and platform UI
 are separate responsibilities. Data flows toward presentation; presentation
 must not feed new policy back into the scanner.
 
+The hyper-light path is a separate direct projection:
+
+```text
+explicit repository or parent-directory paths
+                       |
+      local discovery + Git worktrees + authored open PRs
+                       |
+              existing lane policy
+                       |
+       versioned work-scan terminal / JSON
+```
+
 ### Go Package Boundaries
 
 - `cmd/beacon` is a thin executable entry point.
@@ -217,11 +238,15 @@ must not feed new policy back into the scanner.
   linked issues, and merge state.
 - `internal/progress` parses optional Kit project summaries and exact SPEC
   issue references as non-authoritative progress evidence.
-- `internal/model` owns schema v3 types and typed signal/action enums.
+- `internal/model` owns configured schema-v3 and work-scan types plus typed
+  signal/action enums.
 - `internal/policy` correlates local and remote evidence and derives readiness,
   explanations, and the next action as pure domain logic.
 - `internal/scan` coordinates bounded repository concurrency, preserves partial
   results, orders lanes, and creates groups and summary counts.
+- `internal/workscan` coordinates config-free positional scans, filters
+  evidence-backed in-progress lanes, preserves scoped partial failures, and
+  creates the small work-scan projection without persistent application state.
 - `internal/tracking` owns the strict repository-following store, evidence
   fingerprints, migration, and recent/quiet classification without automatic
   reactivation.
@@ -328,6 +353,10 @@ explicit repositories, preview the result, and atomically rewrite the file
 only after confirmation. Existing entries are never removed. GitHub
 credentials never belong in Beacon configuration; authentication is delegated
 to `gh`.
+
+Positional `beacon scan PATH...` constructs the equivalent validated version-2
+source list in memory. It must neither resolve nor write a configuration file,
+and `--config` and `--repo` are usage errors when positional paths are present.
 
 User repository-following state is separate from declarative discovery. It is
 stored in strict JSON at `$HOME/.local/state/beacon/tracking.json`; legacy
@@ -441,6 +470,7 @@ The supported command surface is:
 beacon [--color auto|always|never]
 beacon init [--source PATH ...] [--github-scope mine|all] [--yes]
 beacon scan [--repo NAME] [--json] [--no-refresh]
+beacon scan <path>... [--include-idle] [--json] [--no-refresh]
 beacon sync
 beacon sync check [project...] [--no-fetch] [--json]
 beacon sync apply <project>... [--yes] [--json]
@@ -494,6 +524,14 @@ sequences. Opening or reconnecting the macOS client remains cache-only.
 `beacon refresh`, macOS `Scan Now`, `beacon scan`, and JSON scan modes are the
 other intentional paths for current evidence.
 
+Positional `beacon scan PATH...` bypasses persistent configuration and never
+starts the background agent. Each path may be a repository root or a parent
+directory; overlapping discoveries are deduplicated by Git common directory
+and GitHub identity. This mode queries only authored open pull requests, omits
+issue-only backlog and clean base-only projects by default, and treats
+prunable worktrees as diagnostics rather than active work. Repositories with
+failed required evidence are unknown, never idle.
+
 Agent protocol version 1 is newline-delimited JSON over a user-only Unix-domain
 socket. It carries scan IDs, per-project revisions, stages, single and batch
 tracking, complete lane-order and lane-attention changes, selected Markdown documents, typed note
@@ -519,6 +557,13 @@ failures.
 Collections must encode as arrays rather than `null`. Additive changes must be
 safe for existing decoders; incompatible semantic or structural changes
 require a schema-version increment and coordinated client support.
+
+The work-scan schema is a separate public CLI contract, not an agent or macOS
+payload. It contains generation and summary metadata, flat active work items,
+minimal worktree and pull-request facts, deterministic next actions, and
+scoped warnings and errors. Its `--include-idle` option controls whether
+verified clean projects receive idle placeholder items; JSON and terminal
+output intentionally share that focused selection.
 
 External task activity is deliberately not an additive schema-v3 or
 protocol-v1 field. Hidden helper commands exchange a separate versioned

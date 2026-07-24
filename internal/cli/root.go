@@ -32,6 +32,7 @@ type App struct {
 	OutputIsTTY           func() bool
 	TerminalWidth         func() int
 	scannerSource         snapshotScanner
+	workScannerSource     workSnapshotScanner
 	trackerSource         projectTracker
 	prompter              initPrompter
 	projectPrompterSource projectPrompter
@@ -48,6 +49,10 @@ type agentStarter interface {
 
 type snapshotScanner interface {
 	Scan(context.Context, config.Config, string, bool) (model.Snapshot, error)
+}
+
+type workSnapshotScanner interface {
+	Scan(context.Context, config.Config, bool, bool) (model.WorkScan, error)
 }
 
 type projectTracker interface {
@@ -88,8 +93,9 @@ func (a App) Root() *cobra.Command {
 			return a.runAgentDashboard(cmd.Context(), configPath, colorMode, includeIdle)
 		},
 	}
-	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
-		if a.autoStartAgent && runtime.GOOS == "darwin" && shouldAutoStartAgent(cmd) {
+	root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		pathScan := cmd.Name() == "scan" && len(args) > 0
+		if a.autoStartAgent && runtime.GOOS == "darwin" && shouldAutoStartAgent(cmd) && !pathScan {
 			a.startAgentBestEffort(cmd.Context(), configPath)
 		}
 		return nil
