@@ -51,6 +51,8 @@ working duration.
   timestamp; otherwise label evidence age as “updated”.
 - Show only recent work: default to 10 days, with selectable 3, 5, 7, or 30
   day windows; never display items older than 30 days.
+- Provide a standalone settings page with a configurable hotkey entry,
+  defaulting to `Control+Shift+H`, plus an explicit Quit action.
 - Keep the surface read-only and event-driven with no continuous animation or
   timer-based invalidation.
 - Provide an explicit refresh action without loading Beacon's dashboard.

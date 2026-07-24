@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -13,6 +14,10 @@ struct HyperliteApp: App {
                 .accessibilityLabel("Hyperlite popover")
         }
         .menuBarExtraStyle(.window)
+
+        Settings {
+            HyperliteSettingsView()
+        }
     }
 }
 
@@ -106,7 +111,7 @@ private enum HyperliteError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .helperMissing: "Hyperlite's bctl helper is unavailable"
-        case .scanFailed(let message): "bctl scan failed: (message)"
+        case .scanFailed(let message): "bctl scan failed: \(message)"
         }
     }
 }
@@ -169,10 +174,40 @@ struct HyperlitePopover: View {
                 }
                 .buttonStyle(.borderless)
                 .disabled(state.isRefreshing)
+                SettingsLink {
+                    Image(systemName: "gearshape")
+                }
+                .buttonStyle(.borderless)
+                .help("Settings")
             }
+
+            Button("Quit Hyperlite") {
+                NSApplication.shared.terminate(nil)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
         }
         .padding(12)
         .frame(width: 330)
+    }
+}
+
+struct HyperliteSettingsView: View {
+    @AppStorage("hyperlite.hotkey") private var hotkey = "Control+Shift+H"
+
+    var body: some View {
+        Form {
+            Section("General") {
+                TextField("Hot key", text: $hotkey)
+                    .textFieldStyle(.roundedBorder)
+                Text("Default: Control+Shift+H")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 360)
+        .padding()
     }
 }
 

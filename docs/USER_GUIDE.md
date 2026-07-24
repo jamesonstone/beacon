@@ -142,6 +142,10 @@ fresh `bctl` scan. The age selector defaults to the last 10 days and can be
 changed to 3, 5, 7, or 30 days; Hyperlite never displays work older than 30
 days.
 
+Use the gear icon for Hyperlite settings. The settings page includes the
+hotkey entry, defaulting to `Control+Shift+H`, and the popover includes a Quit
+button for stopping the standalone app.
+
 Hyperlite is read-only and does not run a display-linked timer or continuous
 animation. Ages update when the popover renders or when Beacon receives new
 evidence.
