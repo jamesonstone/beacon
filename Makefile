@@ -1,4 +1,4 @@
-.PHONY: build test test-race release-test vet fmt fmt-check install scan scan-json doctor agent-install agent-status agent-stop agent-uninstall macos-build macos-test macos-run macos-hyperlite-run
+.PHONY: build test test-race release-test vet fmt fmt-check install scan scan-json doctor agent-install agent-status agent-stop agent-uninstall macos-build macos-test macos-run macos-hyperlite-run hyper
 
 BEACON_DERIVED_DATA ?= $(TMPDIR)beacon-derived-data
 
@@ -81,3 +81,5 @@ macos-run: macos-build
 
 macos-hyperlite-run: macos-build
 	open "$(BEACON_DERIVED_DATA)/Build/Products/Debug/Hyperlite.app"
+
+hyper: macos-hyperlite-run

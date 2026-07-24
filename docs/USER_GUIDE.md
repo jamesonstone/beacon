@@ -135,9 +135,10 @@ same scan snapshot as the CLI.
 
 Hyperlite is a separate menu-bar-only companion app designed to answer what
 needs attention in one glance. Launch `Hyperlite.app` directly; it does not
-load Beacon's full dashboard, terminal, notes, or SwiftTerm surfaces. It
-retains every active, waiting, and recently active lane and shows factual
-evidence age. Use Refresh for an explicit evidence scan.
+load Beacon's full dashboard, terminal, notes, or SwiftTerm surfaces. It uses
+the exact project selection owned by `bctl projects`, displays the same work
+items as `bctl --json`, and shows factual evidence age. Use Refresh to run a
+fresh `bctl` scan.
 
 Hyperlite is read-only and does not run a display-linked timer or continuous
 animation. Ages update when the popover renders or when Beacon receives new

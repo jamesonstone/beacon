@@ -1,4 +1,3 @@
-import AppKit
 import Foundation
 import SwiftUI
 
@@ -19,39 +18,46 @@ struct HyperliteApp: App {
 
 @MainActor
 final class HyperliteState: ObservableObject {
-    @Published private(set) var snapshot: BeaconSnapshot?
+    @Published private(set) var scan: HyperliteWorkScan?
     @Published private(set) var isRefreshing = false
     @Published private(set) var errorMessage: String?
 
-    private let client = AgentClient()
-    private var subscriptionTask: Task<Void, Never>?
-    private var helperProcess: Process?
+    private var refreshTask: Task<Void, Never>?
 
-    var items: [HyperliteItem] {
-        guard let snapshot else { return [] }
-        return HyperlitePresentation.items(snapshot: snapshot, activity: .empty)
+    var items: [HyperliteWorkItem] {
+        guard let scan else { return [] }
+        return HyperlitePresentation.items(scan: scan)
     }
 
-    var attentionCount: Int { items.filter(\.attention).count }
+    var attentionCount: Int { items.filter(\.needsAttention).count }
 
     init() {
-        start()
+        refresh(includeNetwork: false)
     }
 
     deinit {
-        subscriptionTask?.cancel()
-        helperProcess?.terminate()
+        refreshTask?.cancel()
     }
 
     func refresh() {
+        refresh(includeNetwork: true)
+    }
+
+    private func refresh(includeNetwork: Bool) {
         guard !isRefreshing else { return }
         isRefreshing = true
-        Task {
+        refreshTask?.cancel()
+        refreshTask = Task { [weak self] in
+            guard let self else { return }
             do {
-                try await ensureAgent()
-                _ = try await client.refresh(project: nil)
-                try await loadSnapshot()
+                let arguments = includeNetwork ? ["--json"] : ["--json", "--no-refresh"]
+                let data = try await Self.runBctl(arguments: arguments)
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                scan = try decoder.decode(HyperliteWorkScan.self, from: data)
                 errorMessage = nil
+            } catch is CancellationError {
+                return
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -59,60 +65,47 @@ final class HyperliteState: ObservableObject {
         }
     }
 
-    private func start() {
-        subscriptionTask = Task {
-            do {
-                try await ensureAgent()
-                try await loadSnapshot()
-                let stream = try await client.subscribe()
-                for try await event in stream {
-                    if let snapshot = event.snapshot {
-                        self.snapshot = snapshot
-                        self.errorMessage = nil
-                    }
-                }
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-        }
-    }
-
-    private func loadSnapshot() async throws {
-        let event = try await client.snapshot()
-        guard let snapshot = event.snapshot else {
-            throw AgentClientError.invalidResponse("snapshot was missing")
-        }
-        self.snapshot = snapshot
-    }
-
-    private func ensureAgent() async throws {
-        do {
-            _ = try await client.status()
-            return
-        } catch {
-            try startBundledAgent()
-            for _ in 0..<20 {
-                try await Task.sleep(for: .milliseconds(150))
-                if (try? await client.status()) != nil { return }
-            }
-            throw error
-        }
-    }
-
-    private func startBundledAgent() throws {
-        guard helperProcess == nil else { return }
-        let executable = Bundle.main.bundleURL
-            .appendingPathComponent("Contents/MacOS/beacon-cli")
+    private static func runBctl(arguments: [String]) async throws -> Data {
+        let executable = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/bctl")
         guard FileManager.default.isExecutableFile(atPath: executable.path) else {
-            throw AgentClientError.connection("bundled agent helper is missing")
+            throw HyperliteError.helperMissing
         }
-        let process = Process()
-        process.executableURL = executable
-        process.arguments = ["agent", "start"]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        helperProcess = process
+        return try await withCheckedThrowingContinuation { continuation in
+            let process = Process()
+            let output = Pipe()
+            let errors = Pipe()
+            process.executableURL = executable
+            process.arguments = arguments
+            process.standardOutput = output
+            process.standardError = errors
+            process.terminationHandler = { process in
+                let data = output.fileHandleForReading.readDataToEndOfFile()
+                guard process.terminationStatus == 0 else {
+                    let message = String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    continuation.resume(throwing: HyperliteError.scanFailed(message ?? "bctl exited with status \(process.terminationStatus)"))
+                    return
+                }
+                continuation.resume(returning: data)
+            }
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+}
+
+private enum HyperliteError: LocalizedError {
+    case helperMissing
+    case scanFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .helperMissing: "Hyperlite's bctl helper is unavailable"
+        case .scanFailed(let message): "bctl scan failed: (message)"
+        }
     }
 }
 
@@ -138,11 +131,11 @@ struct HyperlitePopover: View {
                 Label(errorMessage, systemImage: "exclamationmark.triangle")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } else if state.snapshot == nil {
-                ProgressView("Connecting…")
+            } else if state.scan == nil {
+                ProgressView("Running bctl…")
                     .controlSize(.small)
             } else if state.items.isEmpty {
-                Label("No active work", systemImage: "checkmark.circle")
+                Label("No work in progress", systemImage: "checkmark.circle")
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(state.items) { item in
@@ -152,12 +145,12 @@ struct HyperlitePopover: View {
 
             Divider()
             HStack {
-                Text(state.snapshot.map { "Updated \(HyperlitePresentation.ageLabel(for: HyperlitePresentationDate.parse($0.generatedAt)))" } ?? "Waiting for evidence")
+                Text(state.scan.map { "bctl · \(HyperlitePresentation.ageLabel(for: $0.generatedAt))" } ?? "Waiting for bctl")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button { state.refresh() } label: {
-                    Image(systemName: state.isRefreshing ? "arrow.clockwise" : "arrow.clockwise")
+                    Image(systemName: "arrow.clockwise")
                 }
                 .buttonStyle(.borderless)
                 .disabled(state.isRefreshing)
@@ -169,23 +162,26 @@ struct HyperlitePopover: View {
 }
 
 private struct HyperliteRow: View {
-    let item: HyperliteItem
+    let item: HyperliteWorkItem
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Circle()
-                .fill(item.attention ? .orange : .blue)
+                .fill(item.needsAttention ? .orange : .blue)
                 .frame(width: 7, height: 7)
                 .padding(.top, 4)
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.lane.repository).font(.system(size: 12, weight: .semibold))
-                Text(item.lane.nextAction)
+                Text(item.repository).font(.system(size: 12, weight: .semibold))
+                Text(item.title)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(1)
+                Text(item.nextAction.replacingOccurrences(of: "_", with: " ").capitalized)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
-            Text(HyperlitePresentation.ageLabel(for: item.ageDate))
+            Text(HyperlitePresentation.ageLabel(for: item.updatedAt))
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
         }

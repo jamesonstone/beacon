@@ -94,9 +94,11 @@ evidence age.
 ## OUTCOME
 
 Hyperlite now ships as a separate `Hyperlite.app` target and menu-bar-only
-companion bundle. It presents attention-first work, retains the remaining
-active lanes, and allows explicit refresh without instantiating Beacon's full
-dashboard application. No Go schema or continuous UI timer was added.
+companion bundle. It consumes the exact JSON contract emitted by the configured
+`bctl` scan, so it has no independent project list or Beacon snapshot cache.
+It presents attention-first work and allows explicit refresh without
+instantiating Beacon's full dashboard application. No Go schema or continuous
+UI timer was added.
 
 ## REPOSITORY MEMORY
 

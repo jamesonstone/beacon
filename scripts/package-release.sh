@@ -107,13 +107,17 @@ fi
 
 hyperlite_application="$derived_data/Build/Products/Release/Hyperlite.app"
 hyperlite_helper="$hyperlite_application/Contents/MacOS/beacon-cli"
+hyperlite_bctl="$hyperlite_application/Contents/MacOS/bctl"
 hyperlite_info_plist="$hyperlite_application/Contents/Info.plist"
 [[ -d "$hyperlite_application" ]]
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$hyperlite_info_plist")" == "com.jamesonstone.beacon.hyperlite" ]]
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :LSUIElement' "$hyperlite_info_plist")" == "true" ]]
 [[ -x "$hyperlite_helper" ]]
+[[ -x "$hyperlite_bctl" ]]
 [[ "$(/usr/bin/lipo -archs "$hyperlite_helper")" == *arm64* ]]
 [[ "$(/usr/bin/lipo -archs "$hyperlite_helper")" == *x86_64* ]]
+[[ "$(/usr/bin/lipo -archs "$hyperlite_bctl")" == *arm64* ]]
+[[ "$(/usr/bin/lipo -archs "$hyperlite_bctl")" == *x86_64* ]]
 /usr/bin/codesign --force --deep --sign - --timestamp=none "$hyperlite_application"
 /usr/bin/codesign --verify --deep --strict "$hyperlite_application"
 /usr/bin/ditto -c -k --sequesterRsrc --keepParent \

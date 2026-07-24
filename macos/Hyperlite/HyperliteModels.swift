@@ -1,54 +1,86 @@
 import Foundation
 
-struct HyperliteItem: Equatable, Identifiable {
-    let lane: WorkLane
-    let projectName: String
-    let group: HyperliteGroup
-    let attention: Bool
-    let ageDate: Date?
-    let workingDate: Date?
+struct HyperliteWorkScan: Codable, Equatable {
+    let schemaVersion: Int
+    let generatedAt: Date
+    let summary: HyperliteWorkSummary
+    let items: [HyperliteWorkItem]
+    let errors: [HyperliteDiagnostic]
+    let warnings: [HyperliteDiagnostic]
 
-    var id: String { lane.id }
+    enum CodingKeys: String, CodingKey {
+        case summary, items, errors, warnings
+        case schemaVersion = "schema_version"
+        case generatedAt = "generated_at"
+    }
 }
 
-enum HyperliteGroup: String, Equatable {
-    case active
-    case waiting
-    case recent
+struct HyperliteWorkSummary: Codable, Equatable {
+    let projects: Int
+    let activeProjects: Int
+    let workItems: Int
+    let idleProjects: Int
+    let unknownProjects: Int
+
+    enum CodingKeys: String, CodingKey {
+        case projects, workItems = "work_items", idleProjects = "idle_projects", unknownProjects = "unknown_projects"
+        case activeProjects = "active_projects"
+    }
+}
+
+struct HyperliteWorkItem: Codable, Equatable, Identifiable {
+    let repository: String
+    let github: String
+    let repositoryPath: String
+    let branch: String
+    let base: String
+    let state: String
+    let publication: String
+    let nextAction: String
+    let updatedAt: Date?
+    let pullRequest: HyperlitePullRequest?
+
+    var id: String { "\(github):\(branch):\(repositoryPath)" }
+
+    enum CodingKeys: String, CodingKey {
+        case repository, github, branch, base, state, publication
+        case repositoryPath = "repository_path"
+        case nextAction = "next_action"
+        case updatedAt = "updated_at"
+        case pullRequest = "pull_request"
+    }
+
+    var title: String {
+        if let pullRequest { return "PR #\(pullRequest.number) · \(branch)" }
+        return branch.isEmpty ? base : branch
+    }
+
+    var needsAttention: Bool {
+        ["conflict", "ci_failed", "feedback", "dirty", "unpublished"].contains(state)
+    }
+}
+
+struct HyperlitePullRequest: Codable, Equatable {
+    let number: Int
+    let title: String
+    let url: String
+    let draft: Bool
+    let ci: String
+    let review: String
+}
+
+struct HyperliteDiagnostic: Codable, Equatable {
+    let repository: String
+    let stage: String
+    let message: String
 }
 
 enum HyperlitePresentation {
-    static func items(snapshot: BeaconSnapshot, activity: ExternalActivitySnapshot) -> [HyperliteItem] {
-        let projects = Dictionary(uniqueKeysWithValues: snapshot.projects.map { ($0.github, $0.name) })
-        let lanes = Dictionary(uniqueKeysWithValues: snapshot.lanes.map { ($0.id, $0) })
-        let groups: [(HyperliteGroup, [String])] = [
-            (.active, snapshot.workingSet?.active ?? snapshot.groups.ready),
-            (.waiting, snapshot.workingSet?.waiting ?? snapshot.groups.waiting),
-            (.recent, snapshot.workingSet?.recent ?? snapshot.groups.action),
-        ]
-        var seen = Set<String>()
-        var result: [HyperliteItem] = []
-        for (group, ids) in groups {
-            for id in ids {
-                guard seen.insert(id).inserted, let lane = lanes[id] else { continue }
-                let workingDate = activity.records
-                    .filter { $0.state == "working" && ($0.laneID == lane.id || ($0.laneID == nil && $0.projectID == lane.github)) }
-                    .compactMap { parseDate($0.observedAt) }
-                    .min()
-                result.append(HyperliteItem(lane: lane, projectName: projects[lane.github] ?? lane.repository, group: group, attention: needsAttention(lane), ageDate: parseDate(lane.updatedAt), workingDate: workingDate))
-            }
+    static func items(scan: HyperliteWorkScan) -> [HyperliteWorkItem] {
+        scan.items.sorted {
+            if $0.needsAttention != $1.needsAttention { return $0.needsAttention && !$1.needsAttention }
+            return ($0.updatedAt ?? .distantPast) > ($1.updatedAt ?? .distantPast)
         }
-        return result.sorted {
-            if $0.attention != $1.attention { return $0.attention && !$1.attention }
-            if groupRank($0.group) != groupRank($1.group) { return groupRank($0.group) < groupRank($1.group) }
-            return ($0.ageDate ?? .distantPast) > ($1.ageDate ?? .distantPast)
-        }
-    }
-
-    static func needsAttention(_ lane: WorkLane) -> Bool {
-        if lane.reviewReady || !lane.blockers.isEmpty || !lane.warnings.isEmpty { return true }
-        let action = lane.nextAction.lowercased()
-        return !["wait", "waiting", "monitor", "none", "idle", "unknown"].contains { action.contains($0) }
     }
 
     static func ageLabel(for date: Date?, now: Date = Date()) -> String {
@@ -58,23 +90,5 @@ enum HyperlitePresentation {
         if seconds < 3_600 { return "\(seconds / 60)m" }
         if seconds < 86_400 { return "\(seconds / 3_600)h" }
         return "\(seconds / 86_400)d"
-    }
-
-    private static func groupRank(_ group: HyperliteGroup) -> Int {
-        switch group { case .active: 0; case .waiting: 1; case .recent: 2 }
-    }
-
-    private static func parseDate(_ value: String) -> Date? {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
-    }
-}
-
-enum HyperlitePresentationDate {
-    static func parse(_ value: String) -> Date? {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
     }
 }

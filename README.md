@@ -23,7 +23,8 @@ native macOS app provides the full dashboard, while Hyperlite is a separate
 menu-bar-only companion backed by the same cached evidence.
 
 Hyperlite opens a compact attention-first popover with factual age labels and
-one-click refresh without loading Beacon's full dashboard application.
+one-click refresh without loading Beacon's full dashboard application. Its
+projects and work items come directly from the configured `bctl` scan.
 
 ## macOS App
 

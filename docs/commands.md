@@ -57,6 +57,7 @@ Run commands from the repository root.
 | `make macos-build` | Build the Debug macOS application without code signing. |
 | `make macos-test` | Run macOS XCTest coverage. |
 | `make scan` / `make scan-json` | Run the configured bctl scan in terminal or JSON form. |
+| `make hyper` | Build and launch the standalone Hyperlite companion app. |
 | `make doctor` | Run the legacy Beacon diagnostic checks. |
 
 Choose validation in proportion to the changed surface. The Constitution's
