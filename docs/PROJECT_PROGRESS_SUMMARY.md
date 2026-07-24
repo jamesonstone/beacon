@@ -26,6 +26,7 @@
 | 0020 | ollama-notes-assistant | `docs/specs/0020-ollama-notes-assistant` | deliver | no | 2026-07-18 | Hold a complete in-memory local Ollama conversation about an exact Notes selection or full current note across compact and toggled half-width presentations. |
 | 0021 | animated-project-watermarks | `docs/specs/0021-animated-project-watermarks` | deliver | no | 2026-07-22 | Show every fitted lane project as an oversized theme-aware static background watermark without hidden idle rendering. |
 | 0022 | beacon-v2-hyper-light | `docs/specs/0022-beacon-v2-hyper-light` | deliver | no | 2026-07-24 | Select an exact config-backed project set in a terminal directory browser and scan its in-progress Git and authored pull-request work without agent or macOS state. |
+| 0023 | beacon-hyperlite | `docs/specs/0023-beacon-hyperlite` | deliver | no | 2026-07-24 | Prototype a compact macOS menu-bar popover that promotes attention-needed work while retaining every active lane and factual age. |
 
 ## PROJECT INTENT
 
@@ -243,6 +244,15 @@ artifact wins whenever this index disagrees with it.
 - **APPROACH**: Give the hyper-light projection its own `bctl` executable; persist exact repository roots in a dedicated `projects` list selected through `bctl projects`; make bare `bctl` and `bctl scan` use the same configured scanner; retain positional paths as an ad hoc override; and keep `beacon` as the legacy dashboard, agent, and macOS helper.
 - **OPEN ITEMS**: The zero-selection migration, keyboard selector, dedicated binary boundary, focused coverage, four-target packaging checks, complete local validation, 157 macOS tests, and terminal dogfooding are complete on issue #76 and branch `GH-76`, represented by ready PR #77. Hosted checks and final human review remain.
 - **POINTERS**: `docs/specs/0022-beacon-v2-hyper-light/SPEC.md`
+
+### beacon-hyperlite
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Answer what needs attention in under two seconds from the menu bar while retaining every active, waiting, and recently active lane.
+- **APPROACH**: Use a compact SwiftUI popover over the existing snapshot and transient external activity cache; promote factual attention signals, label ordinary timestamps as evidence age, and show observed working age only for supported working activity.
+- **OPEN ITEMS**: Hyperlite now builds as a separate lightweight `Hyperlite.app` target and companion bundle; focused tests, complete local validation, documentation, and issue-first branch `GH-80` remain aligned for pull-request delivery.
+- **POINTERS**: `docs/specs/0023-beacon-hyperlite/SPEC.md`
 
 ## LAST UPDATED
 

@@ -131,6 +131,27 @@ Run `beacon init` without flags for an interactive directory and repository
 selector. The macOS application uses the same configuration and displays the
 same scan snapshot as the CLI.
 
+### Hyperlite companion app
+
+Hyperlite is a separate menu-bar-only companion app designed to answer what
+needs attention in one glance. Launch `Hyperlite.app` directly; it does not
+load Beacon's full dashboard, terminal, notes, or SwiftTerm surfaces. It uses
+the exact project selection owned by `bctl projects`, displays the same work
+items as `bctl --json`, and shows factual evidence age. Use Refresh to run a
+fresh `bctl` scan. The age selector defaults to the last 10 days and can be
+changed to 3, 5, 7, or 30 days; Hyperlite never displays work older than 30
+days.
+
+Use the gear icon for Hyperlite settings. The settings page includes the
+hotkey entry, defaulting to `Control+Shift+H`, and the popover includes a Quit
+button for stopping the standalone app. The default hotkey opens and closes
+the Hyperlite popover globally, even when another app is focused. The menu-bar
+mark is a rocket with a star accent.
+
+Hyperlite is read-only and does not run a display-linked timer or continuous
+animation. Ages update when the popover renders or when Beacon receives new
+evidence.
+
 ## Structured Task Activity (macOS)
 
 Beacon can add an optional transient activity chip to the exact followed

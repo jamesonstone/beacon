@@ -19,8 +19,12 @@ what changed, and what should I do next?
 <!-- END KIT-MANAGED README BADGES -->
 
 The Go CLI and its user-scoped background agent are the source of truth. The
-native macOS app provides a menu-bar extra and detachable dashboard backed by
-the same cached evidence.
+native macOS app provides the full dashboard, while Hyperlite is a separate
+menu-bar-only companion backed by the same cached evidence.
+
+Hyperlite opens a compact attention-first popover with factual age labels and
+one-click refresh without loading Beacon's full dashboard application. Its
+projects and work items come directly from the configured `bctl` scan.
 
 ## macOS App
 
