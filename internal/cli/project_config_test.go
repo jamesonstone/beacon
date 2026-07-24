@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jamesonstone/beacon/internal/agent"
 	"github.com/jamesonstone/beacon/internal/config"
@@ -228,6 +229,33 @@ func TestProjectBrowserModelSpaceActsOnHighlightedEntry(t *testing.T) {
 	updated = result.(projectBrowserModel)
 	if command == nil || updated.action != (projectBrowserAction{Kind: projectBrowserToggle, Path: repository}) {
 		t.Fatalf("repository action = %#v, command = %v", updated.action, command)
+	}
+}
+
+func TestProjectBrowserModelDelegatesSpaceAndEnterWhileFiltering(t *testing.T) {
+	root := canonicalTestDirectory(t)
+	view := projectBrowserView{
+		Root: root, Current: root,
+		Entries: []projectBrowserEntry{{
+			Name: "repository", Path: filepath.Join(root, "repository"), Repository: true,
+		}},
+	}
+
+	model := newProjectBrowserModel(view)
+	model.list.SetFilterState(list.Filtering)
+	result, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	updated := result.(projectBrowserModel)
+	if updated.action.Kind != "" || updated.list.FilterInput.Value() != " " {
+		t.Fatalf("space action = %#v, filter = %q", updated.action, updated.list.FilterInput.Value())
+	}
+
+	model = newProjectBrowserModel(view)
+	model.list.SetFilterText("repo")
+	model.list.SetFilterState(list.Filtering)
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	updated = result.(projectBrowserModel)
+	if updated.action.Kind != "" || updated.list.FilterState() != list.FilterApplied {
+		t.Fatalf("enter action = %#v, filter state = %s", updated.action, updated.list.FilterState())
 	}
 }
 

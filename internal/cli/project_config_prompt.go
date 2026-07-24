@@ -114,9 +114,15 @@ func (model projectBrowserModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch message.String() {
 		case "enter":
+			if model.list.SettingFilter() {
+				break
+			}
 			model.action = projectBrowserAction{Kind: projectBrowserSave}
 			return model, tea.Quit
 		case " ":
+			if model.list.SettingFilter() {
+				break
+			}
 			item, ok := model.list.SelectedItem().(projectBrowserItem)
 			if !ok {
 				return model, nil

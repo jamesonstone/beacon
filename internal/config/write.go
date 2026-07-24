@@ -96,7 +96,7 @@ func Marshal(cfg Config) ([]byte, error) {
 		},
 	}
 	for _, project := range cfg.Projects {
-		raw.Projects = append(raw.Projects, rawSource{Path: project.Path})
+		raw.Projects = append(raw.Projects, rawSource(project))
 	}
 	for _, source := range cfg.Sources {
 		raw.Sources = append(raw.Sources, rawSource{Path: source.Path})
