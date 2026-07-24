@@ -53,6 +53,8 @@ working duration.
   day windows; never display items older than 30 days.
 - Provide a standalone settings page with a configurable hotkey entry,
   defaulting to `Control+Shift+H`, plus an explicit Quit action.
+- Use a playful menu-bar mark that still communicates whether attention is
+  needed and, when applicable, shows the attention count.
 - Keep the surface read-only and event-driven with no continuous animation or
   timer-based invalidation.
 - Provide an explicit refresh action without loading Beacon's dashboard.

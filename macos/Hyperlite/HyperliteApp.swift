@@ -10,14 +10,37 @@ struct HyperliteApp: App {
         MenuBarExtra {
             HyperlitePopover(state: state)
         } label: {
-            Image(systemName: "circle.fill")
-                .accessibilityLabel("Hyperlite popover")
+            HyperliteMenuBarLabel(attentionCount: state.attentionCount(maxAgeDays: 10))
         }
         .menuBarExtraStyle(.window)
 
         Settings {
             HyperliteSettingsView()
         }
+    }
+}
+
+private struct HyperliteMenuBarLabel: View {
+    let attentionCount: Int
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: attentionCount == 0 ? "sparkles" : "wand.and.stars")
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(attentionCount == 0 ? .mint : .orange)
+            if attentionCount > 0 {
+                Text(attentionCount > 99 ? "99+" : "\(attentionCount)")
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundStyle(.orange)
+                    .monospacedDigit()
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            attentionCount == 0
+                ? "Hyperlite, nothing needs attention"
+                : "Hyperlite, \(attentionCount) items need attention"
+        )
     }
 }
 
