@@ -80,6 +80,27 @@ macos-run: macos-build
 	open "$(BEACON_DERIVED_DATA)/Build/Products/Debug/Beacon.app"
 
 macos-hyperlite-run: macos-build
+	@if pgrep -x Hyperlite >/dev/null; then \
+		osascript -e 'tell application id "com.jamesonstone.beacon.hyperlite" to quit' >/dev/null 2>&1 || true; \
+		attempt=0; \
+		while pgrep -x Hyperlite >/dev/null && [ "$$attempt" -lt 50 ]; do \
+			sleep 0.1; \
+			attempt=$$((attempt + 1)); \
+		done; \
+		if pgrep -x Hyperlite >/dev/null; then \
+			echo "Hyperlite did not stop cleanly; forcing termination."; \
+			pkill -TERM -x Hyperlite 2>/dev/null || true; \
+		fi; \
+		attempt=0; \
+		while pgrep -x Hyperlite >/dev/null && [ "$$attempt" -lt 20 ]; do \
+			sleep 0.1; \
+			attempt=$$((attempt + 1)); \
+		done; \
+		if pgrep -x Hyperlite >/dev/null; then \
+			echo "Hyperlite is still running; refusing to start another instance." >&2; \
+			exit 1; \
+		fi; \
+	fi
 	open "$(BEACON_DERIVED_DATA)/Build/Products/Debug/Hyperlite.app"
 
 hyper: macos-hyperlite-run
