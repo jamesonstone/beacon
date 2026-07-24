@@ -7,6 +7,8 @@ index for detailed product and contributor documentation.
 
 - [User guide](USER_GUIDE.md) — installation, configuration, commands,
   integrations, macOS behavior, operations, architecture, and troubleshooting
+- [Command map](commands.md) — product CLI boundaries, contributor commands,
+  and Kit refresh and review workflows
 - [Project progress summary](PROJECT_PROGRESS_SUMMARY.md) — current capability
   and delivery overview
 - [Screenshots](images/) — public macOS application images

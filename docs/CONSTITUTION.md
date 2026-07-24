@@ -162,7 +162,7 @@ truthfully describe the highest completed state.
   config-backed command.
 - Accept repository roots or parent directories as a config-free ad hoc scan
   override.
-- Provide a useful standalone CLI and a native macOS application backed
+- Provide useful standalone CLIs and a native macOS application backed
   by the identical versioned snapshot.
 - Remain predictable under partial failures, unusual Git paths, stale remote
   state, and concurrent repository scans.
@@ -217,6 +217,25 @@ configured project roots or explicit ad hoc paths
                        |
        versioned work-scan terminal / JSON
 ```
+
+### Application Responsibility Boundaries
+
+The managed backend and frontend architecture rules are required context when a
+change matches their scope. They define responsibilities and dependency
+direction, not mandatory directories, type names, or ceremonial layers.
+Beacon's stronger existing package and client boundaries remain authoritative.
+
+For agent-protocol or service-like Go work, command and transport handlers
+adapt inputs, `internal/scan` and `internal/workscan` coordinate application
+operations, `internal/model` and `internal/policy` own domain state and
+decisions, and Git, GitHub, configuration, process, cache, and persistence
+packages remain focused adapters. A small path may collapse roles when no
+policy or orchestration is hidden.
+
+For macOS work, SwiftUI views remain presentation, application state and
+clients coordinate interaction and lifecycle, and the bundled Go helper is the
+data adapter and domain authority. Reusable views must not acquire hidden Git,
+GitHub, persistence, navigation, or readiness-policy side effects.
 
 ### Go Package Boundaries
 
@@ -831,24 +850,25 @@ must not execute Git or `gh` directly or contain correlation, repository-sync sa
 fingerprint, cache, scheduling, or recent-activity policy. The
 bundled helper is named `beacon-cli` to avoid a case-insensitive filename
 collision with the `Beacon` application executable. The helper build must
-support the target Mac architectures; the standalone CLI remains named
-`beacon`.
+support the target Mac architectures. The legacy standalone CLI remains
+`beacon`, and the hyper-light standalone CLI is `bctl`.
 
 ### Release And Distribution
 
 A push to `main` is Beacon's release event. Release automation derives one
 strict SemVer from Conventional Commit history since the latest
 `vMAJOR.MINOR.PATCH` tag. Breaking changes bump major, `feat` changes bump
-minor, and all other accepted changes bump patch. The CLI and macOS app always
-share that version because the app bundles the CLI and both artifacts come from
-the same commit.
+minor, and all other accepted changes bump patch. Both CLIs and the macOS app
+always share that version because the app bundles the legacy helper and every
+artifact comes from the same commit.
 
 Release builds inject version, commit, and UTC build date into the standalone
-CLI and bundled helper. The macOS bundle uses that SemVer as
+CLIs and bundled helper. The macOS bundle uses that SemVer as
 `CFBundleShortVersionString` and an Actions run number as `CFBundleVersion`.
-Published artifacts are macOS and Linux CLI archives for `amd64` and `arm64`, a
-universal macOS application zip, and a SHA-256 manifest. GitHub generates the
-release notes and creates the version tag at the exact merged commit.
+Published macOS and Linux CLI archives for `amd64` and `arm64` contain both
+`beacon` and `bctl`; the release also contains a universal macOS application
+zip and a SHA-256 manifest. GitHub generates the release notes and creates the
+version tag at the exact merged commit.
 
 Release jobs are serialized, use only `contents: write`, and must validate
 before publishing. Rerunning a tagged commit reuses its version rather than
@@ -1031,6 +1051,14 @@ must cover the changed surface.
   `docs/agents/GUARDRAILS.md` and the applicable rules under
   `docs/references/rules/`. Repo-local Kit delivery rules outrank generic GitHub
   defaults.
+- Use the current checkout when it owns the requested lane. When a separate
+  lane is required, follow `docs/references/worktrees.md` and the delivery
+  rules for the canonical external path, branch ownership, environment link,
+  shared Git state, and non-destructive cleanup contract.
+- Use `[skip ci]` only when the complete pull-request diff is documentation-only
+  and required-check policy permits skipping. Preserve the marker in every
+  source commit and the pull-request title, and report skipped or absent
+  workflows literally rather than calling them passed.
 
 The baseline validation commands are:
 
@@ -1086,8 +1114,9 @@ are not implied by Beacon's long-term vision.
 
 ## DEFINITIONS
 
-- **Beacon**: the CLI, versioned snapshot contract, and native menu client that
-  expose agent-work evidence and recommended review actions.
+- **Beacon**: the product comprising the legacy `beacon` CLI, the hyper-light
+  `bctl` scanner, versioned snapshot contracts, and the native menu client. It
+  exposes agent-work evidence and recommended review actions.
 - **Repository**: a configured local Git repository paired with an
   `owner/repo`, base branch, and remote name.
 - **Work lane**: one active local worktree/branch, optionally correlated with a
