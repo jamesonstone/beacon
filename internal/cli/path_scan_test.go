@@ -14,9 +14,12 @@ import (
 )
 
 func TestConfiguredScanUsesHyperLightScannerAndDoesNotStartAgent(t *testing.T) {
-	source := t.TempDir()
+	project := t.TempDir()
+	legacySource := t.TempDir()
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(configPath, []byte("version: 2\nsources:\n  - path: "+source+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(configPath, []byte(
+		"version: 2\nprojects:\n  - path: "+project+"\nsources:\n  - path: "+legacySource+"\n",
+	), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	scanner := &recordingWorkScanner{result: model.WorkScan{
@@ -38,7 +41,13 @@ func TestConfiguredScanUsesHyperLightScannerAndDoesNotStartAgent(t *testing.T) {
 	if err := command.ExecuteContext(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if scanner.calls != 1 || scanner.cfg.Path != configPath || scanner.refresh || !scanner.includeIdle {
+	canonicalProject, err := filepath.EvalSymlinks(project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scanner.calls != 1 || scanner.cfg.Path != configPath || scanner.refresh || !scanner.includeIdle ||
+		len(scanner.cfg.Sources) != 1 || scanner.cfg.Sources[0].Path != canonicalProject ||
+		len(scanner.cfg.Repositories) != 0 {
 		t.Fatalf("scanner = %#v", scanner)
 	}
 	if starter.calls != 0 {

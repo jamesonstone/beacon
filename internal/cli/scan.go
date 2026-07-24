@@ -124,7 +124,14 @@ func (a App) scanCommand(configPath *string) *cobra.Command {
 				}
 				return err
 			}
-			return a.runWorkScan(cmd.Context(), cfg, !noRefresh, includeIdle, jsonOutput, colorMode)
+			return a.runWorkScan(
+				cmd.Context(),
+				configuredProjectScanConfig(cfg),
+				!noRefresh,
+				includeIdle,
+				jsonOutput,
+				colorMode,
+			)
 		},
 	}
 	command.Flags().StringVar(&repository, "repo", "", "scan one configured repository using the legacy projection")
@@ -171,6 +178,13 @@ func (a App) runPathScan(
 		return err
 	}
 	return a.runWorkScan(ctx, cfg, refresh, includeIdle, jsonOutput, colorMode)
+}
+
+func configuredProjectScanConfig(cfg config.Config) config.Config {
+	selection := cfg
+	selection.Sources = append([]config.Source(nil), cfg.Projects...)
+	selection.Repositories = nil
+	return selection
 }
 
 func (a App) runHumanScan(ctx context.Context, path, repository string, refresh bool, colorMode string, includeIdle, offerInit, showLoader, workingSet bool) error {

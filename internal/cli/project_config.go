@@ -43,6 +43,7 @@ type projectBrowserView struct {
 	Entries         []projectBrowserEntry
 	Selected        int
 	SelectedOutside int
+	FocusPath       string
 }
 
 type configuredProjectPrompter interface {
@@ -71,12 +72,10 @@ func (a App) runConfiguredProjectSelector(ctx context.Context, configPath, root,
 		}
 		cfg = config.Config{Version: config.Version, Path: resolvedConfig}
 	}
-	selected, err := configuredProjectPaths(cfg)
-	if err != nil {
-		return err
-	}
+	selected := configuredProjectPaths(cfg)
 
 	current := root
+	focusPath := ""
 	for {
 		entries, err := projectBrowserEntries(current, selected)
 		if err != nil {
@@ -84,7 +83,7 @@ func (a App) runConfiguredProjectSelector(ctx context.Context, configPath, root,
 		}
 		view := projectBrowserView{
 			Root: root, Current: current, Entries: entries, Selected: len(selected),
-			SelectedOutside: selectedOutsideRoot(selected, root),
+			SelectedOutside: selectedOutsideRoot(selected, root), FocusPath: focusPath,
 		}
 		action, err := a.configuredProjectPrompter().ChooseConfiguredProject(ctx, view)
 		if err != nil {
@@ -96,15 +95,18 @@ func (a App) runConfiguredProjectSelector(ctx context.Context, configPath, root,
 				return errors.New("project browser received an invalid directory selection")
 			}
 			current = action.Path
+			focusPath = ""
 		case projectBrowserUp:
 			if current == root {
 				return errors.New("project browser cannot move above its root")
 			}
+			focusPath = current
 			current = filepath.Dir(current)
 		case projectBrowserToggle:
 			if !browserEntryMatches(entries, action.Path, true) {
 				return errors.New("project browser received an invalid project selection")
 			}
+			focusPath = action.Path
 			if _, exists := selected[action.Path]; exists {
 				delete(selected, action.Path)
 			} else {
@@ -130,25 +132,12 @@ func (a App) runConfiguredProjectSelector(ctx context.Context, configPath, root,
 	}
 }
 
-func configuredProjectPaths(cfg config.Config) (map[string]struct{}, error) {
-	selected := make(map[string]struct{})
-	for _, source := range cfg.Sources {
-		roots, warnings := discovery.RepositoryRoots(source.Path)
-		if len(warnings) > 0 {
-			return nil, fmt.Errorf("inspect configured source %s: %s", source.Path, warnings[0].Message)
-		}
-		for _, root := range roots {
-			selected[root] = struct{}{}
-		}
+func configuredProjectPaths(cfg config.Config) map[string]struct{} {
+	selected := make(map[string]struct{}, len(cfg.Projects))
+	for _, project := range cfg.Projects {
+		selected[project.Path] = struct{}{}
 	}
-	for _, repository := range cfg.Repositories {
-		path, err := config.CanonicalizeSourcePath(repository.Path)
-		if err != nil {
-			return nil, fmt.Errorf("inspect configured repository %s: %w", repository.Path, err)
-		}
-		selected[path] = struct{}{}
-	}
-	return selected, nil
+	return selected
 }
 
 func projectBrowserEntries(directory string, selected map[string]struct{}) ([]projectBrowserEntry, error) {

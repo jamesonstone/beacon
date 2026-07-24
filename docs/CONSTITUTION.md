@@ -358,11 +358,13 @@ to `gh`.
 
 Interactive `beacon projects` owns the hyper-light project selection. It
 browses from `~/go/src/github.com` by default, never follows symbolic links,
-enters ordinary directories, toggles exact Git repository roots, and cannot
-navigate above its chosen root. Saving atomically replaces the selected
-project set, expands legacy parent sources to exact repository roots, preserves
-selected explicit repository metadata and selected paths outside the browser
-root, and permits an empty version-2 selection. Cancellation does not write.
+cannot navigate above its chosen root, and retains the highlighted path across
+each action. Tab or the arrow keys move the highlight, Space enters ordinary
+directories or toggles exact Git repository roots, Enter atomically replaces
+the complete selection, and Escape cancels without writing. The selection
+lives only in the version-2 `projects` list, permits an empty list, preserves
+selected paths outside the current browser root, and never infers membership
+from legacy sources, explicit repositories, or managed Following state.
 
 Positional `beacon scan PATH...` constructs the equivalent validated version-2
 source list in memory. It must neither resolve nor write a configuration file,

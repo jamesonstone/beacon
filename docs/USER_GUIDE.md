@@ -280,6 +280,8 @@ settings:
   tracked_refresh_interval: 1m
   untracked_probe_interval: 10m
 
+projects: []
+
 sources:
   - path: ~/go/src/github.com/jamesonstone
   - path: ~/go/src/github.com/lsmc-bio
@@ -295,6 +297,13 @@ repositories:
     remote: origin
 ```
 
+`projects` is the exact repository-root list owned by the hyper-light v2
+workflow. Run `beacon projects`, move with Tab or the arrow keys, use Space to
+enter directories or toggle repositories, and press Enter to atomically save
+the complete selection. Escape cancels without writing. A missing or empty
+`projects` list means that v2 follows no projects; legacy `sources`,
+`repositories`, and managed Following state are not selected implicitly.
+
 Source entries are directory roots, not shell globs. A source such as
 `~/go/src/github.com/jamesonstone` discovers every GitHub repository beneath
 that directory on every scan; do not store a trailing `/*` in the YAML.
@@ -308,10 +317,11 @@ assigned to that identity. Use `all` to include every open PR and issue in each
 discovered project. Explicit repository metadata overrides a discovery for the
 same local or GitHub repository.
 
-Configuration is strict: unknown fields, duplicate names or sources, invalid
-durations or scope, missing paths, and malformed GitHub names are rejected.
-Existing version-1 files remain readable and are migrated only by a confirmed
-init operation or an explicit Ollama-default selection.
+Configuration is strict: unknown fields, duplicate names, projects, or
+sources, invalid durations or scope, missing paths, and malformed GitHub names
+are rejected. Existing version-1 files remain readable and are migrated only
+by a confirmed init operation, a confirmed project selection, or an explicit
+Ollama-default selection.
 
 `ollama_model` is the optional default for the Notes assistant. It must name a
 model installed in the local Ollama service to be selected automatically. If it

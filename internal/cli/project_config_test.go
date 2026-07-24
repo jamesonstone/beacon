@@ -9,11 +9,12 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jamesonstone/beacon/internal/agent"
 	"github.com/jamesonstone/beacon/internal/config"
 )
 
-func TestConfiguredProjectSelectorMigratesSourcesAndPersistsSelection(t *testing.T) {
+func TestConfiguredProjectSelectorUsesDedicatedProjectSelection(t *testing.T) {
 	root := canonicalTestDirectory(t)
 	owner := filepath.Join(root, "owner")
 	first := makeRepositoryDirectory(t, owner, "first")
@@ -21,9 +22,10 @@ func TestConfiguredProjectSelectorMigratesSourcesAndPersistsSelection(t *testing
 	outside := makeRepositoryDirectory(t, canonicalTestDirectory(t), "outside")
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	writeTestConfig(t, configPath, `version: 2
+projects:
+  - path: `+outside+`
 sources:
   - path: `+owner+`
-  - path: `+outside+`
 repositories:
   - name: first
     path: `+first+`
@@ -33,9 +35,7 @@ repositories:
 `)
 	prompter := &scriptedConfiguredProjectPrompter{actions: []projectBrowserAction{
 		{Kind: projectBrowserEnter, Path: owner},
-		{Kind: projectBrowserUp},
-		{Kind: projectBrowserEnter, Path: owner},
-		{Kind: projectBrowserToggle, Path: first},
+		{Kind: projectBrowserToggle, Path: second},
 		{Kind: projectBrowserSave},
 	}}
 	output, starter, err := executeConfiguredProjects(t, configPath, root, prompter)
@@ -47,10 +47,12 @@ repositories:
 		t.Fatal(err)
 	}
 	selected := map[string]bool{}
-	for _, source := range loaded.Sources {
-		selected[source.Path] = true
+	for _, project := range loaded.Projects {
+		selected[project.Path] = true
 	}
-	if len(loaded.Repositories) != 0 || len(loaded.Sources) != 2 || !selected[second] || !selected[outside] {
+	if len(loaded.Projects) != 2 || !selected[second] || !selected[outside] ||
+		len(loaded.Sources) != 1 || loaded.Sources[0].Path != owner ||
+		len(loaded.Repositories) != 1 || loaded.Repositories[0].Base != "trunk" {
 		t.Fatalf("config = %#v", loaded)
 	}
 	if starter.calls != 0 {
@@ -59,12 +61,41 @@ repositories:
 	if !strings.Contains(output, "2 projects in ") {
 		t.Fatalf("output = %q", output)
 	}
-	if len(prompter.views) != 5 ||
+	if len(prompter.views) != 3 ||
 		prompter.views[0].SelectedOutside != 1 ||
 		prompter.views[1].Current != owner ||
-		prompter.views[2].Current != root ||
-		prompter.views[4].Selected != 2 {
+		prompter.views[2].Selected != 2 ||
+		prompter.views[2].FocusPath != second {
 		t.Fatalf("views = %#v", prompter.views)
+	}
+}
+
+func TestConfiguredProjectSelectorStartsLegacyInventoryUnselected(t *testing.T) {
+	root := canonicalTestDirectory(t)
+	repository := makeRepositoryDirectory(t, root, "repo")
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	writeTestConfig(t, configPath, `version: 2
+sources:
+  - path: `+root+`
+repositories:
+  - name: repo
+    path: `+repository+`
+    github: owner/repo
+`)
+	prompter := &scriptedConfiguredProjectPrompter{
+		actions: []projectBrowserAction{{Kind: projectBrowserSave}},
+	}
+	if _, _, err := executeConfiguredProjects(t, configPath, root, prompter); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := config.Load(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(prompter.views) != 1 || prompter.views[0].Selected != 0 ||
+		len(loaded.Projects) != 0 || len(loaded.Sources) != 1 ||
+		len(loaded.Repositories) != 1 {
+		t.Fatalf("views = %#v, config = %#v", prompter.views, loaded)
 	}
 }
 
@@ -85,7 +116,7 @@ func TestConfiguredProjectSelectorCreatesConfigAndCanSaveEmptySelection(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(loaded.Sources) != 1 || loaded.Sources[0].Path != repository {
+	if len(loaded.Projects) != 1 || loaded.Projects[0].Path != repository {
 		t.Fatalf("config = %#v", loaded)
 	}
 
@@ -101,7 +132,7 @@ func TestConfiguredProjectSelectorCreatesConfigAndCanSaveEmptySelection(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(loaded.Sources) != 0 || len(loaded.Repositories) != 0 {
+	if len(loaded.Projects) != 0 {
 		t.Fatalf("empty config = %#v", loaded)
 	}
 }
@@ -168,6 +199,82 @@ func TestProjectBrowserEntriesSkipFilesHiddenDirectoriesAndSymlinks(t *testing.T
 	}}
 	if !reflect.DeepEqual(entries, want) {
 		t.Fatalf("entries = %#v", entries)
+	}
+}
+
+func TestProjectBrowserModelSpaceActsOnHighlightedEntry(t *testing.T) {
+	root := canonicalTestDirectory(t)
+	directory := filepath.Join(root, "owner")
+	repository := makeRepositoryDirectory(t, root, "repo")
+	view := projectBrowserView{
+		Root: root, Current: root,
+		Entries: []projectBrowserEntry{
+			{Name: "owner", Path: directory},
+			{Name: "repo", Path: repository, Repository: true},
+		},
+	}
+
+	model := newProjectBrowserModel(view)
+	result, command := model.Update(tea.KeyMsg{Type: tea.KeySpace})
+	updated := result.(projectBrowserModel)
+	if command == nil || updated.action != (projectBrowserAction{Kind: projectBrowserEnter, Path: directory}) {
+		t.Fatalf("directory action = %#v, command = %v", updated.action, command)
+	}
+
+	model = newProjectBrowserModel(view)
+	result, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
+	model = result.(projectBrowserModel)
+	result, command = model.Update(tea.KeyMsg{Type: tea.KeySpace})
+	updated = result.(projectBrowserModel)
+	if command == nil || updated.action != (projectBrowserAction{Kind: projectBrowserToggle, Path: repository}) {
+		t.Fatalf("repository action = %#v, command = %v", updated.action, command)
+	}
+}
+
+func TestProjectBrowserModelEnterConfirmsAndTabMovesForward(t *testing.T) {
+	root := canonicalTestDirectory(t)
+	view := projectBrowserView{
+		Root: root, Current: root,
+		Entries: []projectBrowserEntry{
+			{Name: "first", Path: filepath.Join(root, "first")},
+			{Name: "second", Path: filepath.Join(root, "second")},
+		},
+	}
+	model := newProjectBrowserModel(view)
+
+	result, command := model.Update(tea.KeyMsg{Type: tea.KeyTab})
+	model = result.(projectBrowserModel)
+	if command != nil || model.list.Index() != 1 || model.action.Kind != "" {
+		t.Fatalf("tab index = %d, action = %#v, command = %v", model.list.Index(), model.action, command)
+	}
+	result, command = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	model = result.(projectBrowserModel)
+	if command == nil || model.action.Kind != projectBrowserSave {
+		t.Fatalf("enter action = %#v, command = %v", model.action, command)
+	}
+}
+
+func TestProjectBrowserModelRestoresFocusAndSpaceMovesUp(t *testing.T) {
+	root := canonicalTestDirectory(t)
+	current := filepath.Join(root, "owner")
+	repository := filepath.Join(root, "repo")
+	view := projectBrowserView{
+		Root: root, Current: root, FocusPath: repository,
+		Entries: []projectBrowserEntry{
+			{Name: "owner", Path: current},
+			{Name: "repo", Path: repository, Repository: true},
+		},
+	}
+	model := newProjectBrowserModel(view)
+	if model.list.Index() != 1 {
+		t.Fatalf("focus index = %d", model.list.Index())
+	}
+
+	model = newProjectBrowserModel(projectBrowserView{Root: root, Current: current})
+	result, command := model.Update(tea.KeyMsg{Type: tea.KeySpace})
+	model = result.(projectBrowserModel)
+	if command == nil || model.action.Kind != projectBrowserUp {
+		t.Fatalf("up action = %#v, command = %v", model.action, command)
 	}
 }
 

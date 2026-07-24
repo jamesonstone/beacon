@@ -96,14 +96,13 @@ Positional paths remain useful as an ad hoc override.
   loads nor writes Beacon configuration.
 - Make interactive `beacon projects` browse from
   `~/go/src/github.com` by default, with an optional root override.
-- Let the selector enter child directories, move back toward its configured
-  root, toggle Git repository directories selected or unselected, cancel
-  without writing, and explicitly save the complete selection.
-- Persist selected Git repository roots as the config-owned project list.
-  Expand legacy parent-directory sources to exact repository roots on the
-  first saved selection, preserve explicit repository metadata for paths that
-  remain selected, and preserve selected projects outside the current browser
-  root.
+- Let Tab and the arrow keys move the highlight, Space enter child directories
+  or toggle Git repository directories selected or unselected, Enter confirm
+  and save the complete selection, and Escape cancel without writing.
+- Persist selected Git repository roots in a dedicated config-owned `projects`
+  list. Preserve selected projects outside the current browser root, but begin
+  with no v2 selection when only legacy sources, explicit repositories, or
+  managed Following state exist.
 - Permit a valid empty version-2 project list so the user can unselect every
   project and receive an empty scan instead of retaining an accidental project.
 - Skip background-agent auto-start for every configured or positional v2 scan
@@ -138,13 +137,13 @@ non-GitHub repositories, or turning Beacon into a task manager.
    background-agent startup for all `scan` invocations.
 3. Add a lazy filesystem browser that lists safe child directories, identifies
    Git repository roots, constrains parent navigation to the chosen root, and
-   exposes deterministic toggle, save, and cancel actions.
-4. Seed selection from both configured sources and explicit repositories,
-   expanding parent sources with filesystem-only Git discovery, then
-   atomically replace the configured project set when the user saves.
-5. Cover navigation boundaries, symlink exclusion, migration, empty selection,
-   cancellation, config persistence, configured scan routing, and agent
-   suppression.
+   gives Space, Enter, Tab, and Escape one stable action each.
+4. Store v2 selection in a dedicated `projects` list so legacy discovery and
+   Following inventory begin unselected, then atomically replace only that
+   list when the user confirms.
+5. Cover navigation boundaries, symlink exclusion, keyboard semantics, focus
+   retention, empty selection, cancellation, config persistence, configured
+   scan routing, and agent suppression.
 6. Update the CLI documentation, validate the complete repository, curate
    durable memory, and update issue #76 and PR #77 from `GH-76`.
 
@@ -168,21 +167,28 @@ non-GitHub repositories, or turning Beacon into a task manager.
 - Browse lazily one directory at a time rather than recursively building a
   large terminal tree. Repository directories are toggle targets and ordinary
   directories are navigation targets.
+- Make Space the highlighted-row action and Enter the single confirmation
+  action. Keeping Save and Cancel out of the item list makes Tab a pure forward
+  navigation key and prevents accidental confirmation while browsing.
+- Keep hyper-light selection in `projects`, separate from legacy discovery
+  sources, explicit repositories, and managed Following state. The initial
+  source-expansion migration was rejected after it made 88 repositories appear
+  selected before the user chose any.
 - Preserve the config-free positional scan as a deliberate override even
   though configured zero-argument scanning becomes the primary workflow.
 
 ## DISCOVERIES
 
-No new Git parser, GitHub schema, terminal dependency, or config schema is
-required. Exact repository roots are valid version-2 sources, the existing
-atomic writer can replace that list safely, and the existing `huh` form runner
-supports a repeated one-level browser without a custom TUI runtime.
+No new Git parser or GitHub schema is required. The existing Bubble Tea
+dependencies provide the needed keyboard loop, filtering, pagination, and
+terminal resize handling. The atomic writer can update the dedicated
+`projects` list while leaving legacy discovery configuration untouched.
 
-Broad legacy sources must be expanded with filesystem-only Git discovery before
-the first save. Reusing full GitHub discovery there would make a config edit
-depend on network or remote validity and could silently lose a selected local
-repository. Explicit repository entries require separate preservation so a
-selection edit does not discard their base or remote overrides.
+Treating existing sources and explicit repositories as the v2 selection was
+semantically wrong: those fields describe the broader v1 inventory, so
+expanding them made every discovered repository appear deliberately selected.
+A separate `projects` field preserves both meanings and gives an absent field a
+safe zero-selection migration.
 
 An empty configured selection exposed a projection edge case during terminal
 dogfooding: discovery warnings were present but the early empty-result return
@@ -193,33 +199,34 @@ worktree records must stay diagnostic-only rather than hiding the real lane.
 ## VALIDATION
 
 - `make fmt-check vet test test-race release-test build` passed. Coverage now
-  includes default-root resolution, enter/up navigation, selection toggles,
-  source migration, explicit metadata and outside-root preservation, empty
-  selection, cancellation, atomic persistence, configured scan routing,
-  configured/discovered repository deduplication, warning counts, and agent
-  suppression.
+  includes default-root resolution, Space enter/up/toggle actions, Enter
+  confirmation, Tab movement, focus retention, dedicated-list migration,
+  outside-root preservation, empty selection, cancellation, atomic persistence,
+  configured scan routing, warning counts, and agent suppression.
 - `make macos-test` passed all 157 tests, proving the native application and
   full schema-v3 dashboard remain compatible.
-- A real terminal session entered and exited an isolated owner directory,
-  selected two repositories, and atomically wrote two exact project roots.
-- A second real terminal session used the repository itself as the browser
-  root, selected Beacon into a fresh isolated config, and wrote normalized
-  version-2 settings plus one exact source.
-- The built binary then consumed that config with
-  `scan --no-refresh --json`; `jq` verified work-scan schema version 1, one
-  selected project, one active project, and at least one work item.
+- A real terminal session against the default config opened at
+  `~/go/src/github.com` with zero selected projects, moved forward with Tab,
+  and confirmed with Enter. The atomic rewrite preserved five legacy sources
+  and one explicit repository while persisting `projects: []`.
+- An isolated terminal session used Space to enter an owner directory, Tab to
+  focus its repository, Space to select and unselect it across redraws, and
+  Enter to persist the final empty selection.
+- The built binary then consumed the default config with
+  `scan --no-refresh --json`; `jq` verified work-scan schema version 1 and zero
+  projects, work items, errors, and warnings.
 - The initial positional Beacon/Kit dogfood remains valid: both repositories'
   prunable temporary Kit-health worktrees stayed warnings.
 
 ## OUTCOME
 
 `beacon projects` now opens a lazy directory browser rooted at
-`~/go/src/github.com` by default. Ordinary directories navigate inward,
-`..` navigates outward without crossing the chosen root, Git repository
-directories toggle selected state, Cancel performs no write, and Save
-atomically replaces the config-owned project list. Legacy parent sources are
-expanded to exact roots; selected explicit metadata and projects outside the
-current browser root survive the rewrite; an empty selection is valid.
+`~/go/src/github.com` by default. Tab and the arrow keys move, Space enters an
+ordinary directory or toggles a Git repository, `..` navigates outward without
+crossing the chosen root, Enter atomically confirms, and Escape cancels. The
+dedicated `projects` config list begins empty instead of inheriting the legacy
+inventory, preserves selected projects outside the current browser root, and
+permits a valid empty selection.
 
 Zero-argument `beacon scan` now reads that configured list and uses the same
 small deterministic work projection as positional scans. Both configured and
@@ -237,7 +244,7 @@ Issue #76 remains represented by ready pull request #77 from exact branch
 Created this specification because the scope reset, retained v1 fallback,
 evidence exclusions, and rejected adjacent product surfaces are material
 rationale that code and tests cannot preserve. Updated the specification and
-Constitution with the now-demonstrated config-owned selection boundary,
-explicit config mutation authority, and shared configured/positional v2
+Constitution with the now-demonstrated dedicated `projects` boundary, explicit
+keyboard and config mutation authority, and shared configured/positional v2
 projection. Updated the project progress summary, README, and user guide with
-the validated terminal workflow and migration behavior.
+the validated terminal workflow and zero-selection migration behavior.

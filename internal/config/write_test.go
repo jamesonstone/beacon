@@ -76,7 +76,7 @@ func TestMarshalRejectsInvalidOllamaModelBeforeWriting(t *testing.T) {
 	}
 }
 
-func TestReplaceProjectPathsPreservesSelectedRepositoryMetadata(t *testing.T) {
+func TestReplaceProjectPathsUpdatesOnlyHyperLightSelection(t *testing.T) {
 	root := t.TempDir()
 	first := filepath.Join(root, "first")
 	second := filepath.Join(root, "second")
@@ -88,6 +88,7 @@ func TestReplaceProjectPathsPreservesSelectedRepositoryMetadata(t *testing.T) {
 	}
 	current := Config{
 		Version: Version,
+		Sources: []Source{{Path: root}},
 		Repositories: []Repository{{
 			Name: "first", Path: first, GitHub: "owner/first", Base: "trunk", Remote: "upstream",
 		}},
@@ -100,10 +101,17 @@ func TestReplaceProjectPathsPreservesSelectedRepositoryMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(replaced.Repositories) != 1 || replaced.Repositories[0].Base != "trunk" {
-		t.Fatalf("repositories = %#v", replaced.Repositories)
+	canonicalFirst, err := filepath.EvalSymlinks(first)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if len(replaced.Sources) != 1 || replaced.Sources[0].Path != canonicalSecond {
-		t.Fatalf("sources = %#v", replaced.Sources)
+	if len(replaced.Repositories) != 1 || replaced.Repositories[0].Base != "trunk" ||
+		len(replaced.Sources) != 1 || replaced.Sources[0].Path != root {
+		t.Fatalf("legacy inventory = %#v %#v", replaced.Sources, replaced.Repositories)
+	}
+	if len(replaced.Projects) != 2 ||
+		replaced.Projects[0].Path != canonicalFirst ||
+		replaced.Projects[1].Path != canonicalSecond {
+		t.Fatalf("projects = %#v", replaced.Projects)
 	}
 }

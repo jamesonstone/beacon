@@ -95,6 +95,9 @@ func Marshal(cfg Config) ([]byte, error) {
 			OllamaModel:            cfg.Settings.OllamaModel,
 		},
 	}
+	for _, project := range cfg.Projects {
+		raw.Projects = append(raw.Projects, rawSource{Path: project.Path})
+	}
 	for _, source := range cfg.Sources {
 		raw.Sources = append(raw.Sources, rawSource{Path: source.Path})
 	}
@@ -164,39 +167,23 @@ func Merge(current Config, additions Config) Config {
 	return merged
 }
 
-// ReplaceProjectPaths replaces the configured project selection with exact
-// repository roots. Existing explicit repository metadata is retained for
-// selected paths; every other selected path is stored as a source.
+// ReplaceProjectPaths replaces the hyper-light project selection with exact
+// repository roots without changing Beacon's legacy discovery inventory.
 func ReplaceProjectPaths(current Config, paths []string) (Config, error) {
-	repositoriesByPath := make(map[string]Repository, len(current.Repositories))
-	for _, repository := range current.Repositories {
-		path, err := CanonicalizeSourcePath(repository.Path)
-		if err != nil {
-			return Config{}, fmt.Errorf("repository path %q: %w", repository.Path, err)
-		}
-		repository.Path = path
-		repositoriesByPath[path] = repository
-	}
-
 	selected := make(map[string]struct{}, len(paths))
 	replacement := current
 	replacement.Version = Version
-	replacement.Sources = nil
-	replacement.Repositories = nil
+	replacement.Projects = nil
 	for _, path := range paths {
-		source, err := normalizeSource(rawSource{Path: path})
+		project, err := normalizeSource(rawSource{Path: path})
 		if err != nil {
 			return Config{}, fmt.Errorf("project path %q: %w", path, err)
 		}
-		if _, exists := selected[source.Path]; exists {
+		if _, exists := selected[project.Path]; exists {
 			continue
 		}
-		selected[source.Path] = struct{}{}
-		if repository, exists := repositoriesByPath[source.Path]; exists {
-			replacement.Repositories = append(replacement.Repositories, repository)
-			continue
-		}
-		replacement.Sources = append(replacement.Sources, source)
+		selected[project.Path] = struct{}{}
+		replacement.Projects = append(replacement.Projects, project)
 	}
 	Sort(&replacement)
 	return replacement, nil
@@ -220,6 +207,7 @@ func uniqueName(name string, seen map[string]struct{}) string {
 }
 
 func Sort(cfg *Config) {
+	sort.SliceStable(cfg.Projects, func(i, j int) bool { return cfg.Projects[i].Path < cfg.Projects[j].Path })
 	sort.SliceStable(cfg.Sources, func(i, j int) bool { return cfg.Sources[i].Path < cfg.Sources[j].Path })
 	sort.SliceStable(cfg.Repositories, func(i, j int) bool {
 		if cfg.Repositories[i].Name != cfg.Repositories[j].Name {

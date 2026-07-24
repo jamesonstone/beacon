@@ -11,6 +11,8 @@ settings:
   github_author: "@me"
   github_scope: mine
 
+projects: []
+
 sources:
   - path: ~/go/src/github.com
 

@@ -56,6 +56,7 @@ type Repository struct {
 type Config struct {
 	Version      int
 	Settings     Settings
+	Projects     []Source
 	Sources      []Source
 	Repositories []Repository
 	Path         string
@@ -64,6 +65,7 @@ type Config struct {
 type rawConfig struct {
 	Version      int             `yaml:"version"`
 	Settings     rawSettings     `yaml:"settings"`
+	Projects     []rawSource     `yaml:"projects"`
 	Sources      []rawSource     `yaml:"sources"`
 	Repositories []rawRepository `yaml:"repositories"`
 }
@@ -154,6 +156,9 @@ func normalize(raw rawConfig, path string) (Config, error) {
 	if raw.Version == Version1 && len(raw.Sources) != 0 {
 		return Config{}, errors.New("config version 1 does not support sources")
 	}
+	if raw.Version == Version1 && len(raw.Projects) != 0 {
+		return Config{}, errors.New("config version 1 does not support projects")
+	}
 	if raw.Version == Version1 && raw.Settings.GitHubScope != "" {
 		return Config{}, errors.New("config version 1 does not support settings.github_scope")
 	}
@@ -168,6 +173,18 @@ func normalize(raw rawConfig, path string) (Config, error) {
 		return Config{}, err
 	}
 	config := Config{Version: raw.Version, Settings: settings, Path: path}
+	seenProjects := make(map[string]struct{}, len(raw.Projects))
+	for index, rawProject := range raw.Projects {
+		project, err := normalizeSource(rawProject)
+		if err != nil {
+			return Config{}, fmt.Errorf("project %d: %w", index+1, err)
+		}
+		if _, exists := seenProjects[project.Path]; exists {
+			return Config{}, fmt.Errorf("project path %q is duplicated", project.Path)
+		}
+		seenProjects[project.Path] = struct{}{}
+		config.Projects = append(config.Projects, project)
+	}
 	seenSources := make(map[string]struct{}, len(raw.Sources))
 	for index, rawSource := range raw.Sources {
 		source, err := normalizeSource(rawSource)

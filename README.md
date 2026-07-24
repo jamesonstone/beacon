@@ -56,11 +56,12 @@ beacon scan
 ```
 
 `beacon projects` opens the hyper-light v2 project selector at
-`~/go/src/github.com`. Enter owner directories, toggle repository directories,
-move back with `..`, and save the selection to Beacon's config. `beacon scan`
-then prints only dirty worktrees, non-base branches, unpublished commits, and
-authored open pull requests for those projects, without starting the background
-agent. Use `beacon projects --root PATH` to browse elsewhere.
+`~/go/src/github.com`. Use Tab or the arrow keys to move, Space to enter a
+directory or toggle a repository, and Enter to confirm the complete selection.
+`..` moves back without crossing the configured root, Escape cancels, and
+`beacon projects --root PATH` browses elsewhere. `beacon scan` then prints only
+dirty worktrees, non-base branches, unpublished commits, and authored open pull
+requests for those projects, without starting the background agent.
 
 Pass paths directly for an ad hoc scan that neither loads nor writes config:
 
