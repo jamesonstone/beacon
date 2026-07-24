@@ -54,7 +54,10 @@ working duration.
 - Provide a standalone settings page with a configurable hotkey entry,
   defaulting to `Control+Shift+H`, plus an explicit Quit action.
 - Use a playful menu-bar mark that still communicates whether attention is
-  needed and, when applicable, shows the attention count.
+  needed and, when applicable, shows the attention count; the default mark is
+  a rocket with a star accent.
+- Make the default `Control+Shift+H` shortcut open or close the popover while
+  another application is focused.
 - Keep the surface read-only and event-driven with no continuous animation or
   timer-based invalidation.
 - Provide an explicit refresh action without loading Beacon's dashboard.

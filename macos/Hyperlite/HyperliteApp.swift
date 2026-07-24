@@ -1,47 +1,123 @@
 import AppKit
+import Carbon.HIToolbox
 import Foundation
 import SwiftUI
 
 @main
 struct HyperliteApp: App {
-    @StateObject private var state = HyperliteState()
+    @NSApplicationDelegateAdaptor(HyperliteApplicationDelegate.self) private var applicationDelegate
 
     var body: some Scene {
-        MenuBarExtra {
-            HyperlitePopover(state: state)
-        } label: {
-            HyperliteMenuBarLabel(attentionCount: state.attentionCount(maxAgeDays: 10))
-        }
-        .menuBarExtraStyle(.window)
-
         Settings {
             HyperliteSettingsView()
         }
     }
 }
 
-private struct HyperliteMenuBarLabel: View {
-    let attentionCount: Int
+final class HyperliteApplicationDelegate: NSObject, NSApplicationDelegate {
+    private var state: HyperliteState!
+    private var statusItem: NSStatusItem!
+    private var popover: NSPopover!
+    private var hotKey: HyperliteHotKeyController!
 
-    var body: some View {
-        HStack(spacing: 2) {
-            Image(systemName: attentionCount == 0 ? "sparkles" : "wand.and.stars")
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(attentionCount == 0 ? .mint : .orange)
-            if attentionCount > 0 {
-                Text(attentionCount > 99 ? "99+" : "\(attentionCount)")
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .foregroundStyle(.orange)
-                    .monospacedDigit()
-            }
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        state = HyperliteState()
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = statusItem.button {
+            button.image = NSImage(systemSymbolName: "rocket.fill", accessibilityDescription: "Hyperlite")
+            button.image?.isTemplate = false
+            button.title = "✦"
+            button.font = .systemFont(ofSize: 10, weight: .bold)
+            button.imagePosition = .imageLeading
+            button.toolTip = "Hyperlite — Control+Shift+H"
+            button.target = self
+            button.action = #selector(togglePopover)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            attentionCount == 0
-                ? "Hyperlite, nothing needs attention"
-                : "Hyperlite, \(attentionCount) items need attention"
+
+        popover = NSPopover()
+        popover.behavior = .transient
+        popover.animates = true
+        popover.contentViewController = NSHostingController(rootView: HyperlitePopover(state: state))
+
+        hotKey = HyperliteHotKeyController { [weak self] in
+            self?.togglePopover()
+        }
+        hotKey.start()
+    }
+
+    @objc private func togglePopover() {
+        guard let button = statusItem.button else { return }
+        if popover.isShown {
+            popover.performClose(nil)
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        hotKey.stop()
+        if let statusItem {
+            NSStatusBar.system.removeStatusItem(statusItem)
+        }
+    }
+}
+
+final class HyperliteHotKeyController {
+    private let action: () -> Void
+    private var eventHandler: EventHandlerRef?
+    private var hotKeyRef: EventHotKeyRef?
+
+    init(action: @escaping () -> Void) {
+        self.action = action
+    }
+
+    func start() {
+        guard eventHandler == nil else { return }
+        var eventSpec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        let context = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+        InstallEventHandler(
+            GetApplicationEventTarget(),
+            { _, _, userData in
+                guard let userData else { return noErr }
+                Unmanaged<HyperliteHotKeyController>.fromOpaque(userData).takeUnretainedValue().action()
+                return noErr
+            },
+            1,
+            &eventSpec,
+            context,
+            &eventHandler
+        )
+
+        var hotKeyID = EventHotKeyID(signature: fourCharCode("HLIT"), id: 1)
+        RegisterEventHotKey(
+            UInt32(kVK_ANSI_H),
+            UInt32(controlKey | shiftKey),
+            hotKeyID,
+            GetApplicationEventTarget(),
+            0,
+            &hotKeyRef
         )
     }
+
+    func stop() {
+        if let hotKeyRef {
+            UnregisterEventHotKey(hotKeyRef)
+        }
+        if let eventHandler {
+            RemoveEventHandler(eventHandler)
+        }
+        hotKeyRef = nil
+        eventHandler = nil
+    }
+
+    deinit {
+        stop()
+    }
+}
+
+private func fourCharCode(_ value: String) -> OSType {
+    value.utf8.reduce(0) { ($0 << 8) | OSType($1) }
 }
 
 @MainActor

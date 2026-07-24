@@ -144,7 +144,9 @@ days.
 
 Use the gear icon for Hyperlite settings. The settings page includes the
 hotkey entry, defaulting to `Control+Shift+H`, and the popover includes a Quit
-button for stopping the standalone app.
+button for stopping the standalone app. The default hotkey opens and closes
+the Hyperlite popover globally, even when another app is focused. The menu-bar
+mark is a rocket with a star accent.
 
 Hyperlite is read-only and does not run a display-linked timer or continuous
 animation. Ages update when the popover renders or when Beacon receives new
