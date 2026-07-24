@@ -2,7 +2,7 @@
 kit_metadata_version: 1
 artifact: spec
 workflow_version: 3
-phase: validate
+phase: deliver
 delivery_intent: ready_pull_request
 feature:
   id: 0022
@@ -29,6 +29,14 @@ references:
     relation: informs
     read_policy: must
     used_for: lane evidence, read-only boundary, and scanner contracts
+    status: active
+  - id: pr-77
+    name: Add hyper-light project scan
+    type: github-pr
+    target: https://github.com/jamesonstone/beacon/pull/77
+    relation: implements
+    read_policy: must
+    used_for: issue-76 implementation, review, and hosted validation
     status: active
   - id: working-set-radar
     name: Beacon working-set radar
@@ -176,6 +184,7 @@ worktrees remain diagnostic-only, and one repository's failure does not erase
 other usable results. Positional scans reject persistent config and repository
 filters and never start the background agent. The configured v1 CLI and native
 macOS application remain unchanged while this workflow is dogfooded.
+Issue #76 is represented by ready pull request #77 from exact branch `GH-76`.
 
 ## REPOSITORY MEMORY
 

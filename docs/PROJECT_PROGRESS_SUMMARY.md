@@ -25,7 +25,7 @@
 | 0019 | drop-down-terminal | `docs/specs/0019-drop-down-terminal` | deliver | no | 2026-07-18 | Add a retained native terminal that toggles with Command-J inside the current Beacon dashboard bounds while Beacon is active. |
 | 0020 | ollama-notes-assistant | `docs/specs/0020-ollama-notes-assistant` | deliver | no | 2026-07-18 | Hold a complete in-memory local Ollama conversation about an exact Notes selection or full current note across compact and toggled half-width presentations. |
 | 0021 | animated-project-watermarks | `docs/specs/0021-animated-project-watermarks` | deliver | no | 2026-07-22 | Show every fitted lane project as an oversized theme-aware static background watermark without hidden idle rendering. |
-| 0022 | beacon-v2-hyper-light | `docs/specs/0022-beacon-v2-hyper-light` | validate | no | 2026-07-24 | Scan supplied repository roots or parent directories for in-progress Git and authored pull-request work without configuration, agent, or macOS state. |
+| 0022 | beacon-v2-hyper-light | `docs/specs/0022-beacon-v2-hyper-light` | deliver | no | 2026-07-24 | Scan supplied repository roots or parent directories for in-progress Git and authored pull-request work without configuration, agent, or macOS state. |
 
 ## PROJECT INTENT
 
@@ -237,11 +237,11 @@ artifact wins whenever this index disagrees with it.
 
 ### beacon-v2-hyper-light
 
-- **STATUS**: validate
+- **STATUS**: deliver
 - **PAUSED**: no
 - **INTENT**: Restore Beacon to one voluntary daily-driver action that scans a chosen set of projects and shows only work already in progress.
 - **APPROACH**: Construct source selection in memory, reuse repository discovery and local/GitHub evidence collectors, apply existing lane policy, and emit a separate small terminal/JSON projection without loading tracking, cache, agent, Notes, or macOS state.
-- **OPEN ITEMS**: Implementation, focused coverage, full Go/race/release/build validation, 157 macOS tests, and real two-repository dogfooding are complete on issue #76 and branch `GH-76`. Ready pull-request delivery remains.
+- **OPEN ITEMS**: Implementation, focused coverage, full Go/race/release/build validation, 157 macOS tests, and real two-repository dogfooding are complete on issue #76 and branch `GH-76`, represented by ready PR #77. Hosted checks and final human review remain.
 - **POINTERS**: `docs/specs/0022-beacon-v2-hyper-light/SPEC.md`
 
 ## LAST UPDATED
