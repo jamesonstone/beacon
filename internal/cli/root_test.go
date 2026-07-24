@@ -47,6 +47,8 @@ func TestDirectCLICommandsSelectAgentActivationWithoutLifecycleRecursion(t *test
 		{args: []string{"agent", "stop"}, want: false},
 		{args: []string{"doctor"}, want: false},
 		{args: []string{"init"}, want: false},
+		{args: []string{"projects"}, want: false},
+		{args: []string{"scan"}, want: false},
 		{args: []string{"config", "init"}, want: false},
 		{args: []string{"version"}, want: false},
 	} {
