@@ -123,7 +123,8 @@ func TestScannerReturnsEmptySelectionWithoutError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Summary.Projects != 0 || result.Summary.Warnings != 0 || len(result.Items) != 0 {
+	if result.Summary.Projects != 0 || result.Summary.Warnings != 0 ||
+		result.Summary.Errors != 0 || len(result.Items) != 0 || len(result.Errors) != 0 {
 		t.Fatalf("result = %#v", result)
 	}
 }
