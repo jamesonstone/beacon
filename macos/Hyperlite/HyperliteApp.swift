@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import Combine
 import Foundation
 import SwiftUI
 
@@ -14,11 +15,13 @@ struct HyperliteApp: App {
     }
 }
 
+@MainActor
 final class HyperliteApplicationDelegate: NSObject, NSApplicationDelegate {
     private var state: HyperliteState!
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
     private var hotKey: HyperliteHotKeyController!
+    private var scanObservation: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         state = HyperliteState()
@@ -26,12 +29,15 @@ final class HyperliteApplicationDelegate: NSObject, NSApplicationDelegate {
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "rocket.fill", accessibilityDescription: "Hyperlite")
             button.image?.isTemplate = false
-            button.title = "✦"
+            button.title = "✦ 0"
             button.font = .systemFont(ofSize: 10, weight: .bold)
             button.imagePosition = .imageLeading
             button.toolTip = "Hyperlite — Control+Shift+H"
             button.target = self
             button.action = #selector(togglePopover)
+        }
+        scanObservation = state.$scan.sink { [weak self] _ in
+            self?.updateStatusItem()
         }
 
         popover = NSPopover()
@@ -43,6 +49,14 @@ final class HyperliteApplicationDelegate: NSObject, NSApplicationDelegate {
             self?.togglePopover()
         }
         hotKey.start()
+    }
+
+    private func updateStatusItem() {
+        guard let button = statusItem?.button else { return }
+        let count = state.items(maxAgeDays: 10).count
+        button.title = "✦ \(count > 99 ? "99+" : "\(count)")"
+        button.toolTip = "Hyperlite — \(count) items in progress — Control+Shift+H"
+        button.setAccessibilityLabel("Hyperlite, \(count) items in progress")
     }
 
     @objc private func togglePopover() {
@@ -89,7 +103,7 @@ final class HyperliteHotKeyController {
             &eventHandler
         )
 
-        var hotKeyID = EventHotKeyID(signature: fourCharCode("HLIT"), id: 1)
+        let hotKeyID = EventHotKeyID(signature: fourCharCode("HLIT"), id: 1)
         RegisterEventHotKey(
             UInt32(kVK_ANSI_H),
             UInt32(controlKey | shiftKey),
