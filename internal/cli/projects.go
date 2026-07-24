@@ -25,9 +25,10 @@ func (a App) projectsCommand(configPath *string) *cobra.Command {
 	var showFollowed bool
 	var showRecent bool
 	var showQuiet bool
+	var browserRoot string
 	command := &cobra.Command{
 		Use:   "projects",
-		Short: "Manage projects Beacon follows",
+		Short: "Select projects Beacon scans",
 		Args:  noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			views := 0
@@ -45,7 +46,7 @@ func (a App) projectsCommand(configPath *string) *cobra.Command {
 				return err
 			}
 			if views == 0 {
-				return a.runProjectSelector(cmd.Context(), *configPath, cmd.CommandPath())
+				return a.runConfiguredProjectSelector(cmd.Context(), *configPath, browserRoot, cmd.CommandPath())
 			}
 			snapshot, err := a.projectSnapshot(cmd.Context(), *configPath)
 			if err != nil {
@@ -68,6 +69,7 @@ func (a App) projectsCommand(configPath *string) *cobra.Command {
 	command.Flags().BoolVar(&showQuiet, "quiet", false, "list quiet projects outside Following")
 	command.Flags().BoolVar(&showUntracked, "untracked", false, "compatibility alias: list all projects outside Following")
 	command.Flags().BoolVar(&showTracked, "tracked", false, "compatibility alias: list followed projects")
+	command.Flags().StringVar(&browserRoot, "root", defaultProjectBrowserRoot, "project browser root")
 	command.AddCommand(
 		a.setProjectFollowingCommand(configPath, true),
 		a.setProjectFollowingCommand(configPath, false),

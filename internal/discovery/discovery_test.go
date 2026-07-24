@@ -55,7 +55,7 @@ func TestRepositoryRootsStopsAtRepositoriesAndDoesNotFollowSymlinks(t *testing.T
 		t.Fatal(err)
 	}
 
-	roots, warnings := repositoryRoots(root)
+	roots, warnings := RepositoryRoots(root)
 	if len(warnings) != 0 {
 		t.Fatalf("warnings = %#v", warnings)
 	}
@@ -74,7 +74,7 @@ func TestRepositoryRootsRejectsSymlinkSource(t *testing.T) {
 	if err := os.Symlink(target, link); err != nil {
 		t.Fatal(err)
 	}
-	roots, warnings := repositoryRoots(link)
+	roots, warnings := RepositoryRoots(link)
 	if len(roots) != 0 || len(warnings) != 1 || !strings.Contains(warnings[0].Message, "symbolic link") {
 		t.Fatalf("roots=%#v warnings=%#v", roots, warnings)
 	}

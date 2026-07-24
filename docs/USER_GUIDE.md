@@ -68,29 +68,48 @@ release.
 
 ## Quick Start
 
-Authenticate GitHub and scan the project repositories or parent directories
-you care about:
+Authenticate GitHub, select the projects you care about, and scan them:
 
 ```bash
 gh auth login
+beacon projects
+beacon scan
+```
+
+`beacon projects` opens a terminal directory browser rooted at
+`~/go/src/github.com`. Enter a directory such as
+`~/go/src/github.com/jamesonstone`, toggle repository directories selected or
+unselected, use `..` to move out toward the browser root, and choose Save.
+Beacon atomically writes the complete selected project list to
+`$HOME/.config/beacon/config.yaml`. Use `--root PATH` to start elsewhere.
+
+Zero-argument `beacon scan` discovers the selected GitHub repositories, scans
+every linked worktree, queries only your open pull requests, and prints current
+work without loading tracking, Following, Notes, activity, cache, or agent
+state. Clean base-only projects and issue-only backlog are hidden by default.
+
+```bash
+beacon scan --include-idle
+beacon scan --no-refresh
+beacon scan --json
+```
+
+Selected projects are exact repository roots in config. Existing broad source
+directories are expanded to exact repositories the first time the selector is
+saved; selected explicit repository metadata and selected projects outside the
+current browser root are preserved. Saving with every project unselected
+creates a valid empty project list and an empty scan.
+
+Positional paths remain an ad hoc override that neither loads nor writes
+configuration:
+
+```bash
 beacon scan ~/go/src/github.com/jamesonstone/beacon \
   ~/go/src/github.com/jamesonstone/kit
 ```
 
-Positional paths activate Beacon's hyper-light v2 workflow. It discovers
-GitHub repositories below those paths, scans every linked worktree, queries
-only your open pull requests in the selected repositories, and prints current
-work without loading or writing Beacon configuration, tracking, Following,
-Notes, activity, cache, or agent state. Clean base-only projects and issue-only
-backlog are hidden by default.
-
-```bash
-beacon scan --include-idle ~/go/src/github.com/jamesonstone
-beacon scan --no-refresh ~/go/src/github.com/jamesonstone/beacon
-beacon scan --json ~/go/src/github.com/jamesonstone
-```
-
-A parent directory is walked recursively without following symbolic links.
+A supplied parent directory is walked recursively without following symbolic
+links.
 `--no-refresh` skips metadata-only `git fetch`; GitHub pull-request evidence is
 still queried. The v2 terminal and JSON forms report scoped warnings and errors
 without suppressing healthy repositories. A prunable linked worktree remains a
@@ -398,6 +417,7 @@ printf '{"context":"release checklist","messages":[{"role":"user","content":"fin
   beacon ollama chat --model gpt-oss:20b --json
 beacon ollama set-default gpt-oss:20b
 beacon projects
+beacon projects --root ~/Projects
 beacon select
 beacon projects --followed
 beacon projects --recent
@@ -433,15 +453,14 @@ conservative cadence. Use `beacon refresh [project]` when you want to queue
 background work without waiting, or `beacon scan` for the complete diagnostic
 inventory.
 
-Zero-argument `beacon scan` remains the configured, blocking v1 diagnostic path
-and returns the complete repository inventory. Human output names the
-highest-priority Ready or Needs Action lane as `Next:` before the full table,
-while `scan --json` remains deterministic and ANSI-free.
-
-`beacon scan PATH...` is the config-free v2 path. It never starts the agent and
-emits only current work across the supplied repository roots or source
-directories. Its JSON is a separate small work-scan schema; idle projects are
+Zero-argument `beacon scan` is the configured hyper-light v2 path. It reads the
+exact selected project list, never starts the agent, and emits only current
+work. Its JSON is the small deterministic work-scan schema; idle projects are
 included only with `--include-idle`.
+
+`beacon scan PATH...` applies the same v2 evidence and output contract as an ad
+hoc config-free override across supplied repository roots or source
+directories.
 `--color=auto|always|never` controls human styling; auto requires a TTY and
 honors `NO_COLOR`.
 
@@ -528,21 +547,23 @@ Idle work inside Following is treated as inventory instead of queue content.
 Human output hides idle followed projects by default and replaces them with a
 compact count; pass `--include-idle` to list that inventory. `beacon scan
 --repo NAME` always shows the selected project even when it is idle. An idle base lane is omitted
-when its project already has active work. Configured v1 JSON remains complete
-regardless of these presentation filters; positional v2 JSON intentionally
-matches the focused scan and includes idle projects only when requested.
+when its project already has active work. The full v1 dashboard snapshot
+remains complete regardless of these presentation filters. Configured and
+positional v2 JSON intentionally match the focused scan and include idle
+projects only when requested.
 
 Following is an explicit repository-level choice, independent of lane attention.
 Every open PR and issue allowed by `github_scope` for a followed project remains
 visible in Following regardless of its last update time; Park is the explicit
 way to hide that lane without unfollowing its project.
-Use `beacon select` (or the compatible bare `beacon projects`) for a colorful,
-searchable multi-select of every discovered project. Followed projects start
-highlighted; use the arrow keys to scroll, Space to toggle a project, `/` to
-filter, and Enter to confirm. `beacon follow` and `beacon unfollow` accept a
-stable `owner/repository` identity or a unique discovered name. The established
-`track` and `untrack` commands remain compatibility aliases. Multiple arguments
-are applied as one atomic agent mutation without a GitHub scan.
+Use `beacon select` for the legacy colorful, searchable multi-select of
+Following state. Followed projects start highlighted; use the arrow keys to
+scroll, Space to toggle a project, `/` to filter, and Enter to confirm. This is
+separate from `beacon projects`, which selects the config-owned v2 scan set.
+`beacon follow` and `beacon unfollow` accept a stable `owner/repository`
+identity or a unique discovered name. The established `track` and `untrack`
+commands remain compatibility aliases. Multiple arguments are applied as one
+atomic agent mutation without a GitHub scan.
 
 Projects outside Following retain an evidence baseline. Later local or GitHub
 changes move them to **Recently Updated** for `settings.stale_after`—24 hours by

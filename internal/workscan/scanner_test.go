@@ -3,7 +3,6 @@ package workscan
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -113,15 +112,60 @@ func TestScannerPreservesLocalWorkWhenGitHubFails(t *testing.T) {
 	}
 }
 
-func TestScannerRejectsSourcesWithoutGitHubRepositories(t *testing.T) {
+func TestScannerReturnsEmptySelectionWithoutError(t *testing.T) {
 	scanner := Scanner{
 		Git:       fakeGitScanner{},
 		GitHub:    fakePullRequestClient{},
 		Discovery: fakeDiscoverer{},
+		Now:       func() time.Time { return time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC) },
 	}
-	_, err := scanner.Scan(context.Background(), testConfig(), false, false)
-	if err == nil || !strings.Contains(err.Error(), "no accessible GitHub repositories") {
-		t.Fatalf("error = %v", err)
+	result, err := scanner.Scan(context.Background(), testConfig(), false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Summary.Projects != 0 || result.Summary.Warnings != 0 || len(result.Items) != 0 {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestScannerCountsDiscoveryWarningsForEmptySelection(t *testing.T) {
+	scanner := Scanner{
+		Git:    fakeGitScanner{},
+		GitHub: fakePullRequestClient{},
+		Discovery: fakeDiscoverer{result: discovery.Result{
+			Warnings: []discovery.Warning{{Path: "/repo", Stage: "inspect", Message: "no GitHub remote found"}},
+		}},
+	}
+	result, err := scanner.Scan(context.Background(), testConfig(), false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Summary.Warnings != 1 || len(result.Warnings) != 1 {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestScannerUsesConfiguredRepositoriesAndDeduplicatesDiscoveredSources(t *testing.T) {
+	repository := config.Repository{
+		Name: "configured", Path: "/repo", GitHub: "owner/repo", Base: "trunk", Remote: "upstream",
+	}
+	scanner := Scanner{
+		Git:    fakeGitScanner{},
+		GitHub: fakePullRequestClient{},
+		Discovery: fakeDiscoverer{result: discovery.Result{
+			Repositories: []config.Repository{{
+				Name: "discovered", Path: "/repo", GitHub: "owner/repo", Base: "main", Remote: "origin",
+			}},
+		}},
+	}
+	cfg := testConfig()
+	cfg.Repositories = []config.Repository{repository}
+	result, err := scanner.Scan(context.Background(), cfg, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Summary.Projects != 1 || len(result.Items) != 1 || result.Items[0].Base != "trunk" {
+		t.Fatalf("result = %#v", result)
 	}
 }
 

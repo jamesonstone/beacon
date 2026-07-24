@@ -103,39 +103,45 @@ func (a App) scanCommand(configPath *string) *cobra.Command {
 				}
 				return a.runPathScan(cmd.Context(), args, !noRefresh, includeIdle, jsonOutput, colorMode)
 			}
-			if jsonOutput {
-				cfg, err := config.Load(*configPath)
-				if err != nil {
-					return err
+			if repository != "" {
+				if jsonOutput {
+					cfg, err := config.Load(*configPath)
+					if err != nil {
+						return err
+					}
+					snapshot, err := a.scanSnapshot(cmd.Context(), cfg, repository, !noRefresh)
+					if err != nil {
+						return err
+					}
+					return output.JSON(a.Out, snapshot)
 				}
-				snapshot, err := a.scanSnapshot(cmd.Context(), cfg, repository, !noRefresh)
-				if err != nil {
-					return err
-				}
-				return output.JSON(a.Out, snapshot)
+				return a.runHumanScan(cmd.Context(), *configPath, repository, !noRefresh, colorMode, true, false, false, false)
 			}
-			return a.runHumanScan(cmd.Context(), *configPath, repository, !noRefresh, colorMode, includeIdle || repository != "", false, false, false)
+			cfg, err := config.Load(*configPath)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					return fmt.Errorf("%w; run beacon projects to select projects", err)
+				}
+				return err
+			}
+			return a.runWorkScan(cmd.Context(), cfg, !noRefresh, includeIdle, jsonOutput, colorMode)
 		},
 	}
-	command.Flags().StringVar(&repository, "repo", "", "scan one configured repository")
+	command.Flags().StringVar(&repository, "repo", "", "scan one configured repository using the legacy projection")
 	command.Flags().BoolVar(&jsonOutput, "json", false, "emit JSON only")
 	command.Flags().BoolVar(&noRefresh, "no-refresh", false, "skip git fetch")
 	command.Flags().BoolVar(&includeIdle, "include-idle", false, "show projects with only idle work")
 	return command
 }
 
-func (a App) runPathScan(
+func (a App) runWorkScan(
 	ctx context.Context,
-	paths []string,
+	cfg config.Config,
 	refresh bool,
 	includeIdle bool,
 	jsonOutput bool,
 	colorMode string,
 ) error {
-	cfg, err := config.ForSources(paths)
-	if err != nil {
-		return err
-	}
 	result, err := a.workScanner().Scan(ctx, cfg, refresh, includeIdle)
 	if err != nil {
 		return err
@@ -150,6 +156,21 @@ func (a App) runPathScan(
 	return output.WorkTerminal(a.Out, result, output.TerminalOptions{
 		Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle,
 	})
+}
+
+func (a App) runPathScan(
+	ctx context.Context,
+	paths []string,
+	refresh bool,
+	includeIdle bool,
+	jsonOutput bool,
+	colorMode string,
+) error {
+	cfg, err := config.ForSources(paths)
+	if err != nil {
+		return err
+	}
+	return a.runWorkScan(ctx, cfg, refresh, includeIdle, jsonOutput, colorMode)
 }
 
 func (a App) runHumanScan(ctx context.Context, path, repository string, refresh bool, colorMode string, includeIdle, offerInit, showLoader, workingSet bool) error {

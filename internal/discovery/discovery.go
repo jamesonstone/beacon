@@ -44,7 +44,7 @@ func (d Discoverer) Discover(ctx context.Context, sources []config.Source) Resul
 	var result Result
 	var candidates []candidate
 	for _, source := range sources {
-		roots, warnings := repositoryRoots(source.Path)
+		roots, warnings := RepositoryRoots(source.Path)
 		result.Warnings = append(result.Warnings, warnings...)
 		for _, root := range roots {
 			item, err := d.inspect(ctx, root)
@@ -91,7 +91,9 @@ func IsRepositoryRoot(path string) bool {
 	return info.IsDir() || info.Mode().IsRegular()
 }
 
-func repositoryRoots(source string) ([]string, []Warning) {
+// RepositoryRoots returns Git repository roots below source without inspecting
+// remotes or following symbolic links. A repository root is not traversed.
+func RepositoryRoots(source string) ([]string, []Warning) {
 	info, err := os.Lstat(source)
 	if err != nil {
 		return nil, []Warning{{Path: source, Stage: "walk", Message: err.Error()}}

@@ -65,12 +65,12 @@ terminal output, JSON output, and the macOS application must present the
 same snapshot. A client must not reimplement Git, GitHub, correlation,
 project-activity classification, or readiness rules.
 
-An explicit positional `beacon scan PATH...` is the intentionally smaller
-exception to the shared configured snapshot. It reuses Go discovery, Git and
-GitHub normalization, and lane policy, then emits a separate versioned
-work-scan projection without tracking, cache, agent, or macOS state. The
-projection may narrow evidence and presentation but must not duplicate or
-contradict collection and next-action policy.
+The configured zero-argument `beacon scan` and explicit positional
+`beacon scan PATH...` use an intentionally smaller work-scan projection. They
+reuse Go discovery, Git and GitHub normalization, and lane policy without
+tracking, cache, agent, or macOS state. The projection may narrow evidence and
+presentation but must not duplicate or contradict collection and next-action
+policy.
 
 ### Read-Only by Default
 
@@ -78,10 +78,10 @@ Observation must not change the work being observed. Beacon may perform a
 bounded `git fetch --prune --no-tags` to refresh remote-tracking metadata.
 Scanning and background refresh must never edit files, switch branches, create commits, push, create
 or update pull requests, submit reviews, or merge. Beacon may atomically update
-its own managed following state and cache when explicit user choices change,
-fresh evidence updates a non-followed project's factual activity record, or a
-scan produces a new last-good result. Evidence must never change Following
-membership.
+its own configuration, managed following state, and cache when explicit user
+choices change, fresh evidence updates a non-followed project's factual
+activity record, or a scan produces a new last-good result. Evidence must never
+change configured project selection or Following membership.
 
 Repository sync is a separate, explicit mutation boundary. A passive check is
 local-only; an explicit check may fetch only configured default-branch refs.
@@ -158,8 +158,10 @@ truthfully describe the highest completed state.
   remote-only work, and idle base work.
 - Recommend the next useful human or agent action without mutating work.
 - Preserve situational awareness across multiple repositories and worktrees.
-- Scan a selected set of repository roots or parent directories without first
-  creating persistent Beacon state.
+- Persist an explicit selected project set and scan it with one small
+  config-backed command.
+- Accept repository roots or parent directories as a config-free ad hoc scan
+  override.
 - Provide a useful standalone CLI and a native macOS application backed
   by the identical versioned snapshot.
 - Remain predictable under partial failures, unusual Git paths, stale remote
@@ -207,7 +209,7 @@ must not feed new policy back into the scanner.
 The hyper-light path is a separate direct projection:
 
 ```text
-explicit repository or parent-directory paths
+configured project roots or explicit ad hoc paths
                        |
       local discovery + Git worktrees + authored open PRs
                        |
@@ -244,9 +246,9 @@ explicit repository or parent-directory paths
   explanations, and the next action as pure domain logic.
 - `internal/scan` coordinates bounded repository concurrency, preserves partial
   results, orders lanes, and creates groups and summary counts.
-- `internal/workscan` coordinates config-free positional scans, filters
-  evidence-backed in-progress lanes, preserves scoped partial failures, and
-  creates the small work-scan projection without persistent application state.
+- `internal/workscan` coordinates configured and positional hyper-light scans,
+  filters evidence-backed in-progress lanes, preserves scoped partial failures,
+  and creates the small work-scan projection without loading application state.
 - `internal/tracking` owns the strict repository-following store, evidence
   fingerprints, migration, and recent/quiet classification without automatic
   reactivation.
@@ -353,6 +355,14 @@ explicit repositories, preview the result, and atomically rewrite the file
 only after confirmation. Existing entries are never removed. GitHub
 credentials never belong in Beacon configuration; authentication is delegated
 to `gh`.
+
+Interactive `beacon projects` owns the hyper-light project selection. It
+browses from `~/go/src/github.com` by default, never follows symbolic links,
+enters ordinary directories, toggles exact Git repository roots, and cannot
+navigate above its chosen root. Saving atomically replaces the selected
+project set, expands legacy parent sources to exact repository roots, preserves
+selected explicit repository metadata and selected paths outside the browser
+root, and permits an empty version-2 selection. Cancellation does not write.
 
 Positional `beacon scan PATH...` constructs the equivalent validated version-2
 source list in memory. It must neither resolve nor write a configuration file,
@@ -475,6 +485,7 @@ beacon sync
 beacon sync check [project...] [--no-fetch] [--json]
 beacon sync apply <project>... [--yes] [--json]
 beacon limits [--json]
+beacon projects [--root PATH]
 beacon projects [--followed|--recent|--quiet]
 beacon select
 beacon projects follow <project>...
@@ -524,13 +535,14 @@ sequences. Opening or reconnecting the macOS client remains cache-only.
 `beacon refresh`, macOS `Scan Now`, `beacon scan`, and JSON scan modes are the
 other intentional paths for current evidence.
 
-Positional `beacon scan PATH...` bypasses persistent configuration and never
-starts the background agent. Each path may be a repository root or a parent
-directory; overlapping discoveries are deduplicated by Git common directory
-and GitHub identity. This mode queries only authored open pull requests, omits
-issue-only backlog and clean base-only projects by default, and treats
-prunable worktrees as diagnostics rather than active work. Repositories with
-failed required evidence are unknown, never idle.
+Zero-argument `beacon scan` reads the configured project selection and never
+starts the background agent. Positional `beacon scan PATH...` applies the same
+contract while bypassing persistent configuration. Each positional path may be
+a repository root or a parent directory; overlapping discoveries are
+deduplicated by GitHub identity. Both modes query only authored open pull
+requests, omit issue-only backlog and clean base-only projects by default, and
+treat prunable worktrees as diagnostics rather than active work. Repositories
+with failed required evidence are unknown, never idle.
 
 Agent protocol version 1 is newline-delimited JSON over a user-only Unix-domain
 socket. It carries scan IDs, per-project revisions, stages, single and batch

@@ -50,9 +50,7 @@ func (s Scanner) Scan(ctx context.Context, cfg config.Config, refresh, includeId
 		s.Now = time.Now
 	}
 	discovered := s.Discovery.Discover(ctx, cfg.Sources)
-	if len(discovered.Repositories) == 0 {
-		return model.WorkScan{}, errors.New("no accessible GitHub repositories found in supplied paths")
-	}
+	repositories := selectedRepositories(cfg.Repositories, discovered.Repositories)
 
 	result := model.WorkScan{
 		SchemaVersion: model.WorkScanSchemaVersion,
@@ -61,12 +59,16 @@ func (s Scanner) Scan(ctx context.Context, cfg config.Config, refresh, includeId
 		Errors:        []model.ScanError{},
 		Warnings:      discoveryWarnings(discovered.Warnings),
 	}
-	result.Summary.Projects = len(discovered.Repositories)
+	result.Summary.Projects = len(repositories)
+	if len(repositories) == 0 {
+		result.Summary.Warnings = len(result.Warnings)
+		return result, nil
+	}
 
-	results := make(chan repositoryResult, len(discovered.Repositories))
+	results := make(chan repositoryResult, len(repositories))
 	semaphore := make(chan struct{}, max(1, cfg.Settings.MaxParallel))
 	var waitGroup sync.WaitGroup
-	for index, repository := range discovered.Repositories {
+	for index, repository := range repositories {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
@@ -78,7 +80,7 @@ func (s Scanner) Scan(ctx context.Context, cfg config.Config, refresh, includeId
 	waitGroup.Wait()
 	close(results)
 
-	ordered := make([]repositoryResult, len(discovered.Repositories))
+	ordered := make([]repositoryResult, len(repositories))
 	for repository := range results {
 		ordered[repository.index] = repository
 	}
@@ -101,6 +103,27 @@ func (s Scanner) Scan(ctx context.Context, cfg config.Config, refresh, includeId
 	result.Summary.Errors = len(result.Errors)
 	result.Summary.Warnings = len(result.Warnings)
 	return result, nil
+}
+
+func selectedRepositories(configured, discovered []config.Repository) []config.Repository {
+	repositories := make([]config.Repository, 0, len(configured)+len(discovered))
+	seenGitHub := make(map[string]struct{}, len(configured)+len(discovered))
+	for _, candidates := range [][]config.Repository{configured, discovered} {
+		for _, repository := range candidates {
+			if _, exists := seenGitHub[repository.GitHub]; exists {
+				continue
+			}
+			seenGitHub[repository.GitHub] = struct{}{}
+			repositories = append(repositories, repository)
+		}
+	}
+	sort.Slice(repositories, func(i, j int) bool {
+		if repositories[i].Path != repositories[j].Path {
+			return repositories[i].Path < repositories[j].Path
+		}
+		return repositories[i].GitHub < repositories[j].GitHub
+	})
+	return repositories
 }
 
 func (s Scanner) scanRepository(

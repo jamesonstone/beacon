@@ -199,7 +199,6 @@ repositories:
 		args []string
 	}{
 		{name: "bare include idle flag", args: []string{"--include-idle"}},
-		{name: "scan include idle flag", args: []string{"scan", "--include-idle", "--no-refresh"}},
 		{name: "targeted repository", args: []string{"scan", "--repo", "quiet", "--no-refresh"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {

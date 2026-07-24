@@ -72,6 +72,15 @@ func Marshal(cfg Config) ([]byte, error) {
 	if cfg.Settings.StaleAfter <= 0 {
 		cfg.Settings.StaleAfter = defaults.StaleAfter
 	}
+	if cfg.Settings.MaxParallel == 0 {
+		cfg.Settings.MaxParallel = defaults.MaxParallel
+	}
+	if cfg.Settings.GitHubAuthor == "" {
+		cfg.Settings.GitHubAuthor = defaults.GitHubAuthor
+	}
+	if cfg.Settings.GitHubScope == "" {
+		cfg.Settings.GitHubScope = defaults.GitHubScope
+	}
 	raw := rawConfig{
 		Version: Version,
 		Settings: rawSettings{
@@ -153,6 +162,44 @@ func Merge(current Config, additions Config) Config {
 		merged.Repositories = append(merged.Repositories, repository)
 	}
 	return merged
+}
+
+// ReplaceProjectPaths replaces the configured project selection with exact
+// repository roots. Existing explicit repository metadata is retained for
+// selected paths; every other selected path is stored as a source.
+func ReplaceProjectPaths(current Config, paths []string) (Config, error) {
+	repositoriesByPath := make(map[string]Repository, len(current.Repositories))
+	for _, repository := range current.Repositories {
+		path, err := CanonicalizeSourcePath(repository.Path)
+		if err != nil {
+			return Config{}, fmt.Errorf("repository path %q: %w", repository.Path, err)
+		}
+		repository.Path = path
+		repositoriesByPath[path] = repository
+	}
+
+	selected := make(map[string]struct{}, len(paths))
+	replacement := current
+	replacement.Version = Version
+	replacement.Sources = nil
+	replacement.Repositories = nil
+	for _, path := range paths {
+		source, err := normalizeSource(rawSource{Path: path})
+		if err != nil {
+			return Config{}, fmt.Errorf("project path %q: %w", path, err)
+		}
+		if _, exists := selected[source.Path]; exists {
+			continue
+		}
+		selected[source.Path] = struct{}{}
+		if repository, exists := repositoriesByPath[source.Path]; exists {
+			replacement.Repositories = append(replacement.Repositories, repository)
+			continue
+		}
+		replacement.Sources = append(replacement.Sources, source)
+	}
+	Sort(&replacement)
+	return replacement, nil
 }
 
 func defaultSettings() Settings {

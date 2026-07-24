@@ -99,7 +99,7 @@ func TestRootFollowCommandsUseSharedProjectAuthority(t *testing.T) {
 
 func TestProjectsInteractiveSelectionConfirmsAndPersists(t *testing.T) {
 	prompter := &fakeProjectPrompter{selected: []string{"owner/quiet"}, confirmed: true}
-	_, tracker, err := executeProjectsCommand(t, true, prompter, "projects")
+	_, tracker, err := executeProjectsCommand(t, true, prompter, "select")
 	if err != nil {
 		t.Fatal(err)
 	}

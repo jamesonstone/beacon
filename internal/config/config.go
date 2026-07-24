@@ -137,6 +137,9 @@ func Load(path string) (Config, error) {
 // same path and settings validation as a persisted version 2 configuration
 // without assigning a config path.
 func ForSources(paths []string) (Config, error) {
+	if len(paths) == 0 {
+		return Config{}, errors.New("at least one source path is required")
+	}
 	raw := rawConfig{Version: Version}
 	for _, path := range paths {
 		raw.Sources = append(raw.Sources, rawSource{Path: path})
@@ -157,7 +160,7 @@ func normalize(raw rawConfig, path string) (Config, error) {
 	if raw.Version == Version1 && raw.Settings.OllamaModel != "" {
 		return Config{}, errors.New("config version 1 does not support settings.ollama_model")
 	}
-	if len(raw.Repositories) == 0 && len(raw.Sources) == 0 {
+	if raw.Version == Version1 && len(raw.Repositories) == 0 {
 		return Config{}, errors.New("config must contain at least one source or repository")
 	}
 	settings, err := normalizeSettings(raw.Settings)

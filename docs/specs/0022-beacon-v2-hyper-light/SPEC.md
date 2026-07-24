@@ -61,10 +61,10 @@ skills: []
 ## PURPOSE
 
 Beacon v2 restores the product to one useful job: scan a chosen set of project
-repositories and show work that is already in progress. A user should be able
-to point one command at repository paths or parent directories, receive a
-small factual list of active lanes, and leave without configuring, installing,
-or starting anything else.
+repositories and show work that is already in progress. The normal workflow
+should remember that project set in Beacon's config, let the user change it
+through a small terminal directory browser, and scan it without requiring
+paths on every invocation.
 
 ## CONTEXT
 
@@ -82,16 +82,32 @@ reports every linked worktree. `internal/githubscan.Client.ListOpen` can query
 only authored open pull requests per selected repository instead of invoking
 the broader issue, tracking, and cache collectors.
 
-This is an additive dogfood path. Existing configured scans and the macOS
-application remain available until the hyper-light workflow proves useful
-enough to replace them.
+The initial v2 slice made positional paths config-free and left zero-argument
+configured scans on the v1 projection. Dogfooding established that repeatedly
+supplying paths is unnecessary friction: project selection is durable user
+intent, while the work evidence itself remains read-only and ephemeral.
+Positional paths remain useful as an ad hoc override.
 
 ## REQUIREMENTS
 
-- Extend `beacon scan` so one or more positional paths select repository roots
-  or recursively discovered source directories without loading or writing a
-  Beacon configuration.
-- Skip background-agent auto-start for every positional-path scan.
+- Make zero-argument `beacon scan` load the configured project list and render
+  the hyper-light work projection.
+- Keep one or more positional paths as an ad hoc scan override that neither
+  loads nor writes Beacon configuration.
+- Make interactive `beacon projects` browse from
+  `~/go/src/github.com` by default, with an optional root override.
+- Let the selector enter child directories, move back toward its configured
+  root, toggle Git repository directories selected or unselected, cancel
+  without writing, and explicitly save the complete selection.
+- Persist selected Git repository roots as the config-owned project list.
+  Expand legacy parent-directory sources to exact repository roots on the
+  first saved selection, preserve explicit repository metadata for paths that
+  remain selected, and preserve selected projects outside the current browser
+  root.
+- Permit a valid empty version-2 project list so the user can unselect every
+  project and receive an empty scan instead of retaining an accidental project.
+- Skip background-agent auto-start for every configured or positional v2 scan
+  and for the interactive project selector.
 - Collect only local Git worktrees and authored open pull requests for the
   selected repositories. Do not load tracking, Following, Notes, activity,
   repository-sync, progress, or agent state.
@@ -110,27 +126,27 @@ enough to replace them.
 - Preserve Beacon's read-only authority: no working-file, branch, commit, push,
   review, or merge mutation.
 
-Non-goals are deleting v1 features, changing the configured scan contract,
-changing the macOS application, introducing a daemon or database, persisting a
-new v2 configuration, scanning non-GitHub repositories, or turning Beacon into
-a task manager.
+Non-goals are deleting v1 features, changing the macOS application,
+introducing a daemon or database, following filesystem symlinks, scanning
+non-GitHub repositories, or turning Beacon into a task manager.
 
 ## ACCEPTED PLAN
 
-1. Add an in-memory source configuration constructor that applies the existing
-   path canonicalization and strict source rules without a config file.
-2. Add a small `workscan` scanner that composes repository discovery, local Git
-   scanning, authored open-PR collection, and existing lane policy in bounded
-   parallel workers.
-3. Project the collected evidence into a flat schema containing repository,
-   worktree, branch, state, change counts, PR identity, next action, update
-   time, and scoped diagnostics.
-4. Route positional `beacon scan` invocations through this scanner and renderer
-   while leaving the zero-argument configured path unchanged.
-5. Cover source construction, in-progress classification, partial failures,
-   terminal/JSON output, CLI routing, and background-agent suppression.
-6. Document the dogfood command, validate the complete repository, curate
-   durable memory, and deliver issue #76 from `GH-76`.
+1. Preserve the in-memory positional source constructor and existing
+   hyper-light scanner as the single evidence path.
+2. Route zero-argument configured scans through that scanner and suppress
+   background-agent startup for all `scan` invocations.
+3. Add a lazy filesystem browser that lists safe child directories, identifies
+   Git repository roots, constrains parent navigation to the chosen root, and
+   exposes deterministic toggle, save, and cancel actions.
+4. Seed selection from both configured sources and explicit repositories,
+   expanding parent sources with filesystem-only Git discovery, then
+   atomically replace the configured project set when the user saves.
+5. Cover navigation boundaries, symlink exclusion, migration, empty selection,
+   cancellation, config persistence, configured scan routing, and agent
+   suppression.
+6. Update the CLI documentation, validate the complete repository, curate
+   durable memory, and update issue #76 and PR #77 from `GH-76`.
 
 ## DECISIONS
 
@@ -144,52 +160,84 @@ a task manager.
   inputs, so status and next-action facts remain compatible with v1.
 - Keep metadata-only fetch behavior under the existing `--no-refresh` switch;
   this refreshes Git evidence without editing a checkout.
+- Treat exact configured project roots as durable selection, not live work
+  state; use the existing atomic YAML writer instead of a second state store.
+- Use `beacon projects` as the interactive v2 selection surface. Retain the
+  older explicit follow/unfollow commands for compatibility, but do not route
+  v2 project selection through tracking, agent cache, or Following state.
+- Browse lazily one directory at a time rather than recursively building a
+  large terminal tree. Repository directories are toggle targets and ordinary
+  directories are navigation targets.
+- Preserve the config-free positional scan as a deliberate override even
+  though configured zero-argument scanning becomes the primary workflow.
 
 ## DISCOVERIES
 
-No new Git parser or GitHub schema is required. The essential reset is a
-composition boundary: discover selected repositories, scan only work evidence,
-filter factual in-progress lanes, and render the result directly. Initial
-dogfooding also proved that prunable linked-worktree records must stay
-diagnostic-only: presenting a deleted temporary checkout as active work hid the
-real lane rather than helping the scan.
+No new Git parser, GitHub schema, terminal dependency, or config schema is
+required. Exact repository roots are valid version-2 sources, the existing
+atomic writer can replace that list safely, and the existing `huh` form runner
+supports a repeated one-level browser without a custom TUI runtime.
+
+Broad legacy sources must be expanded with filesystem-only Git discovery before
+the first save. Reusing full GitHub discovery there would make a config edit
+depend on network or remote validity and could silently lose a selected local
+repository. Explicit repository entries require separate preservation so a
+selection edit does not discard their base or remote overrides.
+
+An empty configured selection exposed a projection edge case during terminal
+dogfooding: discovery warnings were present but the early empty-result return
+left the summary warning count at zero. The scanner now counts those warnings
+before returning. Initial v2 dogfooding also proved that prunable linked
+worktree records must stay diagnostic-only rather than hiding the real lane.
 
 ## VALIDATION
 
-- `make fmt-check vet test test-race release-test build` passed. This includes
-  config construction, scanner classification and partial-failure coverage,
-  deterministic terminal output, JSON routing, argument conflicts, and
-  background-agent suppression.
-- `make macos-test` passed all 157 tests, proving the unchanged configured
-  schema-v3 helper and native application remain compatible.
-- With `BEACON_CONFIG` pointed at a nonexistent file, the built binary's
-  positional JSON scan succeeded and `jq` verified schema version 1, one
-  selected project, one active project, and only Beacon work items.
-- A built-binary scan of Beacon and Kit returned two active projects and five
-  work items without configuration or agent state. Both repositories'
-  prunable temporary Kit-health worktrees remained warnings.
-- `git diff --check` passed after the implementation and documentation updates.
+- `make fmt-check vet test test-race release-test build` passed. Coverage now
+  includes default-root resolution, enter/up navigation, selection toggles,
+  source migration, explicit metadata and outside-root preservation, empty
+  selection, cancellation, atomic persistence, configured scan routing,
+  configured/discovered repository deduplication, warning counts, and agent
+  suppression.
+- `make macos-test` passed all 157 tests, proving the native application and
+  full schema-v3 dashboard remain compatible.
+- A real terminal session entered and exited an isolated owner directory,
+  selected two repositories, and atomically wrote two exact project roots.
+- A second real terminal session used the repository itself as the browser
+  root, selected Beacon into a fresh isolated config, and wrote normalized
+  version-2 settings plus one exact source.
+- The built binary then consumed that config with
+  `scan --no-refresh --json`; `jq` verified work-scan schema version 1, one
+  selected project, one active project, and at least one work item.
+- The initial positional Beacon/Kit dogfood remains valid: both repositories'
+  prunable temporary Kit-health worktrees stayed warnings.
 
 ## OUTCOME
 
-`beacon scan PATH...` now builds a validated source selection entirely in
-memory, discovers repository roots or parent-directory contents, scans linked
-Git worktrees and authored open pull requests with bounded parallelism, and
-projects only evidence-backed in-progress lanes into a small schema.
+`beacon projects` now opens a lazy directory browser rooted at
+`~/go/src/github.com` by default. Ordinary directories navigate inward,
+`..` navigates outward without crossing the chosen root, Git repository
+directories toggle selected state, Cancel performs no write, and Save
+atomically replaces the config-owned project list. Legacy parent sources are
+expanded to exact roots; selected explicit metadata and projects outside the
+current browser root survive the rewrite; an empty selection is valid.
 
-Terminal and JSON output share the same deterministic selection. Clean
-base-only repositories are hidden unless `--include-idle` is present,
-repositories with failed evidence are unknown rather than idle, prunable
-worktrees remain diagnostic-only, and one repository's failure does not erase
-other usable results. Positional scans reject persistent config and repository
-filters and never start the background agent. The configured v1 CLI and native
-macOS application remain unchanged while this workflow is dogfooded.
-Issue #76 is represented by ready pull request #77 from exact branch `GH-76`.
+Zero-argument `beacon scan` now reads that configured list and uses the same
+small deterministic work projection as positional scans. Both configured and
+positional modes avoid tracking, Following, cache, Notes, agent, and macOS
+state; hide clean base-only repositories unless `--include-idle` is present;
+classify failed evidence as unknown; and preserve scoped partial results.
+Positional paths remain a config-free override. The full v1 dashboard, explicit
+Following controls, and native macOS application remain available.
+
+Issue #76 remains represented by ready pull request #77 from exact branch
+`GH-76`.
 
 ## REPOSITORY MEMORY
 
 Created this specification because the scope reset, retained v1 fallback,
 evidence exclusions, and rejected adjacent product surfaces are material
-rationale that code and tests cannot preserve. Updated the Constitution,
-project progress summary, README, and user guide with the validated config-free
-authority and its explicit boundary from the configured schema-v3 product.
+rationale that code and tests cannot preserve. Updated the specification and
+Constitution with the now-demonstrated config-owned selection boundary,
+explicit config mutation authority, and shared configured/positional v2
+projection. Updated the project progress summary, README, and user guide with
+the validated terminal workflow and migration behavior.

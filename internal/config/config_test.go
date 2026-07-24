@@ -128,6 +128,18 @@ func TestForSourcesRejectsEmptyAndDuplicatePaths(t *testing.T) {
 	}
 }
 
+func TestLoadAllowsEmptyVersionTwoProjectSelection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	writeConfig(t, path, "version: 2\nsources: []\nrepositories: []\n")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Version != Version || len(cfg.Sources) != 0 || len(cfg.Repositories) != 0 {
+		t.Fatalf("config = %#v", cfg)
+	}
+}
+
 func TestCanonicalizeSourcePathResolvesAncestorsButRejectsFinalSymlink(t *testing.T) {
 	root := t.TempDir()
 	realParent := filepath.Join(root, "real")

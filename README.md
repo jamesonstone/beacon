@@ -51,18 +51,29 @@ checksum, Gatekeeper, and upgrade instructions.
 
 ```bash
 gh auth login
+beacon projects
+beacon scan
+```
+
+`beacon projects` opens the hyper-light v2 project selector at
+`~/go/src/github.com`. Enter owner directories, toggle repository directories,
+move back with `..`, and save the selection to Beacon's config. `beacon scan`
+then prints only dirty worktrees, non-base branches, unpublished commits, and
+authored open pull requests for those projects, without starting the background
+agent. Use `beacon projects --root PATH` to browse elsewhere.
+
+Pass paths directly for an ad hoc scan that neither loads nor writes config:
+
+```bash
 beacon scan ~/go/src/github.com/jamesonstone/beacon \
   ~/go/src/github.com/jamesonstone/kit
 ```
 
-This is the hyper-light v2 workflow: pass repository roots or parent
-directories directly, and Beacon prints only dirty worktrees, non-base
-branches, unpublished commits, and authored open pull requests. It does not
-need a Beacon configuration or background agent. Use `--include-idle` to show
-clean base-only projects, `--no-refresh` to skip metadata fetches, or `--json`
-for the small versioned work-scan schema.
+Use `--include-idle` to show clean base-only projects, `--no-refresh` to skip
+metadata fetches, or `--json` for the small versioned work-scan schema.
 
-The configured v1 dashboard remains available while v2 is dogfooded:
+The full v1 dashboard and macOS application remain available while v2 is
+dogfooded:
 
 ```bash
 beacon init --source ~/go/src/github.com --yes

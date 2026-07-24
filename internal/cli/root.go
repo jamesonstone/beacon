@@ -24,23 +24,24 @@ var (
 )
 
 type App struct {
-	In                    io.Reader
-	Out                   io.Writer
-	Err                   io.Writer
-	Runner                command.Runner
-	InputIsTTY            func() bool
-	OutputIsTTY           func() bool
-	TerminalWidth         func() int
-	scannerSource         snapshotScanner
-	workScannerSource     workSnapshotScanner
-	trackerSource         projectTracker
-	prompter              initPrompter
-	projectPrompterSource projectPrompter
-	syncPrompterSource    repositorySyncPrompter
-	agentClientSource     func(string) agentRequestClient
-	agentStarterSource    func(agent.Paths) agentStarter
-	ollamaClientSource    func() ollamaClient
-	autoStartAgent        bool
+	In                              io.Reader
+	Out                             io.Writer
+	Err                             io.Writer
+	Runner                          command.Runner
+	InputIsTTY                      func() bool
+	OutputIsTTY                     func() bool
+	TerminalWidth                   func() int
+	scannerSource                   snapshotScanner
+	workScannerSource               workSnapshotScanner
+	trackerSource                   projectTracker
+	prompter                        initPrompter
+	projectPrompterSource           projectPrompter
+	configuredProjectPrompterSource configuredProjectPrompter
+	syncPrompterSource              repositorySyncPrompter
+	agentClientSource               func(string) agentRequestClient
+	agentStarterSource              func(agent.Paths) agentStarter
+	ollamaClientSource              func() ollamaClient
+	autoStartAgent                  bool
 }
 
 type agentStarter interface {
@@ -94,8 +95,7 @@ func (a App) Root() *cobra.Command {
 		},
 	}
 	root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		pathScan := cmd.Name() == "scan" && len(args) > 0
-		if a.autoStartAgent && runtime.GOOS == "darwin" && shouldAutoStartAgent(cmd) && !pathScan {
+		if a.autoStartAgent && runtime.GOOS == "darwin" && shouldAutoStartAgent(cmd) {
 			a.startAgentBestEffort(cmd.Context(), configPath)
 		}
 		return nil
@@ -149,7 +149,7 @@ func shouldAutoStartAgent(command *cobra.Command) bool {
 		top = top.Parent()
 	}
 	switch top.Name() {
-	case "activity", "agent", "doctor", "init", "integrations", "ollama", "version":
+	case "activity", "agent", "doctor", "init", "integrations", "ollama", "projects", "scan", "version":
 		return false
 	default:
 		return true
