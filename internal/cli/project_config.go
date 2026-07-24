@@ -11,6 +11,7 @@ import (
 
 	"github.com/jamesonstone/beacon/internal/config"
 	"github.com/jamesonstone/beacon/internal/discovery"
+	"github.com/spf13/cobra"
 )
 
 const defaultProjectBrowserRoot = "~/go/src/github.com"
@@ -48,6 +49,24 @@ type projectBrowserView struct {
 
 type configuredProjectPrompter interface {
 	ChooseConfiguredProject(context.Context, projectBrowserView) (projectBrowserAction, error)
+}
+
+func (a App) configuredProjectsCommand(configPath *string) *cobra.Command {
+	var browserRoot string
+	command := &cobra.Command{
+		Use:   "projects",
+		Short: "Select projects bctl scans",
+		Args:  noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			colorMode, _ := cmd.Flags().GetString("color")
+			if _, err := a.resolveColor(colorMode); err != nil {
+				return err
+			}
+			return a.runConfiguredProjectSelector(cmd.Context(), *configPath, browserRoot, cmd.CommandPath())
+		},
+	}
+	command.Flags().StringVar(&browserRoot, "root", defaultProjectBrowserRoot, "project browser root")
+	return command
 }
 
 func (a App) runConfiguredProjectSelector(ctx context.Context, configPath, root, commandPath string) error {

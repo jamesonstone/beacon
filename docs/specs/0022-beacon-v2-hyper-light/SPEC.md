@@ -60,11 +60,13 @@ skills: []
 
 ## PURPOSE
 
-Beacon v2 restores the product to one useful job: scan a chosen set of project
+`bctl` restores the v2 product to one useful job: scan a chosen set of project
 repositories and show work that is already in progress. The normal workflow
 should remember that project set in Beacon's config, let the user change it
 through a small terminal directory browser, and scan it without requiring
-paths on every invocation.
+paths on every invocation. The `beacon` executable remains the legacy
+working-set dashboard and macOS helper so the two products have explicit
+command boundaries.
 
 ## CONTEXT
 
@@ -88,13 +90,19 @@ supplying paths is unnecessary friction: project selection is durable user
 intent, while the work evidence itself remains read-only and ephemeral.
 Positional paths remain useful as an ad hoc override.
 
+Further dogfooding exposed that overloading `beacon scan` and `beacon projects`
+with v2 behavior left bare `beacon` on a different legacy inventory and made
+the product boundary unclear. A dedicated `bctl` executable makes the
+hyper-light contract explicit while preserving the established `beacon`
+dashboard, agent, and native application.
+
 ## REQUIREMENTS
 
-- Make zero-argument `beacon scan` load the configured project list and render
-  the hyper-light work projection.
+- Make bare `bctl` and zero-argument `bctl scan` load the configured project
+  list and render the hyper-light work projection.
 - Keep one or more positional paths as an ad hoc scan override that neither
   loads nor writes Beacon configuration.
-- Make interactive `beacon projects` browse from
+- Make interactive `bctl projects` browse from
   `~/go/src/github.com` by default, with an optional root override.
 - Let Tab and the arrow keys move the highlight, Space enter child directories
   or toggle Git repository directories selected or unselected, Enter confirm
@@ -105,8 +113,13 @@ Positional paths remain useful as an ad hoc override.
   managed Following state exist.
 - Permit a valid empty version-2 project list so the user can unselect every
   project and receive an empty scan instead of retaining an accidental project.
-- Skip background-agent auto-start for every configured or positional v2 scan
-  and for the interactive project selector.
+- Keep `bctl` independent of the background agent for every configured or
+  positional scan and for the interactive project selector.
+- Remove the v2 selector and positional work-scan projection from `beacon`;
+  restore `beacon scan` and `beacon projects` to their legacy dashboard
+  contracts without compatibility aliases for the moved v2 commands.
+- Build, install, test, and package `bctl` beside `beacon`; keep the embedded
+  macOS helper on the legacy `beacon` executable.
 - Collect only local Git worktrees and authored open pull requests for the
   selected repositories. Do not load tracking, Following, Notes, activity,
   repository-sync, progress, or agent state.
@@ -133,24 +146,34 @@ non-GitHub repositories, or turning Beacon into a task manager.
 
 1. Preserve the in-memory positional source constructor and existing
    hyper-light scanner as the single evidence path.
-2. Route zero-argument configured scans through that scanner and suppress
-   background-agent startup for all `scan` invocations.
-3. Add a lazy filesystem browser that lists safe child directories, identifies
+2. Add a thin `cmd/bctl` entry point and a dedicated Cobra root that runs the
+   configured scan when invoked bare, also exposes `bctl scan [path...]`, and
+   never owns agent lifecycle behavior.
+3. Move the configured project browser to `bctl projects` and restore the
+   legacy `beacon scan` and `beacon projects` command contracts.
+4. Add a lazy filesystem browser that lists safe child directories, identifies
    Git repository roots, constrains parent navigation to the chosen root, and
    gives Space, Enter, Tab, and Escape one stable action each.
-4. Store v2 selection in a dedicated `projects` list so legacy discovery and
+5. Store v2 selection in a dedicated `projects` list so legacy discovery and
    Following inventory begin unselected, then atomically replace only that
    list when the user confirms.
-5. Cover navigation boundaries, symlink exclusion, keyboard semantics, focus
-   retention, empty selection, cancellation, config persistence, configured
-   scan routing, and agent suppression.
-6. Update the CLI documentation, validate the complete repository, curate
+6. Build and package both executables, keeping only `beacon` embedded in the
+   macOS application.
+7. Cover command separation, bare and explicit bctl scans, navigation
+   boundaries, symlink exclusion, keyboard semantics, focus retention, empty
+   selection, cancellation, config persistence, configured scan routing, and
+   absence of agent lifecycle behavior.
+8. Update the CLI documentation, validate the complete repository, curate
    durable memory, and update issue #76 and PR #77 from `GH-76`.
 
 ## DECISIONS
 
-- Use positional paths on the existing `scan` verb rather than a second
-  top-level product vocabulary.
+- Name the hyper-light executable `bctl` and keep `beacon` as the legacy
+  working-set product. This is an executable boundary, not a mode flag.
+- Let bare `bctl` perform the configured scan while retaining `bctl scan` as
+  the explicit, script-friendly form and positional-path surface.
+- Do not retain `beacon` aliases for v2 selection or positional scans; aliases
+  would preserve the ambiguity this separation removes.
 - Keep v1 available while dogfooding rather than beginning with a destructive
   repository-wide rewrite.
 - Query open pull requests per selected repository and omit open issues because
@@ -161,7 +184,7 @@ non-GitHub repositories, or turning Beacon into a task manager.
   this refreshes Git evidence without editing a checkout.
 - Treat exact configured project roots as durable selection, not live work
   state; use the existing atomic YAML writer instead of a second state store.
-- Use `beacon projects` as the interactive v2 selection surface. Retain the
+- Use `bctl projects` as the interactive v2 selection surface. Retain the
   older explicit follow/unfollow commands for compatibility, but do not route
   v2 project selection through tracking, agent cache, or Following state.
 - Browse lazily one directory at a time rather than recursively building a
@@ -199,28 +222,34 @@ worktree records must stay diagnostic-only rather than hiding the real lane.
 ## VALIDATION
 
 - `make fmt-check vet test test-race release-test build` passed. Coverage now
-  includes default-root resolution, Space enter/up/toggle actions, Enter
+  includes the dedicated bctl root, bare and explicit configured scans,
+  positional scans, rejected legacy command forms, executable-specific version
+  output, default-root resolution, Space enter/up/toggle actions, Enter
   confirmation, Tab movement, focus retention, dedicated-list migration,
   outside-root preservation, empty selection, cancellation, atomic persistence,
-  configured scan routing, warning counts, and agent suppression.
+  warning counts, and absence of bctl agent lifecycle behavior.
 - `make macos-test` passed all 157 tests, proving the native application and
-  full schema-v3 dashboard remain compatible.
-- A real terminal session against the default config opened at
-  `~/go/src/github.com` with zero selected projects, moved forward with Tab,
-  and confirmed with Enter. The atomic rewrite preserved five legacy sources
-  and one explicit repository while persisting `projects: []`.
-- An isolated terminal session used Space to enter an owner directory, Tab to
-  focus its repository, Space to select and unselect it across redraws, and
-  Enter to persist the final empty selection.
-- The built binary then consumed the default config with
-  `scan --no-refresh --json`; `jq` verified work-scan schema version 1 and zero
-  projects, work items, errors, and warnings.
-- The initial positional Beacon/Kit dogfood remains valid: both repositories'
-  prunable temporary Kit-health worktrees stayed warnings.
+  legacy `beacon` helper and full schema-v3 dashboard remain compatible.
+- `kit check 0022-beacon-v2-hyper-light` and `kit check --all` passed all 22
+  feature checks after repository-memory curation.
+- Built `beacon` and `bctl` executables reported their distinct names with the
+  same build metadata. The bctl binary was 8.8 MB versus 13 MB for beacon.
+- Bare `bctl --no-refresh --json` consumed the live default config and `jq`
+  verified work-scan schema version 1 with zero projects, work items, errors,
+  and warnings. Bare `bctl` and `bctl scan` also rendered the same immediate
+  empty human result.
+- An isolated real terminal session ran `bctl projects`; Space entered an owner
+  directory, Tab advanced to its repository, Space selected it, and Enter
+  atomically saved that one exact project without legacy inventory.
+- `beacon scan /tmp` and `beacon projects --root /tmp` both exited 2, proving
+  the moved v2 forms are absent from the legacy executable.
+- Both executables cross-compiled with `CGO_ENABLED=0` for darwin/arm64,
+  darwin/amd64, linux/arm64, and linux/amd64. Shell syntax validation passed for
+  the release and helper scripts.
 
 ## OUTCOME
 
-`beacon projects` now opens a lazy directory browser rooted at
+`bctl projects` opens a lazy directory browser rooted at
 `~/go/src/github.com` by default. Tab and the arrow keys move, Space enters an
 ordinary directory or toggles a Git repository, `..` navigates outward without
 crossing the chosen root, Enter atomically confirms, and Escape cancels. The
@@ -228,13 +257,18 @@ dedicated `projects` config list begins empty instead of inheriting the legacy
 inventory, preserves selected projects outside the current browser root, and
 permits a valid empty selection.
 
-Zero-argument `beacon scan` now reads that configured list and uses the same
-small deterministic work projection as positional scans. Both configured and
-positional modes avoid tracking, Following, cache, Notes, agent, and macOS
-state; hide clean base-only repositories unless `--include-idle` is present;
-classify failed evidence as unknown; and preserve scoped partial results.
-Positional paths remain a config-free override. The full v1 dashboard, explicit
-Following controls, and native macOS application remain available.
+Bare `bctl` and `bctl scan` read that configured list and use the same small
+deterministic work projection as positional `bctl scan PATH...`. All modes avoid
+tracking, Following, cache, Notes, agent, and macOS state; hide clean base-only
+repositories unless `--include-idle` is present; classify failed evidence as
+unknown; and preserve scoped partial results. Positional paths remain a
+config-free override.
+
+`beacon` is again an unambiguous legacy surface: bare execution renders the
+working-set dashboard, `beacon scan` runs the schema-v3 configured diagnostic,
+and `beacon projects` manages Following. Release archives and source installs
+contain both standalone executables, while the native macOS application embeds
+only the legacy `beacon` helper.
 
 Issue #76 remains represented by ready pull request #77 from exact branch
 `GH-76`.
@@ -243,8 +277,8 @@ Issue #76 remains represented by ready pull request #77 from exact branch
 
 Created this specification because the scope reset, retained v1 fallback,
 evidence exclusions, and rejected adjacent product surfaces are material
-rationale that code and tests cannot preserve. Updated the specification and
-Constitution with the now-demonstrated dedicated `projects` boundary, explicit
-keyboard and config mutation authority, and shared configured/positional v2
-projection. Updated the project progress summary, README, and user guide with
-the validated terminal workflow and zero-selection migration behavior.
+rationale that code and tests cannot preserve. Updated the specification,
+Constitution, progress summary, README, and user guide with the demonstrated
+`bctl` executable boundary, dedicated `projects` authority, explicit keyboard
+and config mutation behavior, shared configured/positional projection, legacy
+`beacon` compatibility, and two-binary release contract.

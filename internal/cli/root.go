@@ -64,7 +64,15 @@ type projectTracker interface {
 }
 
 func New() *cobra.Command {
-	app := App{
+	return newApp().Root()
+}
+
+func NewBctl() *cobra.Command {
+	return newApp().BctlRoot()
+}
+
+func newApp() App {
+	return App{
 		In: os.Stdin, Out: os.Stdout, Err: os.Stderr, Runner: command.ExecRunner{},
 		InputIsTTY:  func() bool { return term.IsTerminal(int(os.Stdin.Fd())) },
 		OutputIsTTY: func() bool { return term.IsTerminal(int(os.Stdout.Fd())) },
@@ -77,7 +85,6 @@ func New() *cobra.Command {
 		},
 		autoStartAgent: true,
 	}
-	return app.Root()
 }
 
 func (a App) Root() *cobra.Command {
@@ -135,7 +142,7 @@ func (a App) Root() *cobra.Command {
 		a.openCommand(&configPath),
 		a.openNextCommand(&configPath),
 		a.configCommand(&configPath),
-		versionCommand(a.Out),
+		versionCommand(a.Out, "beacon"),
 	)
 	return root
 }
@@ -149,7 +156,7 @@ func shouldAutoStartAgent(command *cobra.Command) bool {
 		top = top.Parent()
 	}
 	switch top.Name() {
-	case "activity", "agent", "doctor", "init", "integrations", "ollama", "projects", "scan", "version":
+	case "activity", "agent", "doctor", "init", "integrations", "ollama", "version":
 		return false
 	default:
 		return true

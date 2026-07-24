@@ -86,59 +86,88 @@ func (a App) scanCommand(configPath *string) *cobra.Command {
 	var noRefresh bool
 	var includeIdle bool
 	command := &cobra.Command{
-		Use:   "scan [path...]",
-		Short: "Scan configured repositories or supplied paths",
-		Args:  cobra.ArbitraryArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Use:   "scan",
+		Short: "Scan configured repositories",
+		Args:  noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			colorMode, _ := cmd.Flags().GetString("color")
 			if _, err := a.resolveColor(colorMode); err != nil {
 				return err
 			}
-			if len(args) > 0 {
-				if repository != "" {
-					return usageError{errors.New("--repo cannot be used with path arguments")}
+			if jsonOutput {
+				cfg, err := config.Load(*configPath)
+				if err != nil {
+					return err
 				}
-				if *configPath != "" {
-					return usageError{errors.New("--config cannot be used with path arguments")}
+				snapshot, err := a.scanSnapshot(cmd.Context(), cfg, repository, !noRefresh)
+				if err != nil {
+					return err
 				}
-				return a.runPathScan(cmd.Context(), args, !noRefresh, includeIdle, jsonOutput, colorMode)
+				return output.JSON(a.Out, snapshot)
 			}
-			if repository != "" {
-				if jsonOutput {
-					cfg, err := config.Load(*configPath)
-					if err != nil {
-						return err
-					}
-					snapshot, err := a.scanSnapshot(cmd.Context(), cfg, repository, !noRefresh)
-					if err != nil {
-						return err
-					}
-					return output.JSON(a.Out, snapshot)
-				}
-				return a.runHumanScan(cmd.Context(), *configPath, repository, !noRefresh, colorMode, true, false, false, false)
-			}
-			cfg, err := config.Load(*configPath)
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					return fmt.Errorf("%w; run beacon projects to select projects", err)
-				}
-				return err
-			}
-			return a.runWorkScan(
-				cmd.Context(),
-				configuredProjectScanConfig(cfg),
-				!noRefresh,
-				includeIdle,
-				jsonOutput,
-				colorMode,
-			)
+			return a.runHumanScan(cmd.Context(), *configPath, repository, !noRefresh, colorMode, includeIdle || repository != "", false, false, false)
 		},
 	}
-	command.Flags().StringVar(&repository, "repo", "", "scan one configured repository using the legacy projection")
+	command.Flags().StringVar(&repository, "repo", "", "scan one configured repository")
 	command.Flags().BoolVar(&jsonOutput, "json", false, "emit JSON only")
 	command.Flags().BoolVar(&noRefresh, "no-refresh", false, "skip git fetch")
 	command.Flags().BoolVar(&includeIdle, "include-idle", false, "show projects with only idle work")
 	return command
+}
+
+func (a App) bctlScanCommand(configPath *string) *cobra.Command {
+	var options bctlScanOptions
+	command := &cobra.Command{
+		Use:   "scan [path...]",
+		Short: "Scan selected projects or supplied paths",
+		Args:  cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			colorMode, _ := cmd.Flags().GetString("color")
+			return a.runBctlScan(cmd.Context(), *configPath, args, options, colorMode)
+		},
+	}
+	addBctlScanFlags(command, &options)
+	return command
+}
+
+func (a App) runBctlScan(
+	ctx context.Context,
+	configPath string,
+	paths []string,
+	options bctlScanOptions,
+	colorMode string,
+) error {
+	if _, err := a.resolveColor(colorMode); err != nil {
+		return err
+	}
+	if len(paths) > 0 {
+		if configPath != "" {
+			return usageError{errors.New("--config cannot be used with path arguments")}
+		}
+		return a.runPathScan(
+			ctx,
+			paths,
+			!options.noRefresh,
+			options.includeIdle,
+			options.jsonOutput,
+			colorMode,
+		)
+	}
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("%w; run bctl projects to select projects", err)
+		}
+		return err
+	}
+	return a.runWorkScan(
+		ctx,
+		configuredProjectScanConfig(cfg),
+		!options.noRefresh,
+		options.includeIdle,
+		options.jsonOutput,
+		colorMode,
+	)
 }
 
 func (a App) runWorkScan(

@@ -51,30 +51,31 @@ checksum, Gatekeeper, and upgrade instructions.
 
 ```bash
 gh auth login
-beacon projects
-beacon scan
+bctl projects
+bctl
 ```
 
-`beacon projects` opens the hyper-light v2 project selector at
+`bctl projects` opens the hyper-light v2 project selector at
 `~/go/src/github.com`. Use Tab or the arrow keys to move, Space to enter a
 directory or toggle a repository, and Enter to confirm the complete selection.
 `..` moves back without crossing the configured root, Escape cancels, and
-`beacon projects --root PATH` browses elsewhere. `beacon scan` then prints only
-dirty worktrees, non-base branches, unpublished commits, and authored open pull
-requests for those projects, without starting the background agent.
+`bctl projects --root PATH` browses elsewhere. Bare `bctl` or `bctl scan` then
+prints only dirty worktrees, non-base branches, unpublished commits, and
+authored open pull requests for those projects, without starting the background
+agent.
 
 Pass paths directly for an ad hoc scan that neither loads nor writes config:
 
 ```bash
-beacon scan ~/go/src/github.com/jamesonstone/beacon \
+bctl scan ~/go/src/github.com/jamesonstone/beacon \
   ~/go/src/github.com/jamesonstone/kit
 ```
 
 Use `--include-idle` to show clean base-only projects, `--no-refresh` to skip
 metadata fetches, or `--json` for the small versioned work-scan schema.
 
-The full v1 dashboard and macOS application remain available while v2 is
-dogfooded:
+The `beacon` executable remains the full legacy dashboard, background agent,
+and macOS helper:
 
 ```bash
 beacon init --source ~/go/src/github.com --yes
@@ -97,7 +98,7 @@ make test
 make macos-build # macOS only
 ```
 
-The CLI is written to `bin/beacon`. See the
+The CLIs are written to `bin/beacon` and `bin/bctl`. See the
 [development and release commands](docs/USER_GUIDE.md#build-from-source) for
 the complete build, test, install, and packaging workflow.
 

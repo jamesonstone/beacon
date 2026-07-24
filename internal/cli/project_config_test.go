@@ -294,7 +294,7 @@ func executeConfiguredProjects(
 		configuredProjectPrompterSource: prompter,
 		agentStarterSource:              func(agent.Paths) agentStarter { return starter },
 	}
-	command := app.Root()
+	command := app.BctlRoot()
 	args := []string{"--config", configPath, "--color", "never", "projects"}
 	if root != "" {
 		args = append(args, "--root", root)

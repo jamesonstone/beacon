@@ -167,8 +167,8 @@ func Merge(current Config, additions Config) Config {
 	return merged
 }
 
-// ReplaceProjectPaths replaces the hyper-light project selection with exact
-// repository roots without changing Beacon's legacy discovery inventory.
+// ReplaceProjectPaths replaces bctl's project selection with exact repository
+// roots without changing Beacon's legacy discovery inventory.
 func ReplaceProjectPaths(current Config, paths []string) (Config, error) {
 	selected := make(map[string]struct{}, len(paths))
 	replacement := current

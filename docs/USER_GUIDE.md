@@ -33,7 +33,9 @@ grep " ${ASSET}$" checksums.txt | shasum -a 256 -c -
 tar -xzf "${ASSET}"
 mkdir -p ~/.local/bin
 install -m 0755 "beacon_${VERSION}_darwin_arm64/beacon" ~/.local/bin/beacon
+install -m 0755 "beacon_${VERSION}_darwin_arm64/bctl" ~/.local/bin/bctl
 beacon version
+bctl version
 ```
 
 Use the `amd64` archive on an Intel Mac or x86-64 Linux machine. Ensure
@@ -72,51 +74,52 @@ Authenticate GitHub, select the projects you care about, and scan them:
 
 ```bash
 gh auth login
-beacon projects
-beacon scan
+bctl projects
+bctl
 ```
 
-`beacon projects` opens a terminal directory browser rooted at
+`bctl projects` opens a terminal directory browser rooted at
 `~/go/src/github.com`. Enter a directory such as
 `~/go/src/github.com/jamesonstone`, toggle repository directories selected or
 unselected, use `..` to move out toward the browser root, and choose Save.
 Beacon atomically writes the complete selected project list to
 `$HOME/.config/beacon/config.yaml`. Use `--root PATH` to start elsewhere.
 
-Zero-argument `beacon scan` discovers the selected GitHub repositories, scans
-every linked worktree, queries only your open pull requests, and prints current
-work without loading tracking, Following, Notes, activity, cache, or agent
-state. Clean base-only projects and issue-only backlog are hidden by default.
+Bare `bctl` and zero-argument `bctl scan` discover the selected GitHub
+repositories, scan every linked worktree, query only your open pull requests,
+and print current work without loading tracking, Following, Notes, activity,
+cache, or agent state. Clean base-only projects and issue-only backlog are
+hidden by default.
 
 ```bash
-beacon scan --include-idle
-beacon scan --no-refresh
-beacon scan --json
+bctl --include-idle
+bctl --no-refresh
+bctl --json
 ```
 
-Selected projects are exact repository roots in config. Existing broad source
-directories are expanded to exact repositories the first time the selector is
-saved; selected explicit repository metadata and selected projects outside the
-current browser root are preserved. Saving with every project unselected
-creates a valid empty project list and an empty scan.
+Selected projects are exact repository roots in config. Legacy source
+directories, explicit repositories, and Following state do not implicitly
+select projects for bctl. Selected projects outside the current browser root are
+preserved. Saving with every project unselected creates a valid empty project
+list and an empty scan.
 
 Positional paths remain an ad hoc override that neither loads nor writes
 configuration:
 
 ```bash
-beacon scan ~/go/src/github.com/jamesonstone/beacon \
+bctl scan ~/go/src/github.com/jamesonstone/beacon \
   ~/go/src/github.com/jamesonstone/kit
 ```
 
 A supplied parent directory is walked recursively without following symbolic
 links.
 `--no-refresh` skips metadata-only `git fetch`; GitHub pull-request evidence is
-still queried. The v2 terminal and JSON forms report scoped warnings and errors
-without suppressing healthy repositories. A prunable linked worktree remains a
-warning rather than being promoted to active work.
+still queried. The bctl terminal and JSON forms report scoped warnings and
+errors without suppressing healthy repositories. A prunable linked worktree
+remains a warning rather than being promoted to active work.
 
-The configured v1 dashboard remains available while the smaller workflow is
-dogfooded:
+The `beacon` executable remains the configured legacy dashboard, background
+agent, and macOS helper:
 
 ```bash
 beacon init --source ~/go/src/github.com --yes
@@ -209,7 +212,8 @@ make build
 make test
 ```
 
-The standalone executable is written to `bin/beacon`. Install it on your `PATH` with:
+The standalone executables are written to `bin/beacon` and `bin/bctl`. Install
+both on your `PATH` with:
 
 ```bash
 make install
@@ -298,7 +302,7 @@ repositories:
 ```
 
 `projects` is the exact repository-root list owned by the hyper-light v2
-workflow. Run `beacon projects`, move with Tab or the arrow keys, use Space to
+workflow. Run `bctl projects`, move with Tab or the arrow keys, use Space to
 enter directories or toggle repositories, and press Enter to atomically save
 the complete selection. Escape cancels without writing. A missing or empty
 `projects` list means that v2 follows no projects; legacy `sources`,
@@ -408,9 +412,16 @@ beacon tag 'git:jamesonstone/beacon@GH-5' 'manual test'
 beacon untag 'git:jamesonstone/beacon@GH-5' 'manual test'
 beacon seen 'git:jamesonstone/beacon@GH-5'
 beacon add --manual 'Research a smaller cache format'
+bctl
+bctl scan
+bctl scan ~/go/src/github.com/jamesonstone/beacon ~/go/src/github.com/jamesonstone/kit
+bctl scan --no-refresh --json ~/go/src/github.com/jamesonstone
+bctl --include-idle
+bctl --json
+bctl --color=never
+bctl projects
+bctl projects --root ~/Projects
 beacon scan
-beacon scan ~/go/src/github.com/jamesonstone/beacon ~/go/src/github.com/jamesonstone/kit
-beacon scan --no-refresh --json ~/go/src/github.com/jamesonstone
 beacon scan --include-idle
 beacon scan --json
 beacon scan --color=never
@@ -427,7 +438,6 @@ printf '{"context":"release checklist","messages":[{"role":"user","content":"fin
   beacon ollama chat --model gpt-oss:20b --json
 beacon ollama set-default gpt-oss:20b
 beacon projects
-beacon projects --root ~/Projects
 beacon select
 beacon projects --followed
 beacon projects --recent
@@ -463,14 +473,13 @@ conservative cadence. Use `beacon refresh [project]` when you want to queue
 background work without waiting, or `beacon scan` for the complete diagnostic
 inventory.
 
-Zero-argument `beacon scan` is the configured hyper-light v2 path. It reads the
-exact selected project list, never starts the agent, and emits only current
-work. Its JSON is the small deterministic work-scan schema; idle projects are
-included only with `--include-idle`.
+Bare `bctl` and zero-argument `bctl scan` read the exact selected project list,
+never start the agent, and emit only current work. Their JSON is the small
+deterministic work-scan schema; idle projects are included only with
+`--include-idle`.
 
-`beacon scan PATH...` applies the same v2 evidence and output contract as an ad
-hoc config-free override across supplied repository roots or source
-directories.
+`bctl scan PATH...` applies the same v2 evidence and output contract as an ad
+hoc config-free override across supplied repository roots or source directories.
 `--color=auto|always|never` controls human styling; auto requires a TTY and
 honors `NO_COLOR`.
 
@@ -559,7 +568,7 @@ compact count; pass `--include-idle` to list that inventory. `beacon scan
 --repo NAME` always shows the selected project even when it is idle. An idle base lane is omitted
 when its project already has active work. The full v1 dashboard snapshot
 remains complete regardless of these presentation filters. Configured and
-positional v2 JSON intentionally match the focused scan and include idle
+positional `bctl` JSON intentionally match the focused scan and include idle
 projects only when requested.
 
 Following is an explicit repository-level choice, independent of lane attention.
@@ -569,7 +578,7 @@ way to hide that lane without unfollowing its project.
 Use `beacon select` for the legacy colorful, searchable multi-select of
 Following state. Followed projects start highlighted; use the arrow keys to
 scroll, Space to toggle a project, `/` to filter, and Enter to confirm. This is
-separate from `beacon projects`, which selects the config-owned v2 scan set.
+separate from `bctl projects`, which selects the config-owned v2 scan set.
 `beacon follow` and `beacon unfollow` accept a stable `owner/repository`
 identity or a unique discovered name. The established `track` and `untrack`
 commands remain compatibility aliases. Multiple arguments are applied as one
@@ -866,13 +875,16 @@ Common workflows:
 - Run `beacon reorder <lane-id>...` to atomically persist a complete lane order.
 - Run `beacon scan --repo NAME` to focus on one configured project.
 - Run `beacon scan --json` for scripts or diagnostics.
+- Run `bctl` for the selected hyper-light work scan.
+- Run `bctl projects` to change the exact hyper-light project set.
 - Click a macOS-app lane to open its pull request, issue, or local worktree.
 - Run `beacon init --source <new-root> --yes` to merge another persistent source
   into the existing configuration without removing current entries.
 
 ## Updating
 
-Merges to `main` create one semantic version for both the CLI and macOS app.
+Merges to `main` create one semantic version for `beacon`, `bctl`, and the
+macOS app.
 Breaking Conventional Commits bump the major version, `feat` commits bump the
 minor version, and all other accepted commits bump the patch version. GitHub
 generates release notes from the merged changes.
@@ -883,6 +895,7 @@ version:
 
 ```bash
 beacon version
+bctl version
 ```
 
 Upgrading does not rewrite `$HOME/.config/beacon/config.yaml`.
@@ -943,11 +956,11 @@ logs.
 ## Read-only boundary
 
 Scanning may run a timeout-bounded `git fetch --prune --no-tags` to refresh
-remote-tracking metadata. Beacon never edits working files, changes branches,
-pushes commits, creates pull requests, changes reviews, or merges work. Beacon
-writes only its own configuration during confirmed `beacon init` operations or
-an explicit Ollama-default selection, plus its own user-scoped following state,
-Markdown signal notes, cache, PID/socket,
+remote-tracking metadata. Beacon and bctl never edit working files, change
+branches, push commits, create pull requests, change reviews, or merge work.
+They write only Beacon-owned configuration during confirmed `beacon init`,
+`bctl projects`, or explicit Ollama-default operations, plus Beacon's own
+user-scoped following state, Markdown signal notes, cache, PID/socket,
 LaunchAgent, and rotated logs. New evidence may update a non-followed project's activity timestamp but
 never changes whether the user follows it.
 Confirmed `beacon integrations install|uninstall` operations may also update
@@ -956,14 +969,16 @@ an adjacent restrictive backup; hook execution itself remains observational.
 
 ## Architecture
 
-- `cmd/beacon` and `internal/` implement config, source discovery,
+- `cmd/beacon`, `cmd/bctl`, and `internal/` implement config, source discovery,
   Git/GitHub/Kit evidence collection, lane correlation, managed tracking state,
   cache/protocol/scheduling, policy, output, structured hook normalization, and
   provider integration settings. `internal/ollama` alone owns the bounded
   loopback Ollama HTTP boundary and local-model validation.
 - `macos/Beacon` contains the shared SwiftUI menu/dashboard app, embedded login
   item, app icon, and tests.
-- The Xcode build embeds the Go executable as `Contents/MacOS/beacon-cli`; the standalone executable remains `beacon`.
+- The Xcode build embeds the legacy Go executable as
+  `Contents/MacOS/beacon-cli`; standalone releases contain both `beacon` and
+  `bctl`.
 - `.github/workflows/release.yml` validates, versions, packages, and publishes both products after a merge reaches `main`.
 - Work lanes are active Git worktrees, scoped open pull requests, and scoped open issues. Unattached local branches are not scanned.
 

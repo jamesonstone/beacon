@@ -16,7 +16,7 @@ func WorkTerminal(writer io.Writer, scan model.WorkScan, options TerminalOptions
 		options.Width = 120
 	}
 	style := terminalStyles(writer, options.Color)
-	if _, err := fmt.Fprintln(writer, style.heading.Render("Beacon v2")); err != nil {
+	if _, err := fmt.Fprintln(writer, style.heading.Render("bctl")); err != nil {
 		return err
 	}
 	summary := fmt.Sprintf("%d project%s · %d active · %d work item%s",

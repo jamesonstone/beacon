@@ -239,9 +239,9 @@ artifact wins whenever this index disagrees with it.
 
 - **STATUS**: deliver
 - **PAUSED**: no
-- **INTENT**: Restore Beacon to one voluntary daily-driver action that scans a chosen set of projects and shows only work already in progress.
-- **APPROACH**: Persist exact repository roots in a dedicated `projects` list selected through a lazy terminal browser whose Space, Enter, and Tab actions are stable; retain positional paths as an ad hoc override; reuse repository discovery and local/GitHub evidence collectors; apply existing lane policy; and emit a small terminal/JSON projection without loading legacy inventory, tracking, cache, agent, Notes, or macOS state.
-- **OPEN ITEMS**: The zero-selection migration, keyboard selector, focused coverage, full Go/race/release/build validation, 157 macOS tests, live default-config clearing, and isolated terminal dogfooding are complete on issue #76 and branch `GH-76`, represented by ready PR #77. Hosted checks and final human review remain.
+- **INTENT**: Provide one voluntary daily-driver action that scans a chosen set of projects and shows only work already in progress, with an explicit boundary from the legacy Beacon dashboard.
+- **APPROACH**: Give the hyper-light projection its own `bctl` executable; persist exact repository roots in a dedicated `projects` list selected through `bctl projects`; make bare `bctl` and `bctl scan` use the same configured scanner; retain positional paths as an ad hoc override; and keep `beacon` as the legacy dashboard, agent, and macOS helper.
+- **OPEN ITEMS**: The zero-selection migration, keyboard selector, dedicated binary boundary, focused coverage, four-target packaging checks, complete local validation, 157 macOS tests, and terminal dogfooding are complete on issue #76 and branch `GH-76`, represented by ready PR #77. Hosted checks and final human review remain.
 - **POINTERS**: `docs/specs/0022-beacon-v2-hyper-light/SPEC.md`
 
 ## LAST UPDATED

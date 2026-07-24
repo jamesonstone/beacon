@@ -65,12 +65,12 @@ terminal output, JSON output, and the macOS application must present the
 same snapshot. A client must not reimplement Git, GitHub, correlation,
 project-activity classification, or readiness rules.
 
-The configured zero-argument `beacon scan` and explicit positional
-`beacon scan PATH...` use an intentionally smaller work-scan projection. They
-reuse Go discovery, Git and GitHub normalization, and lane policy without
-tracking, cache, agent, or macOS state. The projection may narrow evidence and
-presentation but must not duplicate or contradict collection and next-action
-policy.
+The dedicated `bctl` executable uses an intentionally smaller work-scan
+projection. Bare `bctl` and `bctl scan` read the configured project selection;
+`bctl scan PATH...` is the config-free override. They reuse Go discovery, Git
+and GitHub normalization, and lane policy without tracking, cache, agent, or
+macOS state. The projection may narrow evidence and presentation but must not
+duplicate or contradict collection and next-action policy.
 
 ### Read-Only by Default
 
@@ -220,7 +220,8 @@ configured project roots or explicit ad hoc paths
 
 ### Go Package Boundaries
 
-- `cmd/beacon` is a thin executable entry point.
+- `cmd/beacon` is the thin legacy dashboard and macOS-helper entry point.
+- `cmd/bctl` is the thin hyper-light work-scan entry point.
 - `internal/cli` defines Cobra commands, flags, exit behavior, and dependency
   wiring.
 - `internal/config` resolves and strictly validates schema-versioned YAML.
@@ -356,7 +357,7 @@ only after confirmation. Existing entries are never removed. GitHub
 credentials never belong in Beacon configuration; authentication is delegated
 to `gh`.
 
-Interactive `beacon projects` owns the hyper-light project selection. It
+Interactive `bctl projects` owns the hyper-light project selection. It
 browses from `~/go/src/github.com` by default, never follows symbolic links,
 cannot navigate above its chosen root, and retains the highlighted path across
 each action. Tab or the arrow keys move the highlight, Space enters ordinary
@@ -366,9 +367,9 @@ lives only in the version-2 `projects` list, permits an empty list, preserves
 selected paths outside the current browser root, and never infers membership
 from legacy sources, explicit repositories, or managed Following state.
 
-Positional `beacon scan PATH...` constructs the equivalent validated version-2
+Positional `bctl scan PATH...` constructs the equivalent validated version-2
 source list in memory. It must neither resolve nor write a configuration file,
-and `--config` and `--repo` are usage errors when positional paths are present.
+and `--config` is a usage error when positional paths are present.
 
 User repository-following state is separate from declarative discovery. It is
 stored in strict JSON at `$HOME/.local/state/beacon/tracking.json`; legacy
@@ -482,12 +483,10 @@ The supported command surface is:
 beacon [--color auto|always|never]
 beacon init [--source PATH ...] [--github-scope mine|all] [--yes]
 beacon scan [--repo NAME] [--json] [--no-refresh]
-beacon scan <path>... [--include-idle] [--json] [--no-refresh]
 beacon sync
 beacon sync check [project...] [--no-fetch] [--json]
 beacon sync apply <project>... [--yes] [--json]
 beacon limits [--json]
-beacon projects [--root PATH]
 beacon projects [--followed|--recent|--quiet]
 beacon select
 beacon projects follow <project>...
@@ -521,6 +520,10 @@ beacon open <lane-id>
 beacon open-next
 beacon config init|path|validate|open
 beacon version
+bctl [--include-idle] [--json] [--no-refresh]
+bctl scan [<path>...] [--include-idle] [--json] [--no-refresh]
+bctl projects [--root PATH]
+bctl version
 ```
 
 Successful scans exit `0`, including when lanes need action. Fatal
@@ -534,17 +537,18 @@ snapshot. When the agent is unavailable it performs the same blocking
 foreground scan rather than silently returning stale evidence. TTY execution
 may show the lighthouse trivia loader; non-TTY output never emits cursor-control
 sequences. Opening or reconnecting the macOS client remains cache-only.
-`beacon refresh`, macOS `Scan Now`, `beacon scan`, and JSON scan modes are the
-other intentional paths for current evidence.
+`beacon refresh`, macOS `Scan Now`, `beacon scan`, and their JSON modes are the
+other legacy paths for current evidence.
 
-Zero-argument `beacon scan` reads the configured project selection and never
-starts the background agent. Positional `beacon scan PATH...` applies the same
-contract while bypassing persistent configuration. Each positional path may be
-a repository root or a parent directory; overlapping discoveries are
-deduplicated by GitHub identity. Both modes query only authored open pull
-requests, omit issue-only backlog and clean base-only projects by default, and
-treat prunable worktrees as diagnostics rather than active work. Repositories
-with failed required evidence are unknown, never idle.
+Bare `bctl` and zero-argument `bctl scan` read the configured project selection
+and have no background-agent lifecycle behavior. Positional
+`bctl scan PATH...` applies the same contract while bypassing persistent
+configuration. Each positional path may be a repository root or a parent
+directory; overlapping discoveries are deduplicated by GitHub identity. All
+bctl scan modes query only authored open pull requests, omit issue-only backlog
+and clean base-only projects by default, and treat prunable worktrees as
+diagnostics rather than active work. Repositories with failed required evidence
+are unknown, never idle.
 
 Agent protocol version 1 is newline-delimited JSON over a user-only Unix-domain
 socket. It carries scan IDs, per-project revisions, stages, single and batch

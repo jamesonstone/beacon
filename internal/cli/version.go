@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func versionCommand(writer io.Writer) *cobra.Command {
+func versionCommand(writer io.Writer, executable string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Print version information",
@@ -17,7 +17,7 @@ func versionCommand(writer io.Writer) *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			info, _ := debug.ReadBuildInfo()
 			details := resolveBuildDetails(Version, Commit, Date, info)
-			_, err := fmt.Fprintf(writer, "beacon %s (%s, %s)\n", details.version, details.commit, details.date)
+			_, err := fmt.Fprintf(writer, "%s %s (%s, %s)\n", executable, details.version, details.commit, details.date)
 			return err
 		},
 	}

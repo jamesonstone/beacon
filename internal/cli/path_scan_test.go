@@ -13,7 +13,7 @@ import (
 	"github.com/jamesonstone/beacon/internal/model"
 )
 
-func TestConfiguredScanUsesHyperLightScannerAndDoesNotStartAgent(t *testing.T) {
+func TestBareBctlUsesConfiguredHyperLightScannerAndDoesNotStartAgent(t *testing.T) {
 	project := t.TempDir()
 	legacySource := t.TempDir()
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
@@ -36,8 +36,8 @@ func TestConfiguredScanUsesHyperLightScannerAndDoesNotStartAgent(t *testing.T) {
 		workScannerSource: scanner, autoStartAgent: true,
 		agentStarterSource: func(agent.Paths) agentStarter { return starter },
 	}
-	command := app.Root()
-	command.SetArgs([]string{"--config", configPath, "--color", "never", "scan", "--no-refresh", "--include-idle", "--json"})
+	command := app.BctlRoot()
+	command.SetArgs([]string{"--config", configPath, "--color", "never", "--no-refresh", "--include-idle", "--json"})
 	if err := command.ExecuteContext(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestPathScanUsesEphemeralSourcesAndDoesNotStartAgent(t *testing.T) {
 		workScannerSource: scanner, autoStartAgent: true,
 		agentStarterSource: func(agent.Paths) agentStarter { return starter },
 	}
-	command := app.Root()
+	command := app.BctlRoot()
 	command.SetArgs([]string{"--color", "never", "scan", "--no-refresh", "--json", source})
 
 	if err := command.ExecuteContext(context.Background()); err != nil {
@@ -98,11 +98,57 @@ func TestPathScanUsesEphemeralSourcesAndDoesNotStartAgent(t *testing.T) {
 	}
 }
 
+func TestExplicitBctlScanUsesConfiguredSelection(t *testing.T) {
+	project := t.TempDir()
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	writeTestConfig(t, configPath, "version: 2\nprojects:\n  - path: "+project+"\n")
+	scanner := &recordingWorkScanner{result: model.WorkScan{
+		SchemaVersion: model.WorkScanSchemaVersion,
+		Items:         []model.WorkItem{},
+		Errors:        []model.ScanError{},
+		Warnings:      []model.ScanError{},
+	}}
+	app := App{
+		Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Runner: &recordingRunner{},
+		OutputIsTTY: func() bool { return false }, TerminalWidth: func() int { return 120 },
+		workScannerSource: scanner,
+	}
+	command := app.BctlRoot()
+	command.SetArgs([]string{"--config", configPath, "--color", "never", "scan", "--no-refresh", "--json"})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	canonicalProject, err := filepath.EvalSymlinks(project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scanner.calls != 1 || scanner.refresh || len(scanner.cfg.Sources) != 1 ||
+		scanner.cfg.Sources[0].Path != canonicalProject {
+		t.Fatalf("scanner = %#v", scanner)
+	}
+}
+
 func TestPathScanRejectsPersistentConfigAndRepositoryFilter(t *testing.T) {
 	source := t.TempDir()
 	for _, args := range [][]string{
 		{"--config", "/tmp/config.yaml", "scan", source},
-		{"scan", "--repo", "example", source},
+	} {
+		app := App{Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, workScannerSource: &recordingWorkScanner{}}
+		command := app.BctlRoot()
+		command.SetArgs(args)
+		err := command.ExecuteContext(context.Background())
+		if err == nil || ExitCode(err) != 2 {
+			t.Fatalf("args=%v error=%v", args, err)
+		}
+	}
+}
+
+func TestBeaconRejectsMovedHyperLightCommandForms(t *testing.T) {
+	source := t.TempDir()
+	for _, args := range [][]string{
+		{"scan", source},
+		{"projects", "--root", source},
 	} {
 		app := App{Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, workScannerSource: &recordingWorkScanner{}}
 		command := app.Root()

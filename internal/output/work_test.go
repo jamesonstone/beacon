@@ -38,7 +38,7 @@ func TestWorkTerminalRendersConciseActiveSummaryAndDiagnostics(t *testing.T) {
 	}
 	text := output.String()
 	for _, expected := range []string{
-		"Beacon v2", "3 projects · 2 active · 2 work items", "beacon", "GH-76",
+		"bctl", "3 projects · 2 active · 2 work items", "beacon", "GH-76",
 		"local changes", "inspect local changes", "PR #65 · GH-64", "open PR",
 		"1 idle project hidden", "Warnings", "kit: fetch: offline",
 		"Errors", "beacon: github: unavailable",
