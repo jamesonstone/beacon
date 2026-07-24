@@ -64,6 +64,20 @@ xcodebuild \
   BEACON_BUILD_DATE="$build_date" \
   build
 
+xcodebuild \
+  -project "$repository_root/macos/Beacon/Beacon.xcodeproj" \
+  -scheme Hyperlite \
+  -configuration Release \
+  -destination 'generic/platform=macOS' \
+  -derivedDataPath "$derived_data" \
+  CODE_SIGNING_ALLOWED=NO \
+  MARKETING_VERSION="$version" \
+  CURRENT_PROJECT_VERSION="$build_number" \
+  BEACON_VERSION="$version" \
+  BEACON_COMMIT="$commit" \
+  BEACON_BUILD_DATE="$build_date" \
+  build
+
 application="$derived_data/Build/Products/Release/Beacon.app"
 helper="$application/Contents/MacOS/beacon-cli"
 login_item="$application/Contents/Library/LoginItems/BeaconLoginItem.app"
@@ -90,6 +104,21 @@ fi
 /usr/bin/ditto -c -k --sequesterRsrc --keepParent \
   "$application" \
   "$output_directory/Beacon_${version}_macos_universal.zip"
+
+hyperlite_application="$derived_data/Build/Products/Release/Hyperlite.app"
+hyperlite_helper="$hyperlite_application/Contents/MacOS/beacon-cli"
+hyperlite_info_plist="$hyperlite_application/Contents/Info.plist"
+[[ -d "$hyperlite_application" ]]
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$hyperlite_info_plist")" == "com.jamesonstone.beacon.hyperlite" ]]
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :LSUIElement' "$hyperlite_info_plist")" == "true" ]]
+[[ -x "$hyperlite_helper" ]]
+[[ "$(/usr/bin/lipo -archs "$hyperlite_helper")" == *arm64* ]]
+[[ "$(/usr/bin/lipo -archs "$hyperlite_helper")" == *x86_64* ]]
+/usr/bin/codesign --force --deep --sign - --timestamp=none "$hyperlite_application"
+/usr/bin/codesign --verify --deep --strict "$hyperlite_application"
+/usr/bin/ditto -c -k --sequesterRsrc --keepParent \
+  "$hyperlite_application" \
+  "$output_directory/Hyperlite_${version}_macos_universal.zip"
 
 (
   cd "$output_directory"

@@ -10,8 +10,11 @@ struct BeaconApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            HyperliteView(
+            MenuView(
                 state: state,
+                loginItem: loginItem,
+                terminal: terminal,
+                surface: .menu,
                 openDashboard: { BeaconApplicationModel.shared.showDashboard() }
             )
         } label: {

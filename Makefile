@@ -1,4 +1,4 @@
-.PHONY: build test test-race release-test vet fmt fmt-check install scan scan-json doctor agent-install agent-status agent-stop agent-uninstall macos-build macos-test macos-run
+.PHONY: build test test-race release-test vet fmt fmt-check install scan scan-json doctor agent-install agent-status agent-stop agent-uninstall macos-build macos-test macos-run macos-hyperlite-run
 
 BEACON_DERIVED_DATA ?= $(TMPDIR)beacon-derived-data
 
@@ -50,6 +50,7 @@ agent-uninstall:
 
 macos-build:
 	xcodebuild -project macos/Beacon/Beacon.xcodeproj -scheme Beacon -configuration Debug -destination 'generic/platform=macOS' -derivedDataPath "$(BEACON_DERIVED_DATA)" CODE_SIGNING_ALLOWED=NO build
+	xcodebuild -project macos/Beacon/Beacon.xcodeproj -scheme Hyperlite -configuration Debug -destination 'generic/platform=macOS' -derivedDataPath "$(BEACON_DERIVED_DATA)" CODE_SIGNING_ALLOWED=NO build
 
 macos-test:
 	xcodebuild -project macos/Beacon/Beacon.xcodeproj -scheme Beacon -configuration Debug -destination 'platform=macOS' -derivedDataPath "$(BEACON_DERIVED_DATA)" CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES test
@@ -77,3 +78,6 @@ macos-run: macos-build
 		fi; \
 	fi
 	open "$(BEACON_DERIVED_DATA)/Build/Products/Debug/Beacon.app"
+
+macos-hyperlite-run: macos-build
+	open "$(BEACON_DERIVED_DATA)/Build/Products/Debug/Hyperlite.app"

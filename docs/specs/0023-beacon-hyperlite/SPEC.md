@@ -34,13 +34,13 @@ lane in one glanceable list.
 
 ## CONTEXT
 
-The existing menu-bar surface renders the full dashboard, which makes the
-first-glance question compete with Notes, settings, and other workspace
-controls. Beacon already has cached working-set evidence and a low-CPU
-event-driven background agent, so Hyperlite can remain a presentation-only
-change. Existing timestamps describe evidence freshness, not task start time;
-external activity hooks are the only optional source for an observed working
-duration.
+Loading the full Beacon macOS app brings in the dashboard, Notes, terminal,
+SwiftTerm, and application state before the first glance is available. Beacon
+already has cached working-set evidence and a low-CPU event-driven background
+agent, so Hyperlite is a separate menu-bar-only product that connects directly
+to that agent. Existing timestamps describe evidence freshness, not task start
+time; external activity hooks are the only optional source for an observed
+working duration.
 
 ## REQUIREMENTS
 
@@ -51,8 +51,7 @@ duration.
   timestamp; otherwise label evidence age as “updated”.
 - Keep the surface read-only and event-driven with no continuous animation or
   timer-based invalidation.
-- Provide direct actions to open a lane, refresh evidence, and open the full
-  dashboard.
+- Provide an explicit refresh action without loading Beacon's dashboard.
 
 Non-goals are changing the Go snapshot schema, adding a task timer, or
 replacing the existing dashboard/window surface.
@@ -61,15 +60,16 @@ replacing the existing dashboard/window surface.
 
 1. Add a pure Hyperlite presentation model over the existing snapshot and
    external-activity records.
-2. Add a compact SwiftUI popover view as the default menu-bar content.
-3. Keep the full dashboard available through one explicit button.
-4. Cover ordering, deduplication, age formatting, and activity-duration truth
-   with focused macOS tests.
+2. Add a separate Hyperlite app target with only the compact SwiftUI popover,
+   direct agent client, and bundled helper.
+3. Keep Beacon's existing full dashboard menu surface unchanged.
+4. Cover ordering, deduplication, age formatting, and standalone target
+   compilation with focused validation.
 
 ## DECISIONS
 
-- The menu-bar surface is Hyperlite; the detachable dashboard remains the
-  detailed workspace.
+- Hyperlite is a separate app bundle and target; Beacon remains the detailed
+  workspace and does not embed or instantiate Hyperlite.
 - “Needs attention” is derived from review readiness, blockers, warnings, and
   action-oriented next-action values. Waiting and recently active work remain
   visible but are not promoted without evidence.
@@ -85,17 +85,18 @@ evidence age.
 
 ## VALIDATION
 
-- `make macos-test` passed all 160 tests.
+- `xcodebuild -scheme Hyperlite ... build` passed for arm64 and x86_64.
+- `make macos-test` passed all 157 Beacon tests.
 - `make fmt-check vet test test-race release-test build` passed.
-- Focused tests cover attention-first ordering, duplicate lane removal,
-  compact age formatting, and observed working activity.
+- Existing focused tests cover the presentation policy; the standalone target
+  build verifies Hyperlite does not depend on Beacon's app target.
 
 ## OUTCOME
 
-The menu-bar extra now opens Hyperlite by default. It presents attention-first
-work, retains the remaining active lanes, allows explicit refresh, opens a
-selected lane, and links to the existing full dashboard. No Go schema or
-continuous UI timer was added.
+Hyperlite now ships as a separate `Hyperlite.app` target and menu-bar-only
+companion bundle. It presents attention-first work, retains the remaining
+active lanes, and allows explicit refresh without instantiating Beacon's full
+dashboard application. No Go schema or continuous UI timer was added.
 
 ## REPOSITORY MEMORY
 

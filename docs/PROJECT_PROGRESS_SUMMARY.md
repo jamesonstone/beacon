@@ -251,7 +251,7 @@ artifact wins whenever this index disagrees with it.
 - **PAUSED**: no
 - **INTENT**: Answer what needs attention in under two seconds from the menu bar while retaining every active, waiting, and recently active lane.
 - **APPROACH**: Use a compact SwiftUI popover over the existing snapshot and transient external activity cache; promote factual attention signals, label ordinary timestamps as evidence age, and show observed working age only for supported working activity.
-- **OPEN ITEMS**: The Hyperlite prototype, focused tests, complete local validation, documentation, and issue-first branch `GH-80` are complete; ready pull-request delivery remains.
+- **OPEN ITEMS**: Hyperlite now builds as a separate lightweight `Hyperlite.app` target and companion bundle; focused tests, complete local validation, documentation, and issue-first branch `GH-80` remain aligned for pull-request delivery.
 - **POINTERS**: `docs/specs/0023-beacon-hyperlite/SPEC.md`
 
 ## LAST UPDATED
