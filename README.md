@@ -106,6 +106,8 @@ the complete build, test, install, and packaging workflow.
 
 - [User guide](docs/USER_GUIDE.md) — installation, configuration, commands,
   integrations, macOS behavior, operations, and troubleshooting
+- [Command map](docs/commands.md) — product CLI boundaries, contributor
+  commands, and Kit documentation workflows
 - [Documentation index](docs/README.md) — contributor references, feature
   specifications, and repository guidance
 - [Project releases](https://github.com/jamesonstone/beacon/releases) — signed

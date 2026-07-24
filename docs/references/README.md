@@ -9,10 +9,15 @@
 - Use `rules/kit-capabilities-usage.md` in downstream projects for Kit command discovery guidance
 - Use `rules/feature-notes.md` when deciding how to load, reference, promote, or ignore source material under `docs/notes/<feature>`
 - Use `rules/constitution-curation.md` after implementation and validation to keep the Constitution aligned with demonstrated project-wide truth
-- Use `rules/work-lane-gating.md` to classify implementation work and decide whether a proven clean default-branch preflight may allocate a new issue lane automatically or an explicit lane choice is required
+- Use `rules/backend-service-architecture.md` before changing matching agent protocol, handler, service, repository, persistence, or gateway responsibilities
+- Use `rules/frontend-application-architecture.md` before changing matching macOS screen, feature orchestration, state, client, adapter, or reusable-view responsibilities
+- Use `rules/github-pr-delivery.md` for issue-through-PR delivery, including the fail-safe documentation-only CI-skip contract
+- Use `rules/safety-guardrails.md` and `rules/work-lane-gating.md` for repository recon, lane selection, mutation boundaries, and non-destructive recovery
+- Use `worktrees.md` for the canonical native Git worktree hierarchy, naming, shared-state model, environment ownership, and safety contract
 - Use `kit rules add` to import or activate available registry rulesets from the Kit GitHub `main` branch
 - Use `kit rules view <slug>` to preview a local or registry ruleset before importing it
-- Use `kit reconcile --all --include-files` as the reviewed whole-project path for refreshing Kit-managed files, registry rulesets, scaffold state, and instruction entrypoints; preview with `--dry-run --diff` before writing when local changes may overlap
+- Use `kit reconcile --all --include-files` as the reviewed whole-project structural refresh; preview with `--dry-run --diff` before writing when local changes may overlap
+- Use `kit init --refresh` only as the lower-level direct refresh path; follow structural refresh with a reviewed semantic documentation pass
 - Use `kit rules add --custom` for the interactive `$EDITOR` ruleset builder
 - `kit rule` is the singular alias for `kit rules`
 

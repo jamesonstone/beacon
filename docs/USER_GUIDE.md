@@ -79,10 +79,10 @@ bctl
 ```
 
 `bctl projects` opens a terminal directory browser rooted at
-`~/go/src/github.com`. Enter a directory such as
-`~/go/src/github.com/jamesonstone`, toggle repository directories selected or
-unselected, use `..` to move out toward the browser root, and choose Save.
-Beacon atomically writes the complete selected project list to
+`~/go/src/github.com`. Use Tab or the arrow keys to move, Space to enter a
+directory or toggle a repository selected or unselected, `..` to move toward
+the browser root, Enter to confirm the complete selection, and Escape to cancel
+without writing. `bctl` atomically writes the confirmed project list to
 `$HOME/.config/beacon/config.yaml`. Use `--root PATH` to start elsewhere.
 
 Bare `bctl` and zero-argument `bctl scan` discover the selected GitHub
