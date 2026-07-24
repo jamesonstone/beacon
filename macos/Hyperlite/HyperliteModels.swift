@@ -76,8 +76,15 @@ struct HyperliteDiagnostic: Codable, Equatable {
 }
 
 enum HyperlitePresentation {
-    static func items(scan: HyperliteWorkScan) -> [HyperliteWorkItem] {
-        scan.items.sorted {
+    static let supportedAgeWindows = [3, 5, 7, 10, 30]
+
+    static func items(scan: HyperliteWorkScan, maxAgeDays: Int, now: Date = Date()) -> [HyperliteWorkItem] {
+        let ageDays = min(30, max(3, maxAgeDays))
+        let cutoff = now.addingTimeInterval(-Double(ageDays) * 86_400)
+        return scan.items.filter { item in
+            guard let updatedAt = item.updatedAt else { return false }
+            return updatedAt >= cutoff && updatedAt <= now
+        }.sorted {
             if $0.needsAttention != $1.needsAttention { return $0.needsAttention && !$1.needsAttention }
             return ($0.updatedAt ?? .distantPast) > ($1.updatedAt ?? .distantPast)
         }

@@ -49,6 +49,8 @@ working duration.
 - Show project, work-item identity, next action, and factual age.
 - Show “working for” only when external activity provides an observed start
   timestamp; otherwise label evidence age as “updated”.
+- Show only recent work: default to 10 days, with selectable 3, 5, 7, or 30
+  day windows; never display items older than 30 days.
 - Keep the surface read-only and event-driven with no continuous animation or
   timer-based invalidation.
 - Provide an explicit refresh action without loading Beacon's dashboard.
@@ -74,6 +76,8 @@ replacing the existing dashboard/window surface.
   action-oriented next-action values. Waiting and recently active work remain
   visible but are not promoted without evidence.
 - Relative ages are computed when the popover renders and do not run a timer.
+- The selected age window is persisted locally and clamped to the supported
+  3-to-30-day range.
 
 ## DISCOVERIES
 
@@ -87,6 +91,8 @@ evidence age.
 
 - `xcodebuild -scheme Hyperlite ... build` passed for arm64 and x86_64.
 - `make macos-test` passed all 157 Beacon tests.
+- The Hyperlite age-window model clamps to 3–30 days and excludes missing,
+  future, and older timestamps before sorting.
 - `make fmt-check vet test test-race release-test build` passed.
 - Existing focused tests cover the presentation policy; the standalone target
   build verifies Hyperlite does not depend on Beacon's app target.
@@ -96,9 +102,9 @@ evidence age.
 Hyperlite now ships as a separate `Hyperlite.app` target and menu-bar-only
 companion bundle. It consumes the exact JSON contract emitted by the configured
 `bctl` scan, so it has no independent project list or Beacon snapshot cache.
-It presents attention-first work and allows explicit refresh without
-instantiating Beacon's full dashboard application. No Go schema or continuous
-UI timer was added.
+It presents attention-first work within a selectable recent-work window and
+allows explicit refresh without instantiating Beacon's full dashboard
+application. No Go schema or continuous UI timer was added.
 
 ## REPOSITORY MEMORY
 

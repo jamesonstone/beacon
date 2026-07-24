@@ -138,7 +138,9 @@ needs attention in one glance. Launch `Hyperlite.app` directly; it does not
 load Beacon's full dashboard, terminal, notes, or SwiftTerm surfaces. It uses
 the exact project selection owned by `bctl projects`, displays the same work
 items as `bctl --json`, and shows factual evidence age. Use Refresh to run a
-fresh `bctl` scan.
+fresh `bctl` scan. The age selector defaults to the last 10 days and can be
+changed to 3, 5, 7, or 30 days; Hyperlite never displays work older than 30
+days.
 
 Hyperlite is read-only and does not run a display-linked timer or continuous
 animation. Ages update when the popover renders or when Beacon receives new

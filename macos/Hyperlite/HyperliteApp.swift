@@ -9,8 +9,8 @@ struct HyperliteApp: App {
         MenuBarExtra {
             HyperlitePopover(state: state)
         } label: {
-            Image(systemName: state.attentionCount > 0 ? "exclamationmark.circle.fill" : "circle.fill")
-                .accessibilityLabel("Hyperlite, (state.attentionCount) items need attention")
+            Image(systemName: "circle.fill")
+                .accessibilityLabel("Hyperlite popover")
         }
         .menuBarExtraStyle(.window)
     }
@@ -24,12 +24,14 @@ final class HyperliteState: ObservableObject {
 
     private var refreshTask: Task<Void, Never>?
 
-    var items: [HyperliteWorkItem] {
+    func items(maxAgeDays: Int, now: Date = Date()) -> [HyperliteWorkItem] {
         guard let scan else { return [] }
-        return HyperlitePresentation.items(scan: scan)
+        return HyperlitePresentation.items(scan: scan, maxAgeDays: maxAgeDays, now: now)
     }
 
-    var attentionCount: Int { items.filter(\.needsAttention).count }
+    func attentionCount(maxAgeDays: Int, now: Date = Date()) -> Int {
+        items(maxAgeDays: maxAgeDays, now: now).filter(\.needsAttention).count
+    }
 
     init() {
         refresh(includeNetwork: false)
@@ -111,6 +113,11 @@ private enum HyperliteError: LocalizedError {
 
 struct HyperlitePopover: View {
     @ObservedObject var state: HyperliteState
+    @AppStorage("hyperlite.max-age-days") private var maxAgeDays = 10
+
+    private var visibleItems: [HyperliteWorkItem] {
+        state.items(maxAgeDays: maxAgeDays)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -122,9 +129,9 @@ struct HyperlitePopover: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text("\(state.attentionCount)")
+                Text("\(visibleItems.filter(\.needsAttention).count)")
                     .font(.system(.title3, design: .rounded).weight(.bold))
-                    .foregroundStyle(state.attentionCount == 0 ? .green : .orange)
+                    .foregroundStyle(visibleItems.contains(where: \.needsAttention) ? .orange : .green)
             }
 
             if let errorMessage = state.errorMessage {
@@ -134,21 +141,29 @@ struct HyperlitePopover: View {
             } else if state.scan == nil {
                 ProgressView("Running bctl…")
                     .controlSize(.small)
-            } else if state.items.isEmpty {
+            } else if visibleItems.isEmpty {
                 Label("No work in progress", systemImage: "checkmark.circle")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(state.items) { item in
+                ForEach(visibleItems) { item in
                     HyperliteRow(item: item)
                 }
             }
 
             Divider()
             HStack {
+                Picker("Show last", selection: $maxAgeDays) {
+                    ForEach(HyperlitePresentation.supportedAgeWindows, id: \.self) { days in
+                        Text("Last \(days) days").tag(days)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .fixedSize()
+                Spacer()
                 Text(state.scan.map { "bctl · \(HyperlitePresentation.ageLabel(for: $0.generatedAt))" } ?? "Waiting for bctl")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                Spacer()
                 Button { state.refresh() } label: {
                     Image(systemName: "arrow.clockwise")
                 }
