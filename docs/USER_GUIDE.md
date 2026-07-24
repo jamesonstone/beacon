@@ -131,6 +131,19 @@ Run `beacon init` without flags for an interactive directory and repository
 selector. The macOS application uses the same configuration and displays the
 same scan snapshot as the CLI.
 
+### Hyperlite menu-bar popover
+
+The menu-bar extra opens Hyperlite, a compact attention-first view designed to
+answer what needs attention in one glance. It retains every active, waiting,
+and recently active lane, shows factual evidence age, and shows an observed
+working age only when a supported local agent hook provides one. Selecting a
+lane opens its pull request, issue, or local worktree. Use Refresh for an
+explicit evidence scan or Open full dashboard for the detailed workspace.
+
+Hyperlite is read-only and does not run a display-linked timer or continuous
+animation. Ages update when the popover renders or when Beacon receives new
+evidence.
+
 ## Structured Task Activity (macOS)
 
 Beacon can add an optional transient activity chip to the exact followed

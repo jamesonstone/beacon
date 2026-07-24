@@ -2,6 +2,75 @@ import XCTest
 @testable import Beacon
 
 extension ModelsTests {
+    func testHyperliteKeepsAllWorkAndPromotesAttention() {
+        let attention = TestSnapshots.lane(
+            id: "attention",
+            repository: "attention",
+            github: "owner/attention",
+            nextAction: "fix_ci",
+            issue: TestSnapshots.issue
+        )
+        let waiting = TestSnapshots.lane(
+            id: "waiting",
+            repository: "waiting",
+            github: "owner/waiting",
+            nextAction: "waiting_for_ci"
+        )
+        let base = TestSnapshots.withLane
+        var snapshot = BeaconSnapshot(
+            schemaVersion: base.schemaVersion,
+            generatedAt: base.generatedAt,
+            configPath: base.configPath,
+            tracking: base.tracking,
+            refresh: base.refresh,
+            summary: base.summary,
+            groups: base.groups,
+            projects: [
+                BeaconProject(name: "Attention Project", path: "/tmp/attention", github: attention.github, base: "main", remote: "origin", trackingState: "tracked", progress: nil, laneIDs: [attention.id], errors: []),
+                BeaconProject(name: "Waiting Project", path: "/tmp/waiting", github: waiting.github, base: "main", remote: "origin", trackingState: "tracked", progress: nil, laneIDs: [waiting.id], errors: []),
+            ],
+            lanes: [attention, waiting],
+            errors: []
+        )
+        snapshot.workingSet = WorkingSetGroups(path: "/tmp/lanes.json", active: [attention.id], waiting: [waiting.id], recent: [attention.id], parked: [], order: [attention.id, waiting.id])
+
+        let items = HyperlitePresentation.items(snapshot: snapshot, activity: .empty)
+
+        XCTAssertEqual(items.map(\.lane.id), [attention.id, waiting.id])
+        XCTAssertEqual(items.map(\.projectName), ["Attention Project", "Waiting Project"])
+        XCTAssertTrue(items[0].attention)
+        XCTAssertFalse(items[1].attention)
+    }
+
+    func testHyperliteAgeFormattingIsCompactAndDeterministic() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertEqual(HyperlitePresentation.ageLabel(for: now.addingTimeInterval(-20), now: now), "now")
+        XCTAssertEqual(HyperlitePresentation.ageLabel(for: now.addingTimeInterval(-120), now: now), "2m")
+        XCTAssertEqual(HyperlitePresentation.ageLabel(for: now.addingTimeInterval(-7_200), now: now), "2h")
+        XCTAssertEqual(HyperlitePresentation.ageLabel(for: nil, now: now), "age unknown")
+    }
+
+    func testHyperliteWorkingAgeUsesObservedWorkingActivityOnly() {
+        let snapshot = TestSnapshots.withLane
+        let lane = snapshot.lanes[0]
+        let record = ExternalActivityRecord(
+            provider: "codex",
+            state: "working",
+            sessionKey: "session",
+            projectID: lane.github,
+            laneID: lane.id,
+            observedAt: "2026-07-09T15:00:00Z",
+            expiresAt: "2026-07-09T17:00:00Z"
+        )
+        let withActivity = HyperlitePresentation.items(
+            snapshot: snapshot,
+            activity: ExternalActivitySnapshot(version: 1, records: [record], nextExpiry: record.expiresAt)
+        ).first
+
+        XCTAssertNotNil(withActivity?.workingDate)
+        XCTAssertNil(HyperlitePresentation.items(snapshot: snapshot, activity: .empty).first?.workingDate)
+    }
+
     func testUpToDateBacksplashRequiresNoWorkAndNoLoadingProjects() {
         XCTAssertTrue(UpToDatePresentation.shouldShow(inProgressCount: 0, loadingProjectCount: 0))
         XCTAssertFalse(UpToDatePresentation.shouldShow(inProgressCount: 1, loadingProjectCount: 0))

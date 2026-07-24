@@ -22,6 +22,10 @@ The Go CLI and its user-scoped background agent are the source of truth. The
 native macOS app provides a menu-bar extra and detachable dashboard backed by
 the same cached evidence.
 
+The menu-bar extra opens the Hyperlite compact popover: attention-first active
+work, factual age labels, one-click refresh, and a direct path to the full
+dashboard.
+
 ## macOS App
 
 ### Following dashboard
