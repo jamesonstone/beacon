@@ -77,11 +77,14 @@ repositories:
 
 func TestLoadVersionTwoSources(t *testing.T) {
 	sourcePath := t.TempDir()
+	projectPath := t.TempDir()
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	writeConfig(t, path, `version: 2
 settings:
   github_scope: all
   ollama_model: "  llama3.2:latest  "
+projects:
+  - path: `+projectPath+`
 sources:
   - path: `+sourcePath+`
 `)
@@ -99,6 +102,51 @@ sources:
 	}
 	if len(cfg.Sources) != 1 || cfg.Sources[0].Path != canonicalSource {
 		t.Fatalf("sources = %#v", cfg.Sources)
+	}
+	canonicalProject, err := filepath.EvalSymlinks(projectPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Projects) != 1 || cfg.Projects[0].Path != canonicalProject {
+		t.Fatalf("projects = %#v", cfg.Projects)
+	}
+}
+
+func TestForSourcesBuildsEphemeralVersionTwoConfig(t *testing.T) {
+	first := t.TempDir()
+	second := t.TempDir()
+
+	cfg, err := ForSources([]string{first, second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Version != Version || cfg.Path != "" || len(cfg.Sources) != 2 {
+		t.Fatalf("config = %#v", cfg)
+	}
+	if cfg.Settings.MaxParallel != 4 || cfg.Settings.GitHubAuthor != "@me" {
+		t.Fatalf("settings = %#v", cfg.Settings)
+	}
+}
+
+func TestForSourcesRejectsEmptyAndDuplicatePaths(t *testing.T) {
+	if _, err := ForSources(nil); err == nil {
+		t.Fatal("empty sources accepted")
+	}
+	source := t.TempDir()
+	if _, err := ForSources([]string{source, source}); err == nil || !strings.Contains(err.Error(), "duplicated") {
+		t.Fatalf("duplicate error = %v", err)
+	}
+}
+
+func TestLoadAllowsEmptyVersionTwoProjectSelection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	writeConfig(t, path, "version: 2\nsources: []\nrepositories: []\n")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Version != Version || len(cfg.Sources) != 0 || len(cfg.Repositories) != 0 {
+		t.Fatalf("config = %#v", cfg)
 	}
 }
 
@@ -147,6 +195,10 @@ repositories:
 sources:
   - path: ` + sourcePath + `
 `,
+		"v1 project": `version: 1
+projects:
+  - path: ` + sourcePath + `
+`,
 		"v1 scope": `version: 1
 settings:
   github_scope: all
@@ -171,6 +223,11 @@ sources:
 `,
 		"duplicate source": `version: 2
 sources:
+  - path: ` + sourcePath + `
+  - path: ` + sourcePath + `
+`,
+		"duplicate project": `version: 2
+projects:
   - path: ` + sourcePath + `
   - path: ` + sourcePath + `
 `,

@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"bytes"
+	"context"
 	"runtime/debug"
+	"strings"
 	"testing"
 )
 
@@ -63,5 +66,16 @@ func TestResolveBuildDetailsDoesNotDuplicateEmbeddedDirtyMarker(t *testing.T) {
 	details := resolveBuildDetails("dev", "unknown", "unknown", info)
 	if details.version != "0.0.0-20260710135309-c2b174e5068a+dirty" {
 		t.Fatalf("version = %q", details.version)
+	}
+}
+
+func TestVersionCommandUsesExecutableName(t *testing.T) {
+	var output bytes.Buffer
+	command := versionCommand(&output, "bctl")
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(output.String(), "bctl ") {
+		t.Fatalf("output = %q", output.String())
 	}
 }

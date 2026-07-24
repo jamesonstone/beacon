@@ -25,6 +25,7 @@
 | 0019 | drop-down-terminal | `docs/specs/0019-drop-down-terminal` | deliver | no | 2026-07-18 | Add a retained native terminal that toggles with Command-J inside the current Beacon dashboard bounds while Beacon is active. |
 | 0020 | ollama-notes-assistant | `docs/specs/0020-ollama-notes-assistant` | deliver | no | 2026-07-18 | Hold a complete in-memory local Ollama conversation about an exact Notes selection or full current note across compact and toggled half-width presentations. |
 | 0021 | animated-project-watermarks | `docs/specs/0021-animated-project-watermarks` | deliver | no | 2026-07-22 | Show every fitted lane project as an oversized theme-aware static background watermark without hidden idle rendering. |
+| 0022 | beacon-v2-hyper-light | `docs/specs/0022-beacon-v2-hyper-light` | deliver | no | 2026-07-24 | Select an exact config-backed project set in a terminal directory browser and scan its in-progress Git and authored pull-request work without agent or macOS state. |
 
 ## PROJECT INTENT
 
@@ -234,6 +235,15 @@ artifact wins whenever this index disagrees with it.
 - **OPEN ITEMS**: The initial palette and fitted geometry shipped through issue #57 and PR #58. Issue #74, branch `GH-74`, and ready PR #75 remove hidden animation work, make the shared pointer-hover threshold exactly three seconds, and preserve immediate keyboard and click access; review and merge remain.
 - **POINTERS**: `docs/specs/0021-animated-project-watermarks/SPEC.md`
 
+### beacon-v2-hyper-light
+
+- **STATUS**: deliver
+- **PAUSED**: no
+- **INTENT**: Provide one voluntary daily-driver action that scans a chosen set of projects and shows only work already in progress, with an explicit boundary from the legacy Beacon dashboard.
+- **APPROACH**: Give the hyper-light projection its own `bctl` executable; persist exact repository roots in a dedicated `projects` list selected through `bctl projects`; make bare `bctl` and `bctl scan` use the same configured scanner; retain positional paths as an ad hoc override; and keep `beacon` as the legacy dashboard, agent, and macOS helper.
+- **OPEN ITEMS**: The zero-selection migration, keyboard selector, dedicated binary boundary, focused coverage, four-target packaging checks, complete local validation, 157 macOS tests, and terminal dogfooding are complete on issue #76 and branch `GH-76`, represented by ready PR #77. Hosted checks and final human review remain.
+- **POINTERS**: `docs/specs/0022-beacon-v2-hyper-light/SPEC.md`
+
 ## LAST UPDATED
 
-2026-07-22 EDT
+2026-07-24 EDT

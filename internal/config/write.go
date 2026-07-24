@@ -72,6 +72,15 @@ func Marshal(cfg Config) ([]byte, error) {
 	if cfg.Settings.StaleAfter <= 0 {
 		cfg.Settings.StaleAfter = defaults.StaleAfter
 	}
+	if cfg.Settings.MaxParallel == 0 {
+		cfg.Settings.MaxParallel = defaults.MaxParallel
+	}
+	if cfg.Settings.GitHubAuthor == "" {
+		cfg.Settings.GitHubAuthor = defaults.GitHubAuthor
+	}
+	if cfg.Settings.GitHubScope == "" {
+		cfg.Settings.GitHubScope = defaults.GitHubScope
+	}
 	raw := rawConfig{
 		Version: Version,
 		Settings: rawSettings{
@@ -85,6 +94,9 @@ func Marshal(cfg Config) ([]byte, error) {
 			GitHubScope:            string(cfg.Settings.GitHubScope),
 			OllamaModel:            cfg.Settings.OllamaModel,
 		},
+	}
+	for _, project := range cfg.Projects {
+		raw.Projects = append(raw.Projects, rawSource(project))
 	}
 	for _, source := range cfg.Sources {
 		raw.Sources = append(raw.Sources, rawSource{Path: source.Path})
@@ -155,6 +167,28 @@ func Merge(current Config, additions Config) Config {
 	return merged
 }
 
+// ReplaceProjectPaths replaces bctl's project selection with exact repository
+// roots without changing Beacon's legacy discovery inventory.
+func ReplaceProjectPaths(current Config, paths []string) (Config, error) {
+	selected := make(map[string]struct{}, len(paths))
+	replacement := current
+	replacement.Version = Version
+	replacement.Projects = nil
+	for _, path := range paths {
+		project, err := normalizeSource(rawSource{Path: path})
+		if err != nil {
+			return Config{}, fmt.Errorf("project path %q: %w", path, err)
+		}
+		if _, exists := selected[project.Path]; exists {
+			continue
+		}
+		selected[project.Path] = struct{}{}
+		replacement.Projects = append(replacement.Projects, project)
+	}
+	Sort(&replacement)
+	return replacement, nil
+}
+
 func defaultSettings() Settings {
 	settings, _ := normalizeSettings(rawSettings{})
 	return settings
@@ -173,6 +207,7 @@ func uniqueName(name string, seen map[string]struct{}) string {
 }
 
 func Sort(cfg *Config) {
+	sort.SliceStable(cfg.Projects, func(i, j int) bool { return cfg.Projects[i].Path < cfg.Projects[j].Path })
 	sort.SliceStable(cfg.Sources, func(i, j int) bool { return cfg.Sources[i].Path < cfg.Sources[j].Path })
 	sort.SliceStable(cfg.Repositories, func(i, j int) bool {
 		if cfg.Repositories[i].Name != cfg.Repositories[j].Name {

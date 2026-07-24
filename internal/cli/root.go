@@ -24,22 +24,24 @@ var (
 )
 
 type App struct {
-	In                    io.Reader
-	Out                   io.Writer
-	Err                   io.Writer
-	Runner                command.Runner
-	InputIsTTY            func() bool
-	OutputIsTTY           func() bool
-	TerminalWidth         func() int
-	scannerSource         snapshotScanner
-	trackerSource         projectTracker
-	prompter              initPrompter
-	projectPrompterSource projectPrompter
-	syncPrompterSource    repositorySyncPrompter
-	agentClientSource     func(string) agentRequestClient
-	agentStarterSource    func(agent.Paths) agentStarter
-	ollamaClientSource    func() ollamaClient
-	autoStartAgent        bool
+	In                              io.Reader
+	Out                             io.Writer
+	Err                             io.Writer
+	Runner                          command.Runner
+	InputIsTTY                      func() bool
+	OutputIsTTY                     func() bool
+	TerminalWidth                   func() int
+	scannerSource                   snapshotScanner
+	workScannerSource               workSnapshotScanner
+	trackerSource                   projectTracker
+	prompter                        initPrompter
+	projectPrompterSource           projectPrompter
+	configuredProjectPrompterSource configuredProjectPrompter
+	syncPrompterSource              repositorySyncPrompter
+	agentClientSource               func(string) agentRequestClient
+	agentStarterSource              func(agent.Paths) agentStarter
+	ollamaClientSource              func() ollamaClient
+	autoStartAgent                  bool
 }
 
 type agentStarter interface {
@@ -50,6 +52,10 @@ type snapshotScanner interface {
 	Scan(context.Context, config.Config, string, bool) (model.Snapshot, error)
 }
 
+type workSnapshotScanner interface {
+	Scan(context.Context, config.Config, bool, bool) (model.WorkScan, error)
+}
+
 type projectTracker interface {
 	Reconcile(model.Snapshot) (model.Snapshot, error)
 	ReconcilePartial(model.Snapshot) (model.Snapshot, error)
@@ -58,7 +64,15 @@ type projectTracker interface {
 }
 
 func New() *cobra.Command {
-	app := App{
+	return newApp().Root()
+}
+
+func NewBctl() *cobra.Command {
+	return newApp().BctlRoot()
+}
+
+func newApp() App {
+	return App{
 		In: os.Stdin, Out: os.Stdout, Err: os.Stderr, Runner: command.ExecRunner{},
 		InputIsTTY:  func() bool { return term.IsTerminal(int(os.Stdin.Fd())) },
 		OutputIsTTY: func() bool { return term.IsTerminal(int(os.Stdout.Fd())) },
@@ -71,7 +85,6 @@ func New() *cobra.Command {
 		},
 		autoStartAgent: true,
 	}
-	return app.Root()
 }
 
 func (a App) Root() *cobra.Command {
@@ -88,7 +101,7 @@ func (a App) Root() *cobra.Command {
 			return a.runAgentDashboard(cmd.Context(), configPath, colorMode, includeIdle)
 		},
 	}
-	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+	root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if a.autoStartAgent && runtime.GOOS == "darwin" && shouldAutoStartAgent(cmd) {
 			a.startAgentBestEffort(cmd.Context(), configPath)
 		}
@@ -129,7 +142,7 @@ func (a App) Root() *cobra.Command {
 		a.openCommand(&configPath),
 		a.openNextCommand(&configPath),
 		a.configCommand(&configPath),
-		versionCommand(a.Out),
+		versionCommand(a.Out, "beacon"),
 	)
 	return root
 }

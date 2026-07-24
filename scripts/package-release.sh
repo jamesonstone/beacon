@@ -41,6 +41,8 @@ for platform in darwin/arm64 darwin/amd64 linux/arm64 linux/amd64; do
     cd "$repository_root"
     CGO_ENABLED=0 GOOS="$os" GOARCH="$architecture" \
       go build -trimpath -ldflags "$ldflags" -o "$archive_directory/beacon" ./cmd/beacon
+    CGO_ENABLED=0 GOOS="$os" GOARCH="$architecture" \
+      go build -trimpath -ldflags "$ldflags" -o "$archive_directory/bctl" ./cmd/bctl
   )
   tar -C "$staging_directory" -czf "$output_directory/$archive_name.tar.gz" "$archive_name"
 done

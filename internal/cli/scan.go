@@ -17,6 +17,7 @@ import (
 	"github.com/jamesonstone/beacon/internal/output"
 	"github.com/jamesonstone/beacon/internal/scan"
 	"github.com/jamesonstone/beacon/internal/tracking"
+	"github.com/jamesonstone/beacon/internal/workscan"
 	"github.com/spf13/cobra"
 )
 
@@ -36,6 +37,18 @@ func (a App) scannerComponentsWithRunner(runner command.Runner) scan.Scanner {
 	github := githubscan.Client{Runner: runner}
 	discoverer := discovery.Discoverer{Runner: runner}
 	return scan.Scanner{Git: git, GitHub: github, Discovery: discoverer, Now: time.Now}
+}
+
+func (a App) workScanner() workSnapshotScanner {
+	if a.workScannerSource != nil {
+		return a.workScannerSource
+	}
+	return workscan.Scanner{
+		Git:       gitscan.Scanner{Runner: a.Runner, Now: time.Now},
+		GitHub:    githubscan.Client{Runner: a.Runner},
+		Discovery: discovery.Discoverer{Runner: a.Runner},
+		Now:       time.Now,
+	}
 }
 
 func (a App) tracker() projectTracker {
@@ -100,6 +113,107 @@ func (a App) scanCommand(configPath *string) *cobra.Command {
 	command.Flags().BoolVar(&noRefresh, "no-refresh", false, "skip git fetch")
 	command.Flags().BoolVar(&includeIdle, "include-idle", false, "show projects with only idle work")
 	return command
+}
+
+func (a App) bctlScanCommand(configPath *string) *cobra.Command {
+	var options bctlScanOptions
+	command := &cobra.Command{
+		Use:   "scan [path...]",
+		Short: "Scan selected projects or supplied paths",
+		Args:  cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			colorMode, _ := cmd.Flags().GetString("color")
+			return a.runBctlScan(cmd.Context(), *configPath, args, options, colorMode)
+		},
+	}
+	addBctlScanFlags(command, &options)
+	return command
+}
+
+func (a App) runBctlScan(
+	ctx context.Context,
+	configPath string,
+	paths []string,
+	options bctlScanOptions,
+	colorMode string,
+) error {
+	if _, err := a.resolveColor(colorMode); err != nil {
+		return err
+	}
+	if len(paths) > 0 {
+		if configPath != "" {
+			return usageError{errors.New("--config cannot be used with path arguments")}
+		}
+		return a.runPathScan(
+			ctx,
+			paths,
+			!options.noRefresh,
+			options.includeIdle,
+			options.jsonOutput,
+			colorMode,
+		)
+	}
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("%w; run bctl projects to select projects", err)
+		}
+		return err
+	}
+	return a.runWorkScan(
+		ctx,
+		configuredProjectScanConfig(cfg),
+		!options.noRefresh,
+		options.includeIdle,
+		options.jsonOutput,
+		colorMode,
+	)
+}
+
+func (a App) runWorkScan(
+	ctx context.Context,
+	cfg config.Config,
+	refresh bool,
+	includeIdle bool,
+	jsonOutput bool,
+	colorMode string,
+) error {
+	result, err := a.workScanner().Scan(ctx, cfg, refresh, includeIdle)
+	if err != nil {
+		return err
+	}
+	if jsonOutput {
+		return output.JSONValue(a.Out, result)
+	}
+	color, err := a.resolveColor(colorMode)
+	if err != nil {
+		return err
+	}
+	return output.WorkTerminal(a.Out, result, output.TerminalOptions{
+		Color: color, Width: a.terminalWidth(), IncludeIdle: includeIdle,
+	})
+}
+
+func (a App) runPathScan(
+	ctx context.Context,
+	paths []string,
+	refresh bool,
+	includeIdle bool,
+	jsonOutput bool,
+	colorMode string,
+) error {
+	cfg, err := config.ForSources(paths)
+	if err != nil {
+		return err
+	}
+	return a.runWorkScan(ctx, cfg, refresh, includeIdle, jsonOutput, colorMode)
+}
+
+func configuredProjectScanConfig(cfg config.Config) config.Config {
+	selection := cfg
+	selection.Sources = append([]config.Source(nil), cfg.Projects...)
+	selection.Repositories = nil
+	return selection
 }
 
 func (a App) runHumanScan(ctx context.Context, path, repository string, refresh bool, colorMode string, includeIdle, offerInit, showLoader, workingSet bool) error {

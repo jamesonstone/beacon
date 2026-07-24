@@ -30,6 +30,25 @@ func TestRootRegistersInitAndBareDashboard(t *testing.T) {
 	}
 }
 
+func TestBctlRegistersBareScanAndHyperLightCommandsOnly(t *testing.T) {
+	app := App{Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Runner: &recordingRunner{}}
+	root := app.BctlRoot()
+	if root.Use != "bctl" || root.RunE == nil {
+		t.Fatalf("bctl root = %q, has runner = %t", root.Use, root.RunE != nil)
+	}
+	for _, name := range []string{"projects", "scan", "version"} {
+		command, _, err := root.Find([]string{name})
+		if err != nil || command == nil || command.Name() != name {
+			t.Fatalf("find %s = %v, %v", name, command, err)
+		}
+	}
+	for _, name := range []string{"agent", "notes", "init"} {
+		if command, _, err := root.Find([]string{name}); err == nil && command != root {
+			t.Fatalf("bctl unexpectedly registers %s", name)
+		}
+	}
+}
+
 func TestDirectCLICommandsSelectAgentActivationWithoutLifecycleRecursion(t *testing.T) {
 	root := App{}.Root()
 	for _, test := range []struct {
@@ -47,6 +66,8 @@ func TestDirectCLICommandsSelectAgentActivationWithoutLifecycleRecursion(t *test
 		{args: []string{"agent", "stop"}, want: false},
 		{args: []string{"doctor"}, want: false},
 		{args: []string{"init"}, want: false},
+		{args: []string{"projects"}, want: true},
+		{args: []string{"scan"}, want: true},
 		{args: []string{"config", "init"}, want: false},
 		{args: []string{"version"}, want: false},
 	} {
@@ -199,7 +220,6 @@ repositories:
 		args []string
 	}{
 		{name: "bare include idle flag", args: []string{"--include-idle"}},
-		{name: "scan include idle flag", args: []string{"scan", "--include-idle", "--no-refresh"}},
 		{name: "targeted repository", args: []string{"scan", "--repo", "quiet", "--no-refresh"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {

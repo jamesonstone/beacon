@@ -30,7 +30,14 @@ func (a App) configCommand(configPath *string) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				_, err = fmt.Fprintf(a.Out, "valid configuration: %s (%d sources, %d repositories)\n", cfg.Path, len(cfg.Sources), len(cfg.Repositories))
+				_, err = fmt.Fprintf(
+					a.Out,
+					"valid configuration: %s (%d projects, %d sources, %d repositories)\n",
+					cfg.Path,
+					len(cfg.Projects),
+					len(cfg.Sources),
+					len(cfg.Repositories),
+				)
 				return err
 			},
 		},

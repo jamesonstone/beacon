@@ -4,6 +4,7 @@ BEACON_DERIVED_DATA ?= $(TMPDIR)beacon-derived-data
 
 build:
 	go build -o bin/beacon ./cmd/beacon
+	go build -o bin/bctl ./cmd/bctl
 
 test:
 	go test ./...
@@ -24,13 +25,13 @@ fmt-check:
 	test -z "$$(gofmt -l cmd internal)"
 
 install:
-	go install ./cmd/beacon
+	go install ./cmd/beacon ./cmd/bctl
 
 scan:
-	go run ./cmd/beacon scan
+	go run ./cmd/bctl
 
 scan-json:
-	go run ./cmd/beacon scan --json
+	go run ./cmd/bctl --json
 
 doctor:
 	go run ./cmd/beacon doctor

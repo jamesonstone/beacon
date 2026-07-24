@@ -65,16 +65,23 @@ terminal output, JSON output, and the macOS application must present the
 same snapshot. A client must not reimplement Git, GitHub, correlation,
 project-activity classification, or readiness rules.
 
+The dedicated `bctl` executable uses an intentionally smaller work-scan
+projection. Bare `bctl` and `bctl scan` read the configured project selection;
+`bctl scan PATH...` is the config-free override. They reuse Go discovery, Git
+and GitHub normalization, and lane policy without tracking, cache, agent, or
+macOS state. The projection may narrow evidence and presentation but must not
+duplicate or contradict collection and next-action policy.
+
 ### Read-Only by Default
 
 Observation must not change the work being observed. Beacon may perform a
 bounded `git fetch --prune --no-tags` to refresh remote-tracking metadata.
 Scanning and background refresh must never edit files, switch branches, create commits, push, create
 or update pull requests, submit reviews, or merge. Beacon may atomically update
-its own managed following state and cache when explicit user choices change,
-fresh evidence updates a non-followed project's factual activity record, or a
-scan produces a new last-good result. Evidence must never change Following
-membership.
+its own configuration, managed following state, and cache when explicit user
+choices change, fresh evidence updates a non-followed project's factual
+activity record, or a scan produces a new last-good result. Evidence must never
+change configured project selection or Following membership.
 
 Repository sync is a separate, explicit mutation boundary. A passive check is
 local-only; an explicit check may fetch only configured default-branch refs.
@@ -151,6 +158,10 @@ truthfully describe the highest completed state.
   remote-only work, and idle base work.
 - Recommend the next useful human or agent action without mutating work.
 - Preserve situational awareness across multiple repositories and worktrees.
+- Persist an explicit selected project set and scan it with one small
+  config-backed command.
+- Accept repository roots or parent directories as a config-free ad hoc scan
+  override.
 - Provide a useful standalone CLI and a native macOS application backed
   by the identical versioned snapshot.
 - Remain predictable under partial failures, unusual Git paths, stale remote
@@ -195,9 +206,22 @@ Collection, normalization, correlation, policy, presentation, and platform UI
 are separate responsibilities. Data flows toward presentation; presentation
 must not feed new policy back into the scanner.
 
+The hyper-light path is a separate direct projection:
+
+```text
+configured project roots or explicit ad hoc paths
+                       |
+      local discovery + Git worktrees + authored open PRs
+                       |
+              existing lane policy
+                       |
+       versioned work-scan terminal / JSON
+```
+
 ### Go Package Boundaries
 
-- `cmd/beacon` is a thin executable entry point.
+- `cmd/beacon` is the thin legacy dashboard and macOS-helper entry point.
+- `cmd/bctl` is the thin hyper-light work-scan entry point.
 - `internal/cli` defines Cobra commands, flags, exit behavior, and dependency
   wiring.
 - `internal/config` resolves and strictly validates schema-versioned YAML.
@@ -217,11 +241,15 @@ must not feed new policy back into the scanner.
   linked issues, and merge state.
 - `internal/progress` parses optional Kit project summaries and exact SPEC
   issue references as non-authoritative progress evidence.
-- `internal/model` owns schema v3 types and typed signal/action enums.
+- `internal/model` owns configured schema-v3 and work-scan types plus typed
+  signal/action enums.
 - `internal/policy` correlates local and remote evidence and derives readiness,
   explanations, and the next action as pure domain logic.
 - `internal/scan` coordinates bounded repository concurrency, preserves partial
   results, orders lanes, and creates groups and summary counts.
+- `internal/workscan` coordinates configured and positional hyper-light scans,
+  filters evidence-backed in-progress lanes, preserves scoped partial failures,
+  and creates the small work-scan projection without loading application state.
 - `internal/tracking` owns the strict repository-following store, evidence
   fingerprints, migration, and recent/quiet classification without automatic
   reactivation.
@@ -328,6 +356,20 @@ explicit repositories, preview the result, and atomically rewrite the file
 only after confirmation. Existing entries are never removed. GitHub
 credentials never belong in Beacon configuration; authentication is delegated
 to `gh`.
+
+Interactive `bctl projects` owns the hyper-light project selection. It
+browses from `~/go/src/github.com` by default, never follows symbolic links,
+cannot navigate above its chosen root, and retains the highlighted path across
+each action. Tab or the arrow keys move the highlight, Space enters ordinary
+directories or toggles exact Git repository roots, Enter atomically replaces
+the complete selection, and Escape cancels without writing. The selection
+lives only in the version-2 `projects` list, permits an empty list, preserves
+selected paths outside the current browser root, and never infers membership
+from legacy sources, explicit repositories, or managed Following state.
+
+Positional `bctl scan PATH...` constructs the equivalent validated version-2
+source list in memory. It must neither resolve nor write a configuration file,
+and `--config` is a usage error when positional paths are present.
 
 User repository-following state is separate from declarative discovery. It is
 stored in strict JSON at `$HOME/.local/state/beacon/tracking.json`; legacy
@@ -478,6 +520,10 @@ beacon open <lane-id>
 beacon open-next
 beacon config init|path|validate|open
 beacon version
+bctl [--include-idle] [--json] [--no-refresh]
+bctl scan [<path>...] [--include-idle] [--json] [--no-refresh]
+bctl projects [--root PATH]
+bctl version
 ```
 
 Successful scans exit `0`, including when lanes need action. Fatal
@@ -491,8 +537,18 @@ snapshot. When the agent is unavailable it performs the same blocking
 foreground scan rather than silently returning stale evidence. TTY execution
 may show the lighthouse trivia loader; non-TTY output never emits cursor-control
 sequences. Opening or reconnecting the macOS client remains cache-only.
-`beacon refresh`, macOS `Scan Now`, `beacon scan`, and JSON scan modes are the
-other intentional paths for current evidence.
+`beacon refresh`, macOS `Scan Now`, `beacon scan`, and their JSON modes are the
+other legacy paths for current evidence.
+
+Bare `bctl` and zero-argument `bctl scan` read the configured project selection
+and have no background-agent lifecycle behavior. Positional
+`bctl scan PATH...` applies the same contract while bypassing persistent
+configuration. Each positional path may be a repository root or a parent
+directory; overlapping discoveries are deduplicated by GitHub identity. All
+bctl scan modes query only authored open pull requests, omit issue-only backlog
+and clean base-only projects by default, and treat prunable worktrees as
+diagnostics rather than active work. Repositories with failed required evidence
+are unknown, never idle.
 
 Agent protocol version 1 is newline-delimited JSON over a user-only Unix-domain
 socket. It carries scan IDs, per-project revisions, stages, single and batch
@@ -519,6 +575,13 @@ failures.
 Collections must encode as arrays rather than `null`. Additive changes must be
 safe for existing decoders; incompatible semantic or structural changes
 require a schema-version increment and coordinated client support.
+
+The work-scan schema is a separate public CLI contract, not an agent or macOS
+payload. It contains generation and summary metadata, flat active work items,
+minimal worktree and pull-request facts, deterministic next actions, and
+scoped warnings and errors. Its `--include-idle` option controls whether
+verified clean projects receive idle placeholder items; JSON and terminal
+output intentionally share that focused selection.
 
 External task activity is deliberately not an additive schema-v3 or
 protocol-v1 field. Hidden helper commands exchange a separate versioned
